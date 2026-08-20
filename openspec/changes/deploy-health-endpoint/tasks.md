@@ -12,7 +12,7 @@
 ## 3. CI: pull request validation
 
 - [x] 3.1 Add `.github/workflows/ci.yml` (or similar) running `ruff check`, `ruff format --check`, `mypy`, and the `tests/unit` + `tests/agents` pytest tiers on every pull request.
-- [ ] 3.2 Confirm this check is configured as a required branch-protection status check on `main`. **BLOCKED**: attempted via `gh api`, blocked by the auto-mode safety classifier on mutating GitHub branch-protection settings. Needs either a manual step in repo settings, or a Bash permission rule allowing this call so it can be retried.
+- [x] 3.2 Confirm this check is configured as a required branch-protection status check on `main`. **CONFIRMED**: `Validate` now has a real run (via PR #1, opened specifically to seed this), and is configured as a required status check via the GitHub API.
 
 ## 4. CI: build and publish
 
