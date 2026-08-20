@@ -51,3 +51,26 @@ Record significant decisions in the project's own artifacts rather than relying 
 Do not rely on earlier conversation context for information the repository itself can supply. Prefer reading a file, a spec, or a commit over recalling what a previous exchange said about it — the repository does not go stale the way a remembered conversation does, and it is what the next person, or the next session, will actually see.
 
 <!-- /ai-toolkit:development-workflow -->
+
+<!-- ai-toolkit:project-foundation -->
+
+## Testing Strategy
+
+pytest for unit/integration tests on the FastAPI layer and business logic, plus separate deterministic tests for LangGraph agent graphs using mocked/stubbed LLM responses so agent logic is tested without live model calls or nondeterminism.
+
+- Test command: `uv run pytest` (invoked inside the uv-managed environment, not a bare `pytest` assuming manual venv activation)
+- Test-path glob: `tests/**/test_*.py`
+
+## Development Tooling
+
+- **uv** for dependency and environment management (single lockfile).
+- **ruff** for linting and formatting.
+- **mypy** for type checking.
+
+<!-- /ai-toolkit:project-foundation -->
+
+## Architecture summary
+
+commerce-ops is a modular monolith: one FastAPI app organized into domain modules (catalog, orders/inventory, support, analytics) as DDD bounded contexts, sharing one Postgres database. Each module follows a lightweight ports-and-adapters shape — domain layer (entities/value objects, no I/O) at the center, application layer (use cases, LangGraph agent graphs) around it, infrastructure layer (FastAPI routes, a single shared Slack adapter, the Amazon-first marketplace-adapter layer, Postgres repositories) on the outside. Tactical DDD patterns (aggregates, domain events) are adopted per module only as needed, not mandated everywhere. Slack is a first-class two-way interface (conversational + notifications/approvals) alongside the HTTP API, not a secondary add-on.
+
+Full rationale and alternatives considered: see `README.md`'s Architecture section.
