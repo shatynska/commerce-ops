@@ -20,19 +20,19 @@
 
 ## 5. CI: deploy
 
-- [ ] 5.1 Confirm the companion `/infrastructure` change has landed: the `deploy` account's `authorized_keys` accepts this application's key bound to `command="/usr/local/bin/deploy-receive commerce-ops"`, `/opt/commerce-ops` exists on the host, and the host is authenticated to GHCR (root's Docker credential store has a pull-capable `ghcr.io` entry) so `docker compose pull` can succeed against this application's private image. Do not proceed with 5.2–5.5 until this is true.
-- [ ] 5.2 Render a `.env` file (not committed — generated fresh each run) containing `IMAGE_TAG=<triggering commit SHA>`, for `docker-compose.yml`'s `${IMAGE_TAG}` reference (task 2.2) to resolve against on the host.
-- [ ] 5.3 Add the deploy job: join the Tailscale tailnet, then in one step, `tar -czf - docker-compose.yml .env | ssh -i <key> deploy@<host>` — a single SSH connection piping both files to this application's forced-command deploy key, which triggers `deploy-receive commerce-ops` on the host. Do not `scp` and separately trigger the deploy; the forced-command key only ever honors one command per connection.
-- [ ] 5.4 Add the `concurrency` group so overlapping deploys queue rather than race.
-- [ ] 5.5 Add the required GitHub Actions secrets to the commerce-ops repository: the deploy SSH private key, the Tailscale OAuth client ID/secret, and the deploy host's tailnet address.
+- [x] 5.1 Confirm the companion `/infrastructure` change has landed: the `deploy` account's `authorized_keys` accepts this application's key bound to `command="/usr/local/bin/deploy-receive commerce-ops"`, `/opt/commerce-ops` exists on the host, and the host is authenticated to GHCR (root's Docker credential store has a pull-capable `ghcr.io` entry) so `docker compose pull` can succeed against this application's private image. **CONFIRMED**: `/infrastructure`'s `add-per-app-deploy-keys` change archived 2026-08-20, all 22 tasks complete — task 2.1/2.2 provisioned a `commerce-ops` entry in `deploy_apps` (keypair generated, public half on the host), 1.6/2.3/3.3 configured and verified GHCR pull auth, 5.1 ran the playbook against real `prod`. Could not independently SSH-verify `/opt/commerce-ops` from here (no host access from this session) — relying on the archived change's own verified task record.
+- [x] 5.2 Render a `.env` file (not committed — generated fresh each run) containing `IMAGE_TAG=<triggering commit SHA>`, for `docker-compose.yml`'s `${IMAGE_TAG}` reference (task 2.2) to resolve against on the host.
+- [x] 5.3 Add the deploy job: join the Tailscale tailnet, then in one step, `tar -czf - docker-compose.yml .env | ssh -i <key> deploy@<host>` — a single SSH connection piping both files to this application's forced-command deploy key, which triggers `deploy-receive commerce-ops` on the host. Do not `scp` and separately trigger the deploy; the forced-command key only ever honors one command per connection.
+- [x] 5.4 Add the `concurrency` group so overlapping deploys queue rather than race.
+- [x] 5.5 Add the required GitHub Actions secrets to the commerce-ops repository: the deploy SSH private key, the Tailscale OAuth client ID/secret, and the deploy host's tailnet address. **CONFIRMED**: all four already exist (`COMMERCE_OPS_DEPLOY_SSH_KEY`, `TAILSCALE_OAUTH_CLIENT_ID`, `TAILSCALE_OAUTH_SECRET`, `DEPLOY_HOST`), scoped to a `production` GitHub Environment rather than the repository directly. That Environment carries no protection rules (verified via the API), so referencing it from the deploy job (`environment: production`, added to `.github/workflows/deploy.yml`) does not introduce the manual-approval gate design.md's "Deploy gate" decision explicitly rejected — it's declared solely to reach these Environment-scoped secrets.
 
 ## 6. CI: post-deploy verification
 
-- [ ] 6.1 Add a step after the deploy trigger that requests the public `GET /health` URL (domain from task 7.1, once supplied) with retries, and fails the workflow run if it does not receive a successful response.
+- [x] 6.1 Add a step after the deploy trigger that requests the public `GET /health` URL (domain from task 7.1, once supplied) with retries, and fails the workflow run if it does not receive a successful response.
 
 ## 7. Domain
 
-- [ ] 7.1 Fill in the domain/subdomain for this application (design.md's open question) in both the Traefik label (task 2.2) and the health-check URL (task 6.1).
+- [x] 7.1 Fill in the domain/subdomain for this application (design.md's open question) in both the Traefik label (task 2.2) and the health-check URL (task 6.1).
 
 ## 8. Verification
 
