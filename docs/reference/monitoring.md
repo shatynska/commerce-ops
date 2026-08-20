@@ -1,0 +1,634 @@
+# AMAZON DAY-TO-DAY MONITORING — BY AGENT
+
+## STRATEGY AGENT   -   STATE & PRIORITY
+- **State per ASIN: Scale / Optimize / Hold / Recover / Inventory Override**
+  - Rule / threshold: Assigned quarterly, human confirms. Agent never self-diagnoses state.
+  - Agent code: `STRATEGY`
+  - Cadence: Quarterly
+  - Recipient: LOOKER (gate on all actions)
+  - Rule source: States+Drivers
+  - Metric ID: `strategy.state`
+- **Dominant driver per ASIN: Ranking, Conversion, PPC Efficiency, CM3, Demand Quality, Inventory**
+  - Rule / threshold: First driver question that applies wins. No driver = balanced focus.
+  - Agent code: `STRATEGY`
+  - Cadence: Biweekly
+  - Recipient: LOOKER
+  - Rule source: States+Drivers
+  - Metric ID: `strategy.driver`
+- **Focus lever per ASIN: Product, Price, Listing SR, Listing PDP, PPC**
+  - Rule / threshold: Read from the State x Driver matrix.
+  - Agent code: `STRATEGY`
+  - Cadence: Biweekly
+  - Recipient: owning agent
+  - Rule source: States+Drivers
+  - Metric ID: `strategy.lever`
+- **Transition triggers fired**
+  - Rule / threshold: TACOS up 3+ weeks with no rank gain / organic share down while paid up / CM3 below target / cover crosses band.
+  - Agent code: `STRATEGY`
+  - Cadence: Biweekly
+  - Recipient: LOOKER - prompt state review
+  - Rule source: States+Drivers
+  - Metric ID: `strategy.transition_triggers`
+- **Products stuck in a temporary state past exit window**
+  - Rule / threshold: Hold > 2 weeks or Recover > 4 weeks = force a decision, default Optimize.
+  - Agent code: `STRATEGY`
+  - Cadence: Biweekly
+  - Recipient: PM
+  - Rule source: States+Drivers
+  - Metric ID: `strategy.temp_state_expiry`
+## SALES AGENT   -   SALES & DEMAND
+- **Units and revenue per SKU - DoD, WoW, MoM, YoY (same week last year)**
+  - Rule / threshold: Tiers 10/20/35% on WoW. Plan comparison only if a plan exists for that SKU.
+  - Agent code: `SALES`
+  - Cadence: Daily
+  - Recipient: Sales/Units checklist
+  - Metric ID: `sales.units_revenue_sku`
+- **Units and revenue per marketplace (UK, DE, US, FR, IT, ES)**
+  - Rule / threshold: Tiers 10/20/35% at market level. Market-wide move = category or season, not a SKU fault.
+  - Agent code: `SALES`
+  - Cadence: Daily
+  - Recipient: Sales/Units checklist
+  - Metric ID: `sales.units_revenue_market`
+- **Organic vs PPC vs external sales split per ASIN**
+  - Rule / threshold: Organic share falling while PPC share rises and total flat = decline masked by ads.
+  - Agent code: `SALES`
+  - Cadence: Weekly
+  - Recipient: PPC + RANK + STRATEGY
+  - Rule source: PLOG 2.2.2
+  - Metric ID: `sales.channel_split`
+- **Organic sales share trend over 30 days**
+  - Rule / threshold: Sustained 30-day decline counts even when weekly deltas stay under threshold.
+  - Agent code: `SALES`
+  - Cadence: Weekly
+  - Recipient: RANK + PRICE
+  - Rule source: States+Drivers Q2
+  - Metric ID: `sales.organic_share_trend`
+- **Actual vs forecast variance per SKU**
+  - Rule / threshold: Tiers 10/20/35%. Many SKUs at once = forecast model review, not an incident. 1-2 SKUs = Sales/Units.
+  - Agent code: `SALES`
+  - Cadence: Weekly
+  - Recipient: PM / Forecasting or Sales/Units
+  - Metric ID: `sales.forecast_variance`
+- **BSR per ASIN, main and sub category**
+  - Rule / threshold: Lagging derivative. Cross-check only, never raised as a cause on its own.
+  - Agent code: `SALES`
+  - Cadence: Daily
+  - Recipient: cross-check only
+  - Metric ID: `sales.bsr`
+- **SKUs that sold yesterday and zero today**
+  - Rule / threshold: Binary, immediate, ignores tiers. Skip SKUs under 2 units/day. Order: stock > Buy Box/suppression > price error > account block.
+  - Agent code: `SALES`
+  - Cadence: Daily - alert
+  - Recipient: INVENTORY / LISTING / PRICE / HEALTH
+  - Metric ID: `sales.zero_today`
+- **Share of sales from deals, coupons, promotions**
+  - Rule / threshold: Unexpectedly high = margin risk. Unexpectedly low = missed window or competitor promo. Rule TBD with team.
+  - Agent code: `SALES`
+  - Cadence: Weekly
+  - Recipient: FINANCE + PM
+  - Rule source: PLOG 1.2.2
+  - Metric ID: `sales.promo_share`
+## TRAFFIC AGENT   -   TRAFFIC & CONVERSION
+- **Sessions and page views per ASIN**
+  - Rule / threshold: Tiers 10/20/35% on WoW.
+  - Agent code: `TRAFFIC`
+  - Cadence: Daily
+  - Recipient: RANK + PPC
+  - Metric ID: `traffic.sessions`
+- **Unit session % vs own 90d average**
+  - Rule / threshold: Drop over 15% vs 90-day average = conversion driver.
+  - Agent code: `TRAFFIC`
+  - Cadence: Weekly
+  - Recipient: LISTING + PRICE
+  - Rule source: States+Drivers
+  - Metric ID: `traffic.usp_vs_self`
+- **Unit session % vs subcategory average and competitors in same price band**
+  - Rule / threshold: Below comparable competitors = Optimize posture, not Scale.
+  - Agent code: `TRAFFIC`
+  - Cadence: Weekly
+  - Recipient: STRATEGY
+  - Rule source: States+Drivers Q1
+  - Metric ID: `traffic.usp_vs_market`
+- **Organic CTR from search per ASIN (session-based, NOT ad CTR)**
+  - Rule / threshold: TBD - metric and threshold to confirm with team.
+  - Agent code: `TRAFFIC`
+  - Cadence: Weekly
+  - Recipient: LISTING (title / main image)
+  - Rule source: PLOG 1.3.3
+  - Metric ID: `traffic.ctr_organic`
+- **Search Query Performance: impressions, clicks, cart adds, purchase share**
+  - Rule / threshold: 3-5 day lag. Never diagnose a same-day drop from SQP.
+  - Agent code: `TRAFFIC`
+  - Cadence: Weekly
+  - Recipient: RANK + PPC
+  - Rule source: PLOG 1.3.5
+  - Metric ID: `traffic.sqp`
+## PPC AGENT   -   PPC / ADVERTISING
+- **Spend per campaign, ad group, portfolio vs budget**
+  - Rule / threshold: Deviation from trailing 7-14 day average. Deviation AND ACOS outside breakeven/state target = escalate. Deviation with ACOS in range = deliberate scaling, do not escalate. % TBD.
+  - Agent code: `PPC`
+  - Cadence: Daily
+  - Recipient: PM if escalated
+  - Metric ID: `ppc.spend_vs_budget`
+- **Campaigns out of budget before end of day**
+  - Rule / threshold: Any occurrence = immediate.
+  - Agent code: `PPC`
+  - Cadence: Daily - alert
+  - Recipient: PPC action
+  - Rule source: PLOG 2.2.1
+  - Metric ID: `ppc.budget_exhausted`
+- **ACOS per campaign vs breakeven ACOS**
+  - Rule / threshold: Rank campaigns high / mid / low risk against breakeven. Above breakeven and not defensive = act.
+  - Agent code: `PPC`
+  - Cadence: Weekly
+  - Recipient: PPC action
+  - Rule source: PPC 3.0 audit
+  - Metric ID: `ppc.acos_vs_breakeven`
+- **ACOS vs state target**
+  - Rule / threshold: Scale = safe+(max-safe)x0.65, Optimize = safe x0.85, Hold = safe, Recover = safe x0.90.
+  - Agent code: `PPC`
+  - Cadence: Weekly
+  - Recipient: STRATEGY
+  - Rule source: States+Drivers
+  - Metric ID: `ppc.acos_vs_state_target`
+- **TACOS trend vs organic sales trend**
+  - Rule / threshold: TACOS up 3+ weeks while organic flat or falling = PPC efficiency driver.
+  - Agent code: `PPC`
+  - Cadence: Weekly
+  - Recipient: STRATEGY + RANK
+  - Rule source: States+Drivers Q3
+  - Metric ID: `ppc.tacos_vs_organic`
+- **Actionable wasted ad spend %**
+  - Rule / threshold: Search terms with clicks above 1/CVR and zero orders. Over 10% actionable = act. Total wasted % alone is not actionable.
+  - Agent code: `PPC`
+  - Cadence: Weekly
+  - Recipient: PPC action
+  - Rule source: PPC 3.0 audit
+  - Metric ID: `ppc.wasted_spend_actionable`
+- **Ad CVR per campaign vs account average (click-based, NOT unit session %)**
+  - Rule / threshold: Below account average with normal CTR = targeting relevance, not listing.
+  - Agent code: `PPC`
+  - Cadence: Weekly
+  - Recipient: PPC action
+  - Metric ID: `ppc.ad_cvr`
+- **Impressions, clicks, CPC, ad CTR vs prior period**
+  - Rule / threshold: Tiers 10/20/35% on WoW.
+  - Agent code: `PPC`
+  - Cadence: Weekly
+  - Recipient: PPC action
+  - Metric ID: `ppc.delivery_metrics`
+- **Placement performance: top of search, rest of search, product pages**
+  - Rule / threshold: Compare placement ACOS against campaign average before changing modifiers.
+  - Agent code: `PPC`
+  - Cadence: Weekly
+  - Recipient: PPC action
+  - Rule source: PLOG 2.1.2
+  - Metric ID: `ppc.placement`
+- **Top-of-search impression share on core keywords**
+  - Rule / threshold: Falling share on a core keyword with stable bid = competitor pressure.
+  - Agent code: `PPC`
+  - Cadence: Weekly
+  - Recipient: PRICE + RANK
+  - Rule source: PPC 3.0
+  - Metric ID: `ppc.tos_share`
+- **New converting search terms not yet harvested**
+  - Rule / threshold: Converting term not in a manual campaign = harvest backlog.
+  - Agent code: `PPC`
+  - Cadence: Weekly
+  - Recipient: PPC action
+  - Rule source: PPC 3.0
+  - Metric ID: `ppc.harvest_backlog`
+- **Campaign structure drift vs naming convention**
+  - Rule / threshold: More than one keyword in an exact campaign, negatives inside exact, wrong name grammar.
+  - Agent code: `PPC`
+  - Cadence: Biweekly
+  - Recipient: PPC action
+  - Rule source: PPC 3.0 naming
+  - Metric ID: `ppc.structure_drift`
+- **Bid and budget changes in last 24h and their result**
+  - Rule / threshold: Every change logged with its result, or the next diagnosis is blind.
+  - Agent code: `PPC`
+  - Cadence: Weekly
+  - Recipient: PPC action
+  - Metric ID: `ppc.change_log`
+## RANK AGENT   -   ORGANIC RANK & KEYWORDS
+- **Organic rank on tracked core keywords per ASIN**
+  - Rule / threshold: Rank drop of 5+ positions on a core term in 30 days = ranking driver.
+  - Agent code: `RANK`
+  - Cadence: Weekly
+  - Recipient: LISTING + PPC
+  - Rule source: PLOG 1.3.5
+  - Metric ID: `rank.position`
+- **Top 5 keywords outside top 20 organic**
+  - Rule / threshold: Any core keyword outside top 20 = ranking driver.
+  - Agent code: `RANK`
+  - Cadence: Weekly
+  - Recipient: STRATEGY
+  - Rule source: States+Drivers
+  - Metric ID: `rank.core_risk`
+- **Index status per core keyword**
+  - Rule / threshold: Dropped from index = immediate listing check (term removed from title or backend).
+  - Agent code: `RANK`
+  - Cadence: Weekly
+  - Recipient: LISTING
+  - Rule source: PLOG 1.3.2
+  - Metric ID: `rank.index_status`
+- **Share of voice vs tracked competitors on core terms**
+  - Rule / threshold: Falling share with stable own rank = competitor expansion.
+  - Agent code: `RANK`
+  - Cadence: Biweekly
+  - Recipient: PRICE
+  - Metric ID: `rank.sov`
+- **New keywords entering top 10, keywords lost from page 1**
+  - Rule / threshold: Loss from page 1 on a revenue keyword = escalate.
+  - Agent code: `RANK`
+  - Cadence: Weekly
+  - Recipient: LISTING + PPC
+  - Metric ID: `rank.movers`
+- **Keyword research refresh**
+  - Rule / threshold: Relevant volume terms missing from listing or campaigns.
+  - Agent code: `RANK`
+  - Cadence: Quarterly
+  - Recipient: LISTING + PPC
+  - Rule source: PLOG 1.3.1
+  - Metric ID: `rank.research_refresh`
+## LISTING AGENT   -   LISTING INTEGRITY
+- **Title, bullets, description, backend terms changed without approval**
+  - Rule / threshold: Any unapproved change = alert. Title change also triggers an index re-check.
+  - Agent code: `LISTING`
+  - Cadence: Daily - alert
+  - Recipient: PM + RANK
+  - Metric ID: `listing.content_change`
+- **Main image and image set changed or removed**
+  - Rule / threshold: Fewer images than baseline, or main image changed = alert.
+  - Agent code: `LISTING`
+  - Cadence: Daily - alert
+  - Recipient: PM
+  - Rule source: PLOG 1.3.3
+  - Metric ID: `listing.image_change`
+- **Search result suppression**
+  - Rule / threshold: Amazon sends no alert. Any occurrence = urgent.
+  - Agent code: `LISTING`
+  - Cadence: Daily - alert
+  - Recipient: PM urgent
+  - Metric ID: `listing.search_suppression`
+- **Listing suppressed, inactive, incomplete or stranded**
+  - Rule / threshold: Any occurrence = urgent, stops the Sales/Units checklist at step 2.
+  - Agent code: `LISTING`
+  - Cadence: Daily - alert
+  - Recipient: PM urgent
+  - Metric ID: `listing.status`
+- **Strikethrough / list price still showing**
+  - Rule / threshold: Lost strikethrough = silent conversion loss, no Amazon alert.
+  - Agent code: `LISTING`
+  - Cadence: Daily - alert
+  - Recipient: PM
+  - Rule source: PLOG 1.2.1
+  - Metric ID: `listing.strikethrough`
+- **Variation family intact, no detached child**
+  - Rule / threshold: Detached child = immediate, it loses all parent reviews and traffic.
+  - Agent code: `LISTING`
+  - Cadence: Daily - alert
+  - Recipient: PM urgent
+  - Metric ID: `listing.variation`
+- **A+ content, brand story, storefront and video live**
+  - Rule / threshold: Missing after being live = alert.
+  - Agent code: `LISTING`
+  - Cadence: Weekly
+  - Recipient: PM
+  - Rule source: PLOG 2.3.3-2.3.5
+  - Metric ID: `listing.aplus`
+- **Category and browse node correct**
+  - Rule / threshold: Wrong node = wrong competitors, wrong BSR, broken rank reads.
+  - Agent code: `LISTING`
+  - Cadence: Weekly
+  - Recipient: PM
+  - Metric ID: `listing.browse_node`
+- **Badges: Amazon's Choice, Best Seller, Climate Pledge**
+  - Rule / threshold: Badge lost = record date, it precedes CTR decline.
+  - Agent code: `LISTING`
+  - Cadence: Weekly
+  - Recipient: TRAFFIC
+  - Rule source: PLOG 1.3.4
+  - Metric ID: `listing.badges`
+## PRICE AGENT   -   PRICE & COMPETITION
+- **Own live price vs intended price and floor**
+  - Rule / threshold: Any mismatch = immediate. Price above competitor average = trigger; threshold TBD with team.
+  - Agent code: `PRICE`
+  - Cadence: Daily - alert
+  - Recipient: PM
+  - Metric ID: `price.own_price`
+- **Buy Box % and Buy Box owner per ASIN**
+  - Rule / threshold: No Buy Box = urgent, stops the Sales/Units checklist at step 2.
+  - Agent code: `PRICE`
+  - Cadence: Daily - alert
+  - Recipient: PM urgent
+  - Metric ID: `price.buybox`
+- **Hijackers and unauthorised sellers on own ASINs**
+  - Rule / threshold: Any unauthorised seller = immediate.
+  - Agent code: `PRICE`
+  - Cadence: Daily - alert
+  - Recipient: PM urgent + HEALTH
+  - Metric ID: `price.unauthorised_sellers`
+- **Competitor price changes on tracked ASINs**
+  - Rule / threshold: TBD - which competitors are tracked and what move counts is not yet defined.
+  - Agent code: `PRICE`
+  - Cadence: Weekly
+  - Recipient: PM
+  - Metric ID: `price.competitor_price`
+- **Competitor stock status and out-of-stock windows**
+  - Rule / threshold: Competitor out of stock = demand window, act on price and ads.
+  - Agent code: `PRICE`
+  - Cadence: Weekly
+  - Recipient: PPC + PM
+  - Metric ID: `price.competitor_stock`
+- **New competitor listings and new entrants in category**
+  - Rule / threshold: Check niche BSR: everyone falling = category or season, not you.
+  - Agent code: `PRICE`
+  - Cadence: Weekly
+  - Recipient: PM
+  - Metric ID: `price.new_entrants`
+- **Competitor review velocity and rating movement**
+  - Rule / threshold: Competitor overtaking on rating explains a CVR gap.
+  - Agent code: `PRICE`
+  - Cadence: Weekly
+  - Recipient: CUSTOMER
+  - Metric ID: `price.competitor_reviews`
+- **Competitor listing, image and title changes**
+  - Rule / threshold: Change coinciding with own CTR drop = likely cause.
+  - Agent code: `PRICE`
+  - Cadence: Weekly
+  - Recipient: TRAFFIC
+  - Metric ID: `price.competitor_listing`
+- **Running price or deal test and its measured result**
+  - Rule / threshold: No two tests on one ASIN at the same time, or neither result is readable.
+  - Agent code: `PRICE`
+  - Cadence: Weekly
+  - Recipient: FINANCE + PM
+  - Rule source: PLOG 1.2.1-1.2.2
+  - Metric ID: `price.price_test`
+## FINANCE AGENT   -   PROFITABILITY (CM LADDER)
+- **CM1% per SKU (net revenue - landed cost)**
+  - Rule / threshold: Target 70%+. Below 70% = profit is unreachable downstream.
+  - Agent code: `FINANCE`
+  - Cadence: Weekly
+  - Recipient: PM / sourcing
+  - Rule source: Titan CM targets
+  - Metric ID: `finance.cm1`
+- **CM2% per SKU (CM1 - FBA fees, storage, pick/pack, 3PL)**
+  - Rule / threshold: Target 35%+ established, 30% acceptable at launch.
+  - Agent code: `FINANCE`
+  - Cadence: Weekly
+  - Recipient: PM / INVENTORY
+  - Rule source: Titan CM targets
+  - Metric ID: `finance.cm2`
+- **CM3% per SKU (CM2 - paid media)**
+  - Rule / threshold: Target 20%+, ideally 25%. This is the primary profit metric.
+  - Agent code: `FINANCE`
+  - Cadence: Weekly
+  - Recipient: PPC + PM
+  - Rule source: Titan CM targets
+  - Metric ID: `finance.cm3`
+- **CM3% drop at flat volume**
+  - Rule / threshold: Drop of 3+ points in 30 days with volume flat = profitability driver.
+  - Agent code: `FINANCE`
+  - Cadence: Weekly
+  - Recipient: STRATEGY
+  - Rule source: States+Drivers Q4
+  - Metric ID: `finance.cm3_drop`
+- **Net profit % vs target**
+  - Rule / threshold: Target 20%+. CM3 minus SG&A, typically 5-7 points.
+  - Agent code: `FINANCE`
+  - Cadence: Biweekly
+  - Recipient: PM
+  - Rule source: Titan CM targets
+  - Metric ID: `finance.net_profit`
+- **Landed COGS change per SKU**
+  - Rule / threshold: 0-5% ok. 5-10% watch. Over 10% investigate. Sustained 5-10% across periods also investigate.
+  - Agent code: `FINANCE`
+  - Cadence: Biweekly
+  - Recipient: sourcing
+  - Rule source: PLOG 1.1.2
+  - Metric ID: `finance.cogs_change`
+- **Fee changes: referral, FBA fulfilment, size tier reclassification**
+  - Rule / threshold: Any reclassification = immediate CM2 recheck. Referral % threshold TBD.
+  - Agent code: `FINANCE`
+  - Cadence: Weekly
+  - Recipient: PM
+  - Rule source: PLOG 1.1.2
+  - Metric ID: `finance.fee_change`
+- **Refund cost per SKU in money**
+  - Rule / threshold: Cost only. The rate and the reasons belong to CUSTOMER.
+  - Agent code: `FINANCE`
+  - Cadence: Weekly
+  - Recipient: CUSTOMER
+  - Metric ID: `finance.refund_cost`
+- **Storage cost per FBA unit, long-term storage, aged surcharge**
+  - Rule / threshold: Under 5% change = noise. 5-10% watch. Over 10% with unit count flat = investigate.
+  - Agent code: `FINANCE`
+  - Cadence: Weekly
+  - Recipient: INVENTORY
+  - Rule source: PLOG 1.1.2
+  - Metric ID: `finance.storage_cost`
+- **Reimbursements vs COGS of lost units**
+  - Rule / threshold: Below COGS = investigate. COGS to COGS+5% = watch. Above COGS+5% = fine.
+  - Agent code: `FINANCE`
+  - Cadence: Weekly
+  - Recipient: claims
+  - Metric ID: `finance.reimbursements`
+- **Cash tied up in stock vs incoming PO commitments**
+  - Rule / threshold: Read before approving any new PO.
+  - Agent code: `FINANCE`
+  - Cadence: Biweekly
+  - Recipient: PM / INVENTORY
+  - Metric ID: `finance.cash_position`
+## INVENTORY AGENT   -   INVENTORY & FULFILMENT
+- **Out of stock now**
+  - Rule / threshold: Any occurrence = urgent, stops the Sales/Units checklist at step 1.
+  - Agent code: `INVENTORY`
+  - Cadence: Daily - alert
+  - Recipient: PM urgent
+  - Metric ID: `inventory.oos_now`
+- **FBA days of cover per SKU per marketplace**
+  - Rule / threshold: 0-5 days = ship now. 5-15 = warning. Over 15 = per plan. Target band 45-90 days.
+  - Agent code: `INVENTORY`
+  - Cadence: Daily
+  - Recipient: PM / logistics
+  - Rule source: PLOG 1.1.1
+  - Metric ID: `inventory.cover_band`
+- **Days of supply band**
+  - Rule / threshold: 30-45 or 90-120 = inventory is a constraint. Over 120 or stockout = Inventory Override.
+  - Agent code: `INVENTORY`
+  - Cadence: Weekly
+  - Recipient: STRATEGY
+  - Rule source: States+Drivers
+  - Metric ID: `inventory.constraint_band`
+- **Out of stock within 30 days**
+  - Rule / threshold: Projected stockout inside 30 days = act now, not on the day.
+  - Agent code: `INVENTORY`
+  - Cadence: Daily
+  - Recipient: PM / logistics
+  - Metric ID: `inventory.oos_30d`
+- **Inbound shipments: in transit, receiving, delayed, lost units**
+  - Rule / threshold: Delay that moves a projected stockout earlier = escalate.
+  - Agent code: `INVENTORY`
+  - Cadence: Daily
+  - Recipient: logistics
+  - Metric ID: `inventory.inbound`
+- **AWD / prep stock and unshipped replenishment gaps**
+  - Rule / threshold: Stock available upstream while FBA is short = a shipping decision, not a buying one.
+  - Agent code: `INVENTORY`
+  - Cadence: Daily
+  - Recipient: logistics
+  - Metric ID: `inventory.prep_gap`
+- **Restock limits and capacity utilisation**
+  - Rule / threshold: Limit blocking a needed shipment = escalate.
+  - Agent code: `INVENTORY`
+  - Cadence: Weekly
+  - Recipient: logistics
+  - Metric ID: `inventory.restock_limits`
+- **Stranded, unfulfillable and aged units**
+  - Rule / threshold: Any stranded unit = immediate, it is stock that cannot sell.
+  - Agent code: `INVENTORY`
+  - Cadence: Daily - alert
+  - Recipient: PM
+  - Metric ID: `inventory.stranded`
+- **Overstock: cover above target**
+  - Rule / threshold: Upper bound TBD with team.
+  - Agent code: `INVENTORY`
+  - Cadence: Weekly
+  - Recipient: FINANCE + PM
+  - Metric ID: `inventory.overstock`
+- **China POs and containers: ETD, ETA, delivered**
+  - Rule / threshold: Date change moving an arrival past a projected stockout = escalate.
+  - Agent code: `INVENTORY`
+  - Cadence: Daily
+  - Recipient: logistics
+  - Metric ID: `inventory.china_pipeline`
+- **Reorder signal per SKU**
+  - Rule / threshold: ORDER NOW / ORDER NEXT ROUND / OK. Never order the raw engine number - net off buildable and surplus first.
+  - Agent code: `INVENTORY`
+  - Cadence: Weekly
+  - Recipient: PM / sourcing
+  - Metric ID: `inventory.reorder_signal`
+## CUSTOMER AGENT   -   CUSTOMER & REVIEWS
+- **Customer messages answered within 24h**
+  - Rule / threshold: Amazon requirement. Any breach = immediate.
+  - Agent code: `CUSTOMER`
+  - Cadence: Daily - alert
+  - Recipient: support
+  - Rule source: Seller Checklist
+  - Metric ID: `customer.message_sla`
+- **New 1-2 star reviews with text**
+  - Rule / threshold: Any new 1-2 star = alert with the text, not just the count.
+  - Agent code: `CUSTOMER`
+  - Cadence: Daily - alert
+  - Recipient: PM + QC
+  - Metric ID: `customer.negative_reviews`
+- **Star rating trend and review velocity**
+  - Rule / threshold: Rating fall = alert. It precedes CVR decline.
+  - Agent code: `CUSTOMER`
+  - Cadence: Weekly
+  - Recipient: TRAFFIC
+  - Rule source: PLOG 1.3.4
+  - Metric ID: `customer.rating_trend`
+- **Negative review reaching top reviews position**
+  - Rule / threshold: Top-review position matters more than the average rating.
+  - Agent code: `CUSTOMER`
+  - Cadence: Weekly
+  - Recipient: PM
+  - Metric ID: `customer.top_review_risk`
+- **Return reasons breakdown per SKU**
+  - Rule / threshold: One reason over 30% of returns = product or listing defect, not customer behaviour.
+  - Agent code: `CUSTOMER`
+  - Cadence: Weekly
+  - Recipient: QC / supplier
+  - Rule source: PLOG 1.1.3
+  - Metric ID: `customer.return_reasons`
+- **Return rate vs category average**
+  - Rule / threshold: Under 5% of sales = normal. Over 5% = investigate. Above category average = demand quality driver.
+  - Agent code: `CUSTOMER`
+  - Cadence: Weekly
+  - Recipient: QC / supplier + STRATEGY
+  - Rule source: States+Drivers Q5
+  - Metric ID: `customer.return_rate`
+- **NCX rate and CX health per ASIN**
+  - Rule / threshold: Above Amazon's threshold risks the listing.
+  - Agent code: `CUSTOMER`
+  - Cadence: Weekly
+  - Recipient: PM
+  - Metric ID: `customer.ncx`
+- **Unanswered customer questions**
+  - Rule / threshold: Open question on a high-traffic ASIN = conversion loss.
+  - Agent code: `CUSTOMER`
+  - Cadence: Weekly
+  - Recipient: support
+  - Metric ID: `customer.questions`
+- **Seller feedback and rating**
+  - Rule / threshold: Product complaints in seller feedback are removable.
+  - Agent code: `CUSTOMER`
+  - Cadence: Weekly
+  - Recipient: support
+  - Metric ID: `customer.seller_feedback`
+## HEALTH AGENT   -   ACCOUNT HEALTH & RISK
+- **Account Health Rating and policy violations**
+  - Rule / threshold: Any change = immediate. Amazon does not always alert.
+  - Agent code: `HEALTH`
+  - Cadence: Daily - alert
+  - Recipient: PM urgent
+  - Rule source: Seller Checklist
+  - Metric ID: `health.ahr`
+- **Seller performance notifications requiring action**
+  - Rule / threshold: Read daily. Some require action, some do not - both get logged.
+  - Agent code: `HEALTH`
+  - Cadence: Daily - alert
+  - Recipient: PM urgent
+  - Rule source: Seller Checklist
+  - Metric ID: `health.performance_notices`
+- **Amazon notifications requiring action within 24h**
+  - Rule / threshold: Deadline-bearing notices are ranked above everything else in the run.
+  - Agent code: `HEALTH`
+  - Cadence: Daily - alert
+  - Recipient: PM urgent
+  - Rule source: Seller Checklist
+  - Metric ID: `health.action_required`
+- **ASIN suppressions, blocked or removed listings (account level)**
+  - Rule / threshold: Any occurrence = immediate.
+  - Agent code: `HEALTH`
+  - Cadence: Daily - alert
+  - Recipient: PM urgent + LISTING
+  - Metric ID: `health.listing_blocks`
+- **IP complaints and counterfeit claims**
+  - Rule / threshold: Any occurrence = immediate, legal exposure.
+  - Agent code: `HEALTH`
+  - Cadence: Daily - alert
+  - Recipient: PM urgent
+  - Metric ID: `health.ip_complaints`
+- **Order Defect Rate, cancellations, late shipment, valid tracking**
+  - Rule / threshold: FBA-light metric. Weekly unless a threshold is breached.
+  - Agent code: `HEALTH`
+  - Cadence: Weekly
+  - Recipient: support
+  - Metric ID: `health.odr`
+## EXTERNAL AGENT   -   EXTERNAL TRAFFIC
+- **External sessions and orders per ASIN by source**
+  - Rule / threshold: Attributed sessions with no orders = wrong audience.
+  - Agent code: `EXTERNAL`
+  - Cadence: Weekly
+  - Recipient: PM / marketing
+  - Rule source: PLOG 3.0
+  - Metric ID: `external.sessions`
+- **Attribution and Brand Referral Bonus per source**
+  - Rule / threshold: BRB is a fee rebate - it belongs in the CM2 read.
+  - Agent code: `EXTERNAL`
+  - Cadence: Weekly
+  - Recipient: FINANCE
+  - Rule source: PLOG 3.0
+  - Metric ID: `external.attribution`
+- **Effect of external traffic on organic rank and CVR**
+  - Rule / threshold: External traffic that does not convert can hurt rank.
+  - Agent code: `EXTERNAL`
+  - Cadence: Biweekly
+  - Recipient: RANK
+  - Rule source: PLOG 3.0
+  - Metric ID: `external.rank_effect`
