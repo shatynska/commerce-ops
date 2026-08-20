@@ -49,3 +49,13 @@ Aggregates, repositories-as-interfaces, and domain events are adopted per module
 Chosen over microservices-from-the-start to avoid premature distributed-systems complexity for a single team, while keeping domains separable behind clear module and layer boundaries if any of them later need to split out.
 
 <!-- /ai-toolkit:project-foundation -->
+
+## Setup
+
+```
+uv sync
+uv run pre-commit install                     # installs the pre-commit and commit-msg hooks (ruff, mypy, unit/agent tests, gitlint)
+uv run pre-commit install --hook-type pre-push  # installs the pre-push hook (integration tests)
+```
+
+Both install commands are required — the first covers commit-time checks, the second covers the separate pre-push integration-test gate.

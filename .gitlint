@@ -1,0 +1,13 @@
+# gitlint configuration — Python-native equivalent of commitlint, chosen to avoid
+# a Node.js dependency (see openspec/changes/add-code-quality-tooling/design.md).
+# Docs: https://jorisroovers.com/gitlint/latest/configuration/
+
+[general]
+contrib=contrib-title-conventional-commits
+ignore=body-is-missing
+
+[title-max-length]
+line-length=72
+
+[contrib-title-conventional-commits]
+types=feat,fix,docs,style,refactor,perf,test,build,ci,chore,revert

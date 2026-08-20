@@ -58,14 +58,24 @@ Do not rely on earlier conversation context for information the repository itsel
 
 pytest for unit/integration tests on the FastAPI layer and business logic, plus separate deterministic tests for LangGraph agent graphs using mocked/stubbed LLM responses so agent logic is tested without live model calls or nondeterminism.
 
+Tests are split into three directory-based tiers, each mirroring the module/layer architecture above:
+
+- `tests/unit/<module>/<layer>/` — fast, mocked unit tests.
+- `tests/agents/<module>/` — deterministic LangGraph agent-graph tests (mocked/stubbed LLM responses); treated as unit-tier since they carry no network/IO cost.
+- `tests/integration/<module>/` — tests that touch real I/O (e.g. Postgres).
+
+`tests/unit` and `tests/agents` run at commit-time via a `pre-commit` hook; `tests/integration` runs at `pre-push` instead, to keep individual commits fast.
+
 - Test command: `uv run pytest` (invoked inside the uv-managed environment, not a bare `pytest` assuming manual venv activation)
-- Test-path glob: `tests/**/test_*.py`
+- Test-path glob: `tests/**/test_*.py` (matches all three tiers)
 
 ## Development Tooling
 
 - **uv** for dependency and environment management (single lockfile).
 - **ruff** for linting and formatting.
 - **mypy** for type checking.
+- **pre-commit** orchestrates git hooks: `ruff check`, `ruff format --check`, `mypy`, and the `tests/unit`+`tests/agents` pytest tier run at commit-time; the `tests/integration` tier runs at `pre-push`.
+- **gitlint** enforces conventional-commit-style commit messages via a `commit-msg` hook — chosen over `commitlint` specifically to avoid a Node.js dependency in this otherwise pure-Python project.
 
 <!-- /ai-toolkit:project-foundation -->
 
