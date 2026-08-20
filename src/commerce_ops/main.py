@@ -2,9 +2,7 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 
+from commerce_ops.shared.infrastructure.driving import health
+
 app = FastAPI()
-
-
-@app.get("/health")
-def health() -> dict[str, str]:
-    return {"status": "ok"}
+app.include_router(health.router)
