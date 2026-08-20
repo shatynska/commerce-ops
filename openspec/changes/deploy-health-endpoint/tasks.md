@@ -37,5 +37,5 @@
 ## 8. Verification
 
 - [x] 8.1 Run `uv run pytest`, `ruff check`, `ruff format --check`, and `mypy` locally; confirm all pass.
-- [ ] 8.2 Merge to `main` and confirm the workflow run reports success, including the post-deploy health check.
-- [ ] 8.3 Manually request the public health URL from outside the pipeline and confirm it returns a successful response.
+- [x] 8.2 Merge to `main` and confirm the workflow run reports success, including the post-deploy health check. **CONFIRMED**: PR #1 merged (`c807108`); run [32407295153](https://github.com/shatynska/commerce-ops/actions/runs/32407295153) — both `Build and push image` and `Deploy` (including the post-deploy health-check step) succeeded.
+- [x] 8.3 Manually request the public health URL from outside the pipeline and confirm it returns a successful response. **CONFIRMED**: `curl https://fuperia.shatynska.com/health` → `200 {"status": "ok"}`.
