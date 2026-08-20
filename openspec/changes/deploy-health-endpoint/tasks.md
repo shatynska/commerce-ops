@@ -1,22 +1,22 @@
 ## 1. Application scaffold
 
-- [ ] 1.1 Add FastAPI and an ASGI server (e.g. uvicorn) as runtime dependencies in `pyproject.toml`.
-- [ ] 1.2 Create the application package at `src/commerce_ops/` (the FastAPI app instance in `src/commerce_ops/main.py`) and a `GET /health` route returning a `200` JSON response, with no dependency on Postgres or any other external service. This endpoint is cross-cutting, not owned by any of the four domain modules (catalog, orders/inventory, support, analytics) — it lives at this top level, not nested under one of them.
-- [ ] 1.3 Add a unit test under `tests/unit/` asserting `GET /health` returns `200` and the expected body, run with no database configured — asserting the "no external dependency" requirement, not just the happy path.
+- [x] 1.1 Add FastAPI and an ASGI server (e.g. uvicorn) as runtime dependencies in `pyproject.toml`.
+- [x] 1.2 Create the application package at `src/commerce_ops/` (the FastAPI app instance in `src/commerce_ops/main.py`) and a `GET /health` route returning a `200` JSON response, with no dependency on Postgres or any other external service. This endpoint is cross-cutting, not owned by any of the four domain modules (catalog, orders/inventory, support, analytics) — it lives at this top level, not nested under one of them.
+- [x] 1.3 Add a unit test under `tests/unit/` asserting `GET /health` returns `200` and the expected body, run with no database configured — asserting the "no external dependency" requirement, not just the happy path.
 
 ## 2. Packaging
 
-- [ ] 2.1 Add a `Dockerfile` that installs dependencies via `uv`, runs the ASGI server, and declares a `HEALTHCHECK` hitting `GET /health` — gives `docker compose up -d --wait` something real to wait on, rather than just "process started." (Triggered on the host by `deploy-receive` invoking `app-deploy`, which runs `docker compose up -d --wait` — see design.md's Migration Plan.)
-- [ ] 2.2 Add `docker-compose.yml` for this application: joins the external `platform_edge` network, carries Traefik labels routing `GET /health` (and the app generally) to the domain from design.md's open question, once supplied. The `image:` field SHALL reference a `${IMAGE_TAG}` variable (Compose's built-in `.env`-file substitution), not a hardcoded or `latest` tag — see task 5.2.
+- [x] 2.1 Add a `Dockerfile` that installs dependencies via `uv`, runs the ASGI server, and declares a `HEALTHCHECK` hitting `GET /health` — gives `docker compose up -d --wait` something real to wait on, rather than just "process started." (Triggered on the host by `deploy-receive` invoking `app-deploy`, which runs `docker compose up -d --wait` — see design.md's Migration Plan.)
+- [x] 2.2 Add `docker-compose.yml` for this application: joins the external `platform_edge` network, carries Traefik labels routing `GET /health` (and the app generally) to the domain from design.md's open question, once supplied. The `image:` field SHALL reference a `${IMAGE_TAG}` variable (Compose's built-in `.env`-file substitution), not a hardcoded or `latest` tag — see task 5.2.
 
 ## 3. CI: pull request validation
 
-- [ ] 3.1 Add `.github/workflows/ci.yml` (or similar) running `ruff check`, `ruff format --check`, `mypy`, and the `tests/unit` + `tests/agents` pytest tiers on every pull request.
-- [ ] 3.2 Confirm this check is configured as a required branch-protection status check on `main`.
+- [x] 3.1 Add `.github/workflows/ci.yml` (or similar) running `ruff check`, `ruff format --check`, `mypy`, and the `tests/unit` + `tests/agents` pytest tiers on every pull request.
+- [ ] 3.2 Confirm this check is configured as a required branch-protection status check on `main`. **BLOCKED**: attempted via `gh api`, blocked by the auto-mode safety classifier on mutating GitHub branch-protection settings. Needs either a manual step in repo settings, or a Bash permission rule allowing this call so it can be retried.
 
 ## 4. CI: build and publish
 
-- [ ] 4.1 On merge to `main`, add a job (with `permissions: packages: write`) that builds the Docker image and pushes it to GHCR tagged with the commit SHA, using the workflow's built-in `GITHUB_TOKEN`.
+- [x] 4.1 On merge to `main`, add a job (with `permissions: packages: write`) that builds the Docker image and pushes it to GHCR tagged with the commit SHA, using the workflow's built-in `GITHUB_TOKEN`.
 
 ## 5. CI: deploy
 
@@ -36,6 +36,6 @@
 
 ## 8. Verification
 
-- [ ] 8.1 Run `uv run pytest`, `ruff check`, `ruff format --check`, and `mypy` locally; confirm all pass.
+- [x] 8.1 Run `uv run pytest`, `ruff check`, `ruff format --check`, and `mypy` locally; confirm all pass.
 - [ ] 8.2 Merge to `main` and confirm the workflow run reports success, including the post-deploy health check.
 - [ ] 8.3 Manually request the public health URL from outside the pipeline and confirm it returns a successful response.

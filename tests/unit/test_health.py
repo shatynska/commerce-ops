@@ -17,15 +17,17 @@ absent, nothing about whether the assertions below are correct; see
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from typing import Any
 
 import pytest
-from commerce_ops.main import app
 from fastapi.testclient import TestClient
+
+from commerce_ops.main import app
 
 
 @pytest.fixture()
-def client() -> TestClient:
+def client() -> Iterator[TestClient]:
     # Used as a context manager so any startup-time behavior (e.g. an
     # application lifespan hook) runs, matching the scenarios' "while the
     # application is running" precondition.
