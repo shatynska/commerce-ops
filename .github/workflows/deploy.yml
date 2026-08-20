@@ -1,0 +1,118 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  IMAGE_NAME: ghcr.io/${{ github.repository }}
+
+# No manual approval gate here, unlike /infrastructure's platform-deploy.yml
+# (production Environment): a bad deploy of this application only affects
+# its own container, not the shared platform stack or other applications
+# -- see design.md's "Deploy gate" decision. Queue overlapping deploys
+# instead of racing them, mirroring platform-deploy.yml's precedent.
+concurrency:
+  group: deploy-commerce-ops
+  cancel-in-progress: false
+
+jobs:
+  build-and-push:
+    name: Build and push image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ env.IMAGE_NAME }}:${{ github.sha }}
+
+  deploy:
+    name: Deploy
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    # Not an approval gate -- this Environment carries no protection rules
+    # (confirmed via the GitHub API), consistent with design.md's "no
+    # manual approval gate" decision. Declared only because the deploy
+    # secrets below are scoped to this Environment, not the repository.
+    environment: production
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      # Joins this runner to the same tailnet the host is a member of --
+      # SSH is only reachable this way, not over the public internet.
+      # `ping` waits for the host to actually become reachable before
+      # proceeding, since new tailnet peers propagate with a brief,
+      # eventually-consistent delay.
+      - name: Connect to the tailnet
+        uses: tailscale/github-action@v4
+        with:
+          oauth-client-id: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TAILSCALE_OAUTH_SECRET }}
+          tags: tag:ci
+          ping: ${{ secrets.DEPLOY_HOST }}
+
+      # Rendered fresh each run from the triggering commit's SHA -- never
+      # committed -- so docker-compose.yml's `image: ...:${IMAGE_TAG}`
+      # resolves against it on the host.
+      - name: Render .env
+        run: |
+          umask 077
+          echo "IMAGE_TAG=${{ github.sha }}" >.env
+
+      # COMMERCE_OPS_DEPLOY_SSH_KEY is this application's own forced-command
+      # key, provisioned in /infrastructure's add-per-app-deploy-keys (its
+      # deploy_apps entry for commerce-ops) -- generated out-of-band there,
+      # not here.
+      - name: Set up the deploy SSH key
+        run: |
+          umask 077
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.COMMERCE_OPS_DEPLOY_SSH_KEY }}" >~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "${{ secrets.DEPLOY_HOST }}" >>~/.ssh/known_hosts
+
+      # One SSH session carries both the content and the trigger: this
+      # key's `authorized_keys` entry is restricted to the forced command
+      # `deploy-receive commerce-ops`, which overrides any command sent
+      # over the session -- a separate scp plus separate ssh trigger would
+      # not work against that restriction. `deploy-receive` extracts
+      # docker-compose.yml/.env into /opt/commerce-ops and triggers
+      # `sudo app-deploy commerce-ops` (docker compose pull && up -d
+      # --wait) within this one connection.
+      - name: Deliver docker-compose.yml and .env, and trigger the deploy
+        run: |
+          tar -czf - docker-compose.yml .env | \
+            ssh -i ~/.ssh/deploy_key "deploy@${{ secrets.DEPLOY_HOST }}"
+
+      # docker compose up -d --wait (inside app-deploy, triggered above)
+      # already fails loudly if the container never becomes healthy --
+      # this step is the independent, outside-the-container check: it
+      # catches anything that layer wouldn't, e.g. Traefik routing/DNS
+      # issues. See design.md's Migration Plan.
+      - name: Verify the public health endpoint
+        run: |
+          for _ in $(seq 1 10); do
+            if curl -fsS "https://fuperia.shatynska.com/health"; then
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "Health check did not succeed after retries" >&2
+          exit 1

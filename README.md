@@ -33,11 +33,11 @@ Slack integration: Slack is an initial-scope interaction channel, used both ways
 
 ## Technology
 
-Python, FastAPI (HTTP API layer), LangGraph (AI agent orchestration) — supplied directly by the project owner, not proposed. Slack Bolt / Slack Web API SDK is added as the Slack interface's technology, consistent with the owner's direction to make Slack an active interaction channel. Postgres is the shared relational datastore backing each module's repositories (named in Architecture below).
+Python, FastAPI (HTTP API layer), LangGraph (AI agent orchestration) — supplied directly by the project owner, not proposed. Slack Bolt / Slack Web API SDK is added as the Slack interface's technology, consistent with the owner's direction to make Slack an active interaction channel. Postgres is the shared relational datastore backing each module's repositories (see Architecture below).
 
 ## Architecture
 
-Modular monolith: one FastAPI app organized into domain modules (catalog, orders/inventory, support, analytics) as DDD bounded contexts — each with its own name space, model, and ubiquitous language, boundaries kept clear even though they share one deployable and one Postgres database.
+Modular monolith: one FastAPI app organized into domain modules as DDD bounded contexts — each with its own name space, model, and ubiquitous language, boundaries kept clear even though they share one deployable and one Postgres database. Module boundaries are established incrementally as domain work actually begins, not fixed upfront from the initial product scope above.
 
 Each module follows a lightweight ports-and-adapters shape so the domain layer stays explicit without mandating full tactical DDD everywhere:
 - **Domain layer** (center): entities, value objects, and domain services expressed in that module's own language — no framework or I/O dependencies.
@@ -49,3 +49,13 @@ Aggregates, repositories-as-interfaces, and domain events are adopted per module
 Chosen over microservices-from-the-start to avoid premature distributed-systems complexity for a single team, while keeping domains separable behind clear module and layer boundaries if any of them later need to split out.
 
 <!-- /ai-toolkit:project-foundation -->
+
+## Setup
+
+```
+uv sync
+uv run pre-commit install                     # installs the pre-commit and commit-msg hooks (ruff, mypy, unit/agent tests, gitlint)
+uv run pre-commit install --hook-type pre-push  # installs the pre-push hook (integration tests)
+```
+
+Both install commands are required — the first covers commit-time checks, the second covers the separate pre-push integration-test gate.

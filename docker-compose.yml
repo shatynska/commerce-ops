@@ -1,0 +1,16 @@
+services:
+  app:
+    image: ghcr.io/shatynska/commerce-ops:${IMAGE_TAG}
+    restart: unless-stopped
+    networks:
+      - platform_edge
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.commerce-ops.rule=Host(`fuperia.shatynska.com`)"
+      - "traefik.http.routers.commerce-ops.entrypoints=websecure"
+      - "traefik.http.routers.commerce-ops.tls.certresolver=letsencrypt"
+      - "traefik.http.services.commerce-ops.loadbalancer.server.port=8000"
+
+networks:
+  platform_edge:
+    external: true
