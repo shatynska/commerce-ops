@@ -34,12 +34,13 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-from commerce_ops.omni_agent.application.graph import build_graph
 from langchain_core.callbacks import CallbackManagerForLLMRun
 from langchain_core.language_models import BaseChatModel
 from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
 from langchain_core.outputs import ChatResult
+
+from commerce_ops.omni_agent.application.graph import build_graph
 
 
 class _RaisingChatModel(BaseChatModel):
