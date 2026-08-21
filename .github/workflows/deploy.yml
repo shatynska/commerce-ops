@@ -68,13 +68,21 @@ jobs:
           tags: tag:ci
           ping: ${{ secrets.DEPLOY_HOST }}
 
-      # Rendered fresh each run from the triggering commit's SHA -- never
-      # committed -- so docker-compose.yml's `image: ...:${IMAGE_TAG}`
-      # resolves against it on the host.
+      # Rendered fresh each run -- never committed. IMAGE_TAG comes from
+      # the triggering commit's SHA, so docker-compose.yml's
+      # `image: ...:${IMAGE_TAG}` resolves against it on the host; the
+      # remaining lines are this application's runtime secrets, scoped to
+      # the `production` Environment and delivered to the container via
+      # docker-compose.yml's `env_file: .env`.
       - name: Render .env
         run: |
           umask 077
-          echo "IMAGE_TAG=${{ github.sha }}" >.env
+          {
+            echo "IMAGE_TAG=${{ github.sha }}"
+            echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}"
+            echo "OMNI_AGENT_SLACK_SIGNING_SECRET=${{ secrets.OMNI_AGENT_SLACK_SIGNING_SECRET }}"
+            echo "OMNI_AGENT_SLACK_BOT_TOKEN=${{ secrets.OMNI_AGENT_SLACK_BOT_TOKEN }}"
+          } >.env
 
       # COMMERCE_OPS_DEPLOY_SSH_KEY is this application's own forced-command
       # key, provisioned in /infrastructure's add-per-app-deploy-keys (its

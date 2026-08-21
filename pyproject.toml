@@ -9,6 +9,7 @@ dependencies = [
     "langchain-openai>=1.6.0",
     "langgraph>=1.2.11",
     "pyyaml>=6.0,<7",
+    "slack-sdk>=3.36.0,<4",
     "uvicorn[standard]>=0.52.4",
 ]
 

@@ -1,6 +1,12 @@
 services:
   app:
     image: ghcr.io/shatynska/commerce-ops:${IMAGE_TAG}
+    # The same .env the deploy renders and delivers alongside this file.
+    # Compose already reads it for ${IMAGE_TAG} substitution above; this
+    # additionally loads its contents into the container's process
+    # environment, which is how the application receives its runtime
+    # secrets (IMAGE_TAG comes along inertly).
+    env_file: .env
     restart: unless-stopped
     networks:
       - platform_edge

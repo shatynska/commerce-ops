@@ -10,7 +10,7 @@
 - No sender-identity guard in this change — deliberately deferred, consistent with the deferral already recorded in `add-omni-agent`'s proposal. Access control for now is solely which channel(s) the bot is invited to.
 - If invoking omni-agent fails while processing a mention, post a visible failure message to the originating channel rather than leaving the mention unanswered.
 - Add `slack_sdk` as a new runtime dependency.
-- Extend the deploy pipeline's `.env` rendering (`.github/workflows/deploy.yml`) to also carry `OPENAI_API_KEY`, `SLACK_SIGNING_SECRET`, and `SLACK_BOT_TOKEN` from GitHub Actions secrets (same Environment-scoped pattern already used for the deploy SSH key), and add `env_file: .env` to `docker-compose.yml`'s `app` service so the running container actually receives them.
+- Extend the deploy pipeline's `.env` rendering (`.github/workflows/deploy.yml`) to also carry `OPENAI_API_KEY`, `OMNI_AGENT_SLACK_SIGNING_SECRET`, and `OMNI_AGENT_SLACK_BOT_TOKEN` from GitHub Actions secrets (same Environment-scoped pattern already used for the deploy SSH key), and add `env_file: .env` to `docker-compose.yml`'s `app` service so the running container actually receives them.
 
 ## Capabilities
 
@@ -24,7 +24,7 @@
 
 - `pyproject.toml`: adds the `slack_sdk` dependency.
 - New code mounting a Slack Events route into the existing FastAPI app (exact module location decided in design.md), calling into `omni_agent.application.graph`.
-- `.github/workflows/deploy.yml`: the "Render .env" step gains `OPENAI_API_KEY`, `SLACK_SIGNING_SECRET`, `SLACK_BOT_TOKEN` sourced from `secrets.*`.
+- `.github/workflows/deploy.yml`: the "Render .env" step gains `OPENAI_API_KEY`, `OMNI_AGENT_SLACK_SIGNING_SECRET`, `OMNI_AGENT_SLACK_BOT_TOKEN` sourced from `secrets.*`.
 - `docker-compose.yml`: `app` service gains `env_file: .env`.
 - External prerequisite (outside this repo): the Slack app already exists; its Event Subscriptions Request URL needs pointing at `https://fuperia.shatynska.com/slack/events` once this is deployed, and the bot needs inviting into the target channel(s).
 - No changes to `omni-agent`'s graph or spec — this change only adds a caller.
