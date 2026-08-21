@@ -47,6 +47,7 @@ from pathlib import Path
 from typing import Final
 
 import pytest
+
 from commerce_ops.products.domain.launch_playbook import (
     GateOpening,
     InvalidPlaybookError,

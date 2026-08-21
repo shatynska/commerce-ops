@@ -1,0 +1,56 @@
+# Launch playbook — document shape (see products/infrastructure/driven/playbook_loader.py):
+#
+# version: str
+# gates:
+#   - identifier: str
+#     position: int              # 1-based, matching the spec's numbered gate list
+#     opening: automatic | requires-confirmation
+# steps:
+#   - identifier: str
+#     gate: str                  # a gate identifier
+#     track: strategy | finance | setup | inventory | creative | listing |
+#            rank | price | ppc | customer | external | traffic
+#     scope: product | market
+#     timing_anchor:
+#       kind: offset             # {days: int}
+#            | window            # {start: int, end: int}
+#            | open-ended        # {start: int}
+#            | recurring         # {cadence: daily | weekly | biweekly | monthly}
+#     binding: framework | lesson
+#     blocking: bool
+#     execution: automated | ai-assisted | human-attested
+#     hazard: none | prohibited-tactic | compliance-obligation   # optional, defaults to none
+#     rule_policy: str           # optional
+#     provenance: str            # optional — a citation, never an identifier
+#
+# This is the v1 playbook: the eight gates only, per the launch-playbook
+# capability's spec, with no step definitions. Importing the 358 reference
+# items is a follow-up change — see design.md, "Ship gates only".
+
+version: v1
+gates:
+  - identifier: commit
+    position: 1
+    opening: requires-confirmation
+  - identifier: order
+    position: 2
+    opening: requires-confirmation
+  - identifier: listable
+    position: 3
+    opening: automatic
+  - identifier: stock-ready
+    position: 4
+    opening: automatic
+  - identifier: live
+    position: 5
+    opening: automatic
+  - identifier: ignition
+    position: 6
+    opening: automatic
+  - identifier: phase-one-complete
+    position: 7
+    opening: requires-confirmation
+  - identifier: graduated
+    position: 8
+    opening: requires-confirmation
+steps: []

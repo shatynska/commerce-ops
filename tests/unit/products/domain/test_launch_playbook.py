@@ -47,6 +47,7 @@ from __future__ import annotations
 from typing import Any, Final
 
 import pytest
+
 from commerce_ops.products.domain.launch_playbook import (
     Binding,
     ExecutionMode,

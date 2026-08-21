@@ -25,6 +25,7 @@ from __future__ import annotations
 from datetime import date
 
 import pytest
+
 from commerce_ops.products.domain.launch_playbook import (
     Cadence,
     OffsetAnchor,
