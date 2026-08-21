@@ -67,3 +67,21 @@ uv run pre-commit install --hook-type pre-push  # installs the pre-push hook (in
 ```
 
 Both install commands are required — the first covers commit-time checks, the second covers the separate pre-push integration-test gate.
+
+## Local Postgres
+
+`tests/integration/products/` (and any future integration test touching Postgres) needs a real database. Bring up the same `postgres` service `docker-compose.yml` deploys, standalone:
+
+```
+POSTGRES_PASSWORD=local-dev docker compose up postgres -d
+```
+
+Then point `DATABASE_URL` at it and apply migrations before running the integration tier:
+
+```
+export DATABASE_URL=postgresql+asyncpg://commerce_ops:local-dev@localhost:5432/commerce_ops
+uv run alembic upgrade head
+uv run pytest tests/integration
+```
+
+Without `DATABASE_URL` set, `tests/integration/products/` skips rather than failing.

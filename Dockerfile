@@ -5,6 +5,8 @@ WORKDIR /app
 COPY pyproject.toml uv.lock ./
 COPY src/ ./src/
 COPY README.md ./
+COPY alembic.ini ./
+COPY alembic/ ./alembic/
 
 RUN uv sync --frozen --no-dev
 
@@ -13,4 +15,7 @@ HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=3 \
 
 EXPOSE 8000
 
-CMD ["uv", "run", "uvicorn", "commerce_ops.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Migrations run to completion before uvicorn starts; a failed migration
+# fails the container's startup rather than serving traffic against a
+# stale/partial schema (add-products-store's deploy-pipeline delta).
+CMD ["sh", "-c", "uv run alembic upgrade head && uv run uvicorn commerce_ops.main:app --host 0.0.0.0 --port 8000"]
