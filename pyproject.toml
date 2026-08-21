@@ -8,6 +8,7 @@ dependencies = [
     "alembic>=1.13,<2",
     "asyncpg>=0.29,<1",
     "fastapi>=0.141.1",
+    "httpx>=0.28.1",
     "langchain-openai>=1.6.0",
     "langgraph>=1.2.11",
     "pyyaml>=6.0,<7",
