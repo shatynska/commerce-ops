@@ -1,0 +1,81 @@
+[importlinter]
+root_packages =
+    commerce_ops
+
+[importlinter:contract:module-layers]
+name = Module layers (infrastructure -> application -> domain)
+type = layers
+containers =
+    commerce_ops.products
+    commerce_ops.omni_agent
+    commerce_ops.shared
+layers =
+    infrastructure
+    application
+    domain
+
+[importlinter:contract:products-domain-boundary]
+name = products.domain does not reach outside its own layer
+type = forbidden
+source_modules =
+    commerce_ops.products.domain
+forbidden_modules =
+    commerce_ops.omni_agent
+    commerce_ops.shared.application
+    commerce_ops.shared.infrastructure
+
+[importlinter:contract:products-application-boundary]
+name = products.application does not reach into other modules' internals
+type = forbidden
+source_modules =
+    commerce_ops.products.application
+forbidden_modules =
+    commerce_ops.omni_agent.domain
+    commerce_ops.omni_agent.infrastructure
+    commerce_ops.omni_agent.application.graph
+    commerce_ops.shared.infrastructure
+
+[importlinter:contract:products-infrastructure-boundary]
+name = products.infrastructure does not reach into other modules
+type = forbidden
+source_modules =
+    commerce_ops.products.infrastructure
+forbidden_modules =
+    commerce_ops.omni_agent
+
+[importlinter:contract:omni-agent-domain-boundary]
+name = omni_agent.domain does not reach outside its own layer
+type = forbidden
+source_modules =
+    commerce_ops.omni_agent.domain
+forbidden_modules =
+    commerce_ops.products
+    commerce_ops.shared.application
+    commerce_ops.shared.infrastructure
+
+[importlinter:contract:omni-agent-application-boundary]
+name = omni_agent.application does not reach into other modules' internals
+type = forbidden
+source_modules =
+    commerce_ops.omni_agent.application
+forbidden_modules =
+    commerce_ops.products.domain
+    commerce_ops.products.infrastructure
+    commerce_ops.shared.infrastructure
+
+[importlinter:contract:omni-agent-infrastructure-boundary]
+name = omni_agent.infrastructure does not reach into other modules
+type = forbidden
+source_modules =
+    commerce_ops.omni_agent.infrastructure
+forbidden_modules =
+    commerce_ops.products
+
+[importlinter:contract:shared-boundary]
+name = shared never imports a business module
+type = forbidden
+source_modules =
+    commerce_ops.shared
+forbidden_modules =
+    commerce_ops.products
+    commerce_ops.omni_agent

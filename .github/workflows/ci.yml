@@ -26,5 +26,8 @@ jobs:
       - name: mypy
         run: uv run mypy .
 
+      - name: lint-imports
+        run: uv run lint-imports --config .importlinter
+
       - name: pytest (unit + agents)
         run: uv run pytest tests/unit tests/agents

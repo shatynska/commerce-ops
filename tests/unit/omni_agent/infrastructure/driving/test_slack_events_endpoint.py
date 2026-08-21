@@ -16,14 +16,13 @@ Derived strictly from the ADDED requirements' scenarios in
 - "No Sender Identity Restriction (Deferred)" / Scenario: Any member in the
   channel can trigger Omni
 
-At the time these tests were written,
-`src/commerce_ops/shared/infrastructure/driving/slack.py` does not exist --
-so this whole module is expected to fail at collection with
-`ModuleNotFoundError` until it lands. That failure establishes only that the
-target is absent; it says nothing about whether the assertions below are
-correct. See `test-manifest.md` at the change root for the full accounting,
-including every assertion's specified/derived classification and the
-unresolved project questions these tests assume answers to.
+As of `module-boundary-conventions`, this adapter lives in
+`src/commerce_ops/omni_agent/infrastructure/driving/slack.py` (moved from
+`shared`, which reached across a module boundary into `omni_agent`'s
+internals) and mounts at `POST /omni_agent/slack/events`. See
+`test-manifest.md` at the original change root
+(`openspec/changes/trigger-omni-agent-via-slack/`) for the full
+specified/derived accounting these assertions still follow.
 
 Seams used, all fixed by design.md rather than invented here:
 
@@ -34,15 +33,15 @@ Seams used, all fixed by design.md rather than invented here:
   a test signing secret -- no fake verifier -- so these tests constrain the
   endpoint's verification behaviour rather than a stub of it. Only the
   `WebClient` is replaced, because posting is a live network call.
-- `handle_app_mention(event)` invokes
-  `omni_agent.application.graph.build_production_graph()`; a recording fake
-  graph is substituted for it, per `add-omni-agent`'s
-  `graph.invoke({"messages": [HumanMessage(...)]})` contract.
+- `handle_app_mention(event)` calls `omni_agent.application.answer_question`,
+  a plain `str -> str` use case (module-boundary-conventions design.md: the
+  adapter must not know LangGraph's `MessagesState`/`HumanMessage` shape, so
+  the seam is the use case's own signature, not the graph it wraps). A
+  recording fake is substituted for `answer_question` directly.
 """
 
 from __future__ import annotations
 
-import importlib
 import json
 import time
 from collections.abc import Callable, Iterator
@@ -50,18 +49,12 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from langchain_core.messages import AIMessage, HumanMessage
 from slack_sdk.signature import SignatureVerifier
 
 from commerce_ops.main import app
-from commerce_ops.shared.infrastructure.driving import slack as slack_adapter
+from commerce_ops.omni_agent.infrastructure.driving import slack as slack_adapter
 
-# Imported dynamically rather than with `from ... import graph`: the package's
-# `__init__` does not re-export the submodule, and only the module object (not
-# the symbol) can be monkeypatched.
-omni_graph_module = importlib.import_module("commerce_ops.omni_agent.application.graph")
-
-SLACK_EVENTS_PATH = "/slack/events"
+SLACK_EVENTS_PATH = "/omni_agent/slack/events"
 SIGNING_SECRET = "test-slack-signing-secret"  # not a real credential
 BOT_TOKEN = "xoxb-test-not-a-real-token"  # not a real credential
 BOT_ID = "U0BOTID"
@@ -96,11 +89,13 @@ class _RecordingSlackClient:
         return {"ok": True}
 
 
-class _RecordingGraph:
-    """Stands in for omni-agent's compiled graph.
+class _RecordingAnswerQuestion:
+    """Stands in for `omni_agent.application.answer_question`.
 
-    Records each `invoke` payload, and either returns a scripted answer in
-    the `MessagesState` shape `add-omni-agent` fixed, or raises.
+    Records each question asked, and either returns a scripted answer or
+    raises -- the adapter-level seam now that the adapter itself only ever
+    sees a plain question string and a plain answer string, never LangGraph's
+    internal state shape.
     """
 
     def __init__(
@@ -112,20 +107,15 @@ class _RecordingGraph:
         self.answer = answer
         self.failure = failure
         self.journal = journal
-        self.calls: list[Any] = []
+        self.calls: list[str] = []
 
-    def invoke(self, payload: Any, *args: Any, **kwargs: Any) -> dict[str, Any]:
+    def __call__(self, question: str) -> str:
         if self.journal is not None:
             self.journal.append("omni_invoked")
-        self.calls.append(payload)
+        self.calls.append(question)
         if self.failure is not None:
             raise self.failure
-        return {
-            "messages": [
-                HumanMessage(content=_question_from(payload)),
-                AIMessage(content=self.answer),
-            ]
-        }
+        return self.answer
 
 
 class _ResponseStartRecorder:
@@ -149,30 +139,6 @@ class _ResponseStartRecorder:
             await send(message)
 
         await self.inner(scope, receive, recording_send)
-
-
-def _question_from(payload: Any) -> str:
-    """Extracts the question the adapter handed to omni-agent.
-
-    `add-omni-agent`'s design fixed the invocation as
-    `graph.invoke({"messages": [HumanMessage(question)]})`; a bare string is
-    accepted too so this helper reports a clear mismatch rather than an
-    obscure `TypeError` if the adapter passes something else.
-    """
-    if isinstance(payload, str):
-        return payload
-    if isinstance(payload, dict):
-        messages = payload.get("messages")
-        if messages:
-            last = messages[-1]
-            content = getattr(last, "content", last)
-            if isinstance(content, str):
-                return content
-    raise AssertionError(
-        "expected omni-agent to be invoked as "
-        '`graph.invoke({"messages": [HumanMessage(question)]})`, got: '
-        f"{payload!r}"
-    )
 
 
 # --------------------------------------------------------------------------
@@ -231,29 +197,20 @@ def client() -> Iterator[TestClient]:
         yield test_client
 
 
-def install_graph(
-    monkeypatch: pytest.MonkeyPatch, graph: _RecordingGraph
-) -> _RecordingGraph:
-    """Points `build_production_graph()` at the recording fake.
+def install_answer_question(
+    monkeypatch: pytest.MonkeyPatch, fake: _RecordingAnswerQuestion
+) -> _RecordingAnswerQuestion:
+    """Points `handle_app_mention`'s call to `answer_question` at the fake.
 
-    Patched in both modules because design.md does not fix whether the
-    adapter imports the name directly (`from ... import
-    build_production_graph`) or reaches it through the module.
+    The adapter imports `answer_question` by name (`from
+    commerce_ops.omni_agent.application import answer_question`), so the
+    binding to patch is the one in the adapter's own module namespace, not
+    on `omni_agent.application` or on the graph it wraps -- those are exactly
+    the internals module-boundary-conventions moved out of this adapter's
+    reach.
     """
-
-    def factory(*args: Any, **kwargs: Any) -> _RecordingGraph:
-        return graph
-
-    patched = False
-    for module in (slack_adapter, omni_graph_module):
-        if hasattr(module, "build_production_graph"):
-            monkeypatch.setattr(module, "build_production_graph", factory)
-            patched = True
-    assert patched, (
-        "expected `build_production_graph` to be reachable on the Slack "
-        "adapter or on commerce_ops.omni_agent.application.graph"
-    )
-    return graph
+    monkeypatch.setattr(slack_adapter, "answer_question", fake)
+    return fake
 
 
 # --------------------------------------------------------------------------
@@ -323,7 +280,7 @@ def test_url_verification_challenge_is_echoed_back(
     endpoint
     THEN the system SHALL respond with the same challenge value it received.
     """
-    graph = install_graph(monkeypatch, _RecordingGraph())
+    fake = install_answer_question(monkeypatch, _RecordingAnswerQuestion())
     challenge = "3eZbrw1aB1cCcQ2S1nZ7jHqWvXyZ0challenge"
 
     response = _post(
@@ -345,7 +302,7 @@ def test_url_verification_challenge_is_echoed_back(
     assert response.json()["challenge"] == challenge
 
     # Derived: a handshake is not an event, so nothing downstream should run.
-    assert graph.calls == []
+    assert fake.calls == []
     assert slack_client.posted == []
 
 
@@ -403,7 +360,7 @@ def test_request_failing_signature_verification_is_rejected(
     THEN the system SHALL reject the request and SHALL NOT invoke
     omni-agent.
     """
-    graph = install_graph(monkeypatch, _RecordingGraph())
+    fake = install_answer_question(monkeypatch, _RecordingAnswerQuestion())
 
     response = _post(client, _app_mention_payload(), headers_for=headers_for)
 
@@ -415,7 +372,7 @@ def test_request_failing_signature_verification_is_rejected(
     )
 
     # Specified: omni-agent SHALL NOT be invoked.
-    assert graph.calls == []
+    assert fake.calls == []
     # Derived: nothing is posted back either -- a rejected request must not
     # produce channel traffic an attacker could induce.
     assert slack_client.posted == []
@@ -445,7 +402,9 @@ def test_app_mention_is_acknowledged_before_answer_generation(
     it would add runtime without adding evidence.
     """
     journal: list[str] = []
-    graph = install_graph(monkeypatch, _RecordingGraph(journal=journal))
+    fake = install_answer_question(
+        monkeypatch, _RecordingAnswerQuestion(journal=journal)
+    )
 
     with TestClient(_ResponseStartRecorder(app, journal)) as recording_client:
         response = _post(recording_client, _app_mention_payload())
@@ -464,7 +423,7 @@ def test_app_mention_is_acknowledged_before_answer_generation(
     )
 
     # Specified: the answer is posted separately, once it is ready.
-    assert len(graph.calls) == 1
+    assert len(fake.calls) == 1
     assert len(slack_client.posted) == 1
 
 
@@ -485,7 +444,7 @@ def test_mention_receives_an_answer_in_the_same_channel(
     that same channel.
     """
     answer = "Paris is the capital of France."
-    graph = install_graph(monkeypatch, _RecordingGraph(answer=answer))
+    fake = install_answer_question(monkeypatch, _RecordingAnswerQuestion(answer=answer))
     question = "what is the capital of France?"
 
     response = _post(
@@ -496,8 +455,8 @@ def test_mention_receives_an_answer_in_the_same_channel(
 
     # Specified: omni-agent is invoked with the text of the mention as the
     # question.
-    assert len(graph.calls) == 1, "expected omni-agent to be invoked exactly once"
-    asked = _question_from(graph.calls[0])
+    assert len(fake.calls) == 1, "expected omni-agent to be invoked exactly once"
+    asked = fake.calls[0]
     # Specified (design.md, "The mention's bot-ID token is stripped from the
     # event text before it's passed to omni_agent"). `.strip()` on the
     # observed value is deliberate: whether stripping the token leaves a
@@ -541,16 +500,16 @@ def test_omni_agent_invocation_failure_posts_a_message_to_the_channel(
     background task does not propagate the failure instead. See
     test-manifest.md.
     """
-    graph = install_graph(
+    fake = install_answer_question(
         monkeypatch,
-        _RecordingGraph(failure=RuntimeError("simulated omni-agent failure")),
+        _RecordingAnswerQuestion(failure=RuntimeError("simulated omni-agent failure")),
     )
 
     response = _post(client, _app_mention_payload(channel=CHANNEL))
 
     # Specified precondition: the invocation was actually attempted and did
     # fail -- otherwise this test would pass for the wrong reason.
-    assert len(graph.calls) == 1
+    assert len(fake.calls) == 1
 
     # Derived: the acknowledgement is unaffected; the failure happens after
     # the response has already been sent.
@@ -601,7 +560,7 @@ def test_any_workspace_member_can_trigger_omni(
     which these tests deliberately do not do.
     """
     answer = "Yes, any member can ask."
-    graph = install_graph(monkeypatch, _RecordingGraph(answer=answer))
+    fake = install_answer_question(monkeypatch, _RecordingAnswerQuestion(answer=answer))
 
     response = _post(
         client,
@@ -614,7 +573,7 @@ def test_any_workspace_member_can_trigger_omni(
 
     assert 200 <= response.status_code < 300
     # Specified: the mention is processed the same as any other.
-    assert len(graph.calls) == 1
+    assert len(fake.calls) == 1
     assert len(slack_client.posted) == 1
     assert slack_client.posted[0]["channel"] == CHANNEL
     assert answer in (slack_client.posted[0]["text"] or "")
