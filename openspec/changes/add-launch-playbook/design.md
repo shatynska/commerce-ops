@@ -121,12 +121,18 @@ Against Python literals: the ops team should be able to author a rule without ed
 
 ### Coherence is enforced at load, and failure is fatal
 
-The loader rejects a playbook rather than returning one partially valid. Two of the five rules exist to catch specific, predictable authoring mistakes:
+A playbook is rejected rather than returning one partially valid. Two of the six rules exist to catch specific, predictable authoring mistakes:
 
 - **Automated or AI-assisted execution without a rule policy is rejected.** A step cannot be automated when nobody has decided what "done" means. This makes premature automation fail at startup instead of at runtime, three months into a launch.
 - **A step classified `prohibited-tactic` may not be blocking.** A gate can never wait on something whose only terminal state is refusal — such a playbook would deadlock. Of the reference's ten `TOS RISK` rows, four fall in this class (`:580`, `:906`, `:1070`, `:1104`); the rest are compliance obligations and may block. See *The terms-of-service flag is split* above.
 
 The absent-policy case is otherwise explicitly allowed, so the file can carry all 358 items with the rule column still empty.
+
+**Where the rules live: `LaunchPlaybook`'s constructor, not the loader.** These are domain invariants — they hold regardless of where a playbook came from — so they are enforced by the `LaunchPlaybook` aggregate itself at construction, as pure domain code with no I/O. The driven adapter (`application`'s loader, per task 4.3) reads the file, parses it into the values `LaunchPlaybook` expects, and constructs it; it does not duplicate the checks. A shape or parse fault the adapter finds while building those values (a malformed YAML document, a field of the wrong type, an unparseable timing anchor) is collected the same way and merged into a single reported failure, so "every fault reported together" (see the spec's aggregation requirement) holds across both layers without the domain depending on the adapter or the adapter re-implementing domain rules.
+
+This settles a question the tests written against this change had to leave open: they exercise the six coherence rules by constructing `LaunchPlaybook` directly, and reserve the loader's own tests for the file-boundary concerns that only exist there — the shipped `v1` file loading successfully, and a malformed file's parse faults surfacing through the same aggregated failure.
+
+**A sixth rule: a gate's opening mode must match this specification.** The gate-sequence rule added in review checks identity, order and position, but not opening mode — a playbook could name all eight gates correctly and still mark `commit` as opening automatically. Since *A gate declares how it opens* (spec) already fixes which four gates require confirmation and which four do not, silently accepting a contradicting file would mean the specification's own criterion is unenforced anywhere. The `v1` data file is where the correct assignment is first authored; this rule is what stops a later edit from drifting.
 
 ### `scope` is carried now, and paid for later
 
@@ -134,9 +140,13 @@ The work splits genuinely: unit economics, sourcing, and the purchase order conc
 
 Instead each step declares `product` or `market` scope, and the launch remains a single unit. When a second marketplace arrives, the extraction is mechanical: filter by scope. One enum field is cheap insurance for a refactor that would otherwise be dreaded rather than executed.
 
-### `track` replaces the reference's `AGENT` column
+### `track` replaces the reference's `AGENT` column, as a fixed set of twelve
 
 The reference labels each row with an agent name. That conflates *who owns this expertise* — permanent domain knowledge — with *what software runs it* — an implementation choice this project intends to revise per step. `track` names the discipline; the execution mode names the mechanism; the two vary independently.
+
+`track` is a closed enumeration of the twelve disciplines the reference's own `AGENT` column already uses — `strategy`, `finance`, `setup`, `inventory`, `creative`, `listing`, `rank`, `price`, `ppc`, `customer`, `external`, `traffic` — rather than a free-text field. A step's track has to be queryable (spec: *Steps can be selected by gate and by scope* extends naturally to track) and it has to mean the same thing every time a step names it; an open string field gets both wrong the first time someone types `Inventory` where another step typed `inventory`. Closing it costs nothing today, since the follow-up import needs a fixed target to map the reference's twelve codes onto regardless, and it is what makes *Track is restricted to the known disciplines* (spec) a load-time check rather than a convention.
+
+This is deliberately a narrower claim than the gate sequence's closure: gates are the ordering spine and changing them is a structural decision about the model. `track` is a labelling taxonomy borrowed from the reference. Extending it later — if a discipline is added or split — is expected to happen, and costs adding one enum member, not revisiting an invariant.
 
 ### No step-to-step dependencies
 

@@ -31,6 +31,15 @@ absent; it establishes nothing about the assertions, which never executed.
 Names imported from the domain are DERIVED — no artifact fixes module
 paths, class names or field names. See
 `openspec/changes/add-launch-playbook/test-manifest.md`.
+
+**Follow-up pass (this file's tail, second delivery).** Two tests were
+added after the rest of this file was written and the suite's collection
+state confirmed unchanged: `test_each_specified_track_value_is_accepted` /
+`test_track_outside_the_fixed_set_is_rejected` (new *Track names one of a
+fixed set of disciplines* requirement) and
+`test_gate_opening_mode_disagreeing_with_the_specification_is_rejected`
+(sixth coherence rule, added to *An incoherent playbook is rejected at
+load time*). Nothing above this note was edited.
 """
 
 from __future__ import annotations
@@ -223,6 +232,92 @@ def test_steps_at_the_same_gate_carry_no_ordering() -> None:
             f"StepDefinition exposes {name!r}: gates are meant to be the "
             f"only ordering primitive in the playbook"
         )
+
+
+# ---------------------------------------------------------------------------
+# Requirement: Track names one of a fixed set of disciplines
+#
+# Added on a follow-up pass, after the rest of this file was written and
+# committed (see the module docstring). Not present in the delta spec at
+# the time of the first pass.
+# ---------------------------------------------------------------------------
+
+# SPECIFIED: the twelve disciplines a step definition's track may declare
+# (Requirement: Track names one of a fixed set of disciplines).
+SPECIFIED_TRACKS: Final = (
+    "strategy",
+    "finance",
+    "setup",
+    "inventory",
+    "creative",
+    "listing",
+    "rank",
+    "price",
+    "ppc",
+    "customer",
+    "external",
+    "traffic",
+)
+
+
+@pytest.mark.parametrize("track_name", SPECIFIED_TRACKS)
+def test_each_specified_track_value_is_accepted(track_name: str) -> None:
+    """Scenario: Track is restricted to the known disciplines (permitted side).
+
+    Not itself a `#### Scenario:` block — the spec's rejection scenario
+    only forbids a track *outside* the fixed set of twelve, so this checks
+    the permitted complement: an implementation that rejected every track,
+    known or not, would still pass
+    `test_track_outside_the_fixed_set_is_rejected` alone. Same relationship
+    as `test_automated_step_with_a_rule_policy_is_accepted` bears to its
+    rejection scenario, above.
+
+    DERIVED: the mapping from the spec's wire spelling (e.g. `"strategy"`)
+    to a `Track` member name (`Track.STRATEGY`) follows the same
+    hyphen-to-underscore, upper-case convention already assumed for
+    `Hazard` elsewhere in this file (see `test_hazard_classification_...`
+    and the manifest's Q2) — no artifact fixes `Track`'s Python member
+    names, only its twelve wire values, which the spec now states in full.
+    """
+    track = getattr(Track, track_name.upper())
+    step = _step(identifier=f"track.{track_name}-example", track=track)
+
+    (read_back,) = _playbook(steps=(step,)).steps_for_gate(step.gate)
+
+    # SPECIFIED: a step definition declaring one of the twelve disciplines
+    # is accepted and read back with that track.
+    assert read_back.track is track
+
+
+def test_track_outside_the_fixed_set_is_rejected() -> None:
+    """Scenario: Track is restricted to the known disciplines.
+
+    WHEN a step definition declares a track outside this set
+    THEN loading fails with an error naming the step and the unrecognised
+    track.
+
+    Checked at `StepDefinition` construction directly, per `tasks.md` 3.2
+    ("reject a track outside the fixed set of twelve at construction") —
+    unlike an unknown *gate* (which needs a playbook's gate sequence to
+    judge against, see `test_step_referencing_an_unknown_gate_is_rejected`
+    below), an unrecognised track needs no playbook context: the set of
+    twelve disciplines is fixed independent of any one playbook.
+
+    DERIVED: `InvalidPlaybookError` as the raised type, and a raw string
+    (`"not-a-recognised-track"`) as how an unrecognised track is
+    "declared" at this level. The spec requires only "an error naming the
+    step and the unrecognised track"; this file's other rejection tests
+    that use this same "loading fails with an error naming X" phrasing all
+    raise `InvalidPlaybookError`, so the same type is assumed here — see
+    the manifest's Q2, extended to cover this scenario.
+    """
+    with pytest.raises(InvalidPlaybookError) as caught:
+        _step(identifier="listing.mystery-track", track="not-a-recognised-track")
+
+    # SPECIFIED: the error names the step and the unrecognised track.
+    message = str(caught.value)
+    assert "listing.mystery-track" in message
+    assert "not-a-recognised-track" in message
 
 
 # ---------------------------------------------------------------------------
@@ -541,6 +636,34 @@ def test_gate_sequence_repeating_a_position_is_rejected() -> None:
     assert "stock-ready" in message or "listable" in message
 
 
+def test_gate_opening_mode_disagreeing_with_the_specification_is_rejected() -> None:
+    """Scenario: A gate's opening mode disagrees with the specification.
+
+    WHEN a playbook declares an opening mode for a gate that differs from
+    the mode this specification assigns to it
+    THEN loading fails with an error naming that gate.
+
+    Added on a follow-up pass — see the module docstring. `commit` is used
+    because the spec's own worked example puts it on the wrong side
+    deliberately: *A gate declares how it opens* fixes `commit` as
+    requiring confirmation, and it is authored here as opening
+    automatically instead.
+    """
+    gates = list(specified_gates())
+    commit_index = SPECIFIED_GATE_ORDER.index("commit")
+    gates[commit_index] = Gate(
+        identifier="commit",
+        position=gates[commit_index].position,
+        opening=GateOpening.AUTOMATIC,
+    )
+
+    with pytest.raises(InvalidPlaybookError) as caught:
+        _playbook(gates=tuple(gates))
+
+    # SPECIFIED: the error names that gate.
+    assert "commit" in str(caught.value)
+
+
 def test_duplicate_step_identifier_is_rejected() -> None:
     """Scenario: Duplicate step identifier.
 
@@ -768,6 +891,7 @@ def test_human_attested_step_with_no_rule_policy_loads() -> None:
 #   identifier" is asserted above through the `steps` collection so that no
 #   lookup API is invented here; if the implementation adds one, that is a
 #   free choice, not a constraint from this spec.
-# - The member sets of `Track`, `Scope`, `Binding`, `ExecutionMode` and
-#   `Cadence` beyond the members these tests use. Only `Hazard`'s set is
-#   closed by the spec, and only that one is asserted.
+# - The member sets of `Scope`, `Binding`, `ExecutionMode` and `Cadence`
+#   beyond the members these tests use. Only `Hazard`'s set (three) and, as
+#   of the follow-up pass, `Track`'s set (twelve) are closed by the spec,
+#   and only those are asserted.

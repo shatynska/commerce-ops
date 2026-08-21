@@ -48,6 +48,15 @@ Note, as context for applying that criterion rather than as a requirement of thi
 - **WHEN** the `listable`, `stock-ready`, `live`, or `ignition` gate is read
 - **THEN** it reports that it opens automatically
 
+### Requirement: Track names one of a fixed set of disciplines
+
+A step definition's track SHALL be one of the following twelve disciplines, matching the ownership boundaries the source material already uses: `strategy`, `finance`, `setup`, `inventory`, `creative`, `listing`, `rank`, `price`, `ppc`, `customer`, `external`, `traffic`.
+
+#### Scenario: Track is restricted to the known disciplines
+
+- **WHEN** a step definition declares a track outside this set
+- **THEN** loading fails with an error naming the step and the unrecognised track
+
 ### Requirement: A step definition declares how it is to be resolved
 
 Each step definition SHALL declare all of:
@@ -166,6 +175,7 @@ Loading a playbook SHALL validate its coherence and SHALL fail rather than retur
 A playbook SHALL be rejected when any of the following holds:
 
 - its gate sequence is not exactly the eight gates named in this specification, in that order, each holding a distinct position
+- a gate's declared opening mode does not match the mode this specification assigns to it
 - two step definitions share an identifier
 - a step definition declares a gate that is not in the gate sequence
 - a step definition's execution mode is automated or AI-assisted while its rule policy is absent
@@ -175,6 +185,11 @@ A playbook SHALL be rejected when any of the following holds:
 
 - **WHEN** a playbook's gate sequence omits a gate, adds one, repeats a position, or orders the gates differently from the defined sequence
 - **THEN** loading fails with an error naming the deviation
+
+#### Scenario: A gate's opening mode disagrees with the specification
+
+- **WHEN** a playbook declares an opening mode for a gate that differs from the mode this specification assigns to it
+- **THEN** loading fails with an error naming that gate
 
 #### Scenario: Duplicate step identifier
 
