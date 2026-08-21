@@ -6,11 +6,10 @@ import re
 from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
-from langchain_core.messages import HumanMessage
 from slack_sdk import WebClient
 from slack_sdk.signature import SignatureVerifier
 
-from commerce_ops.omni_agent.application.graph import build_production_graph
+from commerce_ops.omni_agent.application import answer_question
 
 router = APIRouter()
 
@@ -37,9 +36,7 @@ def handle_app_mention(event: dict[str, Any]) -> None:
     question = _question_from_mention_text(event.get("text", ""))
 
     try:
-        graph = build_production_graph()
-        result = graph.invoke({"messages": [HumanMessage(content=question)]})
-        answer = result["messages"][-1].content
+        answer = answer_question(question)
         client.chat_postMessage(channel=channel, text=answer)
     except Exception:  # noqa: BLE001 -- design.md: any omni-agent failure must surface in Slack
         client.chat_postMessage(
@@ -48,7 +45,7 @@ def handle_app_mention(event: dict[str, Any]) -> None:
         )
 
 
-@router.post("/slack/events")
+@router.post("/omni_agent/slack/events")
 async def slack_events(
     request: Request, background_tasks: BackgroundTasks
 ) -> dict[str, Any]:
