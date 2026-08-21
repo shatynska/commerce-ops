@@ -18,7 +18,8 @@ services:
         condition: service_healthy
     networks:
       - platform_edge
-      - appdb
+      - app_db
+      - app_cron
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.commerce-ops.rule=Host(`fuperia.shatynska.com`)"
@@ -52,12 +53,48 @@ services:
     networks:
       # Deliberately not on platform_edge: no HTTP surface, no reason to be
       # reachable from the same network other apps on this host may share.
-      - appdb
+      - app_db
+
+  cron:
+    # add-product-agent-daily-digest: fires the product-monitoring cadence
+    # triggers on a schedule. Declared inline (see design.md's Decisions on
+    # why: deploy-pipeline only ships docker-compose.yml and .env, never a
+    # separate crontab file) rather than a label-driven scheduler -- one
+    # image, five plain crontab lines. The crontab is generated at
+    # container start from TRIGGER_SECRET (delivered via env_file, same as
+    # `app`) so the secret never appears in this file itself; `$$` below is
+    # Compose's own escape for a literal `$`, so the substitution happens
+    # in the container's shell, not at `docker compose` parse time.
+    image: alpine:3.21
+    restart: unless-stopped
+    env_file: .env
+    command:
+      - /bin/sh
+      - -c
+      - |
+        cat > /etc/crontabs/root <<EOF
+        0 6 * * * wget -q -T 10 -O /dev/null --header="Authorization: Bearer $$TRIGGER_SECRET" --post-data= http://app:8000/products/monitoring/daily
+        0 7 * * 1 wget -q -T 10 -O /dev/null --header="Authorization: Bearer $$TRIGGER_SECRET" --post-data= http://app:8000/products/monitoring/weekly
+        0 7 1,15 * * wget -q -T 10 -O /dev/null --header="Authorization: Bearer $$TRIGGER_SECRET" --post-data= http://app:8000/products/monitoring/biweekly
+        0 8 1 * * wget -q -T 10 -O /dev/null --header="Authorization: Bearer $$TRIGGER_SECRET" --post-data= http://app:8000/products/monitoring/monthly
+        0 9 1 1,4,7,10 * wget -q -T 10 -O /dev/null --header="Authorization: Bearer $$TRIGGER_SECRET" --post-data= http://app:8000/products/monitoring/quarterly
+        EOF
+        exec crond -f -l 2
+    depends_on:
+      - app
+    networks:
+      # Private to app + cron only -- not platform_edge (cron has no HTTP
+      # surface of its own and doesn't need the shared ingress fabric) and
+      # not app_db (cron has no reason to reach Postgres directly; see
+      # design.md's Decisions on why a future DB-adjacent scheduled task
+      # would still go through an app endpoint, not this network).
+      - app_cron
 
 networks:
   platform_edge:
     external: true
-  appdb:
+  app_db:
+  app_cron:
 
 volumes:
   commerce_ops_pgdata:

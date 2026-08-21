@@ -76,7 +76,10 @@ jobs:
       # docker-compose.yml's `env_file: .env`. POSTGRES_PASSWORD is also
       # read directly by docker-compose.yml's own variable substitution
       # (the postgres service's credentials, and the app's DATABASE_URL) --
-      # see add-products-store's proposal.md - Impact.
+      # see add-products-store's proposal.md - Impact. TRIGGER_SECRET is
+      # read directly by the `cron` service's own startup script (see
+      # add-product-agent-daily-digest's docker-compose.yml comments) --
+      # both `app` and `cron` receive it via this same rendered file.
       - name: Render .env
         run: |
           umask 077
@@ -86,6 +89,9 @@ jobs:
             echo "OMNI_AGENT_SLACK_SIGNING_SECRET=${{ secrets.OMNI_AGENT_SLACK_SIGNING_SECRET }}"
             echo "OMNI_AGENT_SLACK_BOT_TOKEN=${{ secrets.OMNI_AGENT_SLACK_BOT_TOKEN }}"
             echo "POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}"
+            echo "PRODUCT_AGENT_SLACK_BOT_TOKEN=${{ secrets.PRODUCT_AGENT_SLACK_BOT_TOKEN }}"
+            echo "PRODUCT_AGENT_MONITORING_CHANNEL_ID=${{ secrets.PRODUCT_AGENT_MONITORING_CHANNEL_ID }}"
+            echo "TRIGGER_SECRET=${{ secrets.TRIGGER_SECRET }}"
           } >.env
 
       # COMMERCE_OPS_DEPLOY_SSH_KEY is this application's own forced-command

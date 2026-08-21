@@ -9,6 +9,7 @@ design.md's Decisions section on `ProductRepository`).
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import date
 from uuid import UUID
 
@@ -65,6 +66,10 @@ class ProductRepository:
     async def get_by_sku(self, sku: str) -> Product | None:
         result = await self._session.execute(select(Product).where(Product.sku == sku))
         return result.scalar_one_or_none()
+
+    async def list_names(self) -> Sequence[str]:
+        result = await self._session.execute(select(Product.name))
+        return result.scalars().all()
 
     async def update_current_gate(self, product_id: UUID, current_gate: str) -> None:
         if current_gate not in GATE_IDS:

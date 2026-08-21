@@ -31,6 +31,13 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = ["tests/unit", "tests/agents", "tests/integration"]
 
+[tool.ruff.lint.flake8-bugbear]
+# fastapi.Depends() as a parameter default is the idiomatic FastAPI
+# dependency-injection pattern, not a mutable-default footgun -- B008 only
+# recognizes this automatically when the parameter's annotation is a plain
+# builtin scalar (int/str/bool/float), not a real type like AsyncSession.
+extend-immutable-calls = ["fastapi.Depends"]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
