@@ -36,14 +36,6 @@ def handle_app_mention(event: dict[str, Any]) -> None:
     channel = event["channel"]
     question = _question_from_mention_text(event.get("text", ""))
 
-    # Posted before the (potentially slow) omni-agent call, so the channel
-    # sees a near-instant response confirming the mention was received and
-    # posting works -- independent of how long generation takes or whether
-    # it succeeds.
-    client.chat_postMessage(
-        channel=channel, text=":hourglass_flowing_sand: Working on it..."
-    )
-
     try:
         graph = build_production_graph()
         result = graph.invoke({"messages": [HumanMessage(content=question)]})
@@ -85,31 +77,3 @@ async def slack_events(
             background_tasks.add_task(handle_app_mention, event)
 
     return {"ok": True}
-
-
-@router.post("/slack/commands")
-async def slack_commands(request: Request) -> dict[str, Any]:
-    """Diagnostic slash command endpoint.
-
-    Not part of any current spec -- added to test whether Slack can reach
-    this server at all, since a slash command surfaces a clear
-    "dispatch_failed" error in Slack's own UI on failure, unlike the Events
-    API's silent delivery failures. Remove once /slack/events delivery is
-    confirmed working, or formalize via a proper spec change if kept.
-    """
-    body = await request.body()
-
-    try:
-        is_valid = get_signature_verifier().is_valid_request(
-            body, dict(request.headers)
-        )
-    except (KeyError, ValueError):
-        is_valid = False
-
-    if not is_valid:
-        raise HTTPException(status_code=401, detail="invalid Slack signature")
-
-    return {
-        "response_type": "ephemeral",
-        "text": "pong -- commerce-ops reached this request successfully.",
-    }
