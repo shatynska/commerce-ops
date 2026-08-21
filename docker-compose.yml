@@ -2,14 +2,23 @@ services:
   app:
     image: ghcr.io/shatynska/commerce-ops:${IMAGE_TAG}
     # The same .env the deploy renders and delivers alongside this file.
-    # Compose already reads it for ${IMAGE_TAG} substitution above; this
-    # additionally loads its contents into the container's process
-    # environment, which is how the application receives its runtime
-    # secrets (IMAGE_TAG comes along inertly).
+    # Compose already reads it for ${IMAGE_TAG}/${POSTGRES_PASSWORD}
+    # substitution in this file; this additionally loads its contents into
+    # the container's process environment, which is how the application
+    # receives its runtime secrets (IMAGE_TAG comes along inertly).
     env_file: .env
+    environment:
+      # Built from the same POSTGRES_PASSWORD secret .env carries, rather
+      # than duplicating a second connection-string secret through the
+      # deploy pipeline (see add-products-store's proposal.md - Impact).
+      DATABASE_URL: postgresql+asyncpg://commerce_ops:${POSTGRES_PASSWORD}@postgres:5432/commerce_ops
     restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
     networks:
       - platform_edge
+      - appdb
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.commerce-ops.rule=Host(`fuperia.shatynska.com`)"
@@ -17,6 +26,38 @@ services:
       - "traefik.http.routers.commerce-ops.tls.certresolver=letsencrypt"
       - "traefik.http.services.commerce-ops.loadbalancer.server.port=8000"
 
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: commerce_ops
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: commerce_ops
+    volumes:
+      - commerce_ops_pgdata:/var/lib/postgresql/data
+    ports:
+      # Loopback-only: lets `alembic`/`pytest` running directly on the host
+      # (not in a container) reach it for local development, per README.md's
+      # "Local Postgres" section -- not bound to a public interface, and
+      # distinct from the appdb network's container-to-container isolation
+      # from platform_edge below.
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      # Required for `app`'s `depends_on: condition: service_healthy` above
+      # to be evaluable at all -- see design.md's Decisions.
+      test: ["CMD-SHELL", "pg_isready -U commerce_ops -d commerce_ops"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      # Deliberately not on platform_edge: no HTTP surface, no reason to be
+      # reachable from the same network other apps on this host may share.
+      - appdb
+
 networks:
   platform_edge:
     external: true
+  appdb:
+
+volumes:
+  commerce_ops_pgdata:

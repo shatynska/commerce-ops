@@ -66,7 +66,8 @@ from datetime import date
 from typing import Final
 
 import pytest
-from commerce_ops.products.infrastructure.driven.product_repository import (  # type: ignore[import-untyped]
+
+from commerce_ops.products.infrastructure.driven.product_repository import (
     ProductRepository,
     ProductRepositoryError,
 )

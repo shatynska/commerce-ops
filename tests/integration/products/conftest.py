@@ -65,13 +65,14 @@ from collections.abc import AsyncIterator, Callable
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 
 import pytest
-from commerce_ops.products.infrastructure.driven.product_repository import (  # type: ignore[import-untyped]
-    ProductRepository,
-)
-from sqlalchemy.ext.asyncio import (  # type: ignore[import-not-found]
+from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     async_sessionmaker,
     create_async_engine,
+)
+
+from commerce_ops.products.infrastructure.driven.product_repository import (
+    ProductRepository,
 )
 
 
