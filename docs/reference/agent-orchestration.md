@@ -1,0 +1,152 @@
+# AGENT ORCHESTRATION
+
+Who does what, in what order, across both stages. Levels: 1 section, 2 group, 3 item, 4 detail - expand and collapse with the +/- buttons to the left of the row numbers. The agent roster is the answer to 'do launch and monitoring need different agents': ten agents are SHARED and read a stage-keyed threshold set, two exist only for launch because they BUILD rather than watch, and two are monitoring-side. Fourteen in total.
+
+## Columns
+
+| SECTION / GROUP / ITEM | NOTE | LVL |
+| --- | --- | --- |
+
+**Column meanings:** 1. Expand one level at a time using the numbered buttons above the row numbers · 2. Context, owner or caveat · 3. Tree depth
+
+- 1. HOW A RUN WORKS
+- Monitoring run - a loop, judged against thresholds
+- LOOKER starts the run on schedule — daily / weekly / biweekly / quarterly
+- Domain agents run in parallel, each reading only the metrics it owns
+- Each returns a structured report: finding / no finding / cannot answer
+- LOOKER validates, then removes duplicates using the monitoring cause order
+- LOOKER assembles one picture and hands it to SKAUT — facts only, no interpretation
+- SKAUT interprets, checks raw data and the knowledge base, writes the recommendation
+- Launch run - a sequence, judged against completion
+- LOOKER opens the launch checklist for that SKU at its current step
+- Agents report their step items as done / blocked / not started - not as thresholds
+- LOOKER holds the gate: a step does not open until the prior step's blocking items are done
+- STRATEGY owns the launch project state - which step, what is blocking, is the date at risk
+- SKAUT interprets the same way, but against phase-gate criteria rather than thresholds
+- The difference is the ROW TYPE, not the agent
+- CHECK - recurring, has a threshold, answers 'is this within range' — the monitoring plan
+- TASK - one-time, has a completion state, answers 'is this done' — most of the launch plan
+- One agent owns both types. RANK checks rank forever, and at launch also owns 'confirm indexation before the first ad impression'
+- 2. THE AGENT ROSTER
+- CROSS-STAGE - serve every stage
+- LOOKER - runs the schedule, collects, validates, deduplicates, assembles — NO data access, NO interpretation
+- SKAUT - interprets, checks raw data and the knowledge base, writes recommendations — the only agent with raw data access
+- SHARED - the same agent serves launch AND monitoring, with stage-keyed thresholds
+- STRATEGY — state, driver, posture - and the launch project state
+- Monitoring: Scale / Optimize / Hold / Recover / Inventory Override, transition triggers
+- Launch: phase 1-4, go/no-go gates, graduation criteria, which step is blocking
+- FINANCE — CM ladder, unit economics, cash
+- Monitoring: CM1/CM2/CM3 vs target, fee changes, storage, reimbursements
+- Launch: the launch P&L, breakeven ACOS, the loss window, first-order cash
+- INVENTORY — cover, stock movement, reorder
+- Monitoring: cover bands, stockouts, inbound, overstock, reorder signal
+- Launch: first order size, split shipment, the fulfillable-units gate, receiving lag
+- LISTING — listing content and catalogue integrity
+- Monitoring: unapproved changes, suppression, badges, variation integrity
+- Launch: create the listing, flat file, release dates, indexation, go-live
+- RANK — organic position and keywords
+- Monitoring: rank on tracked keywords, index status, share of voice
+- Launch: keyword set selection, deployment rounds, the ranking push
+- PRICE — price, deals and competitors
+- Monitoring: own price, Buy Box, competitor price and stock
+- Launch: the price tier structure, strike-through, launch coupon, raising price
+- PPC — advertising
+- Monitoring: ACOS vs breakeven, TACOS, wasted spend, placements, structure drift
+- Launch: campaign build, seed bids, launch budgets, phase graduation
+- CUSTOMER — reviews, ratings, returns
+- Monitoring: rating trend, negative reviews, return rate, NCX, message SLA
+- Launch: Vine, the review requester, early-review handling, review gates on spend
+- EXTERNAL — off-Amazon traffic
+- Monitoring: external sessions, attribution, Brand Referral Bonus
+- Launch: owned list, creators, TikTok, the exhaust-Amazon-first gate
+- TRAFFIC — sessions and conversion
+- Monitoring: sessions, unit session %, organic CTR, SQP
+- Launch: the pre-review conversion window, the stop-rule on traffic pushes
+- LAUNCH ONLY - these BUILD, they do not watch
+- SETUP - registrations, certificates, product IDs, catalogue creation, EU compliance — no monitoring counterpart
+- Trademark and Brand Registry, GS1 and GTIN, FNSKU, gating, compliance testing, EPR / WEEE / GPSR / VAT
+- Why separate: HEALTH monitors account standing, it does not do registrations
+- CREATIVE - produces images, video, A+, brand story, packaging assets — no monitoring counterpart
+- Why separate: LISTING monitors whether content CHANGED, it does not make it
+- MONITORING ONLY
+- SALES - units, revenue, channel split, forecast variance, BSR — a launching SKU has no history to compare against
+- HEALTH - account health, policy violations, IP complaints, suppressions — continuous and account-level, so it covers a launch too without a launch-specific role
+- OTHER STAGES - not yet defined
+- PRODUCT RESEARCH - scope will come from the Product Research tab — not started
+- MARKETING & MEDIA - scope will come from the Marketing & Media tab — not started
+- SUPPLY CHAIN EXECUTION - INVAR, live today and outside this system — INVENTORY reports the state, INVAR acts on it - keep them separate
+- COUNT: 14 agents total, not 24
+- 2 cross-stage + 10 shared + 2 launch-only. SALES and HEALTH sit inside the shared 10's monitoring half
+- 3. HOW SHARING ACTUALLY WORKS
+- Stage is an attribute of the PRODUCT, not of the agent
+- STRATEGY stamps the stage. Every agent reads the stamp and picks the matching threshold set
+- Launch behaves like a temporary state, exactly as Inventory Override does
+- One metric, one owner, one threshold TABLE
+- The same metric keeps one ID across stages; only the threshold changes
+- Worked example - ACOS. Launch: ignore unless above 2x profit margin. Steady state: vs breakeven, ranked high / mid / low risk
+- Worked example - cover. Launch: 60-80 fulfillable units to go live. Steady state: 45-90 day band, Override below 14
+- Worked example - rating. Launch: gate on stability, enough 5-stars that one negative cannot cost half a star. Steady state: trend and velocity
+- OPEN - the launch and monitoring registries still use different metric IDs
+- Launch rows use lp.<agent>.<n>, monitoring rows use <domain>.<metric>. Where they are the same metric this must become one ID with two threshold sets
+- Until that is reconciled, 'the same agents serve both stages' is true on paper only
+- 4. RULES THAT APPLY TO EVERY AGENT, EVERY STAGE
+- Comparison periods
+- DoD - binary events only: zero sales, out of stock, suppression, refund spike
+- WoW - the default for everything else — removes weekday / weekend noise
+- MoM - trend confirmation
+- YoY - same week or same month last year — never same day last year
+- vs plan - only if a plan exists for that SKU and period; a missing plan is skipped, not failed
+- Significance thresholds
+- Under 10% - noise, do not alert
+- 10-20% - monitor, log it, show in the digest
+- 20-35% - diagnose, run the agent checklist
+- Over 35% - critical, alert immediately — plus all binary events regardless of size
+- SKUs under 2 units/day are exempt from percentage thresholds — a 3-unit SKU breaks 35% every day
+- What every agent report must contain
+- metric_id, entity, market — which metric, which SKU, which marketplace
+- period, comparison, value, prior, delta
+- tier - noise / monitor / diagnose / critical
+- verdict - finding / no finding / cannot answer
+- evidence_ref and data_freshness — where the number came from and when it last updated
+- A report that fails validation is REJECTED, not interpreted
+- Rules that keep it honest
+- Data freshness first - stale data is not a finding
+- Fix the baseline before the verdict - a holiday against a weekday baseline is a wrong baseline, not a bad day
+- Missing is not fine - cannot answer and no finding are different answers
+- No invented causes - if no agent explains it, LOOKER ships it as unexplained
+- Every number SKAUT states traces to a metric_id and an evidence_ref
+- A hypothesis SKAUT adds is labelled as one, separate from the findings
+- One metric, one owner, one place - calculated once, in a Supabase view
+- Silent when clean - no findings means no report
+- State gates action - a product in Hold or Optimize does not get an aggressive recommendation
+- 5. STAGE-SPECIFIC LOGIC
+- MONITORING - cause order. Highest cause wins, everything below attaches as a symptom
+- 1 Availability - out of stock, Buy Box lost, listing suppressed — INVENTORY / LISTING / PRICE
+- 2 Price - own price or floor changed — PRICE
+- 3 Listing change - content, images, variation, badges — LISTING
+- 4 Competitor action - new entrant, price cut, promo — PRICE
+- 5 Demand - season, category-wide, holiday — SALES
+- 6 Traffic - sessions, impressions — TRAFFIC / RANK
+- 7 Conversion - unit session % — TRAFFIC
+- 8 Advertising - spend, ACOS, budget — PPC
+- One stockout produces a sales drop, a conversion drop and an ACOS spike. That is ONE item, not three
+- LAUNCH - phase gates. A step does not open until the prior gate passes
+- Gate 1 - go / no-go: unit economics clear, demand validated, compliance path known — STRATEGY + FINANCE
+- Gate 2 - listing ready: indexed, assets live, price tiers set, compliance documents uploaded — LISTING + CREATIVE + SETUP
+- Gate 3 - stock ready: 60-80 fulfillable units, excluding Vine allocation — INVENTORY
+- Gate 4 - go live: listing live 3-4 days before launch, campaigns built and paused — LISTING + PPC
+- Gate 5 - phase 1 graduation: keywords deployed, results plateau, ~10 units/day, organic above 40% — PPC + RANK
+- Gate 6 - launch over: rank holds without the discount, TACOS falling, reviews organic at 4.5, retention live — STRATEGY
+- Each stage writes its own cause order - the monitoring one does not transfer
+- 6. BUILD ORDER
+- Phase 1 - prove the contract
+- Report schema, cause order, LOOKER and SKAUT
+- Three domain agents: SALES, PPC, INVENTORY
+- Phase 2
+- FINANCE first - CM targets feed PPC breakeven
+- Then TRAFFIC, RANK, LISTING
+- Phase 3
+- PRICE, CUSTOMER, HEALTH, EXTERNAL, STRATEGY — these need new data sources first
+- Launch-side, whenever the first launch is scheduled
+- SETUP and CREATIVE, plus the launch threshold sets on the shared agents
+- Before any of it - reconcile the two registries into one metric list
