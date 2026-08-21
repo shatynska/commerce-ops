@@ -36,6 +36,14 @@ def handle_app_mention(event: dict[str, Any]) -> None:
     channel = event["channel"]
     question = _question_from_mention_text(event.get("text", ""))
 
+    # Posted before the (potentially slow) omni-agent call, so the channel
+    # sees a near-instant response confirming the mention was received and
+    # posting works -- independent of how long generation takes or whether
+    # it succeeds.
+    client.chat_postMessage(
+        channel=channel, text=":hourglass_flowing_sand: Working on it..."
+    )
+
     try:
         graph = build_production_graph()
         result = graph.invoke({"messages": [HumanMessage(content=question)]})

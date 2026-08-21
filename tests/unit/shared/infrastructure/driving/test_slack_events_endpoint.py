@@ -465,7 +465,9 @@ def test_app_mention_is_acknowledged_before_answer_generation(
 
     # Specified: the answer is posted separately, once it is ready.
     assert len(graph.calls) == 1
-    assert len(slack_client.posted) == 1
+    # Derived: an immediate "working on it" acknowledgment is posted before
+    # omni-agent runs, followed by the answer -- two messages total.
+    assert len(slack_client.posted) == 2
 
 
 # --------------------------------------------------------------------------
@@ -508,8 +510,10 @@ def test_mention_receives_an_answer_in_the_same_channel(
     assert asked.strip() == question
 
     # Specified: the answer is posted as a message in that same channel.
-    assert len(slack_client.posted) == 1, "expected exactly one message posted back"
-    posted = slack_client.posted[0]
+    # Derived: an immediate "working on it" acknowledgment precedes it, so
+    # the answer is the last message posted, not necessarily the only one.
+    assert slack_client.posted, "expected at least one message posted back"
+    posted = slack_client.posted[-1]
     assert posted["channel"] == CHANNEL
     # Derived: containment rather than equality, so an implementation that
     # adds surrounding formatting is not failed for it. What is specified is
@@ -562,8 +566,9 @@ def test_omni_agent_invocation_failure_posts_a_message_to_the_channel(
         "omni-agent failed and nothing was posted back to the channel; the "
         "mention was left silently unanswered"
     )
-    assert len(slack_client.posted) == 1
-    posted = slack_client.posted[0]
+    # Derived: an immediate "working on it" acknowledgment precedes the
+    # failure message, so the failure message is the last one posted.
+    posted = slack_client.posted[-1]
     assert posted["channel"] == CHANNEL
     assert posted["text"], "the failure message posted to the channel was empty"
 
@@ -615,6 +620,8 @@ def test_any_workspace_member_can_trigger_omni(
     assert 200 <= response.status_code < 300
     # Specified: the mention is processed the same as any other.
     assert len(graph.calls) == 1
-    assert len(slack_client.posted) == 1
-    assert slack_client.posted[0]["channel"] == CHANNEL
-    assert answer in (slack_client.posted[0]["text"] or "")
+    # Derived: an immediate "working on it" acknowledgment precedes the
+    # answer, so the answer is the last message posted.
+    assert slack_client.posted
+    assert slack_client.posted[-1]["channel"] == CHANNEL
+    assert answer in (slack_client.posted[-1]["text"] or "")
