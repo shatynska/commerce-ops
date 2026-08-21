@@ -41,8 +41,8 @@
 ## 7. Secrets delivery
 
 - [x] 7.1 Add `PRODUCT_AGENT_SLACK_BOT_TOKEN`, `PRODUCT_AGENT_MONITORING_CHANNEL_ID`, and `TRIGGER_SECRET` to the `.env`-rendering step in `.github/workflows/deploy.yml`
-- [ ] 7.2 Register the corresponding values as GitHub Actions secrets on the `production` Environment (external/manual step — create the `product_agent` Slack app, install it to the workspace with `chat:write`, invite the bot to the target channel, generate a `TRIGGER_SECRET` value) — **cannot be done from this session; requires manual action in the Slack admin console and GitHub repo settings**
-- [ ] 7.3 Capture the `product_agent` app's auto-generated signing secret and hold it wherever such values are kept for now — do not add it to `.env`, GitHub Actions secrets, or any verification code in this change — **cannot be done from this session; the Slack app doesn't exist yet**
+- [x] 7.2 Register the corresponding values as GitHub Actions secrets on the `production` Environment (external/manual step — create the `product_agent` Slack app, install it to the workspace with `chat:write`, invite the bot to the target channel, generate a `TRIGGER_SECRET` value) — done by the user; verified via `gh secret list --env production` that `PRODUCT_AGENT_SLACK_BOT_TOKEN`, `PRODUCT_AGENT_MONITORING_CHANNEL_ID`, and `TRIGGER_SECRET` are all present with names matching `deploy.yml` exactly
+- [x] 7.3 Capture the `product_agent` app's auto-generated signing secret and hold it wherever such values are kept for now — do not add it to `.env`, GitHub Actions secrets, or any verification code in this change — done by the user (`PRODUCT_AGENT_SLACK_SIGNING_SECRET` registered as a GitHub Actions secret, held for later; confirmed `deploy.yml` does not read it)
 
 ## 8. Tests
 
