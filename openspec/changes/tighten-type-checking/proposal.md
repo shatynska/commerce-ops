@@ -6,7 +6,7 @@ There is no `[tool.mypy]` section in `pyproject.toml` and no `mypy.ini`, so it r
 
 ```python
 def f(a=[]):
-    x: int = "s"      # mypy: Success: no issues found in 1 source file
+    x: int = "s"  # mypy: Success: no issues found in 1 source file
 ```
 
 Both the `pre-commit` hook and CI's `mypy` step pass on that. The gate exists, runs, and reports success while the error stands.

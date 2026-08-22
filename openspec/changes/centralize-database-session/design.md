@@ -9,6 +9,7 @@ See proposal.md — Why. This section records only the constraints that shape th
 def _get_engine() -> AsyncEngine:
     return create_async_engine(os.environ["DATABASE_URL"])
 
+
 async def get_session() -> AsyncIterator[AsyncSession]:
     session_factory = async_sessionmaker(_get_engine(), expire_on_commit=False)
     async with session_factory() as session:
