@@ -24,8 +24,9 @@
 #     provenance: str            # optional — a citation, never an identifier
 #
 # This is the v1 playbook: the eight gates only, per the launch-playbook
-# capability's spec, with no step definitions. Importing the 358 reference
-# items is a follow-up change — see design.md, "Ship gates only".
+# capability's spec, with no step definitions. Authoring the step
+# definitions is a follow-up change; the gate sequence is shipped first
+# because it is the part every step has to attach to.
 
 version: v1
 gates:

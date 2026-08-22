@@ -5,14 +5,22 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    # Bolt's async app and slack-sdk's AsyncWebClient both need aiohttp, and
+    # it is NOT transitive: slack-sdk declares it only under its `optional`
+    # extra, so this project carries it directly.
+    "aiohttp>=3.13.5,<4",
     "alembic>=1.13,<2",
     "asyncpg>=0.29,<1",
     "fastapi>=0.141.1",
     "httpx>=0.28.1",
     "langchain-openai>=1.6.0",
     "langgraph>=1.2.11",
+    "pydantic-settings>=2.15.0",
     "pyyaml>=6.0,<7",
-    "slack-sdk>=3.36.0,<4",
+    "slack-bolt>=1.30,<2",
+    # Floor raised from 3.36 to match slack-bolt 1.30's own `slack_sdk>=3.38`
+    # requirement, so the real constraint is declared rather than implicit.
+    "slack-sdk>=3.38.0,<4",
     "sqlalchemy[asyncio]>=2.0,<3",
     "uvicorn[standard]>=0.52.4",
 ]

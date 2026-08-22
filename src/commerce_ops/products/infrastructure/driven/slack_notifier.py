@@ -13,14 +13,14 @@ from __future__ import annotations
 import functools
 import os
 
-from slack_sdk import WebClient
+from slack_sdk.web.async_client import AsyncWebClient
 
 
 @functools.lru_cache
-def _get_slack_client() -> WebClient:
-    return WebClient(token=os.environ["PRODUCT_AGENT_SLACK_BOT_TOKEN"])
+def _get_slack_client() -> AsyncWebClient:
+    return AsyncWebClient(token=os.environ["PRODUCT_AGENT_SLACK_BOT_TOKEN"])
 
 
-def post_monitoring_message(message: str) -> None:
+async def post_monitoring_message(message: str) -> None:
     channel = os.environ["PRODUCT_AGENT_MONITORING_CHANNEL_ID"]
-    _get_slack_client().chat_postMessage(channel=channel, text=message)
+    await _get_slack_client().chat_postMessage(channel=channel, text=message)

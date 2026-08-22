@@ -73,9 +73,9 @@ def _format_daily_message(names: Sequence[str]) -> str:
     return f"Products currently being monitored:\n{listing}"
 
 
-def _attempt_post(message: str) -> None:
+async def _attempt_post(message: str) -> None:
     try:
-        post_monitoring_message(message)
+        await post_monitoring_message(message)
     except Exception:
         # Delivery failure is logged, not surfaced back through the trigger
         # response -- see product-monitoring's "Report Delivery Failure Is
@@ -97,10 +97,10 @@ async def daily(
         # "Database Read Failure Is Surfaced, Not Treated Like A Delivery
         # Failure" requirement.
         _logger.exception("daily product-monitoring digest could not read the database")
-        _attempt_post("Could not read products from the database.")
+        await _attempt_post("Could not read products from the database.")
         return JSONResponse(status_code=500, content={"status": "database read failed"})
 
-    _attempt_post(_format_daily_message(names))
+    await _attempt_post(_format_daily_message(names))
     return JSONResponse(status_code=202, content={"status": "accepted"})
 
 

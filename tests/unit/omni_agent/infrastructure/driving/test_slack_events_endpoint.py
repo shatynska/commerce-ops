@@ -50,9 +50,11 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 from slack_sdk.signature import SignatureVerifier
+from slack_sdk.web.async_client import AsyncWebClient
 
 from commerce_ops.main import app
 from commerce_ops.omni_agent.infrastructure.driving import slack as slack_adapter
+from commerce_ops.shared.infrastructure.driving import slack_app as slack_app_module
 
 SLACK_EVENTS_PATH = "/omni_agent/slack/events"
 SIGNING_SECRET = "test-slack-signing-secret"  # not a real credential
@@ -79,7 +81,7 @@ class _RecordingSlackClient:
         self.posted: list[dict[str, Any]] = []
 
     # Named to mirror `slack_sdk.WebClient`'s own method exactly.
-    def chat_postMessage(
+    async def chat_postMessage(
         self,
         channel: str | None = None,
         text: str | None = None,
@@ -109,7 +111,7 @@ class _RecordingAnswerQuestion:
         self.journal = journal
         self.calls: list[str] = []
 
-    def __call__(self, question: str) -> str:
+    async def __call__(self, question: str) -> str:
         if self.journal is not None:
             self.journal.append("omni_invoked")
         self.calls.append(question)
@@ -121,11 +123,17 @@ class _RecordingAnswerQuestion:
 class _ResponseStartRecorder:
     """ASGI wrapper noting when the HTTP response headers are sent.
 
-    Used to establish acknowledgement ordering: FastAPI runs
-    `BackgroundTasks` only after the response has been sent, so a route that
-    schedules the omni-agent call as a background task records
-    "response_started" strictly before "omni_invoked", while a route that
-    awaits the answer inline records them the other way round.
+    Used to establish acknowledgement ordering: Bolt acknowledges an Events
+    API request and then runs the listener as a separate asyncio task
+    (`process_before_response` is left at its `False` default), so a route
+    that defers the omni-agent call records "response_started" strictly
+    before "omni_invoked", while a route that awaits the answer inline
+    records them the other way round.
+
+    The assertion below is unchanged by the move from FastAPI's
+    `BackgroundTasks` to Bolt's scheduling: it observes the ordering itself,
+    not the machinery producing it. Only this explanation names a mechanism,
+    so only this explanation had to change.
     """
 
     def __init__(self, inner: Any, journal: list[str]) -> None:
@@ -152,11 +160,11 @@ def _clear_factory_caches() -> None:
     Without this, a verifier built from one test's signing secret would leak
     into the next test through the cache.
     """
-    for name in ("get_signature_verifier", "get_slack_client"):
-        factory = getattr(slack_adapter, name, None)
-        cache_clear = getattr(factory, "cache_clear", None)
-        if cache_clear is not None:
-            cache_clear()
+    for module in (slack_adapter, slack_app_module):
+        for value in list(vars(module).values()):
+            cache_clear = getattr(value, "cache_clear", None)
+            if callable(cache_clear):
+                cache_clear()
 
 
 @pytest.fixture(autouse=True)
@@ -179,16 +187,22 @@ def slack_client(monkeypatch: pytest.MonkeyPatch) -> Iterator[_RecordingSlackCli
     satisfies the design.
     """
     fake = _RecordingSlackClient()
-    original = getattr(slack_adapter, "get_slack_client", None)
-    assert original is not None, (
-        "expected a `get_slack_client()` factory in the Slack adapter "
-        "(design.md: lazy, lru_cache-wrapped factories are the seam tests "
-        "substitute fakes through)"
-    )
-    monkeypatch.setattr(slack_adapter, "get_slack_client", lambda: fake)
-    app.dependency_overrides[original] = lambda: fake
+
+    # The seam moved: under Bolt the listener receives an injected `client`
+    # built from the AuthorizeResult, so there is no module-level factory to
+    # substitute, and patching `app.client` would miss the injected instance
+    # entirely. `api_call` is the single method every Slack Web API call
+    # funnels through -- `chat_postMessage` and `auth_test` alike -- so
+    # patching it records what was posted and guarantees nothing reaches the
+    # network.
+    async def api_call(self: Any, api_method: str, **kwargs: Any) -> dict[str, Any]:
+        if api_method == "chat.postMessage":
+            payload = kwargs.get("json") or kwargs.get("params") or {}
+            await fake.chat_postMessage(**payload)
+        return {"ok": True}
+
+    monkeypatch.setattr(AsyncWebClient, "api_call", api_call)
     yield fake
-    app.dependency_overrides.pop(original, None)
 
 
 @pytest.fixture()
@@ -418,7 +432,7 @@ def test_app_mention_is_acknowledged_before_answer_generation(
     assert "omni_invoked" in journal, "omni-agent was never invoked"
     assert journal.index("response_started") < journal.index("omni_invoked"), (
         "omni-agent was invoked before the event was acknowledged; the "
-        "generation must be scheduled as a background task, not awaited "
+        "generation must be deferred past the acknowledgement, not awaited "
         f"inline (observed order: {journal})"
     )
 

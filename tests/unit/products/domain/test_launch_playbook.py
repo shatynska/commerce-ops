@@ -582,10 +582,9 @@ def test_gate_sequence_in_the_wrong_order_is_rejected() -> None:
     defined sequence
     THEN loading fails with an error naming the deviation.
 
-    `live` and `ignition` are swapped because `design.md` records their
-    separation as one of the two deliberate corrections this change makes
-    to the reference material — a sequence that reverses them is exactly
-    the mistake this rule exists to catch.
+    `live` and `ignition` are swapped because separating them is a
+    deliberate decision of this gate sequence — a sequence that reverses
+    them is exactly the mistake this rule exists to catch.
     """
     gates = list(specified_gates())
     live_index = SPECIFIED_GATE_ORDER.index("live")
@@ -862,8 +861,8 @@ def test_human_attested_step_with_no_rule_policy_loads() -> None:
     THEN the playbook loads successfully and the step reports its rule
     policy as absent.
 
-    This is the case the whole reference import depends on: all 358 rows
-    arrive with an empty rule column.
+    This is the case bulk authoring depends on: a step whose rule is still
+    undecided must load, not block the playbook.
     """
     step = _step(
         identifier="strategy.phase-one-criteria",
