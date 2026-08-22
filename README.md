@@ -14,14 +14,18 @@ The company's internal operations/support team.
 
 ## Scope
 
-Initial scope covers four domains, AI-assisted where noted:
+**Product Launch is the MVP subdomain and the first deliverable.** Taking a new product from "worth developing" through to a live, ranking listing — a gated sequence of launch work, driven from Slack and tracked in ClickUp. It is first because it is the one subdomain that can be built to completion with the integrations available today, while marketplace access is being obtained externally.
+
+Launch is not one of the four domains below and does not replace one; it cuts across listing/catalog management and analytics. Those four remain the surrounding scope, sequenced behind it:
 
 - AI-assisted listing/catalog management — agents that help create, optimize, and manage product listings.
 - Order & inventory sync across marketplaces — centralizing order and stock data across marketplace accounts.
 - AI customer support / messaging automation — agents that handle or assist with customer inquiries, reviews, messages.
 - Analytics & reporting — cross-marketplace performance dashboards and insight generation.
 
-Marketplace integration: Amazon is the first concrete marketplace integration; the integration layer is designed to be marketplace-agnostic/extensible for marketplaces beyond Amazon.
+Further subdomains — customer support among them — follow after, and are not yet specified in any detail. The module structure already accommodates them as sibling bounded contexts, so this ordering constrains nothing about them.
+
+Marketplace integration: Amazon is the first concrete marketplace integration; the integration layer is designed to be marketplace-agnostic/extensible for marketplaces beyond Amazon. **This is deferred, not descoped.** Marketplace access is being obtained externally and is not available to build against, so no marketplace adapter is built and no change is sequenced as depending on one until it is granted. Everything in the scope above that reads marketplace data — the analytics, order-sync and monitoring work in particular — is blocked behind that, which is why Launch comes first.
 
 Slack integration: Slack is an initial-scope interaction channel, used both ways — the ops team converses directly with the domain agents in Slack (asks questions, gives instructions, gets answers), and the system pushes notifications and approval requests (e.g. "approve this listing change?") there. It stands alongside the FastAPI HTTP API as a primary interface, not a secondary notification-only add-on.
 
@@ -33,7 +37,9 @@ Slack integration: Slack is an initial-scope interaction channel, used both ways
 
 ## Technology
 
-Python, FastAPI (HTTP API layer), LangGraph (AI agent orchestration) — supplied directly by the project owner, not proposed. Slack Bolt / Slack Web API SDK is added as the Slack interface's technology, consistent with the owner's direction to make Slack an active interaction channel. Postgres is the shared relational datastore backing each module's repositories (see Architecture below).
+Python, FastAPI (HTTP API layer), LangGraph (AI agent orchestration) — supplied directly by the project owner, not proposed. Slack Bolt / Slack Web API SDK is added as the Slack interface's technology, consistent with the owner's direction to make Slack an active interaction channel. Postgres is the shared relational datastore backing each module's repositories (see Architecture below). `pydantic-settings` declares the runtime's configuration in one place, checked at container start before the migration runs.
+
+**LangGraph's scope is narrowed to where a language model is genuinely required**: interpretation, generation, and conversation. It is not the default unit of work. Most of the Launch subdomain's logic is deterministic — a gate opens when its blocking steps are done, a step becomes due at a fixed offset from the launch date, and `launch_playbook.py` already enforces its own coherence rules as ordinary domain code. Routing that through a language model would make it slower, costlier and non-reproducible for logic that is none of those things.
 
 ## Architecture
 
@@ -45,6 +51,18 @@ Each module follows a lightweight ports-and-adapters shape so the domain layer s
 - **Infrastructure layer** (edges): "driving" adapters that call into the application layer — the FastAPI HTTP routes and the Slack adapter (conversational + notifications/approvals) — and "driven" adapters the application layer calls out to — the marketplace-adapter layer (Amazon first, built to an adapter interface so future marketplaces can be added without reworking the domain modules) and Postgres repositories. Each module owns its own driving adapters — including its own Slack event route and credentials — in its own `infrastructure/driving` layer; `main.py` is the single composition root wiring every module's driving adapters, FastAPI routes and Slack alike, into one shared app and one shared deployable, the same relationship it already has with per-module HTTP routes.
 
 Aggregates, repositories-as-interfaces, and domain events are adopted per module only once that module's logic actually needs them (e.g. an aggregate to enforce an invariant, a domain event to decouple two modules) — not mandated across every module from day one. The explicit domain/application/infrastructure split is the one DDD commitment that applies everywhere; the heavier tactical patterns are opt-in per module.
+
+### Launch state ownership
+
+Launch state is owned three ways, and the split is deliberate — neither system can do the other's job:
+
+- **The repository** owns the playbook *definition*: the gate sequence, the step definitions, and which step belongs to which gate, authored as versioned YAML (per `launch-playbook`'s "Playbooks are versioned") and loaded by `playbook_loader.py`.
+- **Postgres** owns each product's *position* in that playbook and its per-step completion state — per-product, mutable, and with no business in a versioned definition file.
+- **ClickUp** owns *human completion*. The ops team marks work done where they already work, and ClickUp reports completion back so gate-opening logic can evaluate against it.
+
+Making Postgres the sole owner of completion would require the team to stop completing work where they complete it — a process change imposed by an implementation detail. Making ClickUp the owner of structure would require gate sequencing, blocking-step rules and timing anchors to be expressed in ClickUp's data model, which cannot express them: `launch_playbook.py` already encodes coherence rules (a `prohibited-tactic` step can never block a gate; an `automated` step must carry a rule policy) that no task tracker enforces.
+
+The split carries one obligation: webhook delivery is not guaranteed, so completion state in Postgres can silently drift from ClickUp. That needs a periodic reconciliation pass — a known, bounded problem, named here so whatever implements the synchronization inherits it rather than discovering it.
 
 ### Module boundaries
 

@@ -1,0 +1,143 @@
+"""The single declaration of what this application's runtime requires.
+
+Implements the `runtime-configuration` capability
+(`openspec/changes/revise-foundation-for-launch-mvp/specs/runtime-configuration/spec.md`).
+
+What this declares, and what it does not:
+
+- It declares every environment variable the *runtime* requires, whether
+  this application's own source reads it or a dependency reads it on its
+  behalf. `OPENAI_API_KEY` appears in no `os.environ` call anywhere in
+  `src/`; it is read inside `langchain_openai.ChatOpenAI`. It is required
+  all the same, and omitting it would make this an incomplete inventory.
+- It does *not* declare a variable the deployment consumes but the
+  application process never receives. `POSTGRES_PASSWORD` is read by
+  `docker-compose.yml`'s own substitution and by the `postgres` service;
+  this process cannot check what it never gets.
+- It does *not* replace per-request `os.environ` reads. `trigger_guard.py`
+  must keep reading `TRIGGER_SECRET` directly, because `internal-trigger`'s
+  "Guard Fails Closed When Unconfigured" requires a 401 when it is absent
+  -- routing that through a validating accessor would raise instead. See
+  the change's design.md, "The model is a declaration plus a startup
+  check".
+
+`ENV_VAR_EXEMPTIONS` is what keeps the two facts above from rotting: the
+drift test asserts that every variable the source reads is declared here,
+and that every variable declared here is either read by the source or
+carries an entry below naming what consumes it instead.
+"""
+
+from __future__ import annotations
+
+import functools
+from collections.abc import Mapping
+from typing import Annotated, Final
+
+from pydantic import AfterValidator, Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# The scheme SQLAlchemy's async engine is configured with (see
+# `products/infrastructure/driving/monitoring.py`'s `create_async_engine`).
+# A URL carrying any other scheme fails later with an error naming neither
+# the variable nor the cause, so it is rejected here instead.
+_REQUIRED_DATABASE_SCHEME: Final = "postgresql+asyncpg"
+
+
+def _must_be_an_async_postgres_url(value: str) -> str:
+    scheme, separator, _ = value.partition("://")
+    if not separator or scheme != _REQUIRED_DATABASE_SCHEME:
+        raise ValueError(
+            f"must use the {_REQUIRED_DATABASE_SCHEME} scheme, "
+            f"which this application connects with; got {scheme or value!r}"
+        )
+    return value
+
+
+DatabaseUrl = Annotated[str, AfterValidator(_must_be_an_async_postgres_url)]
+
+# A required variable that is present but empty is a fault, not a value --
+# a rendered-but-empty `.env` line is exactly the failure mode this exists
+# to catch, and it is indistinguishable from absence in effect.
+NonEmpty = Annotated[str, Field(min_length=1)]
+
+
+class Settings(BaseSettings):
+    """Every environment variable this application's runtime requires.
+
+    A field with no default is required; a field defaulting to `None` is
+    optional, and a caller reading it sees `None` when it is absent.
+    """
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        # The rendered `.env` this project deploys carries `IMAGE_TAG` and
+        # `POSTGRES_PASSWORD`, neither of which is a field here. The strict
+        # default would report both as faults for anyone holding a copy of
+        # it, so keys this model does not declare are ignored.
+        extra="ignore",
+    )
+
+    # Startup-critical, and required. The container's next step is
+    # `alembic upgrade head`, which cannot run without this, so the process
+    # genuinely cannot start; see `STARTUP_CRITICAL_ENV_VARS` below.
+    database_url: DatabaseUrl
+
+    # Required: each is scoped to one capability, so a fault in it degrades
+    # that capability rather than the application.
+    openai_api_key: NonEmpty
+    omni_agent_slack_signing_secret: NonEmpty
+    omni_agent_slack_bot_token: NonEmpty
+    product_agent_slack_bot_token: NonEmpty
+    product_agent_monitoring_channel_id: NonEmpty
+    trigger_secret: NonEmpty
+
+    # Optional: registered `production` secrets that no caller reaches yet.
+    # `CLICKUP_API_TOKEN` in particular must stay optional --
+    # `clickup-task-client`'s "Authentication is configured independently of
+    # any one caller" has a scenario "Credential absent until first use", so
+    # treating its absence as a fault would contradict a specification
+    # already recorded in `openspec/specs/`.
+    product_agent_slack_signing_secret: NonEmpty | None = None
+    clickup_api_token: NonEmpty | None = None
+
+
+# The startup-critical marking sits *on top of* required -- it is not a
+# third peer status. A fault in one of these fails the configuration check;
+# a fault in any other declared variable is reported and startup continues.
+STARTUP_CRITICAL_ENV_VARS: Final[frozenset[str]] = frozenset({"DATABASE_URL"})
+
+
+# Declared variables that this application's own source does not read, each
+# with the consumer that reads it instead. An entry with no reason fails the
+# drift test: without that, this table becomes a place to hide omissions
+# rather than a record of them.
+ENV_VAR_EXEMPTIONS: Final[Mapping[str, str]] = {
+    "OPENAI_API_KEY": (
+        "read by langchain_openai.ChatOpenAI, constructed in "
+        "omni_agent/application/graph.py"
+    ),
+    "PRODUCT_AGENT_SLACK_SIGNING_SECRET": (
+        "registered production secret with no consumer yet; the read lands "
+        "with add-product-creation-clickup-task"
+    ),
+}
+
+
+@functools.lru_cache
+def get_settings() -> Settings:
+    """Builds and validates the declaration, once.
+
+    Cached rather than eager, and never called at import time: the
+    PR-validation gate imports `commerce_ops.main` and runs its lifespan
+    with the production secrets absent, and must succeed. Reading
+    configuration is therefore deferred to whoever actually needs it -- in
+    practice `commerce_ops.preflight`, at container start.
+    """
+    # mypy reads the generated `__init__` and wants every field without a
+    # default passed as a keyword argument. That is the wrong model for a
+    # `BaseSettings`, whose whole purpose is to populate those fields from
+    # the environment -- passing them here would defeat it. Narrowed to
+    # `call-arg` so any other typing fault on this line still surfaces.
+    return Settings()  # type: ignore[call-arg]

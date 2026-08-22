@@ -8,13 +8,23 @@ re-implementing any of the rules below.
 
 **Timing-anchor convention.** Every offset is relative to the marketing
 launch date, which is offset zero: the launch day itself is offset 0, the
-day before it is offset -1, the day after it is offset 1. This is
-zero-based, whereas the external reference material this playbook is built
-from numbers days from one (its "Day 1" is our offset 0). A reference
-`T-N` value transcribes directly to offset -N; a reference `Day N` value
-transcribes to offset N-1. Getting this shift wrong produces a uniform
-one-day drift across every post-launch anchor that is invisible by
-inspection — see `design.md`'s transcription table for the full mapping.
+day before it is offset -1, the day after it is offset 1.
+
+This convention is **zero-based**, and that is the whole hazard. Source
+material for launch plans is conventionally one-based — a "Day 1" that
+means the launch day, not the day after it — so a plan transcribed here
+without adjusting shifts every post-launch anchor by one day. The drift is
+uniform, so nothing looks obviously wrong; it is invisible by inspection
+and shows up only as work scheduled a day late, forever.
+
+The full mapping, so it need not be reconstructed:
+
+    a "T-N" (countdown) value  ->  offset -N        (T-90 -> -90)
+    the launch day itself      ->  offset 0
+    a one-based "Day N" value  ->  offset N - 1     (Day 1 -> 0, Day 7 -> 6)
+
+Countdown values transcribe directly because they are already relative to
+the launch day; only the one-based forward count needs the -1.
 """
 
 from __future__ import annotations
@@ -40,9 +50,10 @@ class InvalidPlaybookError(ValueError):
 class Track(Enum):
     """The discipline whose expertise a step belongs to.
 
-    A closed set of twelve, taken from the reference material's own AGENT
-    column. Deliberately a weaker closure than the gate sequence: adding a
-    thirteenth discipline later costs one member, not a structural change.
+    A closed set of twelve, one per ownership boundary a launch actually
+    divides along. Deliberately a weaker closure than the gate sequence:
+    adding a thirteenth discipline later costs one member, not a structural
+    change.
     """
 
     STRATEGY = "strategy"

@@ -265,9 +265,9 @@ def test_shipped_playbook_ships_with_no_step_definitions() -> None:
     """Not a spec scenario — `tasks.md` 4.2 and `proposal.md`.
 
     DERIVED: "Ship the playbook containing the eight gates and no step
-    definitions. Importing the 358 reference items is deliberately a
-    follow-up change." Asserted so that the follow-up import cannot land
-    inside this change unnoticed. The delta spec itself says nothing about
+    definitions. Authoring the step definitions is deliberately a follow-up
+    change." Asserted so that the follow-up cannot land inside this change
+    unnoticed. The delta spec itself says nothing about
     how many steps the shipped playbook holds; if the import change lands,
     this assertion is superseded and should be removed with that change,
     not weakened to fit.
@@ -289,9 +289,10 @@ def test_malformed_step_is_reported_alongside_a_coherence_violation(
     second, separate coherence violation
     THEN loading fails once, and the failure names both faults.
 
-    This is the scenario the requirement exists for: during a bulk import
-    of 358 rows, a malformed step is the likelier error, and discovering
-    faults one load at a time is the experience the rule prevents.
+    This is the scenario the requirement exists for: when steps are
+    authored in bulk, a malformed step is the likelier error, and
+    discovering faults one load at a time is the experience the rule
+    prevents.
     """
     source = _write_playbook(tmp_path, _TWO_FAULTY_STEPS_YAML)
 
