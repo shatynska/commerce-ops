@@ -103,3 +103,9 @@ uv run pytest tests/integration
 ```
 
 Without `DATABASE_URL` set, `tests/integration/products/` skips rather than failing.
+
+## Deferred work
+
+`docs/deferred-work.md` records what this project has deliberately not done, and why — decisions awaiting a team call, items belonging to the `/infrastructure` repository, and technical work postponed with its reasoning.
+
+Each entry points at the change artifacts that argue it rather than repeating them. It exists because a deferral recorded only inside a change moves to `openspec/changes/archive/` when that change ships, and stops being findable.
