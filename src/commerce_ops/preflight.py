@@ -34,6 +34,7 @@ from commerce_ops.shared.application.settings import (
     Settings,
     get_settings,
 )
+from commerce_ops.shared.infrastructure.logging import configure_logging
 
 
 def _env_var_name(field_name: str) -> str:
@@ -66,6 +67,7 @@ def _faulting_env_vars(error: ValidationError) -> list[str]:
 
 def check() -> int:
     """Returns the process exit status; writes any report to stderr."""
+    configure_logging()
     try:
         get_settings()
     except ValidationError as error:

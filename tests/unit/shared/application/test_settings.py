@@ -63,7 +63,15 @@ REQUIRED_NOT_STARTUP_CRITICAL = frozenset(
     }
 )
 
-OPTIONAL = frozenset({"PRODUCT_AGENT_SLACK_SIGNING_SECRET", "CLICKUP_API_TOKEN"})
+OPTIONAL = frozenset(
+    {
+        "PRODUCT_AGENT_SLACK_SIGNING_SECRET",
+        "CLICKUP_API_TOKEN",
+        # Added by configure-application-logging (tasks 2.4) -- this
+        # transcribed set now spans more than one change.
+        "LOG_LEVEL",
+    }
+)
 
 REQUIRED = STARTUP_CRITICAL_AND_REQUIRED | REQUIRED_NOT_STARTUP_CRITICAL
 
