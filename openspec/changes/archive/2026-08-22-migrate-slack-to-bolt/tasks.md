@@ -92,4 +92,4 @@ This change does not edit another change's artifacts; `add-product-creation-clic
 - [x] 9.5 Record the forbidden-environment constraint (`SLACK_BOT_TOKEN`/`SLACK_SIGNING_SECRET` must never reach the runtime) where the project describes its deployment configuration, not only in this change's proposal — the proposal archives, and the constraint outlives it
 - [x] 9.6 Run `uv run pytest`, `uv run mypy .`, `uv run ruff check`, `uv run ruff format --check`, `uv run lint-imports --config .importlinter`
 - [x] 9.7 Run `openspec validate migrate-slack-to-bolt --strict`
-- [ ] 9.8 After deploy, confirm in Slack that a mention still receives an answer and that Slack's Event Subscriptions page still shows the Request URL as verified
+- [x] 9.8 After deploy, confirm in Slack that a mention still receives an answer and that Slack's Event Subscriptions page still shows the Request URL as verified
