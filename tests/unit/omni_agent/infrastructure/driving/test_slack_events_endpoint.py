@@ -52,7 +52,6 @@ from fastapi.testclient import TestClient
 from slack_sdk.signature import SignatureVerifier
 from slack_sdk.web.async_client import AsyncWebClient
 
-from commerce_ops.main import app
 from commerce_ops.omni_agent.infrastructure.driving import slack as slack_adapter
 from commerce_ops.shared.infrastructure.driving import slack_app as slack_app_module
 
@@ -206,8 +205,12 @@ def slack_client(monkeypatch: pytest.MonkeyPatch) -> Iterator[_RecordingSlackCli
 
 
 @pytest.fixture()
-def client() -> Iterator[TestClient]:
-    with TestClient(app) as test_client:
+def client(slack_asgi_app: Any) -> Iterator[TestClient]:
+    # `slack_asgi_app` (conftest.py), not `app` directly: Bolt runs the
+    # listener as a task scheduled after the acknowledgement, and every
+    # assertion below about what the listener did -- or did not do -- would
+    # otherwise be racing it.
+    with TestClient(slack_asgi_app) as test_client:
         yield test_client
 
 
@@ -398,7 +401,9 @@ def test_request_failing_signature_verification_is_rejected(
 
 
 def test_app_mention_is_acknowledged_before_answer_generation(
-    slack_client: _RecordingSlackClient, monkeypatch: pytest.MonkeyPatch
+    slack_asgi_app: Any,
+    slack_client: _RecordingSlackClient,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Scenario: Slow answer generation does not delay the acknowledgement.
 
@@ -420,7 +425,13 @@ def test_app_mention_is_acknowledged_before_answer_generation(
         monkeypatch, _RecordingAnswerQuestion(journal=journal)
     )
 
-    with TestClient(_ResponseStartRecorder(app, journal)) as recording_client:
+    # The recorder wraps the draining app rather than `app` itself, so the
+    # response is still recorded as it is sent and only the wait for the
+    # listener happens afterwards -- the ordering asserted below is the
+    # endpoint's own, not an artefact of the harness.
+    with TestClient(
+        _ResponseStartRecorder(slack_asgi_app, journal)
+    ) as recording_client:
         response = _post(recording_client, _app_mention_payload())
 
     # Derived: acknowledgement is a 2xx; design.md says the route "returns
