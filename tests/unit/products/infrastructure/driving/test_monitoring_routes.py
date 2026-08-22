@@ -123,7 +123,12 @@ class _RecordingNotifier:
         self.posted: list[str] = []
         self._failure = failure
 
-    def __call__(self, message: str) -> None:
+    async def __call__(self, message: str) -> None:
+        # Awaitable, because `post_monitoring_message` is now a coroutine.
+        # Left synchronous, `await None` would raise TypeError inside
+        # `_attempt_post`'s broad `except`, be logged, and every assertion
+        # here would still pass -- green while no longer proving delivery
+        # was attempted at all.
         if self._failure is not None:
             raise self._failure
         self.posted.append(message)

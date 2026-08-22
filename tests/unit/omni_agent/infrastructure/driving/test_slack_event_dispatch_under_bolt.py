@@ -586,6 +586,9 @@ def test_person_mention_receives_an_answer_in_the_same_channel(
     response = _post(
         client, _app_mention_payload(text=f"<@{BOT_ID}> {question}", channel=CHANNEL)
     )
+    # Bolt schedules the listener rather than awaiting it, so the effects
+    # asserted below are only observable once the loop has run past it.
+    _drain(client)
 
     assert 200 <= response.status_code < 300
 
@@ -651,6 +654,9 @@ def test_any_human_member_can_trigger_omni(
             channel=CHANNEL,
         ),
     )
+    # Bolt schedules the listener rather than awaiting it, so the effects
+    # asserted below are only observable once the loop has run past it.
+    _drain(client)
 
     assert 200 <= response.status_code < 300
     # Specified: the mention is processed the same as any other.
@@ -698,6 +704,9 @@ def test_no_member_is_privileged_over_another(
             event_id="Ev0SECOND",
         ),
     )
+    # Bolt schedules the listener rather than awaiting it, so the effects
+    # asserted below are only observable once the loop has run past it.
+    _drain(client)
 
     # Specified: both are processed identically.
     assert first.status_code == second.status_code

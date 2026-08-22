@@ -25,6 +25,30 @@ What this declares, and what it does not:
 drift test asserts that every variable the source reads is declared here,
 and that every variable declared here is either read by the source or
 carries an entry below naming what consumes it instead.
+
+Forbidden names
+---------------
+
+Two environment variables must **never** be set in this application's
+runtime, and are deliberately not declared below:
+
+- ``SLACK_BOT_TOKEN``
+- ``SLACK_SIGNING_SECRET``
+
+These are the generic names Slack Bolt falls back to when the corresponding
+constructor argument is omitted. This application constructs its Bolt apps
+with a custom ``authorize`` callable and no token, so that no ``auth.test``
+call is ever made; an ambient ``SLACK_BOT_TOKEN`` silently defeats that,
+because Bolt adopts it, installs single-team authorization and ignores the
+``authorize``. No argument value prevents the fallback, so
+``shared/infrastructure/driving/slack_app.py`` refuses to build when the
+name is present, and warns when ``SLACK_SIGNING_SECRET`` is.
+
+They are absent from the model on purpose: declaring a variable here states
+that the runtime *requires* it, which is the opposite of what is true. The
+guard tests for their presence rather than reading their values, so the
+drift check below is unaffected -- it detects value reads, and a name whose
+absence is asserted is not a value this application consumes.
 """
 
 from __future__ import annotations
