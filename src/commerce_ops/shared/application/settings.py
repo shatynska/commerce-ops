@@ -19,7 +19,12 @@ What this declares, and what it does not:
   "Guard Fails Closed When Unconfigured" requires a 401 when it is absent
   -- routing that through a validating accessor would raise instead. See
   the change's design.md, "The model is a declaration plus a startup
-  check".
+  check". `LOG_LEVEL` is read directly for the same reason of kind, though
+  a different reason in substance: `configure_logging()` runs at
+  `main.py`'s module import, where `get_settings()` would raise under this
+  capability's own empty-environment guarantee below. It is declared here
+  regardless, so the drift test still sees it and the startup report still
+  names it.
 
 `ENV_VAR_EXEMPTIONS` is what keeps the two facts above from rotting: the
 drift test asserts that every variable the source reads is declared here,
@@ -125,6 +130,14 @@ class Settings(BaseSettings):
     # already recorded in `openspec/specs/`.
     product_agent_slack_signing_secret: NonEmpty | None = None
     clickup_api_token: NonEmpty | None = None
+
+    # Optional, and deliberately typed `str | None` rather than `NonEmpty |
+    # None`: `application-logging`'s spec defines an empty value as "not
+    # configured", and `NonEmpty` would make `preflight` report `LOG_LEVEL`
+    # as faulting while logging behaved exactly as specified -- two accounts
+    # of one value (that change's design.md, "Empty deserves a straight
+    # answer").
+    log_level: str | None = None
 
 
 # The startup-critical marking sits *on top of* required -- it is not a

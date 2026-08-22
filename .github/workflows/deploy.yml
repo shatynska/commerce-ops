@@ -92,6 +92,15 @@ jobs:
             echo "PRODUCT_AGENT_SLACK_BOT_TOKEN=${{ secrets.PRODUCT_AGENT_SLACK_BOT_TOKEN }}"
             echo "PRODUCT_AGENT_MONITORING_CHANNEL_ID=${{ secrets.PRODUCT_AGENT_MONITORING_CHANNEL_ID }}"
             echo "TRIGGER_SECRET=${{ secrets.TRIGGER_SECRET }}"
+            # A repository/Environment variable, not a secret: the
+            # threshold is not sensitive, and masking it in logs would
+            # serve nothing. No LOG_LEVEL variable exists yet, so this
+            # renders INFO until one is created under Settings -> Secrets
+            # and variables -> Actions -> Variables; a change there takes
+            # effect on the next deploy, since .env is re-rendered only
+            # then (configure-application-logging's design.md, "Deliver
+            # LOG_LEVEL through deploy.yml").
+            echo "LOG_LEVEL=${{ vars.LOG_LEVEL || 'INFO' }}"
           } >.env
 
       # COMMERCE_OPS_DEPLOY_SSH_KEY is this application's own forced-command

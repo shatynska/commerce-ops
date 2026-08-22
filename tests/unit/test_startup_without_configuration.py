@@ -57,6 +57,9 @@ DECLARED_ENV_VARS = (
     "TRIGGER_SECRET",
     "PRODUCT_AGENT_SLACK_SIGNING_SECRET",
     "CLICKUP_API_TOKEN",
+    # Added by configure-application-logging (tasks 2.5) -- this
+    # transcribed set now spans more than one change.
+    "LOG_LEVEL",
 )
 
 DEPLOYMENT_ONLY_ENV_VARS = ("POSTGRES_PASSWORD", "IMAGE_TAG")
