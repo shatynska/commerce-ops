@@ -240,8 +240,8 @@ def slack_api(monkeypatch: pytest.MonkeyPatch) -> _RecordingSlackApi:
 
 
 @pytest.fixture()
-def client() -> Iterator[TestClient]:
-    with TestClient(app) as test_client:
+def client(slack_asgi_app: Any) -> Iterator[TestClient]:
+    with TestClient(slack_asgi_app) as test_client:
         yield test_client
 
 
@@ -283,17 +283,6 @@ def _post(
     body = json.dumps(payload).encode("utf-8")
     headers = _signed_headers(body) if signed else _unsigned_headers(body)
     return client.post(SLACK_EVENTS_PATH, content=body, headers=headers)
-
-
-def _drain(client: TestClient) -> None:
-    """Lets work Bolt scheduled run before an assertion about what it did.
-
-    Bolt schedules its listener as an asyncio task during dispatch rather than
-    awaiting it (design.md, Verified Finding 3), so an assertion made the
-    instant `client.post(...)` returns can observe a listener that has not run
-    yet. A further round-trip forces the loop to make progress first.
-    """
-    client.get("/health")
 
 
 def _app_mention_payload(
@@ -347,7 +336,6 @@ def test_handling_a_mention_makes_no_credential_verification_call(
     response = _post(client, _app_mention_payload())
 
     assert 200 <= response.status_code < 300
-    _drain(client)
 
     # Precondition, so the assertions below cannot pass for the wrong reason:
     # the mention really was handled. "No outbound call" is trivially true of
@@ -419,6 +407,7 @@ def test_startup_makes_no_credential_verification_call(
 
 
 def test_inbound_handling_is_unaffected_by_slack_being_unreachable(
+    slack_asgi_app: Any,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Scenario: Inbound handling is unaffected by Slack being unreachable.
@@ -439,11 +428,9 @@ def test_inbound_handling_is_unaffected_by_slack_being_unreachable(
     fake = install_answer_question(monkeypatch, _RecordingAnswerQuestion())
     _require_cold_cache()
 
-    with TestClient(app) as client:
+    with TestClient(slack_asgi_app) as client:
         authentic = _post(client, _app_mention_payload())
-        _drain(client)
         forged = _post(client, _app_mention_payload(), signed=False)
-        _drain(client)
 
     # Specified: the authentic request is accepted and acknowledged.
     assert 200 <= authentic.status_code < 300, (
@@ -484,6 +471,7 @@ def test_inbound_handling_is_unaffected_by_slack_being_unreachable(
 
 
 def test_ambient_generic_bot_token_cannot_reinstate_the_credential_call(
+    slack_asgi_app: Any,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """DERIVED FROM TASKS, not from a delta-spec scenario. tasks.md 7.9.
@@ -515,9 +503,8 @@ def test_ambient_generic_bot_token_cannot_reinstate_the_credential_call(
     monkeypatch.setenv("SLACK_BOT_TOKEN", "xoxb-ambient-not-a-real-token")
     _require_cold_cache()
 
-    with TestClient(app, raise_server_exceptions=False) as client:
+    with TestClient(slack_asgi_app, raise_server_exceptions=False) as client:
         response = _post(client, _app_mention_payload())
-        _drain(client)
 
     # Specified (the requirement this guard protects): no identity call, even
     # with the generic name present.

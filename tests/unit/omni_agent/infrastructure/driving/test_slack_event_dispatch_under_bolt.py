@@ -57,7 +57,6 @@ import pytest
 from fastapi.testclient import TestClient
 from slack_sdk.signature import SignatureVerifier
 
-from commerce_ops.main import app
 from commerce_ops.omni_agent.infrastructure.driving import slack as slack_adapter
 
 SLACK_EVENTS_PATH = "/omni_agent/slack/events"
@@ -239,8 +238,12 @@ def slack_api(monkeypatch: pytest.MonkeyPatch) -> _RecordingSlackApi:
 
 
 @pytest.fixture()
-def client() -> Iterator[TestClient]:
-    with TestClient(app) as test_client:
+def client(slack_asgi_app: Any) -> Iterator[TestClient]:
+    # `slack_asgi_app` (conftest.py), not `app` directly: Bolt runs the
+    # listener as a task scheduled after the acknowledgement, so asserting
+    # on what a listener did -- or did not do -- straight after `_post`
+    # returns would be racing that task.
+    with TestClient(slack_asgi_app) as test_client:
         yield test_client
 
 

@@ -46,7 +46,6 @@ import pytest
 from fastapi.testclient import TestClient
 from slack_sdk.signature import SignatureVerifier
 
-from commerce_ops.main import app
 from commerce_ops.omni_agent.infrastructure.driving import slack as slack_adapter
 
 SLACK_EVENTS_PATH = "/omni_agent/slack/events"
@@ -201,10 +200,14 @@ def answer_question(monkeypatch: pytest.MonkeyPatch) -> _RecordingAnswerQuestion
 
 
 @pytest.fixture()
-def client() -> Iterator[TestClient]:
+def client(slack_asgi_app: Any) -> Iterator[TestClient]:
     # See the module docstring: a 500 must be observable as a response, since
     # the requirement forbids one as explicitly as it forbids a 2xx.
-    with TestClient(app, raise_server_exceptions=False) as test_client:
+    #
+    # `slack_asgi_app` (conftest.py) rather than `app`: every assertion here
+    # that omni-agent was NOT invoked is only worth making once whatever the
+    # request scheduled has actually run.
+    with TestClient(slack_asgi_app, raise_server_exceptions=False) as test_client:
         yield test_client
 
 
