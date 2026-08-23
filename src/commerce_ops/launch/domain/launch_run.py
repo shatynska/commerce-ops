@@ -514,12 +514,11 @@ class Launch:
         self._require_pinned_version(playbook)
         if self.launch_date is None:
             return None
+        blocking = {step.identifier for step in playbook.steps if step.blocking}
         overdue = tuple(
-            step.identifier
-            for step in playbook.steps
-            if step.blocking
-            and self._fully_passed(step, as_of)
-            and not self._resolved(step)
+            step_id
+            for step_id in self.overdue_step_ids(playbook, as_of)
+            if step_id in blocking
         )
         if not overdue:
             return None
@@ -528,6 +527,48 @@ class Launch:
             launch_date=self.launch_date,
             overdue_steps=overdue,
         )
+
+    def overdue_step_ids(
+        self, playbook: LaunchPlaybook, as_of: date
+    ) -> tuple[str, ...]:
+        """Every step whose due period has fully passed as of `as_of`
+        without the step reaching a permitted terminal outcome — blocking
+        and non-blocking alike.
+
+        Which outcomes are *permitted* depends on the step's hazard (a
+        `prohibited-tactic` step terminates in `Refused` and is resolved
+        by it), so this judgement can only be made where the playbook is
+        — which is why it is answered here rather than left to whoever
+        reads a report. `date_at_risk` is this, narrowed to blocking
+        steps.
+        """
+        self._require_pinned_version(playbook)
+        if self.launch_date is None:
+            return ()
+        return tuple(
+            step.identifier
+            for step in playbook.steps
+            if self._fully_passed(step, as_of) and not self._resolved(step)
+        )
+
+    def awaiting_confirmation(self, playbook: LaunchPlaybook) -> bool:
+        """Whether the current gate is held open only by a human decision.
+
+        True exactly when the gate requires confirmation, every blocking
+        condition attached to it is already satisfied, and no *approving*
+        approval is recorded — a rejecting decision leaves the gate still
+        waiting on a confirmation, which is what makes it reportable.
+
+        A graduated launch is never awaiting anything: `graduated` is the
+        last gate, and the launch stays there once it opens.
+        """
+        self._require_pinned_version(playbook)
+        if self._graduated or not self._requires_confirmation(playbook):
+            return False
+        if self._unsatisfied_gate_conditions(playbook):
+            return False
+        approval = self._approvals.get(self.current_gate)
+        return approval is None or approval.decision is not ApprovalDecision.APPROVING
 
     # -- internals ----------------------------------------------------------
 
@@ -561,6 +602,23 @@ class Launch:
     def _unsatisfied_conditions(self, playbook: LaunchPlaybook) -> list[str]:
         """Names of the current gate's unsatisfied conditions, the missing
         approval included — empty exactly when the gate may open."""
+        unsatisfied = self._unsatisfied_gate_conditions(playbook)
+
+        if self._requires_confirmation(playbook):
+            approval = self._approvals.get(self.current_gate)
+            if approval is None:
+                unsatisfied.append("a recorded approval")
+            elif approval.decision is not ApprovalDecision.APPROVING:
+                unsatisfied.append("an approving approval (decision is rejecting)")
+        return unsatisfied
+
+    def _unsatisfied_gate_conditions(self, playbook: LaunchPlaybook) -> list[str]:
+        """The same names, approval excluded — the gate's own conditions.
+
+        Separate from `_unsatisfied_conditions` because
+        `awaiting_confirmation` asks precisely the question this answers:
+        is everything *except* the human decision already satisfied?
+        """
         unsatisfied: list[str] = []
         for condition in playbook.conditions_for_gate(self.current_gate):
             if isinstance(condition, StepObligation):
@@ -581,13 +639,6 @@ class Launch:
                     unsatisfied.append(
                         f"metric condition '{condition.metric_id.value}'"
                     )
-
-        if self._requires_confirmation(playbook):
-            approval = self._approvals.get(self.current_gate)
-            if approval is None:
-                unsatisfied.append("a recorded approval")
-            elif approval.decision is not ApprovalDecision.APPROVING:
-                unsatisfied.append("an approving approval (decision is rejecting)")
         return unsatisfied
 
     def _requires_confirmation(self, playbook: LaunchPlaybook) -> bool:

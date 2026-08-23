@@ -22,8 +22,7 @@ class ProductLister(Protocol):
 
     Separate from `CatalogStore` because listing is the one use case that
     reads nothing else: a caller that can only list — a read model, a test
-    double — should not have to satisfy the whole store. Same reasoning
-    that keeps `ProductNameReader` narrow.
+    double — should not have to satisfy the whole store.
     """
 
     async def list(self) -> Sequence[Product]: ...
@@ -39,10 +38,3 @@ class CatalogStore(ProductLister, Protocol):
     async def get_by_sku(self, sku: Sku) -> Product | None: ...
 
     async def save(self, product: Product) -> None: ...
-
-
-class ProductNameReader(Protocol):
-    """The daily digest's read port (moved here from the launch module — then `products.application` —
-    with the digest itself — design.md Decision 9 as amended)."""
-
-    async def list_names(self) -> Sequence[str]: ...

@@ -6,6 +6,7 @@ root_packages =
 name = Module layers (infrastructure -> application -> domain)
 type = layers
 containers =
+    commerce_ops.briefing
     commerce_ops.catalog
     commerce_ops.launch
     commerce_ops.omni_agent
@@ -15,12 +16,59 @@ layers =
     application
     domain
 
+[importlinter:contract:briefing-domain-boundary]
+name = briefing.domain does not reach outside its own layer
+type = forbidden
+source_modules =
+    commerce_ops.briefing.domain
+forbidden_modules =
+    commerce_ops.catalog
+    commerce_ops.launch
+    commerce_ops.omni_agent
+    commerce_ops.shared.application
+    commerce_ops.shared.infrastructure
+
+[importlinter:contract:briefing-application-boundary]
+name = briefing.application does not reach into other modules' internals
+type = forbidden
+source_modules =
+    commerce_ops.briefing.application
+forbidden_modules =
+    commerce_ops.catalog.domain
+    commerce_ops.catalog.infrastructure
+    commerce_ops.launch.domain
+    commerce_ops.launch.infrastructure
+    commerce_ops.omni_agent
+    commerce_ops.shared.infrastructure
+
+[importlinter:contract:briefing-infrastructure-boundary]
+name = briefing.infrastructure does not reach into other modules' internals
+type = forbidden
+source_modules =
+    commerce_ops.briefing.infrastructure
+forbidden_modules =
+    commerce_ops.catalog.domain
+    commerce_ops.catalog.infrastructure
+    commerce_ops.launch.domain
+    commerce_ops.launch.infrastructure
+    commerce_ops.omni_agent
+; The exemption `products-application-boundary` carries, for the same
+; reason: calling a module's public surface is the sanctioned cross-module
+; path, and that surface necessarily uses its own domain internally.
+; Exempting those edges keeps each surface opaque without permitting
+; briefing to import another module's domain directly.
+ignore_imports =
+    commerce_ops.catalog.application -> commerce_ops.catalog.domain.**
+    commerce_ops.catalog.application.** -> commerce_ops.catalog.domain.**
+    commerce_ops.launch.application.** -> commerce_ops.launch.domain.**
+
 [importlinter:contract:catalog-domain-boundary]
 name = catalog.domain does not reach outside its own layer
 type = forbidden
 source_modules =
     commerce_ops.catalog.domain
 forbidden_modules =
+    commerce_ops.briefing
     commerce_ops.launch
     commerce_ops.omni_agent
     commerce_ops.shared.application
@@ -32,6 +80,7 @@ type = forbidden
 source_modules =
     commerce_ops.catalog.application
 forbidden_modules =
+    commerce_ops.briefing
     commerce_ops.launch.domain
     commerce_ops.launch.infrastructure
     commerce_ops.omni_agent.domain
@@ -45,6 +94,7 @@ type = forbidden
 source_modules =
     commerce_ops.catalog.infrastructure
 forbidden_modules =
+    commerce_ops.briefing
     commerce_ops.launch.domain
     commerce_ops.launch.infrastructure
     commerce_ops.omni_agent
@@ -55,6 +105,7 @@ type = forbidden
 source_modules =
     commerce_ops.launch.domain
 forbidden_modules =
+    commerce_ops.briefing
     commerce_ops.catalog
     commerce_ops.omni_agent
     commerce_ops.shared.application
@@ -66,6 +117,7 @@ type = forbidden
 source_modules =
     commerce_ops.launch.application
 forbidden_modules =
+    commerce_ops.briefing
     commerce_ops.catalog.domain
     commerce_ops.catalog.infrastructure
     commerce_ops.omni_agent.domain
@@ -87,6 +139,7 @@ type = forbidden
 source_modules =
     commerce_ops.launch.infrastructure
 forbidden_modules =
+    commerce_ops.briefing
     commerce_ops.catalog.domain
     commerce_ops.catalog.infrastructure
     commerce_ops.omni_agent
@@ -107,6 +160,7 @@ type = forbidden
 source_modules =
     commerce_ops.omni_agent.domain
 forbidden_modules =
+    commerce_ops.briefing
     commerce_ops.catalog
     commerce_ops.launch
     commerce_ops.shared.application
@@ -118,6 +172,7 @@ type = forbidden
 source_modules =
     commerce_ops.omni_agent.application
 forbidden_modules =
+    commerce_ops.briefing
     commerce_ops.catalog.domain
     commerce_ops.catalog.infrastructure
     commerce_ops.launch.domain
@@ -130,6 +185,7 @@ type = forbidden
 source_modules =
     commerce_ops.omni_agent.infrastructure
 forbidden_modules =
+    commerce_ops.briefing
     commerce_ops.catalog
     commerce_ops.launch
 
@@ -139,6 +195,7 @@ type = forbidden
 source_modules =
     commerce_ops.shared
 forbidden_modules =
+    commerce_ops.briefing
     commerce_ops.catalog
     commerce_ops.launch
     commerce_ops.omni_agent

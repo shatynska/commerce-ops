@@ -26,8 +26,8 @@ from types import ModuleType
 # definition is what registers it. These look unused, which is exactly the
 # kind of import a later cleanup removes -- a test runs each composition root
 # in a fresh interpreter and compares the registries to catch that.
-from commerce_ops.catalog.infrastructure.driving import (
-    daily_digest_job as _daily_digest_job,
+from commerce_ops.briefing.infrastructure.driving import (
+    daily_briefing_job as _daily_briefing_job,
 )
 from commerce_ops.launch.infrastructure.driving import (
     clickup_sync_job as _clickup_sync_job,
@@ -39,7 +39,7 @@ from commerce_ops.shared.infrastructure.driving import (
 __all__ = ["JOB_MODULES", "register_all"]
 
 JOB_MODULES: tuple[ModuleType, ...] = (
-    _daily_digest_job,
+    _daily_briefing_job,
     _clickup_sync_job,
     _overdue_check,
 )

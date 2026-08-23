@@ -150,6 +150,25 @@ class LaunchRepository:
                 launches.append(launch)
         return launches
 
+    async def list_all(self) -> list[Launch]:
+        """Every persisted launch, hydrated, filtered by nothing.
+
+        Deliberately *not* `list_active`: that one drops launches standing
+        at `graduated`, which is right for the ClickUp passes but wrong
+        for reporting — a launch waiting at the final gate for its
+        graduation approval is precisely something to report, and the
+        persisted shape cannot tell it apart from one whose gate already
+        opened. Whoever needs a lifecycle answer reads the catalog's stage
+        stamp (`launch-instance`, "Launch positions are enumerable").
+        """
+        row_ids = await self._session.scalars(select(LaunchPosition.product_id))
+        launches: list[Launch] = []
+        for row_id in row_ids:
+            launch = await self.get_by_product_id(ProductId(str(row_id)))
+            if launch is not None:
+                launches.append(launch)
+        return launches
+
     async def get_by_product_id(self, product_id: ProductId) -> Launch | None:
         row_id = _row_id(product_id)
         if row_id is None:

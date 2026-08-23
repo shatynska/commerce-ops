@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from commerce_ops.catalog.application.daily_digest import run_daily_digest
 from commerce_ops.catalog.application.errors import (
     DuplicateSkuError,
     ProductNotFoundError,
@@ -8,7 +7,6 @@ from commerce_ops.catalog.application.errors import (
 from commerce_ops.catalog.application.ports import (
     CatalogStore,
     ProductLister,
-    ProductNameReader,
 )
 from commerce_ops.catalog.application.use_cases import (
     change_stage,
@@ -28,7 +26,6 @@ __all__ = [
     "CatalogStore",
     "DuplicateSkuError",
     "ProductLister",
-    "ProductNameReader",
     "ProductNotFoundError",
     "StageTransitionError",
     "change_stage",
@@ -37,5 +34,4 @@ __all__ = [
     "list_products",
     "record_asin",
     "register_product",
-    "run_daily_digest",
 ]
