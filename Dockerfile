@@ -10,8 +10,29 @@ COPY alembic/ ./alembic/
 
 RUN uv sync --frozen --no-dev
 
+# Declared AFTER the build's own `uv sync`, so a variable meant for the
+# runtime is never in scope for the step that produces the environment.
+#
+# Without it, every `uv run` below re-syncs before running anything, and uv's
+# default group set includes `dev` -- so the runtime undoes the `--no-dev`
+# above and downloads pytest, mypy, ruff and their trees into a running
+# production container. That is not merely slow: it makes a container start
+# depend on a reachable package index, and a container with no route to one
+# cannot start at all. One variable rather than flags on each `uv run`,
+# because the call sites include commands an operator types into
+# `docker compose exec`, which no edit to this repository can reach.
+ENV UV_NO_SYNC=1
+
+# Calls the venv's interpreter directly rather than `uv run`, unlike the CMD
+# chain below. The reasoning inverts for this one call site: it is a fixed
+# string with no operator-typed variant to miss, and it runs every 10 seconds
+# for the life of every `app` container, so launching uv to discover a venv it
+# will not modify is pure overhead on the most frequent command in the
+# deployment. It also keeps uv out of the liveness signal -- each layer between
+# the probe and the HTTP request is another way to report the wrong thing.
+# (`worker` overrides this to `disable: true`, having no HTTP surface.)
 HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=3 \
-    CMD uv run python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
+    CMD /app/.venv/bin/python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
 
 EXPOSE 8000
 
