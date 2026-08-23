@@ -1,0 +1,10 @@
+schema: spec-driven
+created: 2026-08-23
+# This change removes every requirement `product-monitoring` had: the daily
+# product-name listing is superseded by `briefing`, and each of its
+# obligations is re-expressed there. That retires the capability rather
+# than emptying it — an empty spec would describe nothing, and the code it
+# specified is deleted. `monitoring` returns in slice 7 of
+# `docs/domain-map.md`, specified fresh as the metric registry and
+# evaluation engine.
+retire_capabilities: true
