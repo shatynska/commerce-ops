@@ -63,7 +63,6 @@ REQUIRED_NOT_STARTUP_CRITICAL = (
     "OMNI_AGENT_SLACK_BOT_TOKEN",
     "PRODUCT_AGENT_SLACK_BOT_TOKEN",
     "PRODUCT_AGENT_MONITORING_CHANNEL_ID",
-    "TRIGGER_SECRET",
 )
 
 OPTIONAL_ENV_VARS = (
@@ -192,7 +191,12 @@ def test_every_absent_required_variable_is_named_not_only_the_first(
     absent = (
         "OMNI_AGENT_SLACK_BOT_TOKEN",
         "PRODUCT_AGENT_MONITORING_CHANNEL_ID",
-        "TRIGGER_SECRET",
+        # Substituted for TRIGGER_SECRET when replace-cron-with-job-runner
+        # removed that variable. Striking it would have quietly reduced this
+        # case to two absent variables and weakened the guard the docstring
+        # above describes; the count is the point, so another required,
+        # non-startup-critical variable takes its place.
+        "PRODUCT_AGENT_SLACK_BOT_TOKEN",
     )
     environment = {
         name: value

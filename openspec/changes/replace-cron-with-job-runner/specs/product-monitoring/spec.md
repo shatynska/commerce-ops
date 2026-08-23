@@ -50,7 +50,7 @@ When the daily cadence cannot read products from the database, the run SHALL be 
 - **THEN** the system SHALL NOT post a message for that attempt, so that one outage produces one message rather than one per attempt
 
 #### Scenario: A database read failure is retried
-- **WHEN** the daily cadence's run has failed because the database could not be read, and its declared maximum number of attempts has not been reached
+- **WHEN** an attempt of the daily cadence has failed because the database could not be read, and the run's declared maximum number of attempts has not been reached
 - **THEN** the system SHALL retry the run
 
 ## REMOVED Requirements

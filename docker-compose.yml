@@ -12,6 +12,13 @@ services:
       # than duplicating a second connection-string secret through the
       # deploy pipeline (see add-products-store's proposal.md - Impact).
       DATABASE_URL: postgresql+asyncpg://commerce_ops:${POSTGRES_PASSWORD}@postgres:5432/commerce_ops
+      # Recorded rather than load-bearing: a container with no TZ already
+      # runs UTC, and the job runner interprets every schedule in UTC
+      # regardless, so this shifts nothing. It makes log timestamps
+      # unambiguous and matches them to the schedule, so a reader is not
+      # converting between two zones (design.md, "The schedule is
+      # interpreted in UTC, and `TZ` is set to UTC to match").
+      TZ: UTC
     restart: unless-stopped
     depends_on:
       postgres:
@@ -19,7 +26,6 @@ services:
     networks:
       - platform_edge
       - app_db
-      - app_cron
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.commerce-ops.rule=Host(`fuperia.shatynska.com`)"
@@ -55,46 +61,57 @@ services:
       # reachable from the same network other apps on this host may share.
       - app_db
 
-  cron:
-    # add-product-agent-daily-digest: fires the product-monitoring cadence
-    # triggers on a schedule. Declared inline (see design.md's Decisions on
-    # why: deploy-pipeline only ships docker-compose.yml and .env, never a
-    # separate crontab file) rather than a label-driven scheduler -- one
-    # image, five plain crontab lines. The crontab is generated at
-    # container start from TRIGGER_SECRET (delivered via env_file, same as
-    # `app`) so the secret never appears in this file itself; `$$` below is
-    # Compose's own escape for a literal `$`, so the substitution happens
-    # in the container's shell, not at `docker compose` parse time.
-    image: alpine:3.21
-    restart: unless-stopped
+  worker:
+    # replace-cron-with-job-runner: runs this application's scheduled work.
+    # Same image as `app` because it imports the same application code -- a
+    # second image would let the two drift. Only the command differs.
+    image: ghcr.io/shatynska/commerce-ops:${IMAGE_TAG}
     env_file: .env
+    environment:
+      # The same construction `app` uses, so one secret still backs both.
+      DATABASE_URL: postgresql+asyncpg://commerce_ops:${POSTGRES_PASSWORD}@postgres:5432/commerce_ops
+      TZ: UTC
+    restart: unless-stopped
+    # `preflight` runs here as it does in `app`'s chain: the command override
+    # would otherwise drop that step, and a missing
+    # PRODUCT_AGENT_MONITORING_CHANNEL_ID would surface as a failed 06:00 job
+    # rather than a named report at container start. No `alembic upgrade` --
+    # `app` owns migrating, and this service waits for it below.
+    #
+    # `exec` so the worker becomes PID 1: without it `sh` stays PID 1, SIGTERM
+    # never reaches the worker, and neither its engine disposal nor its
+    # in-flight job handling ever runs.
     command:
       - /bin/sh
       - -c
-      - |
-        cat > /etc/crontabs/root <<EOF
-        0 6 * * * wget -q -T 10 -O /dev/null --header="Authorization: Bearer $$TRIGGER_SECRET" --post-data= http://app:8000/products/monitoring/daily
-        0 7 * * 1 wget -q -T 10 -O /dev/null --header="Authorization: Bearer $$TRIGGER_SECRET" --post-data= http://app:8000/products/monitoring/weekly
-        0 7 1,15 * * wget -q -T 10 -O /dev/null --header="Authorization: Bearer $$TRIGGER_SECRET" --post-data= http://app:8000/products/monitoring/biweekly
-        0 8 1 * * wget -q -T 10 -O /dev/null --header="Authorization: Bearer $$TRIGGER_SECRET" --post-data= http://app:8000/products/monitoring/monthly
-        0 9 1 1,4,7,10 * wget -q -T 10 -O /dev/null --header="Authorization: Bearer $$TRIGGER_SECRET" --post-data= http://app:8000/products/monitoring/quarterly
-        EOF
-        exec crond -f -l 2
+      - uv run python -m commerce_ops.preflight && exec uv run python -m commerce_ops.worker
+    healthcheck:
+      # The image's HEALTHCHECK polls http://localhost:8000/health, which this
+      # service does not serve -- inherited unchanged it would report unhealthy
+      # for its entire life, poisoning the signal in the very change meant to
+      # make a half-up deployment detectable. Whether a worker is running jobs
+      # is not answerable by an HTTP probe; answering it properly is
+      # report-overdue-scheduled-runs' job, from outside.
+      disable: true
     depends_on:
-      - app
+      postgres:
+        condition: service_healthy
+      app:
+        # Schema readiness, not HTTP coupling -- the worker never calls `app`.
+        # `app`'s command chain runs `alembic upgrade head` and it becomes
+        # healthy only once that completes, which is what stops this service
+        # crash-looping against a database with no runner schema on first
+        # deploy.
+        condition: service_healthy
     networks:
-      # Private to app + cron only -- not platform_edge (cron has no HTTP
-      # surface of its own and doesn't need the shared ingress fabric) and
-      # not app_db (cron has no reason to reach Postgres directly; see
-      # design.md's Decisions on why a future DB-adjacent scheduled task
-      # would still go through an app endpoint, not this network).
-      - app_cron
+      # app_db only: no HTTP surface, so no platform_edge. The runner's queue
+      # lives in the same Postgres as the domain data.
+      - app_db
 
 networks:
   platform_edge:
     external: true
   app_db:
-  app_cron:
 
 volumes:
   commerce_ops_pgdata:

@@ -15,6 +15,17 @@ dependencies = [
     "httpx>=0.28.1",
     "langchain-openai>=1.6.0",
     "langgraph>=1.2.11",
+    # The Postgres-backed job runner behind the `scheduled-jobs` capability.
+    # Major pinned: a minor upgrade may ship schema migrations, and this
+    # project vendors the runner's schema into an Alembic revision.
+    "procrastinate>=3.9,<4",
+    # procrastinate depends on psycopg 3, which arrives WITHOUT a libpq
+    # wrapper -- `import procrastinate` then fails with "no pq wrapper
+    # available". asyncpg bundles its own, so nothing else here establishes
+    # that libpq is present. The binary extra is declared rather than
+    # assumed; without it every module importing the runner fails at import,
+    # which reads as a broken test suite rather than a missing library.
+    "psycopg[binary]>=3.3,<4",
     "pydantic-settings>=2.15.0",
     "pyyaml>=6.0,<7",
     "slack-bolt>=1.30,<2",

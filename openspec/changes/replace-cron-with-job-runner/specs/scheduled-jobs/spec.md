@@ -8,7 +8,7 @@ Runs the application's recurring work on a schedule from inside the deployment �
 
 The system SHALL run each piece of recurring work according to a schedule declared for it, without requiring a request from outside the deployment.
 
-The schedule SHALL be interpreted in an explicitly configured timezone that does not depend on the host's default.
+The schedule SHALL be interpreted in UTC on every host, regardless of the host's default timezone. This is structural rather than preferential: the runner evaluates cron expressions from absolute instants and accepts no timezone, so UTC is the only zone available. It is also the right one — a zone that observes DST produces daily windows that run twice or not at all.
 
 #### Scenario: Work runs when its schedule is due
 
@@ -22,14 +22,17 @@ The schedule SHALL be interpreted in an explicitly configured timezone that does
 
 #### Scenario: The schedule's timezone does not depend on the host
 
-- **WHEN** a schedule is evaluated on a host whose default timezone differs from the configured one
-- **THEN** it SHALL be evaluated in the configured timezone
+- **WHEN** a schedule is evaluated on a host whose default timezone is not UTC
+- **THEN** it SHALL be evaluated in UTC — a schedule declared for 06:00 SHALL become due at 06:00 UTC
+- **AND** it SHALL produce the same due moments as on a host whose default is UTC
 
 ### Requirement: A Window Missed While No Worker Was Available Is Run Once On Return
 
 When a piece of recurring work's due moment passes while no process is available to run it, the system SHALL run that work once when a process next becomes available, rather than skipping it silently.
 
 When several due moments for the same work pass while no process is available, the system SHALL run that work once on return, not once per missed moment — a report is a statement about the present, and replaying a backlog of them produces a burst of stale reports rather than one useful one.
+
+"While no process is available" means no process is running scheduled work at all — the case where the worker is stopped, crashed or being replaced. A live process whose own scheduling loop has stalled while it keeps running is a different failure, and one this capability does not govern.
 
 #### Scenario: A single missed window is run on return
 
@@ -56,7 +59,7 @@ When a run fails, the system SHALL retry it, waiting longer before each successi
 
 #### Scenario: A failing run is retried
 
-- **WHEN** a run fails and its declared maximum number of attempts has not been reached
+- **WHEN** an attempt fails and the run's declared maximum number of attempts has not been reached
 - **THEN** the system SHALL retry it
 
 #### Scenario: Successive retries wait longer
@@ -78,6 +81,8 @@ When a run fails, the system SHALL retry it, waiting longer before each successi
 ### Requirement: Every Run's Outcome Is Recorded And Can Be Asked About Afterwards
 
 The system SHALL record, for every run of a piece of recurring work: which work it was, when the run started, when it ended, and whether it succeeded or failed. This record SHALL survive the process that produced it, and SHALL be queryable afterwards.
+
+A run spans its retries: a piece of work that fails and is retried is one run, not several. Its start is the first attempt's start, its end is the moment of the outcome that stopped it, and its outcome is that final outcome — consistent with a retried run that succeeds being recorded as succeeded, above.
 
 #### Scenario: A completed run is recorded
 

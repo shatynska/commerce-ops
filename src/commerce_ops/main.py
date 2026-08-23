@@ -6,9 +6,6 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from commerce_ops.omni_agent.infrastructure.driving import slack as omni_agent_slack
-from commerce_ops.products.infrastructure.driving import (
-    monitoring as products_monitoring,
-)
 from commerce_ops.shared.infrastructure.driven.database import dispose_engine
 from commerce_ops.shared.infrastructure.driving import health
 from commerce_ops.shared.infrastructure.logging import configure_logging
@@ -33,4 +30,3 @@ async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(lifespan=_lifespan)
 app.include_router(health.router)
 app.include_router(omni_agent_slack.router)
-app.include_router(products_monitoring.router)
