@@ -19,7 +19,15 @@ import uuid
 from datetime import date, datetime
 from typing import Final
 
-from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, String
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    Date,
+    DateTime,
+    ForeignKey,
+    String,
+    UniqueConstraint,
+)
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
@@ -158,6 +166,62 @@ class LaunchGateApproval(Base):
         DateTime(timezone=True), nullable=False
     )
     posture: Mapped[str | None] = mapped_column(String, nullable=True)
+
+
+class LaunchClickUpList(Base):
+    """The ClickUp list a launch's work is projected into — one per
+    launch, which is what makes "a launch whose list already exists SHALL
+    NOT get a second one" checkable (`launch-clickup-sync`)."""
+
+    __tablename__ = "launch_clickup_lists"
+
+    product_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey(
+            "launch_positions.product_id",
+            name="fk_launch_clickup_lists_product_id",
+            ondelete="CASCADE",
+        ),
+        primary_key=True,
+    )
+    list_id: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+
+
+class LaunchClickUpTask(Base):
+    """The ClickUp task standing for one step of one launch.
+
+    Unique on both sides by design: the primary key gives a step exactly
+    one task, and the unique constraint on `task_id` gives a task exactly
+    one step — webhook intake arrives holding only a task identifier, so
+    a task resolving to two steps would record against the wrong one.
+
+    `last_observed_closed` is the whole basis of the transition rule
+    (`launch-clickup-sync`, and design.md's "Recording is transition-based,
+    keyed on the last observed state"): every observation writes it, and an
+    outcome is recorded only when a fresh reading differs from it. It is
+    deliberately *not* the step's recorded outcome — comparing against that
+    would overwrite an attestation with `InProgress` on the next pass.
+    """
+
+    __tablename__ = "launch_clickup_tasks"
+    __table_args__ = (
+        UniqueConstraint("task_id", name="uq_launch_clickup_tasks_task_id"),
+    )
+
+    product_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey(
+            "launch_positions.product_id",
+            name="fk_launch_clickup_tasks_product_id",
+            ondelete="CASCADE",
+        ),
+        primary_key=True,
+    )
+    step_id: Mapped[str] = mapped_column(String, primary_key=True)
+    task_id: Mapped[str] = mapped_column(String, nullable=False)
+    last_observed_closed: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False
+    )
 
 
 class LaunchMetricAttestation(Base):

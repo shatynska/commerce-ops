@@ -10,6 +10,7 @@ reference it without either layer importing the other -- see
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date
 
 
 @dataclass(frozen=True, slots=True)
@@ -19,3 +20,22 @@ class ClickUpTask:
 
     id: str
     url: str
+
+
+@dataclass(frozen=True, slots=True)
+class ClickUpTaskState:
+    """A ClickUp task as a *read* reports it, added by
+    `add-clickup-completion-loop` for the launch completion loop.
+
+    Distinct from `ClickUpTask`, which is what a write hands back: a read
+    carries the facts the loop judges against — the status, whether that
+    status is of the closed type, and the due date it currently holds.
+
+    `closed` is taken from ClickUp's status `type` field, never from the
+    status name, so the ops team can rename statuses freely.
+    """
+
+    id: str
+    status: str
+    closed: bool
+    due_date: date | None

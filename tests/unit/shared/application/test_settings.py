@@ -69,6 +69,12 @@ OPTIONAL = frozenset(
         # Added by configure-application-logging (tasks 2.4) -- this
         # transcribed set now spans more than one change.
         "LOG_LEVEL",
+        # Added by add-clickup-completion-loop (tasks 2.1). Optional for the
+        # same reason CLICKUP_API_TOKEN is: absent, the launch completion
+        # loop degrades -- the webhook rejects every delivery, the pass fails
+        # its own run -- while the application starts and serves unchanged.
+        "CLICKUP_LAUNCH_FOLDER_ID",
+        "CLICKUP_WEBHOOK_SECRET",
     }
 )
 

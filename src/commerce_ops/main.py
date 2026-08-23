@@ -5,6 +5,9 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from commerce_ops.launch.infrastructure.driving import (
+    clickup_webhook as launch_clickup_webhook,
+)
 from commerce_ops.omni_agent.infrastructure.driving import slack as omni_agent_slack
 from commerce_ops.registrations import register_all
 from commerce_ops.shared.infrastructure.driven.database import dispose_engine
@@ -37,3 +40,6 @@ app = FastAPI(lifespan=_lifespan)
 app.include_router(health.router)
 app.include_router(scheduled_runs.router)
 app.include_router(omni_agent_slack.router)
+# Mounted without a prefix, as the Slack adapter is: the router declares
+# its own full path.
+app.include_router(launch_clickup_webhook.router)

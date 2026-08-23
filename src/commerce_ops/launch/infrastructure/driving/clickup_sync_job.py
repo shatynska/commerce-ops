@@ -1,0 +1,130 @@
+"""Driving adapter: the ClickUp completion loop's periodic convergence pass.
+
+Implements `launch-clickup-sync`'s "The reconciliation pass records
+completions and reopenings the webhook missed", whose opening clause makes
+this scheduled work rather than anything triggerable from outside the
+deployment.
+
+Each run walks every active launch and does both halves in order: converge
+ClickUp toward the launch's schedule (list, tasks, due dates), then read
+back what changed and record it. Graduated launches never appear —
+`list_active()` filters them out, so no pass has to remember the rule.
+
+Collaborators are imported by name into this module's namespace and
+referenced as bare globals, keeping `daily_digest_job.py`'s pattern.
+`read_product` is the exception and arrives by injection: the launch module
+may not import the catalog's own store (`.importlinter`'s
+`products-infrastructure-boundary`), so `worker.py` — which sits outside
+those containers — supplies the reader, exactly as it supplies
+`overdue_check.notifier`.
+"""
+
+from __future__ import annotations
+
+import datetime
+import functools
+import logging
+import os
+
+from commerce_ops.launch.application import record_step_outcome
+from commerce_ops.launch.infrastructure.driven.clickup_mapping import (
+    ClickUpMappingRepository,
+)
+from commerce_ops.launch.infrastructure.driven.clickup_sync import (
+    ProductReader,
+    converge_launch,
+    reconcile_launch,
+)
+from commerce_ops.launch.infrastructure.driven.launch_repository import (
+    LaunchRepository,
+)
+from commerce_ops.launch.infrastructure.driven.shipped_playbooks import (
+    ShippedPlaybooks,
+)
+from commerce_ops.shared.infrastructure.driven import clickup_client as clickup
+from commerce_ops.shared.infrastructure.driven.database import session
+from commerce_ops.shared.infrastructure.driven.recurring_work import register_scheduled
+
+__all__ = [
+    "SYNC_SCHEDULE",
+    "SYNC_TOLERANCE",
+    "TASK_NAME",
+    "read_product",
+    "reconcile_clickup_completions",
+    "record_step_outcome",
+    "session",
+]
+
+_logger = logging.getLogger(__name__)
+
+TASK_NAME = "launch.clickup.completion_pass"
+
+# Every 30 minutes. The webhook is what makes completion prompt; this pass
+# exists to catch what it missed, so its cadence sets how long a dropped
+# delivery can go unnoticed, not how quickly completion is normally seen.
+SYNC_SCHEDULE = "*/30 * * * *"
+
+# Comfortably longer than the worker's own liveness tolerance, which
+# `scheduled-jobs` requires of every piece of work it runs: an absent
+# worker must become visible before the work it failed to run does. Also
+# far longer than the 30-minute gap, so a merely delayed run is never
+# reported overdue.
+SYNC_TOLERANCE = datetime.timedelta(hours=6)
+
+_playbooks = ShippedPlaybooks()
+
+# Injected by `worker.py` after `register_all()`, never at import and never
+# as a job argument. `None` in the HTTP process, which registers this module
+# but never runs the job.
+read_product: ProductReader | None = None
+
+
+def _launch_folder_id() -> str | None:
+    # A literal variable name, so the environment-drift check can see this
+    # read (see `clickup_webhook`'s own note).
+    return os.environ.get("CLICKUP_LAUNCH_FOLDER_ID")
+
+
+async def _read_product_or_fail(product_id: object) -> object:
+    if read_product is None:
+        raise RuntimeError(
+            "the ClickUp completion pass needs to name a new launch list "
+            "after its catalog product, but no product reader was injected; "
+            "`worker.py` supplies one after `register_all()`"
+        )
+    return await read_product(product_id)  # type: ignore[arg-type]
+
+
+@register_scheduled(
+    name=TASK_NAME,
+    schedule=SYNC_SCHEDULE,
+    tolerance=SYNC_TOLERANCE,
+)
+async def reconcile_clickup_completions(timestamp: int) -> None:
+    """Converge every active launch's ClickUp projection, then read it back."""
+    folder_id = _launch_folder_id()
+
+    async with session() as db_session:
+        launches = LaunchRepository(db_session)
+        mapping = ClickUpMappingRepository(db_session)
+        active = await launches.list_active()
+        record = functools.partial(record_step_outcome, launches, _playbooks)
+
+        _logger.info("ClickUp completion pass starting over %d launch(es)", len(active))
+        for launch in active:
+            playbook = _playbooks.get(launch.playbook_version)
+            await converge_launch(
+                launch=launch,
+                playbook=playbook,
+                clickup=clickup,
+                mapping=mapping,
+                read_product=_read_product_or_fail,
+                folder_id=folder_id,
+            )
+            await reconcile_launch(
+                launch=launch,
+                playbook=playbook,
+                clickup=clickup,
+                mapping=mapping,
+                record_outcome=record,
+            )

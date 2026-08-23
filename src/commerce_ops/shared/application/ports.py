@@ -11,10 +11,10 @@ the capability without either layer importing the other by name. See
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Protocol
 
-from commerce_ops.shared.domain.clickup import ClickUpTask
+from commerce_ops.shared.domain.clickup import ClickUpTask, ClickUpTaskState
 
 
 class ClickUpTaskWriter(Protocol):
@@ -25,6 +25,28 @@ class ClickUpTaskWriter(Protocol):
     async def update_task(
         self, task_id: str, fields: Mapping[str, object]
     ) -> ClickUpTask: ...
+
+
+class ClickUpListWriter(Protocol):
+    """Creating the list a caller's own work is projected into."""
+
+    async def create_list(self, folder_id: str, name: str) -> str: ...
+
+
+class ClickUpTaskReader(Protocol):
+    """Reading a list's tasks back, which is what lets a caller notice
+    what changed in ClickUp without a webhook delivery."""
+
+    async def list_tasks(self, list_id: str) -> Sequence[ClickUpTaskState]: ...
+
+
+class ClickUpWorkspace(
+    ClickUpTaskWriter, ClickUpListWriter, ClickUpTaskReader, Protocol
+):
+    """Every ClickUp operation the launch completion loop needs, in one
+    port: it projects a list and its tasks, corrects them, and reads them
+    back. The `clickup_client` module satisfies this structurally, as it
+    already does `ClickUpTaskWriter`."""
 
 
 class MonitoringNotifier(Protocol):

@@ -29,13 +29,20 @@ from types import ModuleType
 from commerce_ops.catalog.infrastructure.driving import (
     daily_digest_job as _daily_digest_job,
 )
+from commerce_ops.launch.infrastructure.driving import (
+    clickup_sync_job as _clickup_sync_job,
+)
 from commerce_ops.shared.infrastructure.driving import (
     overdue_check as _overdue_check,
 )
 
 __all__ = ["JOB_MODULES", "register_all"]
 
-JOB_MODULES: tuple[ModuleType, ...] = (_daily_digest_job, _overdue_check)
+JOB_MODULES: tuple[ModuleType, ...] = (
+    _daily_digest_job,
+    _clickup_sync_job,
+    _overdue_check,
+)
 
 
 def register_all() -> None:

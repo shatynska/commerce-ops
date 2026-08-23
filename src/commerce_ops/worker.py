@@ -15,6 +15,8 @@ from __future__ import annotations
 import asyncio
 import logging
 
+from commerce_ops.catalog.domain.product import Product
+from commerce_ops.shared.domain.identity import ProductId
 from commerce_ops.shared.infrastructure.driven.database import dispose_engine
 from commerce_ops.shared.infrastructure.driven.job_runner import app
 from commerce_ops.shared.infrastructure.logging import configure_logging
@@ -29,8 +31,14 @@ configure_logging()
 # lists is exactly the divergence that leaves the freshness endpoint
 # reporting on a different set of work than the worker actually runs
 # (tasks.md 1.3a).
+from commerce_ops.catalog.application import get_product_by_id
 from commerce_ops.catalog.infrastructure.driven import slack_notifier
+from commerce_ops.catalog.infrastructure.driven.product_repository import (
+    CatalogProductRepository,
+)
+from commerce_ops.launch.infrastructure.driving import clickup_sync_job
 from commerce_ops.registrations import register_all
+from commerce_ops.shared.infrastructure.driven.database import session
 from commerce_ops.shared.infrastructure.driving import overdue_check
 
 __all__ = ["main"]
@@ -44,6 +52,22 @@ register_all()
 # `.importlinter`'s containers, which is what makes naming both sides legal
 # (tasks.md 4.2).
 overdue_check.notifier = slack_notifier
+
+
+async def _read_catalog_product(product_id: ProductId) -> Product | None:
+    """Name a launch's ClickUp list after its catalog product.
+
+    Injected here for the same reason the notifier is: the launch module
+    may not import the catalog's own store, and this module sits outside
+    `.importlinter`'s containers, which is what makes naming both sides
+    legal. It opens its own session — the pass may run for many launches,
+    and this read is not part of their transaction.
+    """
+    async with session() as db_session:
+        return await get_product_by_id(CatalogProductRepository(db_session), product_id)
+
+
+clickup_sync_job.read_product = _read_catalog_product
 
 # Named explicitly, NOT `__name__`. Compose runs this module as
 # `python -m commerce_ops.worker`, where `__name__` is `"__main__"` -- a
