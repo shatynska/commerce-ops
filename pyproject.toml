@@ -40,6 +40,9 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = ["tests/unit", "tests/agents", "tests/integration"]
 
+[tool.mypy]
+strict = true
+
 [tool.ruff.lint.flake8-bugbear]
 # fastapi.Depends() as a parameter default is the idiomatic FastAPI
 # dependency-injection pattern, not a mutable-default footgun -- B008 only
