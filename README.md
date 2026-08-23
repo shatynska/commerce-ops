@@ -102,7 +102,7 @@ uv run alembic upgrade head
 uv run pytest tests/integration
 ```
 
-Without `DATABASE_URL` set, `tests/integration/products/` skips rather than failing.
+Without `DATABASE_URL` set, the whole `tests/integration/` tier skips rather than failing — which is what keeps the `pre-push` hook from rejecting a push on a machine with no local Postgres.
 
 ## Deferred work
 
