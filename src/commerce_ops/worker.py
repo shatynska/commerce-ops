@@ -24,19 +24,26 @@ from commerce_ops.shared.infrastructure.logging import configure_logging
 # what it reports.
 configure_logging()
 
-# Imported for the import's own sake: importing a module that holds a job
-# definition is what registers its schedule. A worker that registers nothing
-# runs perfectly healthy and schedules nothing, and with the container's
-# healthcheck disabled there would be no signal at all. Task 6.4a guards
-# this line specifically, because an unused-looking import is exactly the
-# kind a later cleanup removes.
-from commerce_ops.products.infrastructure.driving import (
-    daily_digest_job as _daily_digest_job,
-)
+# The one list of job modules lives in `registrations.py`, called by this
+# root and by `main.py` alike. This process must not keep its own list: two
+# lists is exactly the divergence that leaves the freshness endpoint
+# reporting on a different set of work than the worker actually runs
+# (tasks.md 1.3a).
+from commerce_ops.catalog.infrastructure.driven import slack_notifier
+from commerce_ops.registrations import register_all
+from commerce_ops.shared.infrastructure.driving import overdue_check
 
 __all__ = ["main"]
 
-_REGISTERED_JOB_MODULES = (_daily_digest_job,)
+register_all()
+
+# Injected after `register_all()`, as a separate step. `register_all()` itself
+# stays notifier-free because `main.py` calls the same function and has no
+# notifier to give; and the notifier is never a job argument, since the runner
+# passes only serializable values to a job. This module sits outside
+# `.importlinter`'s containers, which is what makes naming both sides legal
+# (tasks.md 4.2).
+overdue_check.notifier = slack_notifier
 
 # Named explicitly, NOT `__name__`. Compose runs this module as
 # `python -m commerce_ops.worker`, where `__name__` is `"__main__"` -- a

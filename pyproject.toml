@@ -9,6 +9,13 @@ dependencies = [
     # it is NOT transitive: slack-sdk declares it only under its `optional`
     # extra, so this project carries it directly.
     "aiohttp>=3.13.5,<4",
+    # Used to compute the longest gap between consecutive scheduled runs, so
+    # a tolerance can be checked against its own schedule rather than against
+    # an assumed uniform interval. Declared directly rather than relied on
+    # transitively from the job runner, for the reason the aiohttp comment
+    # above records: a runner release that drops or renames it would break
+    # the check through an unrelated `uv sync`.
+    "croniter>=6.0,<7",
     "alembic>=1.13,<2",
     "asyncpg>=0.29,<1",
     "fastapi>=0.141.1",
@@ -46,6 +53,7 @@ dev = [
     "pytest>=9.1.1",
     "ruff>=0.16.3",
     "types-PyYAML>=6.0,<7",
+    "types-croniter>=6.0,<7",
 ]
 
 [tool.pytest.ini_options]

@@ -77,7 +77,7 @@ It is a scheduled job, and the prerequisite establishes that a scheduled job is 
 - **The lifespan is barred.** `runtime-configuration`'s "Importing And Starting The Application Do Not Require Configuration To Be Present" requires startup to succeed with every variable absent, and `tests/unit/test_startup_without_configuration.py` enforces it by starting `main.app` under a `TestClient` with `DATABASE_URL` unset. A database write there either fails that guard or must swallow its own failure — and a best-effort anchor write is no anchor at all, since the case it exists for is exactly the one where things are not working.
 - **The freshness endpoint's own handler writes it**, upserting first-known for every registered work before it evaluates. Chosen. It costs nothing at startup, is compatible with the requirement as it stands, and anchors at the first poll — which is when someone first cares.
 
-The cost, stated: an anonymous `GET` performs a bounded, idempotent write (one row per registered piece of work, inserted once and never again). And the brief response cache must not short-circuit the upsert, or a cached response would skip the anchoring the next new work needs.
+The cost, stated: an anonymous `GET` performs a bounded, idempotent write (one row per registered piece of work, inserted once and never again). And the brief response cache must not short-circuit the upsert — not because new work appears mid-process (the registry is fixed at import), but because that write is what a cache-hit request has instead of a read, and so is how it discovers unreadable state at all. See "Unauthenticated, with the `/health` analogy stated at its actual strength".
 
 Anchoring at first poll rather than at deploy means the anchor is slightly later than it could be. That is the trade for not putting a database write on a startup path a published requirement protects — and since the endpoint exists to be polled by an external checker, "first poll" is the moment the guarantee starts mattering.
 
@@ -111,15 +111,39 @@ Any implementation that asks the worker anything fails exactly when it is needed
 
 **Unhealthy is signalled by HTTP status**, not only in the body, so an off-the-shelf monitor can be pointed at the URL with no custom logic — the whole reason the endpoint exists rather than someone reading logs. The path is `/health/scheduled-runs`, and its router is registered in `main.py` like every other route in the tree.
 
+### The freshness response is a fixed JSON shape, and 200/503 carries the signal
+
+```json
+{
+  "status": "ok",
+  "work": [
+    {"id": "overdue-check",        "last_success": "2026-08-23T14:00:03Z", "tolerance_seconds": 14400,  "overdue": false},
+    {"id": "product-daily-digest", "last_success": null,                   "tolerance_seconds": 108000, "overdue": false}
+  ]
+}
+```
+
+- `status` is `"ok"` or `"unhealthy"`, reusing `/health`'s existing `{"status": "ok"}` vocabulary rather than inventing a second vocabulary one endpoint over.
+- `work` is sorted by `id`, so two responses are diffable.
+- `last_success` is RFC 3339 UTC, or `null` where the work has never succeeded — `null` *is* how "never" is expressed, not a sentinel string a checker would have to know about.
+- `tolerance_seconds` is included so a reader can tell an overdue verdict from a merely slow one without opening the repository.
+- `status` is `"unhealthy"` when any entry is `overdue`, **or** when the recorded state could not be read. It is deliberately not derived from the entries alone: the outage case below carries no entries at all, and an implementation that computes `status` by scanning `work` reports `"ok"` in a body sent with a 503.
+
+**HTTP status: 200 healthy, 503 when any piece of work is overdue.** 503 is what an off-the-shelf uptime monitor already treats as down, which is the entire point of signalling by status rather than in prose.
+
+**Database unreachable: 503 with `{"status": "unhealthy", "work": []}`.** Indistinguishable to a monitor from overdue work — which is correct, since both mean the deployment cannot demonstrate that its scheduled work is happening — while the empty array tells a human which of the two they are looking at. Only successful reads enter the cache, and the anchor upsert runs on every request including a cache hit — those two together, not the cache rule alone, are what stop a cached healthy answer from outliving the state it was computed from. Precisely: the upsert catches any fault that also prevents a write, which is every failure mode named here — connection loss, timeout expiry, an absent or malformed setting. A fault that disables reads alone is caught at the next cache miss instead, so it is masked for at most one cache window.
+
+**Unreachable is bounded in time, not just in outcome.** The anchor upsert and the read are given a short timeout, and expiry *is* the unreachable case. Without one, a database that accepts connections and never answers produces a hanging request rather than a prompt 503 — on the one endpoint whose entire purpose is to be polled by something that will conclude nothing from a request that never returns.
+
 ### Unauthenticated, with the `/health` analogy stated at its actual strength
 
 It exposes the names of scheduled work, when each last succeeded, and whether each is within tolerance. No product data, no counts, no configuration.
 
 Unauthenticated by decision, not omission: an authenticated endpoint needs a credential delivered to whatever polls it, and the prerequisite removes a shared-secret mechanism precisely because a static bearer token on a public endpoint is a liability with no rotation story. Reintroducing one to protect the fact that a digest ran at 06:00 is a poor trade.
 
-**Where the `/health` analogy stops:** `health-check`'s spec requires that endpoint to touch nothing external, while this one queries Postgres on every anonymous request from the open internet. The precedent covers *exposure*, not *I/O*. The response is therefore cached briefly — a few seconds is ample, since the underlying state changes hourly at most — so that repeated anonymous requests cost one query rather than one each.
+**Where the `/health` analogy stops:** `health-check`'s spec requires that endpoint to touch nothing external, while this one queries Postgres on every anonymous request from the open internet. The precedent covers *exposure*, not *I/O*. The response is therefore cached briefly — a few seconds is ample, since the underlying state changes hourly at most. Stated at its actual strength: the cache bounds the *read and evaluation*, not the whole request, because the anchor upsert is deliberately exempt from it (see "First-known is its own table"). That exemption is **not** an optimisation waiting to be removed: the per-request upsert is the only database access a cache-hit request still makes, and so it is the mechanism by which such a request discovers that the recorded state has become unreadable. Memoising it away would leave a cache hit doing no I/O at all, and the endpoint would serve its last healthy answer through the first seconds of an outage. The cost is one bounded idempotent write per anonymous request — the cost already accepted under "First-known is its own table", not a new one.
 
-Accepted trade: an outsider can learn that this deployment runs scheduled work and whether it is currently healthy. If the set of scheduled work ever includes names that are themselves sensitive, this decision needs revisiting.
+Accepted trade, in two parts. An outsider can learn that this deployment runs scheduled work and whether it is currently healthy. And every anonymous request costs one upsert per registered piece of work, cache hit or not — in-process memoisation is deliberately unavailable as a mitigation, for the reason just given, so the write rate follows the request rate. If that ever needs a bound, it belongs at the edge as rate limiting, not in the handler; nothing here tasks one. If the set of scheduled work ever includes names that are themselves sensitive, this decision needs revisiting.
 
 ## Risks / Trade-offs
 
@@ -141,7 +165,7 @@ Accepted trade: an outsider can learn that this deployment runs scheduled work a
 7. Add the freshness route, register its router in `main.py`, and have its handler upsert the anchor before evaluating.
 8. Deploy, then verify: stop the `worker` container, confirm the endpoint reports unhealthy within the worker's own tolerance rather than the digest's, restart it, confirm it returns to healthy.
 
-**Rollback**: revert and redeploy. The suppression table remains until `alembic downgrade` is run, harmlessly. Nothing yet polls the endpoint, so no external contract breaks.
+**Rollback**: revert and redeploy. The suppression and `known_work` tables remain until `alembic downgrade` is run, harmlessly. Nothing yet polls the endpoint, so no external contract breaks.
 
 ## Open Questions
 

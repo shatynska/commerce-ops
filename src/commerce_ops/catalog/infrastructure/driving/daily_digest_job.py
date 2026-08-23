@@ -5,10 +5,13 @@ Implements the `product-monitoring` and `scheduled-jobs` capabilities
 
 This takes the place of `monitoring.py`'s five HTTP routes. A scheduled job
 is a *driving* adapter -- it calls into the application layer exactly as the
-retired route did -- so it lives in `products` rather than in `shared`, where
-it may freely reach this module's own repository and notifier without
-`shared` ever importing a business module. See design.md, "The daily job
-definition lives in `products`, not in `shared`".
+retired route did -- so it lives inside a business module rather than in
+`shared`, where it may freely reach this module's own repository and
+notifier without `shared` ever importing a business module. It moved from
+`products` to `catalog` with the table split: "which products exist" is
+catalog's question, and only catalog's own driving adapter may construct
+catalog's repository (see `introduce-catalog-and-shared-vocabulary`'s
+design.md, Decision 9 as amended).
 
 Collaborators (`run_daily_digest`, `post_monitoring_message`, `session`) are
 imported by name into this module's namespace and referenced as bare globals
@@ -18,20 +21,21 @@ tests substitute fakes with `monkeypatch.setattr`.
 
 from __future__ import annotations
 
+import datetime
 import logging
 from collections.abc import Sequence
 
 from procrastinate import RetryStrategy, job_context
 
-from commerce_ops.products.application import run_daily_digest
-from commerce_ops.products.infrastructure.driven.product_repository import (
-    ProductRepository,
+from commerce_ops.catalog.application import run_daily_digest
+from commerce_ops.catalog.infrastructure.driven.product_repository import (
+    CatalogProductRepository,
 )
-from commerce_ops.products.infrastructure.driven.slack_notifier import (
+from commerce_ops.catalog.infrastructure.driven.slack_notifier import (
     post_monitoring_message,
 )
 from commerce_ops.shared.infrastructure.driven.database import session
-from commerce_ops.shared.infrastructure.driven.job_runner import app
+from commerce_ops.shared.infrastructure.driven.recurring_work import register_scheduled
 
 __all__ = [
     "daily_digest",
@@ -46,6 +50,13 @@ _logger = logging.getLogger(__name__)
 # UTC -- the runner accepts no timezone parameter, so this is not a choice the
 # deployment can get wrong. See design.md, "The schedule is interpreted in UTC".
 DAILY_SCHEDULE = "0 6 * * *"
+
+# Longer than the 24-hour interval, so a run that is merely delayed -- or
+# still in flight -- is never reported as overdue. Declared here, beside the
+# schedule it is measured against, because they are one decision: a change to
+# one that leaves the other alone is the mistake worth making impossible
+# (tasks.md 1.5).
+DAILY_TOLERANCE = datetime.timedelta(hours=30)
 
 # Exponential backoff, small maximum. The failure mode is a transient database
 # or network problem; still failing after several spaced attempts means the
@@ -106,13 +117,18 @@ def _is_final_attempt(
     )
 
 
-@app.periodic(cron=DAILY_SCHEDULE)
-@app.task(name="products.monitoring.daily", pass_context=True, retry=RETRY_STRATEGY)
+@register_scheduled(
+    name="products.monitoring.daily",
+    schedule=DAILY_SCHEDULE,
+    tolerance=DAILY_TOLERANCE,
+    pass_context=True,
+    retry=RETRY_STRATEGY,
+)
 async def daily_digest(context: job_context.JobContext, timestamp: int) -> None:
     """Post the daily digest of monitored product names."""
     try:
         async with session() as db_session:
-            names = await run_daily_digest(ProductRepository(db_session))
+            names = await run_daily_digest(CatalogProductRepository(db_session))
     except Exception as exc:
         # Distinct from a delivery failure: the run's actual job -- the
         # database read -- never completed, so the run is recorded as failed
