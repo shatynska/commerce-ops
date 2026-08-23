@@ -4,7 +4,7 @@
 from importing `catalog.infrastructure` directly.
 `CatalogProductRepository` (infrastructure) satisfies these Protocols
 structurally, so it can be passed in without either layer importing the
-other by name — the same pattern `products.application` recorded for its
+other by name — the same pattern the launch module (then `products.application`) recorded for its
 pre-split reader port.
 """
 
@@ -42,7 +42,7 @@ class CatalogStore(ProductLister, Protocol):
 
 
 class ProductNameReader(Protocol):
-    """The daily digest's read port (moved here from `products.application`
+    """The daily digest's read port (moved here from the launch module — then `products.application` —
     with the digest itself — design.md Decision 9 as amended)."""
 
     async def list_names(self) -> Sequence[str]: ...

@@ -1,4 +1,4 @@
-"""Shared identity value objects: `ProductId`, `Sku`, `Asin`, `MarketplaceId`.
+"""Shared identity value objects: `ProductId`, `Sku`, `Asin`, `MarketplaceId`, `MetricId`.
 
 Implements `shared-vocabulary`'s identity requirements (see
 `openspec/changes/introduce-catalog-and-shared-vocabulary/specs/shared-vocabulary/spec.md`).
@@ -61,3 +61,18 @@ class MarketplaceId:
 
     def __post_init__(self) -> None:
         _require_well_formed(self.value, "marketplace identifier")
+
+
+@dataclass(frozen=True, slots=True)
+class MetricId:
+    """A metric's opaque reference.
+
+    Until a metric registry exists (domain-map slice 7), nothing validates
+    that the metric it names is defined: a reference to be resolved later,
+    not a checked foreign key.
+    """
+
+    value: str
+
+    def __post_init__(self) -> None:
+        _require_well_formed(self.value, "metric identifier")

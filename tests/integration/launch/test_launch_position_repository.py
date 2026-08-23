@@ -35,7 +35,7 @@ tasks.md 4.2 reshapes the products module's model and repository to the
 launch-position record but fixes no names. Assumed, and recorded in the
 manifest as unresolved project questions:
 
-- `commerce_ops.products.infrastructure.driven.launch_position_repository`
+- `commerce_ops.launch.infrastructure.driven.launch_position_repository`
   exporting `LaunchPositionRepository(session: AsyncSession)` and a
   single `LaunchPositionError` raised for every rejection this delta
   describes (unknown product, second position, unrecognized gate, update
@@ -85,7 +85,7 @@ from commerce_ops.catalog.application import register_product
 from commerce_ops.catalog.infrastructure.driven.product_repository import (
     CatalogProductRepository,
 )
-from commerce_ops.products.infrastructure.driven.launch_position_repository import (
+from commerce_ops.launch.infrastructure.driven.launch_position_repository import (
     LaunchPositionError,
     LaunchPositionRepository,
 )

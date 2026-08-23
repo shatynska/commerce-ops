@@ -15,7 +15,7 @@ from datetime import date
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from commerce_ops.products.infrastructure.driven.models import (
+from commerce_ops.launch.infrastructure.driven.models import (
     GATE_IDS,
     LaunchPosition,
 )

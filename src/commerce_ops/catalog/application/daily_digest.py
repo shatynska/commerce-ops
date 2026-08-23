@@ -1,7 +1,7 @@
 """The `daily` product-monitoring cadence's use case.
 
 Implements `product-monitoring`'s "Daily Cadence Lists Existing Product
-Names" requirement. Moved here from `products.application` with the table
+Names" requirement. Moved here from the launch module (then `products.application`) with the table
 split: "which products exist" is catalog's question (design.md Decision 9
 as amended). A database-read failure is let through, not swallowed here —
 see `add-product-agent-daily-digest`'s design.md, Decisions, on why a read

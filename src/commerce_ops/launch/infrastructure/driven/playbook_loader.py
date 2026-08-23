@@ -2,7 +2,7 @@
 
 Translates, never re-implements. Every coherence rule lives on
 `LaunchPlaybook` and `StepDefinition` themselves (see
-`products.domain.launch_playbook`); this module's job is to turn the file's
+`launch.domain.launch_playbook`); this module's job is to turn the file's
 values into the ones those constructors expect, and to merge every fault it
 encounters — its own parse/shape faults alongside whatever the domain
 constructors raise — into a single reported failure, so a large playbook
@@ -21,7 +21,7 @@ from typing import Any
 
 import yaml
 
-from commerce_ops.products.domain.launch_playbook import (
+from commerce_ops.launch.domain.launch_playbook import (
     Binding,
     Cadence,
     ExecutionMode,
@@ -30,17 +30,19 @@ from commerce_ops.products.domain.launch_playbook import (
     Hazard,
     InvalidPlaybookError,
     LaunchPlaybook,
+    MetricCondition,
     OffsetAnchor,
     OpenEndedAnchor,
     RecurringAnchor,
     Scope,
     StepDefinition,
     TimingAnchor,
-    Track,
     WindowAnchor,
 )
+from commerce_ops.shared.domain.discipline import Discipline
+from commerce_ops.shared.domain.identity import MetricId
 
-_SHIPPED_PACKAGE = "commerce_ops.products.infrastructure.driven"
+_SHIPPED_PACKAGE = "commerce_ops.launch.infrastructure.driven"
 _SHIPPED_FILENAME = "playbook_v1.yaml"
 
 
@@ -96,6 +98,19 @@ def _parse_gate(raw: Mapping[str, Any]) -> Gate:
         identifier=raw["identifier"],
         position=int(raw["position"]),
         opening=GateOpening(raw["opening"]),
+        metric_conditions=tuple(
+            _parse_metric_condition(condition)
+            for condition in raw.get("metric_conditions", [])
+        ),
+    )
+
+
+def _parse_metric_condition(raw: Mapping[str, Any]) -> MetricCondition:
+    # An empty threshold description passes through: rejecting it, naming
+    # the gate, is the playbook's own coherence rule.
+    return MetricCondition(
+        metric_id=MetricId(raw["metric_id"]),
+        threshold=raw["threshold"],
     )
 
 
@@ -112,12 +127,12 @@ def _parse_timing_anchor(raw: Mapping[str, Any]) -> TimingAnchor:
     raise ValueError(f"unknown timing anchor kind '{kind}'")
 
 
-def _parse_track(raw: str) -> Track | str:
+def _parse_discipline(raw: str) -> Discipline | str:
     # Coerce when possible; on failure, hand the raw value through so
     # `StepDefinition`'s own validation rejects it and formats the error —
     # this loader does not duplicate that rule.
     try:
-        return Track(raw)
+        return Discipline(raw)
     except ValueError:
         return raw
 
@@ -126,7 +141,7 @@ def _build_step_definition(raw: Mapping[str, Any]) -> StepDefinition:
     return StepDefinition(
         identifier=raw["identifier"],
         gate=raw["gate"],
-        track=_parse_track(raw["track"]),  # type: ignore[arg-type]
+        discipline=_parse_discipline(raw["discipline"]),  # type: ignore[arg-type]
         scope=Scope(raw["scope"]),
         timing_anchor=_parse_timing_anchor(raw["timing_anchor"]),
         binding=Binding(raw["binding"]),

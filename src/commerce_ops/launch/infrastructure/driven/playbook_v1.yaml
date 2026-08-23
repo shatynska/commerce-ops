@@ -1,15 +1,20 @@
-# Launch playbook — document shape (see products/infrastructure/driven/playbook_loader.py):
+# Launch playbook — document shape (see launch/infrastructure/driven/playbook_loader.py):
 #
 # version: str
 # gates:
 #   - identifier: str
 #     position: int              # 1-based, matching the spec's numbered gate list
 #     opening: automatic | requires-confirmation
+#     metric_conditions:         # optional — authored threshold checks the gate waits on
+#       - metric_id: str         # a reference for monitoring to claim later; no
+#                                # registry validates it yet (satisfied by human
+#                                # attestation until live observation lands)
+#         threshold: str         # human-readable description of what must hold
 # steps:
 #   - identifier: str
 #     gate: str                  # a gate identifier
-#     track: strategy | finance | setup | inventory | creative | listing |
-#            rank | price | ppc | customer | external | traffic
+#     discipline: strategy | finance | setup | inventory | creative | listing |
+#                 rank | price | ppc | customer | external | traffic
 #     scope: product | market
 #     timing_anchor:
 #       kind: offset             # {days: int}
@@ -23,10 +28,11 @@
 #     rule_policy: str           # optional
 #     provenance: str            # optional — a citation, never an identifier
 #
-# This is the v1 playbook: the eight gates only, per the launch-playbook
-# capability's spec, with no step definitions. Authoring the step
-# definitions is a follow-up change; the gate sequence is shipped first
-# because it is the part every step has to attach to.
+# This is the v1 playbook: the eight gates and the metric conditions on the
+# three metric-checked gates, per the launch-playbook capability's spec,
+# with no step definitions. Authoring the step definitions is a follow-up
+# change; the gate sequence is shipped first because it is the part every
+# step has to attach to.
 
 version: v1
 gates:
@@ -42,6 +48,9 @@ gates:
   - identifier: stock-ready
     position: 4
     opening: automatic
+    metric_conditions:
+      - metric_id: units-fulfillable
+        threshold: 60–80 fulfillable units, excluding Vine
   - identifier: live
     position: 5
     opening: automatic
@@ -51,7 +60,17 @@ gates:
   - identifier: phase-one-complete
     position: 7
     opening: requires-confirmation
+    metric_conditions:
+      - metric_id: sales-velocity
+        threshold: ~10 units/day sustained
+      - metric_id: organic-share
+        threshold: organic share above 40%
   - identifier: graduated
     position: 8
     opening: requires-confirmation
+    metric_conditions:
+      - metric_id: tacos
+        threshold: TACOS falling
+      - metric_id: review-rating
+        threshold: rating stable at 4.5
 steps: []

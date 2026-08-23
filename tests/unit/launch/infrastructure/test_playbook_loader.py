@@ -32,13 +32,12 @@ in `ai-toolkit:testing`), whereas changing what the test asserts about the
 resulting error would be weakening it. See
 `openspec/changes/add-launch-playbook/test-manifest.md`.
 
-**Follow-up pass (this file's tail, second delivery).** One test was added
-after the rest of this file was written and the suite's collection state
-confirmed unchanged:
-`test_step_with_an_invalid_track_is_reported_alongside_a_coherence_violation`
-— the loader-boundary counterpart to the new *Track names one of a fixed
-set of disciplines* requirement, per `tasks.md` 5.12.1. Nothing above this
-note was edited.
+**Follow-up pass, since removed.** A follow-up pass added a
+loader-boundary test for the *Track names one of a fixed set of
+disciplines* requirement; `complete-playbook-definition`'s delta REMOVES
+that requirement and renames the attribute to `discipline`, so that test
+was removed with it — replacement coverage lives in
+`tests/unit/launch/domain/test_step_definition_discipline.py`.
 """
 
 from __future__ import annotations
@@ -48,11 +47,11 @@ from typing import Final
 
 import pytest
 
-from commerce_ops.products.domain.launch_playbook import (
+from commerce_ops.launch.domain.launch_playbook import (
     GateOpening,
     InvalidPlaybookError,
 )
-from commerce_ops.products.infrastructure.driven.playbook_loader import (
+from commerce_ops.launch.infrastructure.driven.playbook_loader import (
     load_playbook,
     load_shipped_playbook,
 )
@@ -113,7 +112,7 @@ _TWO_FAULTY_STEPS_YAML: Final = """\
 steps:
   - identifier: inventory.reversed-window
     gate: stock-ready
-    track: inventory
+    discipline: inventory
     scope: product
     timing_anchor:
       kind: window
@@ -124,44 +123,13 @@ steps:
     execution: human-attested
   - identifier: ppc.unknown-gate
     gate: pre-launch
-    track: ppc
+    discipline: ppc
     scope: market
     timing_anchor:
       kind: offset
       days: -7
     binding: framework
     blocking: false
-    execution: human-attested
-"""
-
-# DERIVED / INVENTED, added on the follow-up pass: two steps, the first
-# declaring a track outside the fixed set of twelve, the second classified
-# `prohibited-tactic` and marked blocking (a coherence violation distinct
-# from — and not reusing — the unknown-gate fault above, so this test does
-# not just repeat `test_malformed_step_is_reported_alongside_a_coherence_violation`
-# with the first fault swapped).
-_INVALID_TRACK_AND_PROHIBITED_BLOCKING_YAML: Final = """\
-steps:
-  - identifier: listing.unknown-track
-    gate: listable
-    track: not-a-recognised-track
-    scope: product
-    timing_anchor:
-      kind: offset
-      days: -7
-    binding: framework
-    blocking: false
-    execution: human-attested
-  - identifier: reviews.purchase-ring
-    gate: listable
-    track: customer
-    scope: product
-    timing_anchor:
-      kind: offset
-      days: -7
-    binding: framework
-    blocking: true
-    hazard: prohibited-tactic
     execution: human-attested
 """
 
@@ -308,46 +276,6 @@ def test_malformed_step_is_reported_alongside_a_coherence_violation(
     # step.
     assert "inventory.reversed-window" in message
     assert "ppc.unknown-gate" in message
-
-
-def test_step_with_an_invalid_track_is_reported_alongside_a_coherence_violation(
-    tmp_path: Path,
-) -> None:
-    """Scenario: Track is restricted to the known disciplines (file boundary).
-
-    WHEN a step definition declares a track outside this set
-    THEN loading fails with an error naming the step and the unrecognised
-    track
-    AND, per the aggregation requirement, that fault is reported together
-    with a second, separate coherence violation from the same load attempt
-    rather than one load per fault.
-
-    Added on a follow-up pass — see the module docstring. This is the
-    loader-boundary counterpart to
-    `tests/unit/products/domain/test_launch_playbook.py::test_track_outside_the_fixed_set_is_rejected`,
-    per `tasks.md` 5.12.1 ("the file-boundary counterpart to 5.9, which
-    exercises `LaunchPlaybook` directly"). It pairs the unrecognised track
-    with a *different* second fault (a `prohibited-tactic` step marked
-    blocking) than
-    `test_malformed_step_is_reported_alongside_a_coherence_violation` above
-    uses (an unknown gate), so this test is not that one with the first
-    fault swapped.
-    """
-    source = _write_playbook(tmp_path, _INVALID_TRACK_AND_PROHIBITED_BLOCKING_YAML)
-
-    # SPECIFIED: loading fails *once* — one raised error carrying both
-    # faults, not one error per fault.
-    with pytest.raises(InvalidPlaybookError) as caught:
-        load_playbook(source)
-
-    message = str(caught.value)
-    # SPECIFIED (Track names one of a fixed set of disciplines): the error
-    # names the step and the unrecognised track.
-    assert "listing.unknown-track" in message
-    assert "not-a-recognised-track" in message
-    # SPECIFIED (A prohibited tactic cannot block a gate): the second,
-    # distinct fault names its own step.
-    assert "reviews.purchase-ring" in message
 
 
 def test_a_coherent_playbook_file_loads(tmp_path: Path) -> None:
