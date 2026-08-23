@@ -8,14 +8,19 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
 
-# Imported for their model registrations: each module's models module adds
-# its tables to the one shared `Base` metadata that autogenerate compares.
-from commerce_ops.catalog.infrastructure.driven import models as _catalog_models
-from commerce_ops.products.infrastructure.driven import models as _products_models
+# The models modules are imported for their registrations alone: importing
+# one is what adds its tables to the shared `Base` metadata autogenerate
+# compares. They look unused, which is exactly the kind of import a later
+# cleanup removes -- without them, autogenerate would emit a drop for every
+# table it could no longer see.
+from commerce_ops.catalog.infrastructure.driven import (
+    models as _catalog_models,  # noqa: F401
+)
+from commerce_ops.products.infrastructure.driven import (
+    models as _products_models,  # noqa: F401
+)
 from commerce_ops.shared.infrastructure.driven.alembic_include import include_name
 from commerce_ops.shared.infrastructure.driven.orm import Base
-
-assert _catalog_models.Base is Base and _products_models.Base is Base
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

@@ -64,6 +64,7 @@ from commerce_ops.shared.domain.identity import MarketplaceId, Sku
 from commerce_ops.shared.domain.lifecycle_stage import (
     Development,
     Launching,
+    LifecycleStage,
     Posture,
     Retired,
     SteadyState,
@@ -394,7 +395,7 @@ def test_any_stage_can_be_retired(product_factory: object) -> None:
         pytest.param(Development(), id="to-development"),
     ],
 )
-def test_a_retired_product_cannot_change_stage(target: object) -> None:
+def test_a_retired_product_cannot_change_stage(target: LifecycleStage) -> None:
     """Scenario: A retired product cannot change stage.
 
     WHEN any stage change targets a product in `Retired`

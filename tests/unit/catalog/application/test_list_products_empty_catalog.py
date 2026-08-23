@@ -49,6 +49,7 @@ from collections.abc import Sequence
 import pytest
 
 from commerce_ops.catalog.application import list_products
+from commerce_ops.catalog.domain.product import Product
 
 pytestmark = pytest.mark.anyio
 
@@ -64,7 +65,7 @@ def anyio_backend() -> str:
 class _EmptyStore:
     """A catalog-store double holding no products."""
 
-    async def list(self) -> Sequence[object]:
+    async def list(self) -> Sequence[Product]:
         return []
 
 

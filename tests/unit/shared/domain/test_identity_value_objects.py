@@ -209,7 +209,9 @@ def test_two_skus_with_different_values_are_not_equal() -> None:
         pytest.param(MarketplaceId(VALID_MARKETPLACE), id="marketplace-id"),
     ],
 )
-def test_mutation_of_a_constructed_value_object_fails(instance: object) -> None:
+def test_mutation_of_a_constructed_value_object_fails(
+    instance: ProductId | Sku | Asin | MarketplaceId,
+) -> None:
     """Scenario: Mutation is not possible.
 
     WHEN code attempts to assign to a field of a constructed value object
@@ -223,4 +225,4 @@ def test_mutation_of_a_constructed_value_object_fails(instance: object) -> None:
     attempt fails"; the spec fixes no exception type.
     """
     with pytest.raises((AttributeError, TypeError)):
-        instance.value = "SOMETHING-ELSE"  # type: ignore[attr-defined, misc]
+        instance.value = "SOMETHING-ELSE"  # type: ignore[misc]

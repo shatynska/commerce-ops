@@ -6,68 +6,63 @@ Persists a concrete product's position in the `launch-playbook` gate sequence â€
 
 ## Requirements
 
-### Requirement: A product is persisted with its catalog identity
+### Requirement: A launch position is persisted for a catalog product
 
-The system SHALL persist a product record carrying: a unique identifier, a SKU, an optional ASIN, a name, the `launch-playbook` version it runs under, an optional launch date, and its current gate. SKU SHALL be required and unique across all products.
+The system SHALL persist a launch-position record carrying: a reference to a catalog product by its product identifier, the `launch-playbook` version the launch runs under, the current gate, and an optional launch date. At most one launch-position record SHALL exist per product. Creating a launch position for a product identifier that no catalog product has SHALL be rejected.
 
-#### Scenario: A product is created with only the required fields
+#### Scenario: A launch position is created for an existing product
 
-- **WHEN** a product is created with a SKU, a name, and a playbook version, and no ASIN or launch date
-- **THEN** the product is persisted with those fields set and ASIN and launch date reported as absent
+- **WHEN** a launch position is created for a registered catalog product with a playbook version and no launch date
+- **THEN** the record is persisted referencing that product, with the launch date reported as absent
 
-#### Scenario: A product is created with every field
+#### Scenario: A launch position for an unknown product is rejected
 
-- **WHEN** a product is created with a SKU, a name, a playbook version, an ASIN, and a launch date
-- **THEN** the product is persisted with all five values present
+- **WHEN** a launch position is created for a product identifier no catalog product has
+- **THEN** the creation is rejected and nothing is persisted
 
-#### Scenario: A duplicate SKU is rejected
+#### Scenario: A second launch position for the same product is rejected
 
-- **WHEN** a product is created with a SKU that already belongs to an existing product
-- **THEN** the creation is rejected and no new record is persisted
+- **WHEN** a launch position is created for a product that already has one
+- **THEN** the creation is rejected and the existing record is unchanged
 
 ### Requirement: A product's current gate is restricted to the launch-playbook gate sequence
 
-A product's current gate SHALL be one of the eight gate ids `launch-playbook` defines (`commit`, `order`, `listable`, `stock-ready`, `live`, `ignition`, `phase-one-complete`, `graduated`). A newly created product SHALL default to `commit`, the first gate in that sequence, when no current gate is given explicitly.
+A launch position's current gate SHALL be one of the eight gate ids `launch-playbook` defines (`commit`, `order`, `listable`, `stock-ready`, `live`, `ignition`, `phase-one-complete`, `graduated`). A newly created launch position SHALL default to `commit`, the first gate in that sequence, when no current gate is given explicitly.
 
 #### Scenario: A new product defaults to the first gate
 
-- **WHEN** a product is created without specifying a current gate
+- **WHEN** a launch position is created without specifying a current gate
 - **THEN** its current gate is reported as `commit`
 
 #### Scenario: An unrecognized gate is rejected
 
-- **WHEN** a product is created or updated with a current gate that is not one of the eight `launch-playbook` gate ids
-- **THEN** the operation is rejected and the product's stored gate is unchanged
+- **WHEN** a launch position is created or updated with a current gate that is not one of the eight `launch-playbook` gate ids
+- **THEN** the operation is rejected and the stored gate is unchanged
 
-### Requirement: A product can be read back by identifier or by SKU
+### Requirement: A launch position can be read back by product identifier
 
-The system SHALL retrieve a persisted product given either its identifier or its SKU, and SHALL report that no product exists when queried by an identifier or SKU that does not belong to any persisted product.
+The system SHALL retrieve a persisted launch position given the product identifier it references, and SHALL report absence rather than an error when the product has no launch position.
 
-#### Scenario: A product is retrieved by its identifier
+#### Scenario: A launch position is retrieved
 
-- **WHEN** a product is read using the identifier it was persisted with
-- **THEN** the same product is returned with every field it was persisted with
+- **WHEN** a launch position is read using the product identifier it was created for
+- **THEN** the record is returned with every field it was persisted with
 
-#### Scenario: A product is retrieved by its SKU
+#### Scenario: A product without a launch position reports absence
 
-- **WHEN** a product is read using the SKU it was persisted with
-- **THEN** the same product is returned
-
-#### Scenario: Reading an unknown product reports absence
-
-- **WHEN** a product is read using an identifier or a SKU that no persisted product has
-- **THEN** the system reports that no product was found, rather than an error
+- **WHEN** a launch position is read for a product identifier that has none
+- **THEN** the system reports that none exists, rather than an error
 
 ### Requirement: A product's current gate can be updated
 
-The system SHALL allow updating a persisted product's current gate to any of the eight `launch-playbook` gate ids. This requirement governs only that the stored value may change; it does not validate that the transition from the product's prior gate to the new one is one `launch-playbook` would permit.
+The system SHALL allow updating a persisted launch position's current gate to any of the eight `launch-playbook` gate ids. This requirement governs only that the stored value may change; it does not validate that the transition from the prior gate to the new one is one `launch-playbook` would permit.
 
 #### Scenario: A product's current gate is updated to a valid gate
 
-- **WHEN** an existing product's current gate is updated to `order`
-- **THEN** reading the product back reports `order` as its current gate
+- **WHEN** an existing launch position's current gate is updated to `order`
+- **THEN** reading it back reports `order` as its current gate
 
 #### Scenario: Updating a nonexistent product is rejected
 
-- **WHEN** a current-gate update targets an identifier that no persisted product has
+- **WHEN** a current-gate update targets a product identifier that has no launch position
 - **THEN** the update is rejected

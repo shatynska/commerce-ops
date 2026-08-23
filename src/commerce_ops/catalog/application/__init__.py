@@ -5,7 +5,11 @@ from commerce_ops.catalog.application.errors import (
     DuplicateSkuError,
     ProductNotFoundError,
 )
-from commerce_ops.catalog.application.ports import CatalogStore, ProductNameReader
+from commerce_ops.catalog.application.ports import (
+    CatalogStore,
+    ProductLister,
+    ProductNameReader,
+)
 from commerce_ops.catalog.application.use_cases import (
     change_stage,
     get_product_by_id,
@@ -18,6 +22,7 @@ from commerce_ops.catalog.application.use_cases import (
 __all__ = [
     "CatalogStore",
     "DuplicateSkuError",
+    "ProductLister",
     "ProductNameReader",
     "ProductNotFoundError",
     "change_stage",

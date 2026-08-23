@@ -165,12 +165,12 @@ def new_positions(
 
 
 @pytest.fixture()
-def registered_product_id(engine: AsyncEngine) -> Callable[[], Awaitable[object]]:
+def registered_product_id(engine: AsyncEngine) -> Callable[[], Awaitable[ProductId]]:
     """A factory registering a fresh catalog product and returning its
     identifier — every launch position needs an existing catalog product
     to reference."""
 
-    async def _register() -> object:
+    async def _register() -> ProductId:
         maker = async_sessionmaker(engine, expire_on_commit=False)
         async with maker() as session:
             product = await register_product(
@@ -192,7 +192,7 @@ def registered_product_id(engine: AsyncEngine) -> Callable[[], Awaitable[object]
 async def test_a_launch_position_is_created_for_an_existing_product(
     positions: LaunchPositionRepository,
     new_positions: Callable[[], AbstractAsyncContextManager[LaunchPositionRepository]],
-    registered_product_id: Callable[[], Awaitable[object]],
+    registered_product_id: Callable[[], Awaitable[ProductId]],
 ) -> None:
     """Scenario: A launch position is created for an existing product.
 
@@ -238,7 +238,7 @@ async def test_a_launch_position_for_an_unknown_product_is_rejected(
 async def test_a_second_launch_position_for_the_same_product_is_rejected(
     positions: LaunchPositionRepository,
     new_positions: Callable[[], AbstractAsyncContextManager[LaunchPositionRepository]],
-    registered_product_id: Callable[[], Awaitable[object]],
+    registered_product_id: Callable[[], Awaitable[ProductId]],
 ) -> None:
     """Scenario: A second launch position for the same product is
     rejected.
@@ -268,7 +268,7 @@ async def test_a_second_launch_position_for_the_same_product_is_rejected(
 async def test_a_launch_position_is_retrieved_with_every_field(
     positions: LaunchPositionRepository,
     new_positions: Callable[[], AbstractAsyncContextManager[LaunchPositionRepository]],
-    registered_product_id: Callable[[], Awaitable[object]],
+    registered_product_id: Callable[[], Awaitable[ProductId]],
 ) -> None:
     """Scenario: A launch position is retrieved.
 
@@ -297,7 +297,7 @@ async def test_a_launch_position_is_retrieved_with_every_field(
 
 async def test_a_product_without_a_launch_position_reports_absence(
     positions: LaunchPositionRepository,
-    registered_product_id: Callable[[], Awaitable[object]],
+    registered_product_id: Callable[[], Awaitable[ProductId]],
 ) -> None:
     """Scenario: A product without a launch position reports absence.
 
@@ -324,7 +324,7 @@ async def test_a_product_without_a_launch_position_reports_absence(
 
 async def test_a_new_launch_position_defaults_to_the_first_gate(
     positions: LaunchPositionRepository,
-    registered_product_id: Callable[[], Awaitable[object]],
+    registered_product_id: Callable[[], Awaitable[ProductId]],
 ) -> None:
     """Scenario: A new product defaults to the first gate (as revised).
 
@@ -341,7 +341,7 @@ async def test_a_new_launch_position_defaults_to_the_first_gate(
 
 async def test_creating_with_an_unrecognized_gate_is_rejected(
     positions: LaunchPositionRepository,
-    registered_product_id: Callable[[], Awaitable[object]],
+    registered_product_id: Callable[[], Awaitable[ProductId]],
 ) -> None:
     """Scenario: An unrecognized gate is rejected (create half).
 
@@ -366,7 +366,7 @@ async def test_creating_with_an_unrecognized_gate_is_rejected(
 async def test_updating_to_an_unrecognized_gate_is_rejected(
     positions: LaunchPositionRepository,
     new_positions: Callable[[], AbstractAsyncContextManager[LaunchPositionRepository]],
-    registered_product_id: Callable[[], Awaitable[object]],
+    registered_product_id: Callable[[], Awaitable[ProductId]],
 ) -> None:
     """Scenario: An unrecognized gate is rejected (update half).
 
@@ -392,7 +392,7 @@ async def test_updating_to_an_unrecognized_gate_is_rejected(
 async def test_creating_with_each_of_the_eight_gate_ids_is_accepted(
     gate_id: str,
     positions: LaunchPositionRepository,
-    registered_product_id: Callable[[], Awaitable[object]],
+    registered_product_id: Callable[[], Awaitable[ProductId]],
 ) -> None:
     """DERIVED, not a named scenario: the requirement states the gate
     SHALL be one of the eight ids, but the named scenarios exercise only
@@ -418,7 +418,7 @@ async def test_creating_with_each_of_the_eight_gate_ids_is_accepted(
 async def test_updating_the_current_gate_to_a_valid_gate_persists(
     positions: LaunchPositionRepository,
     new_positions: Callable[[], AbstractAsyncContextManager[LaunchPositionRepository]],
-    registered_product_id: Callable[[], Awaitable[object]],
+    registered_product_id: Callable[[], Awaitable[ProductId]],
 ) -> None:
     """Scenario: A product's current gate is updated to a valid gate (as
     revised).
@@ -440,7 +440,7 @@ async def test_updating_the_current_gate_to_a_valid_gate_persists(
 
 async def test_updating_a_product_with_no_launch_position_is_rejected(
     positions: LaunchPositionRepository,
-    registered_product_id: Callable[[], Awaitable[object]],
+    registered_product_id: Callable[[], Awaitable[ProductId]],
 ) -> None:
     """Scenario: Updating a nonexistent product is rejected (as revised).
 

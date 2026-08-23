@@ -17,7 +17,7 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 
 from commerce_ops.catalog.application.errors import ProductNotFoundError
-from commerce_ops.catalog.application.ports import CatalogStore
+from commerce_ops.catalog.application.ports import CatalogStore, ProductLister
 from commerce_ops.catalog.domain.product import Product, StageChanged
 from commerce_ops.shared.domain.identity import Asin, MarketplaceId, ProductId, Sku
 from commerce_ops.shared.domain.lifecycle_stage import LifecycleStage
@@ -73,7 +73,7 @@ async def get_product_by_sku(store: CatalogStore, sku: Sku) -> Product | None:
     return await store.get_by_sku(sku)
 
 
-async def list_products(store: CatalogStore) -> Sequence[Product]:
+async def list_products(store: ProductLister) -> Sequence[Product]:
     return await store.list()
 
 

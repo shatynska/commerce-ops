@@ -17,7 +17,19 @@ from commerce_ops.catalog.domain.product import Product
 from commerce_ops.shared.domain.identity import ProductId, Sku
 
 
-class CatalogStore(Protocol):
+class ProductLister(Protocol):
+    """The narrow read port listing needs.
+
+    Separate from `CatalogStore` because listing is the one use case that
+    reads nothing else: a caller that can only list — a read model, a test
+    double — should not have to satisfy the whole store. Same reasoning
+    that keeps `ProductNameReader` narrow.
+    """
+
+    async def list(self) -> Sequence[Product]: ...
+
+
+class CatalogStore(ProductLister, Protocol):
     """The persistence port the catalog use cases speak."""
 
     async def add(self, product: Product) -> None: ...
@@ -25,8 +37,6 @@ class CatalogStore(Protocol):
     async def get_by_id(self, product_id: ProductId) -> Product | None: ...
 
     async def get_by_sku(self, sku: Sku) -> Product | None: ...
-
-    async def list(self) -> Sequence[Product]: ...
 
     async def save(self, product: Product) -> None: ...
 
