@@ -35,6 +35,8 @@ See proposal.md — Why. Constraints that shape the approach:
 
 **Its cost, stated plainly: it depends on `psycopg[pool]` (psycopg 3), while this application connects with `asyncpg`.** Two Postgres drivers in the process, and a second pool.
 
+**And that driver needs a libpq wrapper it does not bring with it.** Installing `procrastinate>=3.9,<4` into a clean environment pulls `psycopg` and `psycopg-pool` but no wrapper, and `import procrastinate` fails with "no pq wrapper available" until `psycopg[binary]` is added. `asyncpg` bundles its own, so nothing currently in this tree establishes that libpq is present on a developer machine or in the image. The dependency therefore names the binary extra rather than assuming the system library — recorded as a decision, because the failure it prevents surfaces at import time and reads as a broken test suite rather than a missing library.
+
 This is compatible with `centralize-database-session` **as that change is now written**, and on the requirement's own terms rather than by reading around it. That requirement governs how the application obtains sessions reaching **domain data**, and exempts infrastructure holding a connection or pool of its own for its own bookkeeping. The queue's driver serves the queue's own tables and its `LISTEN`; it is never a route to products, launches or any other domain data, which continue to come from the single provider and its pool. An earlier draft of this design argued instead about what the requirement "was protecting" — reinterpreting rather than amending, which was the wrong move; the requirement itself was corrected at its own address, with the reasoning recorded there.
 
 What that requirement does **not** do is bound the aggregate connections the deployment opens against Postgres's `max_connections`, and adding a second pool makes that bound less notional. It is a stated non-goal there rather than an oversight; noted here because this change is what first makes it matter.
@@ -81,11 +83,17 @@ Separate service rather than a thread in the app process: the spec requires a wo
 
 The worker joins `app_db` only — no HTTP surface, so no `platform_edge`. The `app_cron` network is removed with the `cron` service.
 
-### `TZ` is set explicitly to UTC, and the schedule's timezone is declared in code
+### The schedule is interpreted in UTC, and `TZ` is set to UTC to match
 
-Two mechanisms could set a timezone here and they must not disagree. **The schedule's timezone is declared in the job definition**, in code, and is the single source of truth for when work is due — the spec requires it not to depend on the host default, and a container `TZ` is a host default. `TZ=UTC` is set on both services for a different purpose: making log timestamps unambiguous and matching the schedule so a reader is not converting between two zones.
+**The runner offers no timezone to declare, so UTC is not a preference here — it is the only zone available.** Verified against `procrastinate` 3.9.0 and its `croniter` 6.2.4 dependency: `PeriodicTask` constructs `croniter.croniter(self.cron)` with no timezone parameter, and the deferrer evaluates it from POSIX timestamps, which croniter reads as UTC. Ticks computed under `TZ=UTC`, `TZ=Asia/Kolkata` and `TZ=America/New_York` were identical.
 
-UTC rather than the team's local timezone, deliberately: a local zone shifts the daily digest by an hour twice a year relative to everything else in the logs, and DST transitions are a recurring source of jobs that run twice or not at all. The cost is that "06:00 daily" is not 06:00 for the team; the fix, when it matters, is choosing the UTC hour that lands where the team wants it — a schedule change, not a timezone change.
+The property the spec actually needs — that a schedule does not shift with the host it runs on — therefore holds **structurally**, without configuration, which is stronger than holding by a setting someone can get wrong. What does not exist is a way to *configure* the zone: an earlier draft of the requirement asked for "an explicitly configured timezone", and nothing in the runner could have satisfied it. The requirement was restated to say UTC; the test asserting host-independence was left alone.
+
+`TZ=UTC` is then set on both services for a different purpose: making log timestamps unambiguous and matching the schedule, so a reader is not converting between two zones. It does not influence scheduling, and could not.
+
+UTC rather than the team's local timezone would have been the choice anyway: a local zone shifts the daily digest by an hour twice a year relative to everything else in the logs, and DST transitions are a recurring source of jobs that run twice or not at all. The cost is that "06:00 daily" is not 06:00 for the team; the fix, when it matters, is choosing the UTC hour that lands where the team wants it — a schedule change, not a timezone change.
+
+That is now the **only** lever. A zone observing DST cannot be expressed at all without wrapping the runner's deferrer, which this change does not do; a fixed-offset zone is expressible only as the equivalent UTC hour. If a real requirement for a local zone appears, it is a change against the runner's periodic machinery, not a setting.
 
 ### The daily job definition lives in `products`, not in `shared`
 
@@ -109,6 +117,14 @@ Slack delivery failure explicitly does **not** retry and does not fail the run �
 
 The runner must be configured deliberately here, because both plausible behaviours are defensible in general and only one is right for a report. A digest is a statement about the present; replaying four missed daily windows produces four stale reports and no useful information, while skipping silently is the defect this change exists to fix. Running once on return is the only option that is neither.
 
+**The knob is `App(periodic_defaults={"max_delay": ...})`, and its default is wrong for this job.** `PeriodicDeferrer`'s `max_delay` defaults to 10 minutes, and a due moment older than that is **dropped** — the runner's own docstring calls this deliberate, "especially important for tasks intended to run during off-peak hours, such as intensive nightly tasks", which is precisely the shape of this digest. Left at the default, a worker outage spanning more than ten minutes across 06:00 silently skips that day — reproducing, inside this change, the second bullet of proposal.md's Why.
+
+**So `max_delay` is set wide enough that no plausible outage drops a window.** Once it is, "several missed windows produce one run" holds by construction: a freshly-started deferrer yields only the most recent tick.
+
+**A late digest is not a stale one, and that asymmetry is the whole reason for choosing no bound.** The staleness argument above is about replaying a *backlog* — four reports where one was wanted. It says nothing against a single run that happens late, because the job re-reads the database when it runs: a digest produced six hours after its due moment reports the products that exist six hours after its due moment, which is current information, merely later than intended. Reading the staleness argument as also arguing for a tight lateness bound is the mistake this paragraph exists to prevent; the next reader will otherwise reach for the ten-minute default and think the text supports it.
+
+If a bound is ever wanted, it belongs in the requirement rather than in a setting: "run once on return" with an unstated threshold past which the run is silently dropped is exactly the shape of undocumented behaviour this change was written against.
+
 ## Risks / Trade-offs
 
 - **Two Postgres drivers in one process.** → Accepted, with the reasoning above, and compatible with the prerequisite's requirement as written rather than by reinterpretation.
@@ -125,7 +141,7 @@ The runner must be configured deliberately here, because both plausible behaviou
 2. Add the dependency and the Alembic migration; confirm `upgrade head` and `downgrade` both work against a local Postgres, through the stated execution mechanism.
 3. Add the runner object, the daily job definition, and the worker entry point. The job calls the existing `run_daily_digest` use case through the session provider, unchanged.
 4. Replace `cron` with `worker` in `docker-compose.yml`: healthcheck disabled, `TZ`, both `depends_on` conditions.
-5. Remove the five routes, `trigger_guard.py`, `TRIGGER_SECRET`, and the tests belonging to them; amend the four configuration regression guards.
+5. Remove the five routes, `trigger_guard.py`, `TRIGGER_SECRET`, and the tests belonging to them; amend the five regression guards that transcribe it.
 6. Deploy. `docker-compose.yml` ships whole, so `cron` is removed and `worker` created in the same `docker compose up`.
 7. Verify: the worker logs its startup; a manually deferred job runs and is recorded; the next scheduled 06:00 run appears in the history.
 

@@ -8,7 +8,7 @@ Runs the application's recurring work on a schedule from inside the deployment �
 
 The system SHALL run each piece of recurring work according to a schedule declared for it, without requiring a request from outside the deployment.
 
-The schedule SHALL be interpreted in an explicitly configured timezone that does not depend on the host's default.
+The schedule SHALL be interpreted in UTC on every host, regardless of the host's default timezone. This is structural rather than preferential: the runner evaluates cron expressions from absolute instants and accepts no timezone, so UTC is the only zone available. It is also the right one — a zone that observes DST produces daily windows that run twice or not at all.
 
 #### Scenario: Work runs when its schedule is due
 
@@ -22,8 +22,9 @@ The schedule SHALL be interpreted in an explicitly configured timezone that does
 
 #### Scenario: The schedule's timezone does not depend on the host
 
-- **WHEN** a schedule is evaluated on a host whose default timezone differs from the configured one
-- **THEN** it SHALL be evaluated in the configured timezone
+- **WHEN** a schedule is evaluated on a host whose default timezone is not UTC
+- **THEN** it SHALL be evaluated in UTC — a schedule declared for 06:00 SHALL become due at 06:00 UTC
+- **AND** it SHALL produce the same due moments as on a host whose default is UTC
 
 ### Requirement: A Window Missed While No Worker Was Available Is Run Once On Return
 
@@ -78,6 +79,8 @@ When a run fails, the system SHALL retry it, waiting longer before each successi
 ### Requirement: Every Run's Outcome Is Recorded And Can Be Asked About Afterwards
 
 The system SHALL record, for every run of a piece of recurring work: which work it was, when the run started, when it ended, and whether it succeeded or failed. This record SHALL survive the process that produced it, and SHALL be queryable afterwards.
+
+A run spans its retries: a piece of work that fails and is retried is one run, not several. Its start is the first attempt's start, its end is the moment of the outcome that stopped it, and its outcome is that final outcome — consistent with a retried run that succeeds being recorded as succeeded, above.
 
 #### Scenario: A completed run is recorded
 
