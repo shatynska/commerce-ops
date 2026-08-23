@@ -59,7 +59,6 @@ _REQUIRED_NOT_STARTUP_CRITICAL = (
     "OMNI_AGENT_SLACK_BOT_TOKEN",
     "PRODUCT_AGENT_SLACK_BOT_TOKEN",
     "PRODUCT_AGENT_MONITORING_CHANNEL_ID",
-    "TRIGGER_SECRET",
 )
 _VALID_DATABASE_URL = "postgresql+asyncpg://commerce_ops:pw@postgres:5432/commerce_ops"
 
@@ -285,3 +284,161 @@ def test_configure_logging_then_uvicorn_dictconfig(tmp_path: Path) -> None:
 
     assert result.returncode == 0, f"the script raised.\n{_output(result)}"
     _assert_dictconfig_regression(result, app_marker, access_marker)
+
+
+# --------------------------------------------------------------------------
+# Requirement: Logging Is Configured From Every Entrypoint -- the worker
+#
+# Added by `replace-cron-with-job-runner` (tasks.md 5.14). This comes from
+# no delta in that change: it is this capability's existing requirement --
+# "Every entrypoint through which the application starts SHALL configure
+# logging before performing its own work. This SHALL hold for entrypoints
+# not hosted by the HTTP server" -- which binds `commerce_ops/worker.py`
+# the moment tasks.md 2.8 creates it. The worker is now the *third*
+# entrypoint, alongside `main` and `preflight`, and the only one whose
+# whole purpose is to run unattended: a worker that reports nothing is the
+# failure that change exists to remove, and its `configure_logging()` call
+# is otherwise a line nothing guards.
+#
+# HOW THE WORKER IS STARTED HERE
+#
+# `docker-compose.yml` starts it with `python -m commerce_ops.worker`, so
+# the script below runs the module under `run_name="__main__"` -- the same
+# entry path production takes, rather than a function name this test would
+# have to guess at.
+#
+# WHAT IS STUBBED, AND WHY THAT IS NOT THE BEHAVIOUR UNDER TEST
+#
+# The worker loop runs until it is signalled, so `App.run_worker` and
+# `App.run_worker_async` are replaced with a stub that stands in for "the
+# entrypoint's own work". The stub does two things: it prints a marker to
+# stdout, which no logging configuration can affect, and it emits an
+# informational log record. The first establishes that the entry point
+# really did reach its own work; the second is what this requirement is
+# about. Separating them is what keeps a failure readable -- an entry
+# point that never started its worker and an entry point that started one
+# without configuring logging are different defects, and only the second
+# is this requirement's.
+#
+# The runner's connector is replaced with procrastinate's own in-memory
+# one for the duration, so an entry point that opens the app before
+# running it does not need a database this unit-tier test does not have.
+# --------------------------------------------------------------------------
+
+_WORKER_ENTRYPOINT = """
+import logging
+import runpy
+
+import procrastinate
+from procrastinate import testing
+
+from commerce_ops.shared.infrastructure.driven import job_runner
+
+
+def _the_entrypoints_own_work(*args, **kwargs):
+    print({ran_marker!r}, flush=True)
+    logging.getLogger('commerce_ops.worker_probe').info({work_marker!r})
+
+
+async def _run_worker_async(self, **kwargs):
+    _the_entrypoints_own_work()
+
+
+def _run_worker(self, **kwargs):
+    _the_entrypoints_own_work()
+
+
+procrastinate.App.run_worker_async = _run_worker_async
+procrastinate.App.run_worker = _run_worker
+
+with job_runner.app.replace_connector(testing.InMemoryConnector()):
+    runpy.run_module('commerce_ops.worker', run_name='__main__')
+
+logging.getLogger('commerce_ops.worker_probe').info({after_marker!r})
+"""
+
+
+def _run_the_worker_entrypoint(
+    tmp_path: Path,
+) -> tuple[subprocess.CompletedProcess[str], str, str, str]:
+    ran_marker = f"worker-reached-its-work-{uuid.uuid4().hex}"
+    work_marker = f"worker-work-probe-{uuid.uuid4().hex}"
+    after_marker = f"worker-after-probe-{uuid.uuid4().hex}"
+    script = _WORKER_ENTRYPOINT.format(
+        ran_marker=ran_marker,
+        work_marker=work_marker,
+        after_marker=after_marker,
+    )
+    result = _run(script, _complete_environment(), tmp_path)
+    return result, ran_marker, work_marker, after_marker
+
+
+def test_the_worker_entrypoint_configures_logging_before_its_own_work(
+    tmp_path: Path,
+) -> None:
+    """Requirement: Logging Is Configured From Every Entrypoint.
+
+    "Every entrypoint through which the application starts SHALL configure
+    logging before performing its own work."
+
+    Specified: an informational record emitted at the moment the worker
+    entrypoint begins its own work reaches stderr. Emitted at
+    informational level deliberately -- with logging unconfigured, Python's
+    own default emits nothing below warning, so this record is exactly the
+    one a missing `configure_logging()` call loses.
+
+    The exclusion in the requirement's own text ("Records emitted during
+    the import of the modules an entrypoint imports are outside this
+    guarantee") is respected: the record below is emitted after the
+    entrypoint has run, not during its imports.
+    """
+    result, ran_marker, work_marker, _ = _run_the_worker_entrypoint(tmp_path)
+
+    assert result.returncode == 0, (
+        f"the worker entrypoint did not run cleanly with a complete "
+        f"environment.\n{_output(result)}"
+    )
+    # Precondition, not the assertion under test: distinguishes an
+    # entrypoint that never started its worker from one that started it
+    # with logging unconfigured. This marker is printed, not logged, so it
+    # is there either way.
+    assert ran_marker in result.stdout, (
+        f"the worker entrypoint never reached its own work, so this test "
+        f"establishes nothing about when logging was configured.\n"
+        f"{_output(result)}"
+    )
+    # Specified.
+    assert work_marker in result.stderr, (
+        f"an informational record emitted as the worker entrypoint began "
+        f"its own work did not reach stderr, so logging was not configured "
+        f"before that point.\n{_output(result)}"
+    )
+
+
+def test_a_record_emitted_after_the_worker_entrypoint_ran_reaches_stderr(
+    tmp_path: Path,
+) -> None:
+    """Scenario: A non-HTTP entrypoint emits records.
+
+    WHEN the application starts through an entrypoint that does not run the
+    HTTP server, and a record at or above the configured threshold is
+    emitted after that entrypoint has run
+    THEN that record SHALL reach the process's standard error stream.
+
+    The same scenario `test_a_non_http_entrypoint_emits_records` asserts of
+    `preflight`, asserted of the entrypoint `replace-cron-with-job-runner`
+    adds. Kept separate from the test above so the two fail separately: an
+    entrypoint that configures logging only after its own work still passes
+    this one, and that is the case the ordering test exists for.
+    """
+    result, _, _, after_marker = _run_the_worker_entrypoint(tmp_path)
+
+    assert result.returncode == 0, (
+        f"the worker entrypoint did not run cleanly with a complete "
+        f"environment.\n{_output(result)}"
+    )
+    # Specified.
+    assert after_marker in result.stderr, (
+        f"a record emitted after the worker entrypoint ran did not reach "
+        f"stderr.\n{_output(result)}"
+    )

@@ -18,6 +18,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from alembic.runtime.environment import NameFilterParentNames, NameFilterType
+
 # Every table the runner creates carries this prefix. A prefix rather than a
 # transcribed list, so a runner upgrade that adds a table is excluded the
 # moment it is installed rather than the next time someone remembers.
@@ -26,8 +28,8 @@ RUNNER_TABLE_PREFIX = "procrastinate_"
 
 def include_name(
     name: str | None,
-    type_: str,
-    parent_names: dict[str, str | None],
+    type_: NameFilterType,
+    parent_names: NameFilterParentNames,
 ) -> bool:
     """Alembic's name filter: False excludes a name from the comparison.
 
@@ -45,7 +47,7 @@ def include_name(
 def include_object(
     object_: Any,
     name: str | None,
-    type_: str,
+    type_: NameFilterType,
     reflected: bool,
     compare_to: Any,
 ) -> bool:

@@ -4,8 +4,10 @@ Mirrors
 `tests/unit/omni_agent/infrastructure/driving/test_main_slack_wiring.py`'s
 own two regression guards, per `tasks.md` 8.6 of this change
 ("Regression guard mirroring `test_main_slack_wiring.py`: importing `main`
-and hitting `/health` succeeds without `TRIGGER_SECRET`/
+and hitting `/health` succeeds without
 `PRODUCT_AGENT_SLACK_BOT_TOKEN`/`DATABASE_URL` in the environment").
+`TRIGGER_SECRET` was named there too, until replace-cron-with-job-runner
+removed the variable along with the cadence routes this file also guarded.
 
 These are REGRESSION GUARDS, not scenario coverage -- no
 `#### Scenario:` block in either of this change's delta specs asks for
@@ -44,17 +46,9 @@ from fastapi.testclient import TestClient
 
 from commerce_ops.main import app
 
-CADENCE_PATHS = (
-    "/products/monitoring/daily",
-    "/products/monitoring/weekly",
-    "/products/monitoring/biweekly",
-    "/products/monitoring/monthly",
-    "/products/monitoring/quarterly",
-)
-
-# The three env vars `tasks.md` 8.6 names by name.
+# The env vars `tasks.md` 8.6 named. `TRIGGER_SECRET` was the third until
+# replace-cron-with-job-runner removed the variable along with its guard.
 RUNTIME_ENV_VARS = (
-    "TRIGGER_SECRET",
     "PRODUCT_AGENT_SLACK_BOT_TOKEN",
     "DATABASE_URL",
 )
@@ -80,7 +74,7 @@ def test_main_imports_without_trigger_slack_or_database_secrets_in_environment()
 ):
     """Regression guard, not a spec scenario.
 
-    `commerce_ops.main` must import cleanly with `TRIGGER_SECRET` /
+    `commerce_ops.main` must import cleanly with
     `PRODUCT_AGENT_SLACK_BOT_TOKEN` / `DATABASE_URL` absent, because the
     `deploy-pipeline` spec's "Pull Request Validation Gate" requirement runs
     the unit and agent tiers without access to production-scoped secrets
@@ -104,7 +98,7 @@ def test_main_imports_without_trigger_slack_or_database_secrets_in_environment()
     )
 
     assert result.returncode == 0, (
-        "importing commerce_ops.main with TRIGGER_SECRET / "
+        "importing commerce_ops.main with "
         "PRODUCT_AGENT_SLACK_BOT_TOKEN / DATABASE_URL absent failed; the "
         "monitoring routes' session/Slack-client construction must be "
         "lazy, never performed at module import time.\n"
@@ -124,21 +118,3 @@ def test_health_endpoint_still_serves_without_monitoring_secrets(
     response = client.get("/health")
 
     assert response.status_code == 200
-
-
-@pytest.mark.parametrize("path", CADENCE_PATHS)
-def test_route_is_registered(path: str, client: TestClient) -> None:
-    """Wiring: each cadence's router is included in `main.py`.
-
-    The request below carries no `Authorization` header and
-    `TRIGGER_SECRET` is absent (see `no_monitoring_secrets`), so a correct
-    implementation rejects it with 401 (per `internal-trigger`'s
-    fail-closed-when-unconfigured requirement) -- what matters here is only
-    that something is mounted at the path and accepts POST, i.e. the
-    response is neither 404 (no such route) nor 405 (route exists but not
-    for POST).
-    """
-    response = client.post(path)
-
-    assert response.status_code != 404, f"no route mounted at POST {path}"
-    assert response.status_code != 405, f"{path} exists but does not accept POST"

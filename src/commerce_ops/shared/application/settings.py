@@ -14,13 +14,14 @@ What this declares, and what it does not:
   application process never receives. `POSTGRES_PASSWORD` is read by
   `docker-compose.yml`'s own substitution and by the `postgres` service;
   this process cannot check what it never gets.
-- It does *not* replace per-request `os.environ` reads. `trigger_guard.py`
-  must keep reading `TRIGGER_SECRET` directly, because `internal-trigger`'s
-  "Guard Fails Closed When Unconfigured" requires a 401 when it is absent
-  -- routing that through a validating accessor would raise instead. See
-  the change's design.md, "The model is a declaration plus a startup
-  check". `LOG_LEVEL` is read directly for the same reason of kind, though
-  a different reason in substance: `configure_logging()` runs at
+- It does *not* replace every direct `os.environ` read. A module may read a
+  variable directly where routing it through the declaration would defeat
+  required behavior -- `runtime-configuration`'s own wording, generalised
+  from a narrower criterion when the trigger guard that motivated it was
+  removed. `DATABASE_URL` is read directly for that reason: its reader must
+  fail on its own absence, not on an unrelated variable's. `LOG_LEVEL` is
+  read directly for the same reason of kind, though a different reason in
+  substance: `configure_logging()` runs at
   `main.py`'s module import, where `get_settings()` would raise under this
   capability's own empty-environment guarantee below. It is declared here
   regardless, so the drift test still sees it and the startup report still
@@ -127,7 +128,6 @@ class Settings(BaseSettings):
     omni_agent_slack_bot_token: NonEmpty
     product_agent_slack_bot_token: NonEmpty
     product_agent_monitoring_channel_id: NonEmpty
-    trigger_secret: NonEmpty
 
     # Optional: registered `production` secrets that no caller reaches yet.
     # `CLICKUP_API_TOKEN` in particular must stay optional --

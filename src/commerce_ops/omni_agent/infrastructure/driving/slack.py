@@ -157,7 +157,7 @@ async def slack_events(request: Request) -> Response:
 
     if not secret:
         # Absent or empty: nothing about this request can be verified either
-        # way, so fail closed, as `internal-trigger`'s guard does.
+        # way, so fail closed.
         #
         # Empty is handled here rather than left to Bolt. An earlier draft of
         # this change assumed Bolt answered 401 natively for an empty secret;

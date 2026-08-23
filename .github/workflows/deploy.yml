@@ -75,11 +75,9 @@ jobs:
       # the `production` Environment and delivered to the container via
       # docker-compose.yml's `env_file: .env`. POSTGRES_PASSWORD is also
       # read directly by docker-compose.yml's own variable substitution
-      # (the postgres service's credentials, and the app's DATABASE_URL) --
-      # see add-products-store's proposal.md - Impact. TRIGGER_SECRET is
-      # read directly by the `cron` service's own startup script (see
-      # add-product-agent-daily-digest's docker-compose.yml comments) --
-      # both `app` and `cron` receive it via this same rendered file.
+      # (the postgres service's credentials, and the DATABASE_URL of both
+      # `app` and `worker`) -- see add-products-store's proposal.md - Impact.
+      # Both services receive the rest via this same rendered file.
       - name: Render .env
         run: |
           umask 077
@@ -91,7 +89,6 @@ jobs:
             echo "POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}"
             echo "PRODUCT_AGENT_SLACK_BOT_TOKEN=${{ secrets.PRODUCT_AGENT_SLACK_BOT_TOKEN }}"
             echo "PRODUCT_AGENT_MONITORING_CHANNEL_ID=${{ secrets.PRODUCT_AGENT_MONITORING_CHANNEL_ID }}"
-            echo "TRIGGER_SECRET=${{ secrets.TRIGGER_SECRET }}"
             # A repository/Environment variable, not a secret: the
             # threshold is not sensitive, and masking it in logs would
             # serve nothing. No LOG_LEVEL variable exists yet, so this

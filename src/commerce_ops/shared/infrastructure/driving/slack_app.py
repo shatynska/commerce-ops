@@ -2,9 +2,8 @@
 
 Implements the construction decisions of the `migrate-slack-to-bolt` change
 (`openspec/changes/migrate-slack-to-bolt/design.md`). Lives in
-`shared.infrastructure.driving`, not a business module, for the same reason
-`trigger_guard.py` does: it carries no business logic and calls into no
-module. Each module registers its own Slack app and owns its own
+`shared.infrastructure.driving`, not a business module, because it carries no
+business logic and calls into no module. Each module registers its own Slack app and owns its own
 credentials.
 
 Four decisions here are load-bearing and were each verified against
