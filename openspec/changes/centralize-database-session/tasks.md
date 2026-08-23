@@ -47,4 +47,16 @@
 - [x] 5.1 Run `uv run pytest`, `uv run mypy`, `uv run ruff check`, `uv run ruff format --check`, `uv run lint-imports`
 - [x] 5.2 Run the integration tier against a local Postgres (`uv run pytest tests/integration`) — it owns its own engine and must be unaffected
 - [x] 5.3 Run `openspec validate centralize-database-session --strict`
-- [ ] 5.4 After deploy: confirm a clean shutdown in `docker logs` on the next redeploy, and that the previous process's connections are gone from `pg_stat_activity` rather than lingering until timeout. If task 3.4 was skipped, a failure here is ambiguous between the new code and the process chain — which is why 3.4 comes first
+- [x] 5.4 After deploy: confirm a clean shutdown in `docker logs` on the next redeploy, and that the previous process's connections are gone from `pg_stat_activity` rather than lingering until timeout. If task 3.4 was skipped, a failure here is ambiguous between the new code and the process chain — which is why 3.4 comes first
+
+  Verified on `main-server` after PR #22 merged (2026-08-23): the `daily`
+  monitoring route was triggered to force the app to hold a real pooled
+  connection (`pg_stat_activity` showed an `idle` row for it), then
+  `docker compose stop app` was run with `docker compose logs -f app`
+  already attached. The log showed Starlette's lifespan-shutdown lines
+  (`Waiting for application shutdown.` / `Application shutdown complete.`),
+  the container stopped in 0.5s (not the ~10s SIGKILL fallback), and
+  `app-1 exited with code 143` (SIGTERM, not 137/SIGKILL) — confirming
+  `exec` delivers the signal and the lifespan's `dispose_engine()` runs.
+  A follow-up `pg_stat_activity` query confirmed the app's connection was
+  gone, not lingering. `docker compose up -d app` restored the service.
