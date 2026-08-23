@@ -3,8 +3,8 @@
 See proposal.md — Why. Constraints that shape the approach:
 
 - **The application connects to Postgres with `asyncpg`**, through SQLAlchemy's async engine. The scheme is validated as `postgresql+asyncpg` in `settings.py`, and `alembic/env.py` runs migrations over that same async engine.
-- **`centralize-database-session` must land first.** The worker runs outside any HTTP request; today the only way to obtain a session is to import a `products` driving adapter or construct a second engine.
-- **`configure-application-logging` must land first.** A worker's output is its value, and application `INFO` records are currently discarded.
+- **`centralize-database-session` has landed**, and is what makes this change possible: the worker runs outside any HTTP request, and before that change the only way to obtain a session was to import a `products` driving adapter or construct a second engine.
+- **`configure-application-logging` has landed.** A worker's output is its value, and application `INFO` records were discarded before it.
 - **Schema changes go through Alembic.** One migration exists, applied by the `Dockerfile`'s `CMD` chain — `preflight && alembic upgrade head && uvicorn` — before uvicorn starts.
 - **The `Dockerfile` defines a `HEALTHCHECK`** polling `http://localhost:8000/health`. It is baked into the image, so every service built from that image inherits it.
 - **`.importlinter` forbids `shared` from importing any business module**, in both directions of the layered contracts. Anything cross-cutting that needs to reach `products` must either live in `products`, or take a port and be wired by an entry point outside the contracts.
@@ -119,11 +119,23 @@ The runner must be configured deliberately here, because both plausible behaviou
 
 **The knob is `App(periodic_defaults={"max_delay": ...})`, and its default is wrong for this job.** `PeriodicDeferrer`'s `max_delay` defaults to 10 minutes, and a due moment older than that is **dropped** — the runner's own docstring calls this deliberate, "especially important for tasks intended to run during off-peak hours, such as intensive nightly tasks", which is precisely the shape of this digest. Left at the default, a worker outage spanning more than ten minutes across 06:00 silently skips that day — reproducing, inside this change, the second bullet of proposal.md's Why.
 
-**So `max_delay` is set wide enough that no plausible outage drops a window.** Once it is, "several missed windows produce one run" holds by construction: a freshly-started deferrer yields only the most recent tick.
+**So `max_delay` is set to `float("inf")`** — the literal value, not a large finite one. The check is `if delay > self.max_delay`, so an infinite bound never drops a tick, and the value is accepted where a `float` is expected. Verified against 3.9.0: on a fresh start with the previous 06:00 tick two days past, `max_delay=600` yields **zero** ticks and `float("inf")` yields **one**.
+
+A finite value would work equally well until the outage that exceeds it, at which point it silently skips a day and nothing reports it. There is no figure at which that trade becomes attractive, which is why the value is unbounded rather than merely large.
+
+**Two paths, and `max_delay` governs only one of them.** `get_timestamps` branches on whether the deferrer has already recorded a defer for this schedule. On a **fresh start** — no record, which is what a restarted worker always is — it takes the single most recent tick and applies `max_delay` to it. That is the path every worker outage takes, and it is why "several missed windows produce one run" holds by construction: one tick is offered, not a backlog. On the **other path**, a deferrer that has been running and recorded a defer iterates the cron forward and yields *every* tick since, with `max_delay` never consulted — verified: a deferrer whose loop was stalled three days yields three ticks at any `max_delay`, infinite included.
+
+That second path is outside the requirement's antecedent, which governs a due moment passing "while no process is available to run it" — a live process whose deferrer loop stalled is a different failure, and one this change does not claim to handle. It is recorded because the distinction is invisible in the configuration: a reader who assumes `max_delay` is what suppresses the backlog would be wrong about which mechanism is load-bearing.
 
 **A late digest is not a stale one, and that asymmetry is the whole reason for choosing no bound.** The staleness argument above is about replaying a *backlog* — four reports where one was wanted. It says nothing against a single run that happens late, because the job re-reads the database when it runs: a digest produced six hours after its due moment reports the products that exist six hours after its due moment, which is current information, merely later than intended. Reading the staleness argument as also arguing for a tight lateness bound is the mistake this paragraph exists to prevent; the next reader will otherwise reach for the ten-minute default and think the text supports it.
 
 If a bound is ever wanted, it belongs in the requirement rather than in a setting: "run once on return" with an unstated threshold past which the run is silently dropped is exactly the shape of undocumented behaviour this change was written against.
+
+**And a third path, which is what makes "once" true across restarts.** An unbounded `max_delay` means every worker start offers the most recent past tick — and this deployment restarts the worker on every merge to `main`, so a deploy at 09:00 offers a 06:00 tick that already ran. What stops that becoming a second digest is not the deferrer at all: `procrastinate_defer_periodic_job_v2` first inserts `(task_name, periodic_id, defer_timestamp)` into `procrastinate_periodic_defers`, a table carrying `UNIQUE (task_name, periodic_id, defer_timestamp)`, `ON CONFLICT DO NOTHING`; if that insert produces no row the function returns `NULL` and **no job is created**. Deduplication is therefore keyed on the tick's own timestamp and held in the database, which is exactly why it survives a process restart when the deferrer's in-memory `last_defers` does not. Verified by reading the schema the migration vendors — 3.9.0.
+
+Its one boundary: the same function deletes defer rows older than the timestamp it just inserted, so a tick becomes re-deferrable once a *newer* tick has been deferred. That cannot be reached from the fresh-start path, which only ever offers the most recent past tick, and a most-recent tick is never older than the last one deferred. It would take a backwards clock jump.
+
+This matters beyond the digest: it is the mechanism the whole "run once" requirement rests on under the restart pattern this deployment actually has, and it lives in the runner's SQL rather than anywhere a reader of the job definition would look.
 
 ## Risks / Trade-offs
 

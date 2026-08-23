@@ -32,6 +32,8 @@ When a piece of recurring work's due moment passes while no process is available
 
 When several due moments for the same work pass while no process is available, the system SHALL run that work once on return, not once per missed moment — a report is a statement about the present, and replaying a backlog of them produces a burst of stale reports rather than one useful one.
 
+"While no process is available" means no process is running scheduled work at all — the case where the worker is stopped, crashed or being replaced. A live process whose own scheduling loop has stalled while it keeps running is a different failure, and one this capability does not govern.
+
 #### Scenario: A single missed window is run on return
 
 - **WHEN** a piece of recurring work's due moment passes with no process available, and a process then becomes available
@@ -57,7 +59,7 @@ When a run fails, the system SHALL retry it, waiting longer before each successi
 
 #### Scenario: A failing run is retried
 
-- **WHEN** a run fails and its declared maximum number of attempts has not been reached
+- **WHEN** an attempt fails and the run's declared maximum number of attempts has not been reached
 - **THEN** the system SHALL retry it
 
 #### Scenario: Successive retries wait longer
