@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Defines the domain vocabulary every module speaks — product identity value objects and the lifecycle-stage vocabulary — so that modules exchange validated, self-describing values instead of raw strings. Vocabulary only: construction-time validation, no transition rules or other cross-module behavior.
+Defines the domain vocabulary every module speaks — identity value objects (product identity and the metric identifier), the lifecycle-stage vocabulary, and the discipline vocabulary naming who owns a piece of work — so that modules exchange validated, self-describing values instead of raw strings. Vocabulary only: construction-time validation, no transition rules or other cross-module behavior.
 
 ## Requirements
 
