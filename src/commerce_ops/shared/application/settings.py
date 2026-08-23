@@ -66,13 +66,20 @@ from pydantic import AfterValidator, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # The scheme SQLAlchemy's async engine is configured with (see
-# `products/infrastructure/driving/monitoring.py`'s `create_async_engine`).
-# A URL carrying any other scheme fails later with an error naming neither
-# the variable nor the cause, so it is rejected here instead.
+# `shared/infrastructure/driven/database.py`, the single process-wide
+# session provider). A URL carrying any other scheme fails later with an
+# error naming neither the variable nor the cause, so it is rejected here
+# instead.
 _REQUIRED_DATABASE_SCHEME: Final = "postgresql+asyncpg"
 
 
-def _must_be_an_async_postgres_url(value: str) -> str:
+def must_be_an_async_postgres_url(value: str) -> str:
+    """Public: also reused by `shared/infrastructure/driven/database.py` so
+    the required scheme has one definition. Not moved there -- this module
+    needs it for `DatabaseUrl`'s `AfterValidator`, and importing it back
+    would be `shared.application` importing `shared.infrastructure`, which
+    `.importlinter`'s `module-layers` contract forbids.
+    """
     scheme, separator, _ = value.partition("://")
     if not separator or scheme != _REQUIRED_DATABASE_SCHEME:
         raise ValueError(
@@ -82,7 +89,7 @@ def _must_be_an_async_postgres_url(value: str) -> str:
     return value
 
 
-DatabaseUrl = Annotated[str, AfterValidator(_must_be_an_async_postgres_url)]
+DatabaseUrl = Annotated[str, AfterValidator(must_be_an_async_postgres_url)]
 
 # A required variable that is present but empty is a fault, not a value --
 # a rendered-but-empty `.env` line is exactly the failure mode this exists

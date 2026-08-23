@@ -17,19 +17,12 @@ pattern -- this is what lets tests substitute fakes via
 
 from __future__ import annotations
 
-import functools
 import logging
-import os
-from collections.abc import AsyncIterator, Sequence
+from collections.abc import Sequence
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
-from sqlalchemy.ext.asyncio import (
-    AsyncEngine,
-    AsyncSession,
-    async_sessionmaker,
-    create_async_engine,
-)
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from commerce_ops.products.application import (
     run_daily_digest,
@@ -41,6 +34,7 @@ from commerce_ops.products.infrastructure.driven.product_repository import (
 from commerce_ops.products.infrastructure.driven.slack_notifier import (
     post_monitoring_message,
 )
+from commerce_ops.shared.infrastructure.driven.database import get_session
 from commerce_ops.shared.infrastructure.driving.trigger_guard import (
     require_trigger_secret,
 )
@@ -48,22 +42,6 @@ from commerce_ops.shared.infrastructure.driving.trigger_guard import (
 router = APIRouter()
 
 _logger = logging.getLogger(__name__)
-
-
-@functools.lru_cache
-def _get_engine() -> AsyncEngine:
-    # Lazy and cached -- constructed on first use, not at import time, so
-    # importing this module (and therefore `commerce_ops.main`) never
-    # requires `DATABASE_URL` to be set. Mirrors
-    # `tests/integration/products/conftest.py`'s own
-    # `create_async_engine`/`async_sessionmaker` pairing.
-    return create_async_engine(os.environ["DATABASE_URL"])
-
-
-async def get_session() -> AsyncIterator[AsyncSession]:
-    session_factory = async_sessionmaker(_get_engine(), expire_on_commit=False)
-    async with session_factory() as session:
-        yield session
 
 
 def _format_daily_message(names: Sequence[str]) -> str:

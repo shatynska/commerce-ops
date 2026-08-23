@@ -29,4 +29,12 @@ EXPOSE 8000
 #
 # The configuration check goes first: there is no point migrating a
 # database whose connection string is the thing that is missing.
-CMD ["sh", "-c", "uv run python -m commerce_ops.preflight && uv run alembic upgrade head && uv run uvicorn commerce_ops.main:app --host 0.0.0.0 --port 8000"]
+#
+# `exec` before the final command is required, not stylistic: without it
+# `sh` stays PID 1 (verified directly -- an `&&` chain is not exec-
+# optimized), SIGTERM never reaches uvicorn, and `main.py`'s lifespan --
+# which disposes the database engine on shutdown -- never runs
+# (centralize-database-session's design.md, "The container's start command
+# must `exec` the server"). `docker-compose.yml`'s `cron` service uses the
+# same `exec crond -f -l 2` pattern.
+CMD ["sh", "-c", "uv run python -m commerce_ops.preflight && uv run alembic upgrade head && exec uv run uvicorn commerce_ops.main:app --host 0.0.0.0 --port 8000"]
