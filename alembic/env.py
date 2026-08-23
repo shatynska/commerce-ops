@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
 from commerce_ops.products.infrastructure.driven.models import Base
+from commerce_ops.shared.infrastructure.driven.alembic_include import include_name
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -51,6 +52,11 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        # The job runner's tables live in the database and in no metadata, so
+        # without this autogenerate proposes dropping them -- and the run
+        # history with them. Passed at both configure calls so the offline and
+        # online paths cannot diverge (tasks.md 1.6b).
+        include_name=include_name,
     )
 
     with context.begin_transaction():
@@ -58,7 +64,13 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection: Connection) -> None:
-    context.configure(connection=connection, target_metadata=target_metadata)
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        # See the offline path: the same exclusion, deliberately duplicated
+        # rather than shared, because Alembic configures the two separately.
+        include_name=include_name,
+    )
 
     with context.begin_transaction():
         context.run_migrations()
