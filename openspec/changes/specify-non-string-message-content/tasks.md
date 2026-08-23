@@ -2,7 +2,7 @@
 
 - [ ] 1.1 Add `NonStringAnswerError` to `use_cases.py` (design.md — "Where the exception lives")
 - [ ] 1.2 In `answer_question`, replace the ignore-suppressed return with a check: if `result["messages"][-1].content` is a `str`, return it; otherwise raise `NonStringAnswerError` with a message identifying the actual type received
-- [ ] 1.3 Remove the `# type: ignore[no-any-return]` and its comment at `use_cases.py:28` — the return is now genuinely `str`-typed without suppression
+- [ ] 1.3 Remove the `# type: ignore[no-any-return]` and its comment at `use_cases.py:30` — the return is now genuinely `str`-typed without suppression
 
 ## 2. Verify slack.py needs no change
 
