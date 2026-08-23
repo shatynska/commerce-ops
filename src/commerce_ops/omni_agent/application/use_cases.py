@@ -9,6 +9,13 @@ from langgraph.graph.state import CompiledStateGraph
 from commerce_ops.omni_agent.application.graph import build_production_graph
 
 
+class NonStringAnswerError(Exception):
+    """Raised when the language model's response content is not a plain
+    string. Left uncaught here -- `slack.py`'s existing broad
+    `except Exception` is the intended handler.
+    """
+
+
 @functools.lru_cache
 def _get_graph() -> CompiledStateGraph[MessagesState]:
     """Compiles the production graph once, on first use.
@@ -25,6 +32,9 @@ def _get_graph() -> CompiledStateGraph[MessagesState]:
 async def answer_question(question: str) -> str:
     graph = _get_graph()
     result = await graph.ainvoke({"messages": [HumanMessage(content=question)]})
-    # Non-string message content is an unresolved behavioral question, not a
-    # typing one -- see the `specify-non-string-message-content` change.
-    return result["messages"][-1].content  # type: ignore[no-any-return]
+    content = result["messages"][-1].content
+    if not isinstance(content, str):
+        raise NonStringAnswerError(
+            f"language model response content was {type(content).__name__}, not str"
+        )
+    return content

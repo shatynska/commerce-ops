@@ -11,7 +11,7 @@ See proposal.md — Why, for the defect and why it was split out of `tighten-typ
 **Goals:**
 
 - `answer_question` never returns a non-`str` value silently coerced or passed through as if it were a valid answer.
-- The scoped `# type: ignore[no-any-return]` at `use_cases.py:28` is removed, with the return path made genuinely type-correct rather than re-suppressed.
+- The scoped `# type: ignore[no-any-return]` at `use_cases.py:30` is removed, with the return path made genuinely type-correct rather than re-suppressed.
 - The failure path this relies on is the existing one — no new Slack-facing message or handling code.
 
 **Non-Goals:**
@@ -43,7 +43,7 @@ A new exception, `NonStringAnswerError`, is raised in `use_cases.py` at the poin
 ## Risks / Trade-offs
 
 - **A future LangChain/LangGraph release could make non-string content routine rather than latent** (e.g. if `build_production_graph` gains multimodal input). → At that point, every affected question would surface as a Slack failure instead of an answer. This is a deliberate trade for correctness now; revisiting the decision (likely toward a real coercion/rendering strategy) becomes appropriate at that point, not before.
-- **`slack.py`'s catch is broad (`except Exception`), so this failure is indistinguishable from any other `answer_question` failure in the message the user sees.** → Acceptable: `_FAILURE_MESSAGE` was already generic, and no existing requirement asks for failure-cause-specific user-facing messages. `NonStringAnswerError` still makes the cause distinguishable in logs/tests, which is what this change needs.
+- **`slack.py`'s catch is broad (`except Exception`), so this failure is indistinguishable from any other `answer_question` failure in the message the user sees.** → Acceptable: `_FAILURE_MESSAGE` was already generic, and no existing requirement asks for failure-cause-specific user-facing messages. `NonStringAnswerError` still makes the cause distinguishable in tests, which is what this change needs; nothing in `omni_agent` currently logs exceptions on this path, so no log-based distinguishability exists today.
 
 ## Migration Plan
 
