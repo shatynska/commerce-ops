@@ -1,0 +1,277 @@
+"""Tests for graduation: opening the `graduated` gate stamps the catalog
+product steady-state.
+
+Derived from the delta spec:
+openspec/changes/introduce-launch-aggregate/specs/launch-instance/spec.md
+
+Covers the ADDED requirement *Graduation stamps the catalog product
+steady-state* — scenarios *Graduation stamps the product with the
+approver's chosen posture* and *A rejected stage stamp leaves the advance
+standing*. The third scenario (*A graduation approval without a posture
+is rejected*) is a property of recording an approval on the aggregate and
+lives in `tests/unit/launch/domain/test_launch_gate_advance.py`.
+
+Only the application layer can observe these two scenarios: the stamp is
+a cross-module call into `catalog` made by the `advance_gate` use case
+after the advanced launch is persisted (`tasks.md` 3.3). This is the fast
+mocked unit tier, so the collaborators are fakes and the catalog is
+represented by a stage-stamping collaborator, not a database.
+
+At the time of writing `commerce_ops.launch.application` exports no
+launch use cases, so every test here is expected to fail on an absent
+target (`ImportError`). Per `ai-toolkit:testing`, that failure
+establishes only absence.
+
+## The interface under test does not exist yet, and its shape is INVENTED
+
+Beyond the aggregate shape recorded in
+`tests/unit/launch/domain/test_launch_run.py`, this file assumes, and
+the manifest records as unresolved project questions:
+
+- `advance_gate` exported from `commerce_ops.launch.application`
+  (`tasks.md` 3.5 fixes the placement, not the call shape), taking its
+  collaborators as arguments per this module's ports-and-adapters shape:
+  `await advance_gate(launches=..., playbooks=..., stamp_steady_state=...,
+  product_id=...)` returning the produced events. The launch store is
+  async (`save` / `get_by_product_id`); the playbook port is
+  `get(version)`.
+- The stage-stamping collaborator is called as
+  `await stamp(product_id, stage, confirmed_by=...)` — `change_stage`'s
+  own shape minus the store, as
+  `tests/integration/catalog/test_catalog_products.py` records it. If the
+  implemented use case instead takes the catalog store and calls the real
+  `catalog.application.change_stage` itself, replacing this collaborator
+  with that wiring is a fixture correction.
+- A catalog-rejected stamp is signalled by `StageTransitionError` (the
+  real, existing catalog rejection type) and surfaces from the use case
+  as `GraduationStampError`, importable from
+  `commerce_ops.launch.application`, whose message names the manual
+  catalog correction required.
+
+Correcting any of those names or shapes is a fixture correction; what
+must survive unweakened is what each test asserts: what stage is
+stamped, with whose posture and confirmation, that the launch is
+persisted before the stamp is attempted, and that a rejected stamp
+leaves the advance standing with no stage changed.
+"""
+
+from __future__ import annotations
+
+import uuid
+from datetime import UTC, datetime
+from typing import Any, Final
+
+import pytest
+
+from commerce_ops.catalog.domain.product import StageTransitionError
+from commerce_ops.launch.application import GraduationStampError, advance_gate
+from commerce_ops.launch.domain.launch_playbook import (
+    Gate,
+    GateOpening,
+    LaunchPlaybook,
+)
+from commerce_ops.launch.domain.launch_run import (
+    ApprovalDecision,
+    GateApproval,
+    Launch,
+    LaunchGraduated,
+)
+from commerce_ops.shared.domain.identity import ProductId
+from commerce_ops.shared.domain.lifecycle_stage import Posture, SteadyState
+
+pytestmark = pytest.mark.anyio
+
+# SPECIFIED (launch-playbook spec, unchanged): the eight gates, in order.
+SPECIFIED_GATE_ORDER: Final = (
+    "commit",
+    "order",
+    "listable",
+    "stock-ready",
+    "live",
+    "ignition",
+    "phase-one-complete",
+    "graduated",
+)
+
+CONFIRMATION_GATES: Final = frozenset(
+    {"commit", "order", "phase-one-complete", "graduated"}
+)
+
+PRODUCT_ID: Final = ProductId(str(uuid.uuid4()))
+APPROVED_AT: Final = datetime(2027, 7, 1, 10, 0, tzinfo=UTC)
+APPROVER: Final = "Helen"
+
+
+@pytest.fixture(scope="module")
+def anyio_backend() -> str:
+    return "asyncio"
+
+
+def _opening_for(identifier: str) -> GateOpening:
+    if identifier in CONFIRMATION_GATES:
+        return GateOpening.REQUIRES_CONFIRMATION
+    return GateOpening.AUTOMATIC
+
+
+def _playbook() -> LaunchPlaybook:
+    """A coherent playbook with no steps and no metric conditions, so
+    every gate's blocking conditions are (vacuously) satisfied and only
+    the approval requirements remain."""
+    gates = tuple(
+        Gate(identifier=identifier, position=position, opening=_opening_for(identifier))
+        for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1)
+    )
+    return LaunchPlaybook(version="test-v1", gates=gates, steps=())
+
+
+def _approval(**overrides: Any) -> GateApproval:
+    attributes: dict[str, Any] = {
+        "decision": ApprovalDecision.APPROVING,
+        "approver": APPROVER,
+        "when": APPROVED_AT,
+        "posture": None,
+    }
+    attributes.update(overrides)
+    return GateApproval(**attributes)
+
+
+def _launch_at_graduated(playbook: LaunchPlaybook) -> Launch:
+    """A launch walked to `graduated` along the ordinary advance path,
+    with the graduation approval (posture `Scale`) already recorded."""
+    launch, _ = Launch.start(product_id=PRODUCT_ID, playbook=playbook)
+    while launch.current_gate != "graduated":
+        if launch.current_gate in CONFIRMATION_GATES:
+            launch.approve_gate(launch.current_gate, _approval())
+        launch.advance_gate(playbook)
+    launch.approve_gate("graduated", _approval(posture=Posture.SCALE))
+    return launch
+
+
+class FakeLaunchStore:
+    """In-memory launch store; appends ("save", ...) to the shared log."""
+
+    def __init__(self, launch: Launch, log: list[tuple[str, ...]]) -> None:
+        self._launches = {launch.product_id: launch}
+        self._log = log
+
+    async def get_by_product_id(self, product_id: ProductId) -> Launch | None:
+        return self._launches.get(product_id)
+
+    async def save(self, launch: Launch) -> None:
+        self._log.append(("save", launch.current_gate))
+        self._launches[launch.product_id] = launch
+
+
+class FakePlaybooks:
+    """Playbook port returning the one version the launch pinned."""
+
+    def __init__(self, playbook: LaunchPlaybook) -> None:
+        self._playbook = playbook
+
+    def get(self, version: str) -> LaunchPlaybook:
+        return self._playbook
+
+
+class FakeStamper:
+    """Stage-stamping collaborator; records calls, optionally rejecting
+    like `catalog`'s transition rules would."""
+
+    def __init__(
+        self,
+        log: list[tuple[str, ...]],
+        failure: Exception | None = None,
+    ) -> None:
+        self._log = log
+        self._failure = failure
+        self.calls: list[tuple[ProductId, object, str]] = []
+
+    async def __call__(
+        self, product_id: ProductId, stage: object, *, confirmed_by: str
+    ) -> None:
+        if self._failure is not None:
+            raise self._failure
+        self._log.append(("stamp",))
+        self.calls.append((product_id, stage, confirmed_by))
+
+
+async def test_graduation_stamps_the_product_with_the_approvers_chosen_posture() -> (
+    None
+):
+    """Scenario: Graduation stamps the product with the approver's chosen
+    posture.
+
+    WHEN every blocking condition on `graduated` is satisfied for a
+    product in a launching stage and an approval naming an approver and a
+    posture is recorded, and the launch is advanced
+    THEN a `LaunchGraduated` occurrence is reported and the catalog
+    product's stage becomes steady state with the chosen posture,
+    confirmed by that approver.
+    """
+    playbook = _playbook()
+    log: list[tuple[str, ...]] = []
+    launches = FakeLaunchStore(_launch_at_graduated(playbook), log)
+    stamp = FakeStamper(log)
+
+    events = await advance_gate(
+        launches=launches,
+        playbooks=FakePlaybooks(playbook),
+        stamp_steady_state=stamp,
+        product_id=PRODUCT_ID,
+    )
+
+    # SPECIFIED: a `LaunchGraduated` occurrence is reported.
+    assert any(isinstance(event, LaunchGraduated) for event in events)
+    # SPECIFIED: steady state with the chosen posture — the system never
+    # chooses a posture itself — confirmed by that approver.
+    ((stamped_id, stamped_stage, confirmed_by),) = stamp.calls
+    assert stamped_id == PRODUCT_ID
+    assert stamped_stage == SteadyState(posture=Posture.SCALE)
+    assert confirmed_by == APPROVER
+    # SPECIFIED by the requirement statement: the stamp is attempted only
+    # after the advanced launch is persisted.
+    kinds = [entry[0] for entry in log]
+    assert "save" in kinds and "stamp" in kinds
+    assert kinds.index("save") < kinds.index("stamp")
+
+
+async def test_a_rejected_stage_stamp_leaves_the_advance_standing() -> None:
+    """Scenario: A rejected stage stamp leaves the advance standing.
+
+    WHEN the `graduated` gate opens for a product whose current stage
+    does not permit a transition to steady state
+    THEN the launch's current gate remains `graduated`, the product's
+    stage is unchanged, and an error is reported naming the manual
+    catalog correction required.
+    """
+    playbook = _playbook()
+    log: list[tuple[str, ...]] = []
+    launches = FakeLaunchStore(_launch_at_graduated(playbook), log)
+    stamp = FakeStamper(
+        log,
+        failure=StageTransitionError(
+            "no transition from the current stage to steady state"
+        ),
+    )
+
+    # SPECIFIED: the failure is reported as an error. DERIVED mechanism:
+    # `GraduationStampError` raised by the use case (see docstring).
+    with pytest.raises(GraduationStampError) as caught:
+        await advance_gate(
+            launches=launches,
+            playbooks=FakePlaybooks(playbook),
+            stamp_steady_state=stamp,
+            product_id=PRODUCT_ID,
+        )
+
+    # SPECIFIED: the error names the manual catalog correction required —
+    # at minimum, which product's catalog record must be corrected by
+    # hand. DERIVED: the exact wording beyond the product identifier.
+    assert str(PRODUCT_ID) in str(caught.value)
+    # SPECIFIED: the advance stands — the persisted launch remains at
+    # `graduated`.
+    stored = await launches.get_by_product_id(PRODUCT_ID)
+    assert stored is not None
+    assert stored.current_gate == "graduated"
+    # SPECIFIED: no stage changes — the collaborator recorded no
+    # successful stamp.
+    assert stamp.calls == []

@@ -316,6 +316,11 @@ _SPECIFIED_GATE_IDS: tuple[str, ...] = tuple(
     identifier for identifier, _ in _SPECIFIED_GATES
 )
 
+GATE_SEQUENCE: tuple[str, ...] = _SPECIFIED_GATE_IDS
+"""The eight gate identifiers in their fixed order — public, because the
+launch-instance side (`launch_run`) validates and advances against the
+same sequence this specification fixes."""
+
 
 def _gate_sequence_faults(gates: tuple[Gate, ...]) -> list[str]:
     faults: list[str] = []

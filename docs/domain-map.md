@@ -126,8 +126,8 @@ Runs a product from commitment to graduation against a versioned playbook.
                 | NotApplicable(reason)    ← "missing is not fine": absent and inapplicable differ
     ```
 
-  - `GateApproval` (VO): decision, approver, timestamp — required for confirmation gates. `MetricAttestation` (VO): a human's recorded satisfaction of a `MetricCondition`, with evidence.
-  - Invariants: gates advance monotonically, never skipped; a gate opens only when every blocking condition attached to it is satisfied; a confirmation gate additionally requires an approval; a `Refused` outcome can never satisfy anything; every step's due date derives from `LaunchDate + TimingAnchor`; completion from ClickUp is *recorded*, never inferred.
+  - `GateApproval` (VO): decision (approving | rejecting — only an approving decision opens a gate), approver, timestamp — required for confirmation gates. The graduation approval additionally carries the **approver-chosen `Posture`**: catalog's "the system never self-stamps a posture" means no default posture is legal, so the human approving graduation chooses the steady state the product enters (recorded 2026-08-23, `introduce-launch-aggregate`). `MetricAttestation` (VO): a human's recorded satisfaction of a `MetricCondition`, with evidence.
+  - Invariants: gates advance monotonically, never skipped; a gate opens only when every blocking condition attached to it is satisfied; a confirmation gate additionally requires an approval; a `Refused` outcome can never satisfy anything; every step's due date derives from `LaunchDate + TimingAnchor`; completion from ClickUp is *recorded*, never inferred. The **at-risk rule** (recorded 2026-08-23, `introduce-launch-aggregate`): the launch date is at risk exactly when a blocking step's due period has fully passed without the step reaching a permitted terminal outcome — evaluated as of a given date, the clock never lives in the domain.
   - Domain events: `LaunchStarted`, `StepSatisfied`, `StepRefused`, `GateOpened`, `GateBlocked`, `LaunchDateMoved`, `LaunchDateAtRisk`, `LaunchGraduated` (→ catalog stamps `SteadyState`, → monitoring switches the product to steady-state thresholds).
   - `LaunchDateMoved` has a wide blast radius by design: production and sea-freight lead times dominate the launch calendar and slip constantly. When the date moves, **every timing anchor re-resolves at once** — due dates, at-risk judgements, and already-created ClickUp tasks all cascade from this one event. It is a first-class domain occurrence, not a field edit.
 - **State ownership** (from README, unchanged): repo owns the definition, Postgres owns position/outcomes, ClickUp owns human completion; a periodic reconciliation pass covers webhook drift.
@@ -186,7 +186,7 @@ Modules appear when domain work needs them (README's incremental rule): the MVP 
 |---|---|---|---|
 | 1 | Shared vocabulary + `catalog`: Product, `LifecycleStage`, stage stamp split out of the launch record | `shared`, `catalog` | — |
 | 2 | Playbook definition completed: `GateCondition` split, `StepOutcome`, timing anchors — plus a report of steps whose rule policy is still undecided | `launch` | — |
-| 3 | **The `Launch` aggregate**: gate evaluation, outcomes, attestations, approvals, due dates, events — the heart of the MVP | `launch` | — |
+| 3 | **The `Launch` aggregate**: gate evaluation, outcomes, attestations, approvals, due dates, events — the heart of the MVP — **realized** 2026-08-23 (`introduce-launch-aggregate`) | `launch` | — |
 | 4 | ClickUp completion loop: step↔task mapping, webhook intake, reconciliation pass | `launch` infra | — |
 | 5 | `briefing` with the launch-side cause order: AttentionItems, severity, silent-when-clean, Slack delivery + gate-confirmation requests | `briefing` | — |
 | 6 | `access` scope + scope-aware read use cases; Omni rewired over public surfaces | `access`, `omni_agent` | — |

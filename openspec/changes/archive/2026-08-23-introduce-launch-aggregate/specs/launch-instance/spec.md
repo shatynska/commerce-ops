@@ -1,10 +1,4 @@
-# launch-instance Specification
-
-## Purpose
-
-Runs a concrete product's launch against the `launch-playbook` definition: persists the launch record — pinned playbook version, current gate, launch date, step progress, approvals, attestations — referencing the product `product-catalog` owns, and holds the rules of the run itself: gate evaluation, step-outcome recording with provenance, human attestation of metric conditions, due-date derivation, at-risk detection, and graduation.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: A launch position is persisted for a catalog product
 
@@ -52,6 +46,16 @@ The system SHALL retrieve a persisted launch record given the product identifier
 
 - **WHEN** a launch record is read for a product identifier that has none
 - **THEN** the system reports that none exists, rather than an error
+
+## REMOVED Requirements
+
+### Requirement: A product's current gate can be updated
+
+**Reason**: Free-form current-gate updates deliberately did not validate transitions, as a stopgap until the launch aggregate existed. They permitted skipping gates, moving backwards, and opening gates whose conditions were unsatisfied — all of which the gate-advance requirements below now forbid.
+
+**Migration**: The stored gate changes only through gate advancement ("A gate opens only when every blocking condition attached to it is satisfied"). Existing launch-position rows carry over unchanged; only the unvalidated mutation path is retired.
+
+## ADDED Requirements
 
 ### Requirement: A step outcome is recorded with provenance
 
