@@ -17,9 +17,8 @@ from typing import Any
 
 import procrastinate
 import psycopg_pool
-
-_ASYNC_DRIVER_PREFIX = "postgresql+asyncpg://"
-_PSYCOPG_PREFIX = "postgresql://"
+from psycopg.conninfo import make_conninfo
+from sqlalchemy.engine import make_url
 
 # The runner's schedules are evaluated in UTC and cannot be evaluated in
 # anything else -- `PeriodicTask` builds its croniter with no timezone
@@ -41,10 +40,26 @@ def queue_conninfo() -> str:
     URL and `docker-compose.yml` builds it from `POSTGRES_PASSWORD`, so a
     second variable would be a second thing to keep in step (tasks.md 1.2).
 
-    The application connects with `asyncpg` and declares its URL accordingly;
-    psycopg does not understand the `+asyncpg` driver marker, so it is
-    stripped here. Nothing else about the URL changes -- same host, same
-    database, same credentials.
+    Parsed into components and reassembled, NOT rewritten as a string. An
+    earlier version merely swapped the `postgresql+asyncpg://` prefix for
+    `postgresql://` and handed the rest to psycopg. That is wrong whenever the
+    password contains a character with meaning in a URI: libpq's own URI
+    parser reads `postgresql://user:pa/ss@host:5432/db` as host `user`, port
+    `pa`, and fails with "Servname not supported for ai_socktype" -- observed
+    in production, where the worker could not reach the queue at all.
+    SQLAlchemy tolerates the same string because it parses the URL itself,
+    which is why `app` was unaffected and only the queue broke.
+
+    `make_url` does the parsing (the same parser that accepts this URL for the
+    application's own engine) and `make_conninfo` does the quoting, so no
+    escaping rule is reimplemented here.
+
+    One case this cannot repair: a literal `@` in the password. The URL is
+    then ambiguous and `make_url` splits at the first one, so the application's
+    own engine reads the same wrong host and fails too -- it is a constraint on
+    how `docker-compose.yml` builds the URL (percent-encode it), not something
+    this function can decide. It is named here so the next reader does not
+    mistake it for the defect above, which was this function's alone.
     """
     value = os.environ.get("DATABASE_URL")
     if not value:
@@ -52,9 +67,14 @@ def queue_conninfo() -> str:
             "DATABASE_URL is not set (or is set but empty); the job runner "
             "cannot reach the queue without it"
         )
-    if value.startswith(_ASYNC_DRIVER_PREFIX):
-        return _PSYCOPG_PREFIX + value[len(_ASYNC_DRIVER_PREFIX) :]
-    return value
+    url = make_url(value)
+    return make_conninfo(
+        host=url.host,
+        port=url.port,
+        dbname=url.database,
+        user=url.username,
+        password=url.password,
+    )
 
 
 def _queue_pool(**kwargs: Any) -> psycopg_pool.AsyncConnectionPool:
