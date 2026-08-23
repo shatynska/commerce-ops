@@ -38,6 +38,6 @@
 
 - [x] 6.1 Run `uv run pytest`, `uv run mypy`, `uv run ruff check`, `uv run ruff format --check`, `uv run lint-imports`
 - [x] 6.2 Run `openspec validate start-containers-without-a-package-index --strict`
-- [ ] 6.3 After deploy: confirm `app` and `worker` are both up, `app` healthy, and the worker's startup line arrives without a preceding download — the same check as 4.7, against the host that actually matters
-- [ ] 6.4 After deploy: confirm the healthcheck is genuinely evaluating on the host (`docker inspect --format '{{json .State.Health}}' <app container>` shows recent successful probes, not an empty history), since a healthcheck that never runs looks identical to one that always passes
+- [x] 6.3 After deploy: confirm `app` and `worker` are both up, `app` healthy, and the worker's startup line arrives without a preceding download — the same check as 4.7, against the host that actually matters
+- [x] 6.4 After deploy: confirm the healthcheck is genuinely evaluating on the host (`docker inspect --format '{{json .State.Health}}' <app container>` shows recent successful probes, not an empty history), since a healthcheck that never runs looks identical to one that always passes
 - [ ] 6.5 **If 6.3 or 6.4 fails, revert the commit and redeploy** rather than debugging on the host. The previous container is already gone by the time a health failure is known, so the fastest path back to a working deployment is the revert, not a fix forward (design.md — Migration Plan, Rollback)
