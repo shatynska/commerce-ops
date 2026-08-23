@@ -127,7 +127,16 @@ async def _shared_engine_disposed_between_tests() -> AsyncIterator[None]:
     this file leaves none behind either. `dispose_engine()` clears the
     factory cache in the same operation, so the next request builds a
     fresh engine on the loop that asks for it.
+
+    It also carries this file's database guard, because being autouse is
+    what makes it cover every test. `_database_url()` skips when
+    `DATABASE_URL` is unset, but only the tests taking the `reader`
+    fixture used to reach it -- the ones that open the runner directly hit
+    `queue_conninfo()` instead and raised, so the tier reported failures
+    rather than skips and `git push` looked like a broken suite to anyone
+    without a local Postgres. README promises the opposite.
     """
+    _database_url()
     await dispose_engine()
     yield
     await dispose_engine()
