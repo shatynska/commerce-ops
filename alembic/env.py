@@ -7,8 +7,15 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
-from commerce_ops.products.infrastructure.driven.models import Base
+
+# Imported for their model registrations: each module's models module adds
+# its tables to the one shared `Base` metadata that autogenerate compares.
+from commerce_ops.catalog.infrastructure.driven import models as _catalog_models
+from commerce_ops.products.infrastructure.driven import models as _products_models
 from commerce_ops.shared.infrastructure.driven.alembic_include import include_name
+from commerce_ops.shared.infrastructure.driven.orm import Base
+
+assert _catalog_models.Base is Base and _products_models.Base is Base
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

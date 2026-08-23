@@ -1,11 +1,13 @@
-"""SQLAlchemy model for the `products` table.
+"""SQLAlchemy model for the `launch_positions` table.
 
-Maps `launch-instance`'s persisted shape (see
-`openspec/changes/add-products-store/specs/launch-instance/spec.md`) to
-Postgres. `GATE_IDS` is a deliberate, standalone copy of the eight
-`launch-playbook` gate identifiers — see design.md's Decisions section on
-why this table does not import `products.domain.launch_playbook`'s `Gate`
-enum for it.
+Maps `launch-instance`'s reshaped persisted shape (see
+`openspec/changes/introduce-catalog-and-shared-vocabulary/specs/launch-instance/spec.md`)
+to Postgres: a launch-position record referencing a catalog product by
+identifier. Product identity lives in the catalog-owned `products` table
+(design.md Decision 7). `GATE_IDS` is a deliberate, standalone copy of the
+eight `launch-playbook` gate identifiers — the reasoning recorded by
+`add-products-store`'s design.md for not importing the domain model's gate
+sequence here carries over unchanged.
 """
 
 from __future__ import annotations
@@ -14,10 +16,12 @@ import uuid
 from datetime import date, datetime
 from typing import Final
 
-from sqlalchemy import CheckConstraint, Date, DateTime, String
+from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, String
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
+
+from commerce_ops.shared.infrastructure.driven.orm import Base
 
 GATE_IDS: Final[tuple[str, ...]] = (
     "commit",
@@ -31,28 +35,25 @@ GATE_IDS: Final[tuple[str, ...]] = (
 )
 
 
-class Base(DeclarativeBase):
-    pass
-
-
 _GATE_LIST = ", ".join(f"'{gate}'" for gate in GATE_IDS)
 
 
-class Product(Base):
-    __tablename__ = "products"
+class LaunchPosition(Base):
+    __tablename__ = "launch_positions"
     __table_args__ = (
         CheckConstraint(
             f"current_gate IN ({_GATE_LIST})",
-            name="ck_products_current_gate_valid",
+            name="ck_launch_positions_current_gate_valid",
         ),
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    # The product reference is the primary key: at most one launch position
+    # per product, by construction.
+    product_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("products.id", name="fk_launch_positions_product_id"),
+        primary_key=True,
     )
-    sku: Mapped[str] = mapped_column(String, unique=True, nullable=False)
-    asin: Mapped[str | None] = mapped_column(String, nullable=True)
-    name: Mapped[str] = mapped_column(String, nullable=False)
     playbook_version: Mapped[str] = mapped_column(String, nullable=False)
     current_gate: Mapped[str] = mapped_column(String, nullable=False)
     launch_date: Mapped[date | None] = mapped_column(Date, nullable=True)

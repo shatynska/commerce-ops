@@ -30,7 +30,7 @@ configure_logging()
 # healthcheck disabled there would be no signal at all. Task 6.4a guards
 # this line specifically, because an unused-looking import is exactly the
 # kind a later cleanup removes.
-from commerce_ops.products.infrastructure.driving import (
+from commerce_ops.catalog.infrastructure.driving import (
     daily_digest_job as _daily_digest_job,
 )
 

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Persists a concrete product's catalog identity together with its current position in the `launch-playbook` gate sequence, so work on the launch process has a real record to run against instead of only the abstract playbook definition.
+Persists a concrete product's position in the `launch-playbook` gate sequence — playbook version, current gate, launch date — as a launch-position record referencing the product `product-catalog` owns, so work on the launch process has a real record to run against instead of only the abstract playbook definition.
 
 ## Requirements
 

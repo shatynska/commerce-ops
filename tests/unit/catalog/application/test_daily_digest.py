@@ -58,7 +58,7 @@ from collections.abc import Sequence
 
 import pytest
 
-from commerce_ops.products.application import ProductNameReader, run_daily_digest
+from commerce_ops.catalog.application import ProductNameReader, run_daily_digest
 
 pytestmark = pytest.mark.anyio
 
