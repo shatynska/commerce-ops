@@ -54,6 +54,11 @@ from commerce_ops.launch.infrastructure.driven.models import (
 from commerce_ops.shared.domain.identity import MetricId, ProductId
 from commerce_ops.shared.domain.lifecycle_stage import Posture
 
+# The last gate. A launch standing here has finished, which is what
+# `list_active()` filters on. Spelled as a literal beside `GATE_IDS` for the
+# same reason that copy exists — see this package's `models` docstring.
+_GRADUATED_GATE = "graduated"
+
 
 class LaunchRepositoryError(Exception):
     """A save was rejected: an unknown product, a second launch for the
@@ -124,6 +129,26 @@ class LaunchRepository:
         else:
             await self._insert(row_id, launch)
         self._managed[row_id] = launch
+
+    async def list_active(self) -> list[Launch]:
+        """Every launch that has not reached `graduated`, hydrated.
+
+        The ClickUp completion loop runs over exactly this: a graduated
+        launch is never projected or reconciled, and filtering here is
+        what makes that true for every pass at once rather than a guard
+        each one has to remember (`launch-clickup-sync`, design.md).
+        """
+        row_ids = await self._session.scalars(
+            select(LaunchPosition.product_id).where(
+                LaunchPosition.current_gate != _GRADUATED_GATE
+            )
+        )
+        launches: list[Launch] = []
+        for row_id in row_ids:
+            launch = await self.get_by_product_id(ProductId(str(row_id)))
+            if launch is not None:
+                launches.append(launch)
+        return launches
 
     async def get_by_product_id(self, product_id: ProductId) -> Launch | None:
         row_id = _row_id(product_id)

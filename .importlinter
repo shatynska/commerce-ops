@@ -90,6 +90,16 @@ forbidden_modules =
     commerce_ops.catalog.domain
     commerce_ops.catalog.infrastructure
     commerce_ops.omni_agent
+; The same exemption `products-application-boundary` carries, for the same
+; reason, now that launch has driving adapters (the ClickUp completion
+; loop) that call their own application layer: infrastructure -> application
+; is the sanctioned direction, launch.application may call catalog's public
+; surface, and that surface necessarily uses its own domain internally.
+; Exempting those edges keeps the surface opaque without permitting
+; launch.infrastructure to import catalog.domain directly.
+ignore_imports =
+    commerce_ops.catalog.application -> commerce_ops.catalog.domain.**
+    commerce_ops.catalog.application.** -> commerce_ops.catalog.domain.**
 
 [importlinter:contract:omni-agent-domain-boundary]
 name = omni_agent.domain does not reach outside its own layer

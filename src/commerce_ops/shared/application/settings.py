@@ -138,6 +138,15 @@ class Settings(BaseSettings):
     product_agent_slack_signing_secret: NonEmpty | None = None
     clickup_api_token: NonEmpty | None = None
 
+    # Optional for the same reason `CLICKUP_API_TOKEN` is: each degrades
+    # the launch completion loop rather than the application. Absent, the
+    # webhook rejects every delivery and the reconciliation pass fails its
+    # own run visibly -- both stated by `launch-clickup-sync` -- while the
+    # rest of the system runs unchanged. Treating either as a startup fault
+    # would make a capability's configuration a condition of booting.
+    clickup_launch_folder_id: NonEmpty | None = None
+    clickup_webhook_secret: NonEmpty | None = None
+
     # Optional, and deliberately typed `str | None` rather than `NonEmpty |
     # None`: `application-logging`'s spec defines an empty value as "not
     # configured", and `NonEmpty` would make `preflight` report `LOG_LEVEL`
