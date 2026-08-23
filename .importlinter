@@ -72,6 +72,14 @@ forbidden_modules =
     commerce_ops.omni_agent.infrastructure
     commerce_ops.omni_agent.application.graph
     commerce_ops.shared.infrastructure
+; Calling catalog's public surface (its application/__init__) is the
+; sanctioned cross-module path, and that surface necessarily uses its own
+; domain internally. Exempting catalog's application->domain edges from
+; this contract's chains keeps the public surface opaque without
+; permitting launch.application to import catalog.domain directly.
+ignore_imports =
+    commerce_ops.catalog.application -> commerce_ops.catalog.domain.**
+    commerce_ops.catalog.application.** -> commerce_ops.catalog.domain.**
 
 [importlinter:contract:products-infrastructure-boundary]
 name = launch.infrastructure does not reach into other modules' internals

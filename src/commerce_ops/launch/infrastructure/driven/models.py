@@ -1,13 +1,16 @@
-"""SQLAlchemy model for the `launch_positions` table.
+"""SQLAlchemy models for the launch-instance tables.
 
-Maps `launch-instance`'s reshaped persisted shape (see
-`openspec/changes/introduce-catalog-and-shared-vocabulary/specs/launch-instance/spec.md`)
-to Postgres: a launch-position record referencing a catalog product by
-identifier. Product identity lives in the catalog-owned `products` table
-(design.md Decision 7). `GATE_IDS` is a deliberate, standalone copy of the
-eight `launch-playbook` gate identifiers — the reasoning recorded by
-`add-products-store`'s design.md for not importing the domain model's gate
-sequence here carries over unchanged.
+Maps `launch-instance`'s persisted shape (as reshaped by
+`introduce-launch-aggregate`) to Postgres: the `launch_positions` spine —
+a launch record referencing a catalog product by identifier — plus the
+three child tables holding the aggregate's recorded state: step progress
+(outcome + recording provenance), gate approvals, and metric
+attestations, each keyed by the launch's product id with cascade delete.
+Product identity lives in the catalog-owned `products` table (the
+catalog split's design.md Decision 7). `GATE_IDS` is a deliberate,
+standalone copy of the eight `launch-playbook` gate identifiers — the
+reasoning recorded by `add-products-store`'s design.md for not importing
+the domain model's gate sequence here carries over unchanged.
 """
 
 from __future__ import annotations
@@ -66,3 +69,121 @@ class LaunchPosition(Base):
         server_default=func.now(),
         onupdate=func.now(),
     )
+
+
+OUTCOME_KINDS: Final[tuple[str, ...]] = (
+    "not-started",
+    "in-progress",
+    "satisfied",
+    "blocked",
+    "refused",
+    "not-applicable",
+)
+
+PROVENANCE_SOURCES: Final[tuple[str, ...]] = ("clickup", "automated", "attestation")
+
+APPROVAL_DECISIONS: Final[tuple[str, ...]] = ("approving", "rejecting")
+
+_OUTCOME_LIST = ", ".join(f"'{kind}'" for kind in OUTCOME_KINDS)
+_SOURCE_LIST = ", ".join(f"'{source}'" for source in PROVENANCE_SOURCES)
+_DECISION_LIST = ", ".join(f"'{decision}'" for decision in APPROVAL_DECISIONS)
+
+
+class LaunchStepProgress(Base):
+    """One recorded step outcome with its recording provenance — at most
+    one row per (launch, step): a later recording replaces the stored
+    outcome, per the launch-instance spec."""
+
+    __tablename__ = "launch_step_progress"
+    __table_args__ = (
+        CheckConstraint(
+            f"outcome_kind IN ({_OUTCOME_LIST})",
+            name="ck_launch_step_progress_outcome_kind_valid",
+        ),
+        CheckConstraint(
+            f"source IN ({_SOURCE_LIST})",
+            name="ck_launch_step_progress_source_valid",
+        ),
+    )
+
+    product_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey(
+            "launch_positions.product_id",
+            name="fk_launch_step_progress_product_id",
+            ondelete="CASCADE",
+        ),
+        primary_key=True,
+    )
+    step_id: Mapped[str] = mapped_column(String, primary_key=True)
+    outcome_kind: Mapped[str] = mapped_column(String, nullable=False)
+    outcome_reason: Mapped[str | None] = mapped_column(String, nullable=True)
+    source: Mapped[str] = mapped_column(String, nullable=False)
+    who: Mapped[str] = mapped_column(String, nullable=False)
+    recorded_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    evidence: Mapped[str] = mapped_column(String, nullable=False)
+
+
+class LaunchGateApproval(Base):
+    """One recorded confirmation decision per (launch, gate). The posture
+    is present exactly on a graduation approval."""
+
+    __tablename__ = "launch_gate_approvals"
+    __table_args__ = (
+        CheckConstraint(
+            f"decision IN ({_DECISION_LIST})",
+            name="ck_launch_gate_approvals_decision_valid",
+        ),
+        CheckConstraint(
+            f"gate_id IN ({_GATE_LIST})",
+            name="ck_launch_gate_approvals_gate_id_valid",
+        ),
+    )
+
+    product_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey(
+            "launch_positions.product_id",
+            name="fk_launch_gate_approvals_product_id",
+            ondelete="CASCADE",
+        ),
+        primary_key=True,
+    )
+    gate_id: Mapped[str] = mapped_column(String, primary_key=True)
+    decision: Mapped[str] = mapped_column(String, nullable=False)
+    approver: Mapped[str] = mapped_column(String, nullable=False)
+    approved_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    posture: Mapped[str | None] = mapped_column(String, nullable=True)
+
+
+class LaunchMetricAttestation(Base):
+    """One recorded human attestation per (launch, gate, metric)."""
+
+    __tablename__ = "launch_metric_attestations"
+    __table_args__ = (
+        CheckConstraint(
+            f"gate_id IN ({_GATE_LIST})",
+            name="ck_launch_metric_attestations_gate_id_valid",
+        ),
+    )
+
+    product_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey(
+            "launch_positions.product_id",
+            name="fk_launch_metric_attestations_product_id",
+            ondelete="CASCADE",
+        ),
+        primary_key=True,
+    )
+    gate_id: Mapped[str] = mapped_column(String, primary_key=True)
+    metric_id: Mapped[str] = mapped_column(String, primary_key=True)
+    attester: Mapped[str] = mapped_column(String, nullable=False)
+    attested_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    evidence: Mapped[str] = mapped_column(String, nullable=False)
