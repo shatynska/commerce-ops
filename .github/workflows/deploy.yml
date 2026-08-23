@@ -41,6 +41,36 @@ jobs:
           push: true
           tags: ${{ env.IMAGE_NAME }}:${{ github.sha }}
 
+      # The standing guard for deploy-pipeline's "A Container Starts From Its
+      # Image Alone". A failure here fails this job, and `deploy` needs it, so
+      # the image never reaches the host.
+      #
+      # Both probes go through `uv run` deliberately -- the launcher IS the
+      # subject of the test. Invoking /app/.venv/bin/python directly would
+      # never touch uv and would pass whether or not UV_NO_SYNC is set, which
+      # is a guard that cannot fail for the reason it exists. Do not "simplify"
+      # it to a direct interpreter call.
+      #
+      # The positive probe runs with no network at all: if the runtime still
+      # tried to sync, it could not, and the import would fail. The negative
+      # probe runs WITH the network, because inside --network none an absent
+      # index makes `import pytest` fail for the wrong reason -- it must fail
+      # because the dev group is not installed, not because PyPI is
+      # unreachable.
+      - name: Verify the image starts without a package index
+        run: |
+          set -euo pipefail
+          image="${{ env.IMAGE_NAME }}:${{ github.sha }}"
+
+          docker run --rm --network none "$image" \
+            sh -c 'uv run python -c "import commerce_ops.worker"'
+
+          if docker run --rm "$image" \
+              sh -c 'uv run python -c "import pytest"'; then
+            echo "::error::the dev group is installable at runtime; UV_NO_SYNC is not in effect" >&2
+            exit 1
+          fi
+
   deploy:
     name: Deploy
     needs: build-and-push
