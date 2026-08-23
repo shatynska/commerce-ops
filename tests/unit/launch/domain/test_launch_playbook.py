@@ -21,9 +21,9 @@ construction invariants") and construction is the smallest unit that can
 observe the outcome. The two scenarios that genuinely need the file
 boundary — a malformed step reported alongside a coherence violation, and
 the gate opening modes, which no coherence rule validates — live in
-`tests/unit/products/infrastructure/test_playbook_loader.py`.
+`tests/unit/launch/infrastructure/test_playbook_loader.py`.
 
-At the time of writing `src/commerce_ops/products/domain/` is empty
+At the time of writing `src/commerce_ops/launch/domain/` is empty
 scaffolding, so every test here is expected to fail on an absent target
 (`ModuleNotFoundError`). That failure establishes only that the target is
 absent; it establishes nothing about the assertions, which never executed.
@@ -32,14 +32,14 @@ Names imported from the domain are DERIVED — no artifact fixes module
 paths, class names or field names. See
 `openspec/changes/add-launch-playbook/test-manifest.md`.
 
-**Follow-up pass (this file's tail, second delivery).** Two tests were
-added after the rest of this file was written and the suite's collection
-state confirmed unchanged: `test_each_specified_track_value_is_accepted` /
-`test_track_outside_the_fixed_set_is_rejected` (new *Track names one of a
-fixed set of disciplines* requirement) and
-`test_gate_opening_mode_disagreeing_with_the_specification_is_rejected`
+**Follow-up pass (this file's tail, second delivery).** A follow-up pass
+added `test_gate_opening_mode_disagreeing_with_the_specification_is_rejected`
 (sixth coherence rule, added to *An incoherent playbook is rejected at
-load time*). Nothing above this note was edited.
+load time*) plus two `Track` tests since removed by
+`complete-playbook-definition`, whose delta REMOVES *Track names one of a
+fixed set of disciplines* and renames the attribute to `discipline` —
+replacement coverage lives in `test_step_definition_discipline.py` and
+`tests/unit/shared/domain/test_discipline.py`.
 """
 
 from __future__ import annotations
@@ -48,7 +48,7 @@ from typing import Any, Final
 
 import pytest
 
-from commerce_ops.products.domain.launch_playbook import (
+from commerce_ops.launch.domain.launch_playbook import (
     Binding,
     ExecutionMode,
     Gate,
@@ -59,9 +59,8 @@ from commerce_ops.products.domain.launch_playbook import (
     OffsetAnchor,
     Scope,
     StepDefinition,
-    Track,
-    WindowAnchor,
 )
+from commerce_ops.shared.domain.discipline import Discipline
 
 # SPECIFIED: the eight gates, in this order (Requirement: Gate sequence
 # orders the launch).
@@ -84,16 +83,16 @@ CONFIRMATION_GATES: Final = frozenset(
 )
 
 
-def _any_track() -> Track:
-    """Return some `Track` member, asserting nothing about which.
+def _any_discipline() -> Discipline:
+    """Return some `Discipline` member, asserting nothing about which.
 
-    DERIVED / unresolved project question: no artifact enumerates the
-    tracks. `tasks.md` 2.1 says only that `Track` is an enumeration.
-    Constructing a `StepDefinition` needs a track value, so these tests
-    take the first member rather than naming one — nothing here depends on
-    the track set, and hard-coding a member would invent a constraint.
+    Constructing a `StepDefinition` needs a discipline value, so these
+    tests take the first member rather than naming one — nothing here
+    depends on the discipline set, and hard-coding a member would invent a
+    constraint. (Formerly `_any_track`; renamed by
+    `complete-playbook-definition`'s Track → Discipline migration.)
     """
-    return next(iter(Track))
+    return next(iter(Discipline))
 
 
 def _opening_for(identifier: str) -> GateOpening:
@@ -125,7 +124,7 @@ def _step(**overrides: Any) -> StepDefinition:
     attributes: dict[str, Any] = {
         "identifier": "listing.title-conforms",
         "gate": "listable",
-        "track": _any_track(),
+        "discipline": _any_discipline(),
         "scope": Scope.PRODUCT,
         "timing_anchor": OffsetAnchor(days=-7),
         "binding": Binding.FRAMEWORK,
@@ -236,136 +235,14 @@ def test_steps_at_the_same_gate_carry_no_ordering() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Requirement: Track names one of a fixed set of disciplines
-#
-# Added on a follow-up pass, after the rest of this file was written and
-# committed (see the module docstring). Not present in the delta spec at
-# the time of the first pass.
-# ---------------------------------------------------------------------------
-
-# SPECIFIED: the twelve disciplines a step definition's track may declare
-# (Requirement: Track names one of a fixed set of disciplines).
-SPECIFIED_TRACKS: Final = (
-    "strategy",
-    "finance",
-    "setup",
-    "inventory",
-    "creative",
-    "listing",
-    "rank",
-    "price",
-    "ppc",
-    "customer",
-    "external",
-    "traffic",
-)
-
-
-@pytest.mark.parametrize("track_name", SPECIFIED_TRACKS)
-def test_each_specified_track_value_is_accepted(track_name: str) -> None:
-    """Scenario: Track is restricted to the known disciplines (permitted side).
-
-    Not itself a `#### Scenario:` block — the spec's rejection scenario
-    only forbids a track *outside* the fixed set of twelve, so this checks
-    the permitted complement: an implementation that rejected every track,
-    known or not, would still pass
-    `test_track_outside_the_fixed_set_is_rejected` alone. Same relationship
-    as `test_automated_step_with_a_rule_policy_is_accepted` bears to its
-    rejection scenario, above.
-
-    DERIVED: the mapping from the spec's wire spelling (e.g. `"strategy"`)
-    to a `Track` member name (`Track.STRATEGY`) follows the same
-    hyphen-to-underscore, upper-case convention already assumed for
-    `Hazard` elsewhere in this file (see `test_hazard_classification_...`
-    and the manifest's Q2) — no artifact fixes `Track`'s Python member
-    names, only its twelve wire values, which the spec now states in full.
-    """
-    track = getattr(Track, track_name.upper())
-    step = _step(identifier=f"track.{track_name}-example", track=track)
-
-    (read_back,) = _playbook(steps=(step,)).steps_for_gate(step.gate)
-
-    # SPECIFIED: a step definition declaring one of the twelve disciplines
-    # is accepted and read back with that track.
-    assert read_back.track is track
-
-
-def test_track_outside_the_fixed_set_is_rejected() -> None:
-    """Scenario: Track is restricted to the known disciplines.
-
-    WHEN a step definition declares a track outside this set
-    THEN loading fails with an error naming the step and the unrecognised
-    track.
-
-    Checked at `StepDefinition` construction directly, per `tasks.md` 3.2
-    ("reject a track outside the fixed set of twelve at construction") —
-    unlike an unknown *gate* (which needs a playbook's gate sequence to
-    judge against, see `test_step_referencing_an_unknown_gate_is_rejected`
-    below), an unrecognised track needs no playbook context: the set of
-    twelve disciplines is fixed independent of any one playbook.
-
-    DERIVED: `InvalidPlaybookError` as the raised type, and a raw string
-    (`"not-a-recognised-track"`) as how an unrecognised track is
-    "declared" at this level. The spec requires only "an error naming the
-    step and the unrecognised track"; this file's other rejection tests
-    that use this same "loading fails with an error naming X" phrasing all
-    raise `InvalidPlaybookError`, so the same type is assumed here — see
-    the manifest's Q2, extended to cover this scenario.
-    """
-    with pytest.raises(InvalidPlaybookError) as caught:
-        _step(identifier="listing.mystery-track", track="not-a-recognised-track")
-
-    # SPECIFIED: the error names the step and the unrecognised track.
-    message = str(caught.value)
-    assert "listing.mystery-track" in message
-    assert "not-a-recognised-track" in message
-
-
-# ---------------------------------------------------------------------------
 # Requirement: A step definition declares how it is to be resolved
+#
+# The `Track` requirement's tests and the declared-attribute read-back test
+# that lived here were removed by `complete-playbook-definition`, whose
+# delta spec REMOVES *Track names one of a fixed set of disciplines* and
+# renames the attribute to `discipline`; their replacement coverage is
+# `test_step_definition_discipline.py` in this directory.
 # ---------------------------------------------------------------------------
-
-
-def test_step_definition_is_read_back_with_every_declared_attribute() -> None:
-    """Scenario: A step definition is read back with every declared attribute.
-
-    WHEN a step definition is read from a loaded playbook
-    THEN its identifier, gate, track, scope, timing anchor, binding,
-    blocking flag, execution mode, and hazard classification are all
-    present.
-    """
-    track = _any_track()
-    anchor = WindowAnchor(start=28, end=55)
-    step = _step(
-        identifier="inventory.fulfillable-units",
-        gate="stock-ready",
-        track=track,
-        scope=Scope.MARKET,
-        timing_anchor=anchor,
-        binding=Binding.LESSON,
-        blocking=True,
-        execution=ExecutionMode.HUMAN_ATTESTED,
-        hazard=Hazard.COMPLIANCE_OBLIGATION,
-        rule_policy="At least 60 fulfillable units checked in.",
-        provenance="lp.inventory.040",
-    )
-
-    (read_back,) = _playbook(steps=(step,)).steps_for_gate("stock-ready")
-
-    # SPECIFIED: each of the nine mandatory attributes is present and is
-    # what was declared.
-    assert read_back.identifier == "inventory.fulfillable-units"
-    assert read_back.gate == "stock-ready"
-    assert read_back.track is track
-    assert read_back.scope is Scope.MARKET
-    assert read_back.timing_anchor == anchor
-    assert read_back.binding is Binding.LESSON
-    assert read_back.blocking is True
-    assert read_back.execution is ExecutionMode.HUMAN_ATTESTED
-    assert read_back.hazard is Hazard.COMPLIANCE_OBLIGATION
-    # SPECIFIED: rule policy and provenance are present when authored.
-    assert read_back.rule_policy == "At least 60 fulfillable units checked in."
-    assert read_back.provenance == "lp.inventory.040"
 
 
 def test_unauthored_optional_attributes_are_absent() -> None:
@@ -383,7 +260,7 @@ def test_unauthored_optional_attributes_are_absent() -> None:
     step = StepDefinition(
         identifier="strategy.undecided",
         gate="commit",
-        track=_any_track(),
+        discipline=_any_discipline(),
         scope=Scope.PRODUCT,
         timing_anchor=OffsetAnchor(days=-90),
         binding=Binding.FRAMEWORK,
@@ -892,6 +769,7 @@ def test_human_attested_step_with_no_rule_policy_loads() -> None:
 #   lookup API is invented here; if the implementation adds one, that is a
 #   free choice, not a constraint from this spec.
 # - The member sets of `Scope`, `Binding`, `ExecutionMode` and `Cadence`
-#   beyond the members these tests use. Only `Hazard`'s set (three) and, as
-#   of the follow-up pass, `Track`'s set (twelve) are closed by the spec,
-#   and only those are asserted.
+#   beyond the members these tests use. Only `Hazard`'s set (three) is
+#   closed by this spec and asserted here; the discipline set (twelve) is
+#   closed by `shared-vocabulary` and asserted in
+#   `tests/unit/shared/domain/test_discipline.py`.

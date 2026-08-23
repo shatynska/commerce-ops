@@ -12,7 +12,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 from alembic import op
-from commerce_ops.products.infrastructure.driven.models import GATE_IDS
+from commerce_ops.launch.infrastructure.driven.models import GATE_IDS
 
 # revision identifiers, used by Alembic.
 revision: str = "cec323b69794"

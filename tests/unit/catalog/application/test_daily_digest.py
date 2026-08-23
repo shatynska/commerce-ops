@@ -26,14 +26,14 @@ of that propagation (a failing response + an attempted failure post).
 No artifact fixes the daily use case's function name or its exact return
 contract for "no products exist". This file assumes:
 
-- `commerce_ops.products.application.run_daily_digest`, an async function
+- `commerce_ops.launch.application.run_daily_digest`, an async function
   taking one positional `ProductNameReader` and returning whatever
   `Sequence[str]` the reader itself returns unchanged -- including an empty
   sequence, read as the "explicit 'no products exist' result" `tasks.md`
   3.1 asks for, since an empty sequence is already unambiguous in Python
   (unlike e.g. `None`, which would conflate "no products" with "nothing was
   computed").
-- `commerce_ops.products.application.ProductNameReader`, a `Protocol` with
+- `commerce_ops.launch.application.ProductNameReader`, a `Protocol` with
   one async method, `list_names(self) -> Sequence[str]`. The method name is
   not itself invented: `design.md`'s Decisions says `ProductRepository`
   "satisfies it structurally" -- Python's structural `Protocol` typing

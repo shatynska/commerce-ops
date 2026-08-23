@@ -16,7 +16,7 @@ from alembic import context
 from commerce_ops.catalog.infrastructure.driven import (
     models as _catalog_models,  # noqa: F401
 )
-from commerce_ops.products.infrastructure.driven import (
+from commerce_ops.launch.infrastructure.driven import (
     models as _products_models,  # noqa: F401
 )
 from commerce_ops.shared.infrastructure.driven.alembic_include import include_name

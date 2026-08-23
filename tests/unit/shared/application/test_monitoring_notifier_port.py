@@ -10,7 +10,7 @@ requirement "Overdue Work Is Reported To Slack From Inside The Deployment"
 is about a message arriving, not about the mechanism that carries it. The
 mechanism is nonetheless load-bearing and machine-enforced --
 `.importlinter`'s `shared-boundary` contract forbids
-`commerce_ops.shared` from importing `commerce_ops.products` at all, so if
+`commerce_ops.shared` from importing `commerce_ops.launch` at all, so if
 the structural satisfaction below does not hold there is no legal way for
 the check in `shared` to reach the only adapter that posts to the
 monitoring channel.

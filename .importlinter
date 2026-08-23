@@ -7,7 +7,7 @@ name = Module layers (infrastructure -> application -> domain)
 type = layers
 containers =
     commerce_ops.catalog
-    commerce_ops.products
+    commerce_ops.launch
     commerce_ops.omni_agent
     commerce_ops.shared
 layers =
@@ -21,7 +21,7 @@ type = forbidden
 source_modules =
     commerce_ops.catalog.domain
 forbidden_modules =
-    commerce_ops.products
+    commerce_ops.launch
     commerce_ops.omni_agent
     commerce_ops.shared.application
     commerce_ops.shared.infrastructure
@@ -32,8 +32,8 @@ type = forbidden
 source_modules =
     commerce_ops.catalog.application
 forbidden_modules =
-    commerce_ops.products.domain
-    commerce_ops.products.infrastructure
+    commerce_ops.launch.domain
+    commerce_ops.launch.infrastructure
     commerce_ops.omni_agent.domain
     commerce_ops.omni_agent.infrastructure
     commerce_ops.omni_agent.application.graph
@@ -45,15 +45,15 @@ type = forbidden
 source_modules =
     commerce_ops.catalog.infrastructure
 forbidden_modules =
-    commerce_ops.products.domain
-    commerce_ops.products.infrastructure
+    commerce_ops.launch.domain
+    commerce_ops.launch.infrastructure
     commerce_ops.omni_agent
 
 [importlinter:contract:products-domain-boundary]
-name = products.domain does not reach outside its own layer
+name = launch.domain does not reach outside its own layer
 type = forbidden
 source_modules =
-    commerce_ops.products.domain
+    commerce_ops.launch.domain
 forbidden_modules =
     commerce_ops.catalog
     commerce_ops.omni_agent
@@ -61,10 +61,10 @@ forbidden_modules =
     commerce_ops.shared.infrastructure
 
 [importlinter:contract:products-application-boundary]
-name = products.application does not reach into other modules' internals
+name = launch.application does not reach into other modules' internals
 type = forbidden
 source_modules =
-    commerce_ops.products.application
+    commerce_ops.launch.application
 forbidden_modules =
     commerce_ops.catalog.domain
     commerce_ops.catalog.infrastructure
@@ -74,10 +74,10 @@ forbidden_modules =
     commerce_ops.shared.infrastructure
 
 [importlinter:contract:products-infrastructure-boundary]
-name = products.infrastructure does not reach into other modules' internals
+name = launch.infrastructure does not reach into other modules' internals
 type = forbidden
 source_modules =
-    commerce_ops.products.infrastructure
+    commerce_ops.launch.infrastructure
 forbidden_modules =
     commerce_ops.catalog.domain
     commerce_ops.catalog.infrastructure
@@ -90,7 +90,7 @@ source_modules =
     commerce_ops.omni_agent.domain
 forbidden_modules =
     commerce_ops.catalog
-    commerce_ops.products
+    commerce_ops.launch
     commerce_ops.shared.application
     commerce_ops.shared.infrastructure
 
@@ -102,8 +102,8 @@ source_modules =
 forbidden_modules =
     commerce_ops.catalog.domain
     commerce_ops.catalog.infrastructure
-    commerce_ops.products.domain
-    commerce_ops.products.infrastructure
+    commerce_ops.launch.domain
+    commerce_ops.launch.infrastructure
     commerce_ops.shared.infrastructure
 
 [importlinter:contract:omni-agent-infrastructure-boundary]
@@ -113,7 +113,7 @@ source_modules =
     commerce_ops.omni_agent.infrastructure
 forbidden_modules =
     commerce_ops.catalog
-    commerce_ops.products
+    commerce_ops.launch
 
 [importlinter:contract:shared-boundary]
 name = shared never imports a business module
@@ -122,5 +122,5 @@ source_modules =
     commerce_ops.shared
 forbidden_modules =
     commerce_ops.catalog
-    commerce_ops.products
+    commerce_ops.launch
     commerce_ops.omni_agent

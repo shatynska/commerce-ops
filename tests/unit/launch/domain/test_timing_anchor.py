@@ -8,7 +8,7 @@ Every requirement in that spec is `ADDED`; no prior `launch-playbook` spec
 exists. These tests were therefore written from the scenarios alone, before
 any implementation, and were never run against implementation code.
 
-At the time of writing `src/commerce_ops/products/domain/` is empty
+At the time of writing `src/commerce_ops/launch/domain/` is empty
 scaffolding, so every test in this file is expected to fail on an absent
 target (`ModuleNotFoundError`). Per `ai-toolkit:testing`, that failure
 establishes only that the target is absent — it establishes nothing about
@@ -26,7 +26,7 @@ from datetime import date
 
 import pytest
 
-from commerce_ops.products.domain.launch_playbook import (
+from commerce_ops.launch.domain.launch_playbook import (
     Cadence,
     OffsetAnchor,
     OpenEndedAnchor,

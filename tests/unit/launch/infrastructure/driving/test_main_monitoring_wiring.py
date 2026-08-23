@@ -24,7 +24,7 @@ test below.
 ## What's INVENTED here
 
 The five cadence paths are SPECIFIED (`design.md`'s Decisions). Whether
-`main.py` actually mounts `commerce_ops.products.infrastructure.driving.monitoring`'s
+`main.py` actually mounts `commerce_ops.launch.infrastructure.driving.monitoring`'s
 router (Task 5.6) is not itself observable from outside except behaviorally
 -- `test_route_is_registered` below follows
 `test_slack_events_route_is_registered`'s own precedent exactly: a request

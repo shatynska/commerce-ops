@@ -2,7 +2,7 @@
 
 Pure domain code — no I/O, no framework, no YAML. `LaunchPlaybook` enforces
 its own coherence at construction; a driven adapter (see
-`products.infrastructure.driven.playbook_loader`) is responsible for turning
+`launch.infrastructure.driven.playbook_loader`) is responsible for turning
 a file into the values this module's constructors expect, not for
 re-implementing any of the rules below.
 
@@ -34,6 +34,9 @@ from dataclasses import dataclass, field
 from datetime import date, timedelta
 from enum import Enum
 
+from commerce_ops.shared.domain.discipline import Discipline
+from commerce_ops.shared.domain.identity import MetricId
+
 
 class InvalidPlaybookError(ValueError):
     """A playbook (or a step definition within one) fails coherence.
@@ -45,29 +48,6 @@ class InvalidPlaybookError(ValueError):
     def __init__(self, faults: Sequence[str]) -> None:
         self.faults: tuple[str, ...] = tuple(faults)
         super().__init__("; ".join(self.faults))
-
-
-class Track(Enum):
-    """The discipline whose expertise a step belongs to.
-
-    A closed set of twelve, one per ownership boundary a launch actually
-    divides along. Deliberately a weaker closure than the gate sequence:
-    adding a thirteenth discipline later costs one member, not a structural
-    change.
-    """
-
-    STRATEGY = "strategy"
-    FINANCE = "finance"
-    SETUP = "setup"
-    INVENTORY = "inventory"
-    CREATIVE = "creative"
-    LISTING = "listing"
-    RANK = "rank"
-    PRICE = "price"
-    PPC = "ppc"
-    CUSTOMER = "customer"
-    EXTERNAL = "external"
-    TRAFFIC = "traffic"
 
 
 class Scope(Enum):
@@ -110,6 +90,70 @@ class GateOpening(Enum):
 
     AUTOMATIC = "automatic"
     REQUIRES_CONFIRMATION = "requires-confirmation"
+
+
+@dataclass(frozen=True, slots=True)
+class NotStarted:
+    """The step has not been taken up."""
+
+
+@dataclass(frozen=True, slots=True)
+class InProgress:
+    """The step is being worked."""
+
+
+@dataclass(frozen=True, slots=True)
+class Satisfied:
+    """The step's acceptance criterion holds."""
+
+
+@dataclass(frozen=True, slots=True)
+class Blocked:
+    """The step awaits something outside itself. Not a resolution."""
+
+    reason: str
+
+    def __post_init__(self) -> None:
+        if not self.reason:
+            raise ValueError("a Blocked outcome requires a non-empty reason")
+
+
+@dataclass(frozen=True, slots=True)
+class Refused:
+    """The step was recognised as a prohibited tactic and refused."""
+
+
+@dataclass(frozen=True, slots=True)
+class NotApplicable:
+    """The step does not apply here — absent and inapplicable differ."""
+
+    reason: str
+
+    def __post_init__(self) -> None:
+        if not self.reason:
+            raise ValueError("a NotApplicable outcome requires a non-empty reason")
+
+
+StepOutcome = NotStarted | InProgress | Satisfied | Blocked | Refused | NotApplicable
+"""The vocabulary a step's resolution is expressed in — an outcome, not a
+boolean, because "missing is not fine". Recording and transitioning
+outcomes at runtime belongs to the launch-instance capability (domain-map
+slice 3); this module only defines what the outcomes are and which are
+permitted as terminal."""
+
+
+def permissible_terminal_outcomes(hazard: Hazard) -> frozenset[type[StepOutcome]]:
+    """Which outcomes are permitted as terminal for a step with `hazard`.
+
+    Complete over all six outcomes: a `prohibited-tactic` step can only
+    terminate in `Refused`; any other step terminates in `Satisfied` or
+    `NotApplicable` and can never be `Refused`. `NotStarted`, `InProgress`
+    and `Blocked` are never terminal — a blocked step awaits resolution,
+    it has not reached one.
+    """
+    if hazard is Hazard.PROHIBITED_TACTIC:
+        return frozenset({Refused})
+    return frozenset({Satisfied, NotApplicable})
 
 
 class Cadence(Enum):
@@ -185,12 +229,46 @@ TimingAnchor = OffsetAnchor | WindowAnchor | OpenEndedAnchor | RecurringAnchor
 
 
 @dataclass(frozen=True, slots=True)
+class MetricCondition:
+    """An authored gate condition: an observation must satisfy a threshold.
+
+    The `MetricId` is a reference only — no metric registry exists yet
+    (domain-map slice 7), and until one does, whether the condition holds
+    is established by human attestation recorded against a launch (a
+    launch-instance concern). The threshold is a human-readable
+    description; that it is non-empty is a playbook coherence rule
+    (enforced at load, naming the gate), not a constructor rule, so that
+    a malformed authored condition reports where it was authored.
+    """
+
+    metric_id: MetricId
+    threshold: str
+
+
+@dataclass(frozen=True, slots=True)
+class StepObligation:
+    """A derived gate condition: a blocking step must be resolved.
+
+    Never authored — derived from a step definition's own gate and
+    blocking declarations, so a blocking fact exists in exactly one place.
+    """
+
+    step_id: str
+
+
+GateCondition = StepObligation | MetricCondition
+"""One thing a gate waits on: a blocking step's resolution, or a metric
+observation satisfying a threshold."""
+
+
+@dataclass(frozen=True, slots=True)
 class Gate:
     """A commitment point in the launch's ordering spine."""
 
     identifier: str
     position: int
     opening: GateOpening
+    metric_conditions: tuple[MetricCondition, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -199,7 +277,7 @@ class StepDefinition:
 
     identifier: str
     gate: str
-    track: Track
+    discipline: Discipline
     scope: Scope
     timing_anchor: TimingAnchor
     binding: Binding
@@ -210,9 +288,14 @@ class StepDefinition:
     provenance: str | None = None
 
     def __post_init__(self) -> None:
-        if not isinstance(self.track, Track):
+        if not isinstance(self.discipline, Discipline):
             raise InvalidPlaybookError(
-                [f"step '{self.identifier}' declares unrecognised track '{self.track}'"]
+                [
+                    (
+                        f"step '{self.identifier}' declares unrecognised "
+                        f"discipline '{self.discipline}'"
+                    )
+                ]
             )
 
 
@@ -297,7 +380,23 @@ def _step_faults(
                 f"step '{step.identifier}' is classified 'prohibited-tactic' "
                 f"and cannot block its gate"
             )
+        if step.binding is Binding.LESSON and step.blocking:
+            faults.append(
+                f"step '{step.identifier}' has binding 'lesson' and cannot "
+                f"block its gate — advice that blocks a gate the way a "
+                f"framework rule does is a category error"
+            )
     return faults
+
+
+def _gate_condition_faults(gates: tuple[Gate, ...]) -> list[str]:
+    return [
+        f"gate '{gate.identifier}' authors a metric condition "
+        f"('{condition.metric_id.value}') with an empty threshold description"
+        for gate in gates
+        for condition in gate.metric_conditions
+        if not condition.threshold
+    ]
 
 
 @dataclass(frozen=True, slots=True)
@@ -316,6 +415,7 @@ class LaunchPlaybook:
     def __post_init__(self) -> None:
         faults = [
             *_gate_sequence_faults(self.gates),
+            *_gate_condition_faults(self.gates),
             *_step_faults(self.gates, self.steps),
         ]
         if faults:
@@ -330,6 +430,26 @@ class LaunchPlaybook:
 
     def steps_for_gate(self, gate_identifier: str) -> tuple[StepDefinition, ...]:
         return tuple(step for step in self.steps if step.gate == gate_identifier)
+
+    def conditions_for_gate(self, gate_identifier: str) -> tuple[GateCondition, ...]:
+        """Everything the gate waits on, as one collection of two kinds.
+
+        Step obligations are derived — one per blocking step attached to
+        the gate, never authored a second time on the gate itself — and
+        the gate's authored metric conditions follow them.
+        """
+        obligations = tuple(
+            StepObligation(step_id=step.identifier)
+            for step in self.steps
+            if step.gate == gate_identifier and step.blocking
+        )
+        authored = tuple(
+            condition
+            for gate in self.gates
+            if gate.identifier == gate_identifier
+            for condition in gate.metric_conditions
+        )
+        return obligations + authored
 
     def steps_with_scope(self, scope: Scope) -> tuple[StepDefinition, ...]:
         return tuple(step for step in self.steps if step.scope is scope)
