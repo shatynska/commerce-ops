@@ -172,6 +172,8 @@ The system SHALL expose, over HTTP from the process serving HTTP requests, how r
 
 The response SHALL be derived from recorded state alone, and SHALL NOT require the process running scheduled work to be available — that process's absence is the condition this interface exists to make visible.
 
+Where the recorded state cannot be read, the system SHALL indicate an unhealthy state rather than a previously computed healthy one, and SHALL do so within a bounded time.
+
 #### Scenario: Freshness is reported
 
 - **WHEN** the freshness endpoint is requested
@@ -189,7 +191,7 @@ The response SHALL be derived from recorded state alone, and SHALL NOT require t
 
 #### Scenario: A freshly deployed system reports healthy
 
-- **WHEN** the freshness endpoint is requested in a deployment where no work has yet run and no work's tolerance has elapsed since the system first knew of it
+- **WHEN** the freshness endpoint is requested in a deployment where the recorded state is readable, no work has yet run, and no work's tolerance has elapsed since the system first knew of it
 - **THEN** the system SHALL report each piece of work as never having succeeded
 - **AND** SHALL indicate a healthy state, since nothing is yet overdue
 
@@ -197,3 +199,21 @@ The response SHALL be derived from recorded state alone, and SHALL NOT require t
 
 - **WHEN** the freshness endpoint serves a request
 - **THEN** it SHALL NOT make any request to the process running scheduled work
+
+#### Scenario: Recorded state that cannot be read is not reported as healthy
+
+- **WHEN** the freshness endpoint is requested and the recorded state cannot be read
+- **THEN** the system SHALL indicate an unhealthy state in a way an automated checker can act on without parsing prose
+- **AND** SHALL NOT report any piece of work as being within its tolerance
+- **AND** SHALL respond within a bounded time rather than waiting indefinitely on the unreadable state
+
+#### Scenario: A recent healthy answer is not repeated once the state cannot be read
+
+- **WHEN** the freshness endpoint has recently reported a healthy state and the recorded state then becomes unreadable, including where that earlier answer is still recent enough that the system need not re-evaluate it
+- **THEN** the system SHALL indicate an unhealthy state, rather than repeating the earlier healthy answer
+
+#### Scenario: A repeated request still anchors work that has no first-known time
+
+- **WHEN** the freshness endpoint is requested, and requested again soon enough that it need not re-evaluate
+- **THEN** the system SHALL perform the first-known recording for every registered piece of recurring work on the repeated request regardless, rather than serving a previously computed answer without having done so
+- **AND** SHALL record a time for any registered piece of work that has none at that moment
