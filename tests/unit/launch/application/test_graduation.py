@@ -161,6 +161,12 @@ class FakeLaunchStore:
         self._log.append(("save", launch.current_gate))
         self._launches[launch.product_id] = launch
 
+    async def list_all(self) -> tuple[Launch, ...]:
+        # Part of `LaunchStore` since `introduce-launch-briefing`; nothing
+        # in this file enumerates, but the fake must satisfy the whole
+        # port to stand in for it.
+        return tuple(self._launches.values())
+
 
 class FakePlaybooks:
     """Playbook port returning the one version the launch pinned."""

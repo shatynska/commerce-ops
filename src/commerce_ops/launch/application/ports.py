@@ -11,6 +11,7 @@ crosses the module boundary only through catalog's public surface.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Protocol
 
 from commerce_ops.launch.domain.launch_playbook import LaunchPlaybook
@@ -25,6 +26,8 @@ class LaunchStore(Protocol):
     async def get_by_product_id(self, product_id: ProductId) -> Launch | None: ...
 
     async def save(self, launch: Launch) -> None: ...
+
+    async def list_all(self) -> Sequence[Launch]: ...
 
 
 class Playbooks(Protocol):

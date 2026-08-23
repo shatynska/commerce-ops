@@ -46,6 +46,7 @@ from commerce_ops.launch.domain.launch_run import (
     StepOutcomeValue,
     StepProgress,
 )
+from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
 from commerce_ops.shared.domain.lifecycle_stage import SteadyState
 
@@ -161,11 +162,23 @@ async def move_launch_date(
 
 @dataclass(frozen=True, slots=True)
 class StepStatus:
-    """One step's runtime status: what was recorded, and when it is due."""
+    """One step's runtime status: what was recorded, when it is due, and
+    the two judgements only the launch context can make.
+
+    `discipline` and `blocking` come from the playbook; `overdue` folds
+    "the due period has fully passed" together with "the step has not
+    reached a terminal outcome its hazard permits". A reader outside this
+    module has neither the playbook nor the hazard rules, so each of these
+    travels on the report rather than being re-derived (`launch-instance`,
+    "The launch report carries each step's discipline").
+    """
 
     step_id: str
+    discipline: Discipline
     due_period: AnchorPeriod | None
     progress: StepProgress | None
+    blocking: bool
+    overdue: bool
 
 
 @dataclass(frozen=True, slots=True)
@@ -178,6 +191,32 @@ class LaunchReport:
     launch_date: date | None
     steps: tuple[StepStatus, ...]
     at_risk: LaunchDateAtRisk | None
+    awaiting_confirmation: bool
+
+
+def _report_for(launch: Launch, playbook: LaunchPlaybook, as_of: date) -> LaunchReport:
+    """One launch's report — the single construction both reads share, so
+    an enumerated report can never drift from a singly-read one."""
+    overdue = set(launch.overdue_step_ids(playbook, as_of))
+    return LaunchReport(
+        product_id=launch.product_id,
+        playbook_version=launch.playbook_version,
+        current_gate=launch.current_gate,
+        launch_date=launch.launch_date,
+        steps=tuple(
+            StepStatus(
+                step_id=step.identifier,
+                discipline=step.discipline,
+                due_period=launch.due_period_for(playbook, step.identifier),
+                progress=launch.progress_for(step.identifier),
+                blocking=step.blocking,
+                overdue=step.identifier in overdue,
+            )
+            for step in playbook.steps
+        ),
+        at_risk=launch.date_at_risk(playbook, as_of),
+        awaiting_confirmation=launch.awaiting_confirmation(playbook),
+    )
 
 
 async def read_launch(
@@ -192,21 +231,27 @@ async def read_launch(
     launch = await launches.get_by_product_id(product_id)
     if launch is None:
         return None
-    playbook = playbooks.get(launch.playbook_version)
-    return LaunchReport(
-        product_id=launch.product_id,
-        playbook_version=launch.playbook_version,
-        current_gate=launch.current_gate,
-        launch_date=launch.launch_date,
-        steps=tuple(
-            StepStatus(
-                step_id=step.identifier,
-                due_period=launch.due_period_for(playbook, step.identifier),
-                progress=launch.progress_for(step.identifier),
-            )
-            for step in playbook.steps
-        ),
-        at_risk=launch.date_at_risk(playbook, as_of),
+    return _report_for(launch, playbooks.get(launch.playbook_version), as_of)
+
+
+async def read_launches(
+    launches: LaunchStore,
+    playbooks: Playbooks,
+    *,
+    as_of: date,
+) -> tuple[LaunchReport, ...]:
+    """Every persisted launch position, reported as of `as_of`.
+
+    Filtered by nothing: this context does not own a product's stage, and
+    its persisted shape does not distinguish a graduated launch from one
+    standing at the final gate. A caller wanting only live launches asks
+    the catalog for the stage stamp (`launch-instance`, "Launch positions
+    are enumerable with their reports"). An empty store is an empty
+    result, not an error.
+    """
+    return tuple(
+        _report_for(launch, playbooks.get(launch.playbook_version), as_of)
+        for launch in await launches.list_all()
     )
 
 

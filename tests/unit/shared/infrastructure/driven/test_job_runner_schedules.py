@@ -104,7 +104,14 @@ def _fresh_deferrer() -> periodic.PeriodicDeferrer:
 # exactly one existed; `report-overdue-scheduled-runs` adds the hourly
 # overdue check, and each piece of work catching up once would otherwise read
 # as the catch-up firing twice.
-_CATCH_UP_WORK = "products.monitoring.daily"
+#
+# Retargeted by `introduce-launch-briefing`: the daily slot's occupant is
+# now the launch briefing, the retired product-name digest having given up
+# its schedule. The scenarios are about *a* daily piece of work catching
+# up, not about which one — but the name must name something registered,
+# or every filter below silently matches nothing and the assertions go
+# vacuous rather than red.
+_CATCH_UP_WORK = "briefing.daily"
 
 
 def _runs_owed_at(

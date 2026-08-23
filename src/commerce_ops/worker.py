@@ -14,8 +14,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from datetime import date
 
 from commerce_ops.catalog.domain.product import Product
+from commerce_ops.launch.application import LaunchReport
 from commerce_ops.shared.domain.identity import ProductId
 from commerce_ops.shared.infrastructure.driven.database import dispose_engine
 from commerce_ops.shared.infrastructure.driven.job_runner import app
@@ -31,10 +33,16 @@ configure_logging()
 # lists is exactly the divergence that leaves the freshness endpoint
 # reporting on a different set of work than the worker actually runs
 # (tasks.md 1.3a).
+from commerce_ops.briefing.infrastructure.driven import slack_notifier
+from commerce_ops.briefing.infrastructure.driving import daily_briefing_job
 from commerce_ops.catalog.application import get_product_by_id
-from commerce_ops.catalog.infrastructure.driven import slack_notifier
 from commerce_ops.catalog.infrastructure.driven.product_repository import (
     CatalogProductRepository,
+)
+from commerce_ops.launch.application import read_launches
+from commerce_ops.launch.infrastructure.driven.launch_repository import LaunchRepository
+from commerce_ops.launch.infrastructure.driven.shipped_playbooks import (
+    ShippedPlaybooks,
 )
 from commerce_ops.launch.infrastructure.driving import clickup_sync_job
 from commerce_ops.registrations import register_all
@@ -68,6 +76,26 @@ async def _read_catalog_product(product_id: ProductId) -> Product | None:
 
 
 clickup_sync_job.read_product = _read_catalog_product
+
+
+async def _read_launch_reports(*, as_of: date) -> tuple[LaunchReport, ...]:
+    """Every launch, reported as of `as_of`, for the daily briefing.
+
+    Closed over its own session here for the same reason the ClickUp
+    reader is: briefing may not import launch's repository, and only this
+    module — outside `.importlinter`'s containers — may name both sides.
+    """
+    async with session() as db_session:
+        return await read_launches(
+            LaunchRepository(db_session), ShippedPlaybooks(), as_of=as_of
+        )
+
+
+daily_briefing_job.read_launch_reports = _read_launch_reports
+# The briefing names each item's product, and reads the stage stamp that
+# decides whether a launch is still worth briefing — both from catalog's
+# public surface, never from its store.
+daily_briefing_job.read_product = _read_catalog_product
 
 # Named explicitly, NOT `__name__`. Compose runs this module as
 # `python -m commerce_ops.worker`, where `__name__` is `"__main__"` -- a

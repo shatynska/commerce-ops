@@ -1,9 +1,8 @@
 """Driven adapter: persists and retrieves `Product` aggregates via SQLAlchemy.
 
-Satisfies `catalog.application`'s `CatalogStore` and `ProductNameReader`
-ports structurally. Callers own the `AsyncSession`; each method commits its
-own work, following the convention the products module's repository
-recorded.
+Satisfies `catalog.application`'s `CatalogStore` port structurally.
+Callers own the `AsyncSession`; each method commits its own work,
+following the convention the products module's repository recorded.
 """
 
 from __future__ import annotations
@@ -134,10 +133,6 @@ class CatalogProductRepository:
     async def list(self) -> Sequence[Product]:
         result = await self._session.execute(select(CatalogProduct))
         return [_to_domain(row) for row in result.scalars().all()]
-
-    async def list_names(self) -> Sequence[str]:
-        result = await self._session.execute(select(CatalogProduct.name))
-        return result.scalars().all()
 
     async def save(self, product: Product) -> None:
         row_id = _row_id(product.id)

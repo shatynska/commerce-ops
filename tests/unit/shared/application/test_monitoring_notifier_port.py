@@ -36,7 +36,7 @@ from __future__ import annotations
 
 import inspect
 
-import commerce_ops.catalog.infrastructure.driven.slack_notifier as products_slack_notifier
+import commerce_ops.briefing.infrastructure.driven.slack_notifier as briefing_slack_notifier
 import commerce_ops.shared.application as shared_application
 from commerce_ops.shared.application import MonitoringNotifier
 
@@ -49,7 +49,7 @@ def test_the_products_notifier_module_satisfies_the_port_structurally() -> None:
     that is not `runtime_checkable` costs nothing at runtime and an
     assignment alone would pass whatever the module contained.
     """
-    notifier: MonitoringNotifier = products_slack_notifier
+    notifier: MonitoringNotifier = briefing_slack_notifier
 
     assert hasattr(notifier, "post_monitoring_message"), (
         "products' slack_notifier module does not expose "
@@ -68,7 +68,7 @@ def test_the_port_member_is_awaitable() -> None:
     -- where it would be indistinguishable from Slack being down.
     """
     assert inspect.iscoroutinefunction(
-        products_slack_notifier.post_monitoring_message
+        briefing_slack_notifier.post_monitoring_message
     ), (
         "post_monitoring_message is not a coroutine function; the port "
         "declares it async and the overdue check awaits it"

@@ -72,7 +72,7 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-import commerce_ops.catalog.infrastructure.driven.slack_notifier as products_slack_notifier
+import commerce_ops.briefing.infrastructure.driven.slack_notifier as briefing_slack_notifier
 import commerce_ops.main as main_module
 from commerce_ops.registrations import register_all
 
@@ -648,7 +648,7 @@ def test_the_freshness_interface_is_unaffected_by_a_reporting_channel_outage(
         raise RuntimeError("slack is unreachable")
 
     monkeypatch.setattr(
-        products_slack_notifier, "post_monitoring_message", _unavailable
+        briefing_slack_notifier, "post_monitoring_message", _unavailable
     )
     install(
         _two_pieces_of_work(

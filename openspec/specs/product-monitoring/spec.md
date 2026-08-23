@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Posts product-status reports to Slack via the `product_agent` app on a recurring schedule run from inside the deployment, so the team gets proactive updates without having to ask. The daily cadence is the only one that exists: the weekly, biweekly, monthly and quarterly trigger points were removed along with the guarded endpoints that carried them, and reporting logic for further cadences is planned separately.
+Observation of products in steady state: the metric registry, its stage-keyed thresholds, and the evaluation that turns them into findings. **This capability is currently empty.** Its former content — a daily Slack cadence listing existing product names, and that cadence's schedule, delivery-failure and read-failure obligations — was superseded by `briefing` in `introduce-launch-briefing` (2026-08-23), which took over the daily slot with attention items derived from launch state and a silent-when-clean discipline. Each retired obligation is re-expressed there against the briefing report rather than the product listing; none was dropped. The capability returns in slice 5's successor (slice 7 of `docs/domain-map.md`) specified fresh, as `MetricRegistry`, `MonitoringRun` and the one deterministic evaluation engine.
 
 ## Requirements
 
