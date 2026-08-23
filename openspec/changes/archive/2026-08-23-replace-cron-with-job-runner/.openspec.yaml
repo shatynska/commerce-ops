@@ -1,0 +1,8 @@
+schema: spec-driven
+created: 2026-08-22
+# This change removes every requirement `internal-trigger` has: the
+# shared-secret guard existed only to protect the HTTP trigger endpoints
+# the job runner replaces. Declared so the archive deletes the capability's
+# spec rather than leaving one whose Purpose still describes a guard nothing
+# calls (tasks.md 4.6a).
+retire_capabilities: true

@@ -11,7 +11,7 @@ The system SHALL declare, in a single definition, every environment variable the
 
 A variable consumed only by the deployment's own machinery, and never by the application process — a Compose file's substitutions, or another container's startup script — is outside this declaration, because the application cannot check what it never receives.
 
-This requirement governs the declaration's completeness. It does NOT require that every read go through the declaration: a module MAY read a variable directly where per-request tolerance of absence is itself required behavior, as `internal-trigger`'s "Guard Fails Closed When Unconfigured" requires of the trigger guard.
+This requirement governs the declaration's completeness. It does NOT require that every read go through the declaration: a module MAY read a variable directly where routing it through the declaration would defeat required behavior — as it does for the variable controlling logging, which must be readable while the rest of the configuration is faulty, and for the database connection setting, whose reader must fail on its own absence rather than on an unrelated variable's.
 
 #### Scenario: Every declared variable is discoverable from one definition
 - **WHEN** the set of environment variables the application's runtime requires is inspected
