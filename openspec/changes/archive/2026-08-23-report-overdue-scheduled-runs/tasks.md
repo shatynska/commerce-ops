@@ -94,5 +94,5 @@
 - [x] 7.2 Run the integration tier against a local Postgres with both migrations applied
 - [x] 7.3 Run `openspec validate report-overdue-scheduled-runs --strict`
 - [x] 7.4 Locally: bring the stack up, stop the `worker` container, and confirm the endpoint reports unhealthy once the **worker-liveness** tolerance elapses — hours, not the digest's 30. Restart it and confirm it returns to healthy. This is the end-to-end demonstration that the dead-worker case is now visible and prompt
-- [ ] 7.5 After deploy: confirm the endpoint is reachable and reports healthy
-- [ ] 7.6 Hand to the user, or record in `/infrastructure`, that an external uptime checker should be pointed at `/health/scheduled-runs` — the change is not fully realized until something outside the deployment polls it (design.md — Open Questions)
+- [x] 7.5 After deploy: confirm the endpoint is reachable and reports healthy
+- [x] 7.6 Hand to the user, or record in `/infrastructure`, that an external uptime checker should be pointed at `/health/scheduled-runs` — the change is not fully realized until something outside the deployment polls it (design.md — Open Questions)
