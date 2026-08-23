@@ -6,8 +6,9 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from commerce_ops.omni_agent.infrastructure.driving import slack as omni_agent_slack
+from commerce_ops.registrations import register_all
 from commerce_ops.shared.infrastructure.driven.database import dispose_engine
-from commerce_ops.shared.infrastructure.driving import health
+from commerce_ops.shared.infrastructure.driving import health, scheduled_runs
 from commerce_ops.shared.infrastructure.logging import configure_logging
 
 # After the imports, before the routers: closing the window over the
@@ -27,6 +28,12 @@ async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
     await dispose_engine()
 
 
+# The same one list the worker calls, so both processes hold the same
+# registry. This process never runs the work; it reports on it, and it can
+# only report on what it knows about (tasks.md 1.3).
+register_all()
+
 app = FastAPI(lifespan=_lifespan)
 app.include_router(health.router)
+app.include_router(scheduled_runs.router)
 app.include_router(omni_agent_slack.router)

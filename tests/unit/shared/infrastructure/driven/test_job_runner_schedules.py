@@ -97,11 +97,24 @@ def _fresh_deferrer() -> periodic.PeriodicDeferrer:
     )
 
 
-def _runs_owed_at(moment: float) -> list[tuple[str, int]]:
-    """The runs a worker becoming available at `moment` would perform."""
+# The piece of work the catch-up scenarios below are stated about. They say
+# "that work" and "the same piece of recurring work", not "the system in
+# total" -- so the runs owed are counted for one piece of work, not summed
+# across the registry. Enumerating every periodic was equivalent only while
+# exactly one existed; `report-overdue-scheduled-runs` adds the hourly
+# overdue check, and each piece of work catching up once would otherwise read
+# as the catch-up firing twice.
+_CATCH_UP_WORK = "products.monitoring.daily"
+
+
+def _runs_owed_at(
+    moment: float, task_name: str = _CATCH_UP_WORK
+) -> list[tuple[str, int]]:
+    """The runs a worker becoming available at `moment` owes `task_name`."""
     return [
         (entry.task.name, timestamp)
         for entry, timestamp in _fresh_deferrer().get_previous_tasks(at=moment)
+        if entry.task.name == task_name
     ]
 
 
@@ -110,7 +123,7 @@ def _runs_owed_at(moment: float) -> list[tuple[str, int]]:
 # --------------------------------------------------------------------------
 
 
-def test_exactly_one_piece_of_recurring_work_is_scheduled() -> None:
+def test_exactly_the_declared_pieces_of_recurring_work_are_scheduled() -> None:
     """Scenario: Work with no declared schedule does not run.
 
     WHEN a piece of work exists but has no declared schedule
@@ -124,11 +137,16 @@ def test_exactly_one_piece_of_recurring_work_is_scheduled() -> None:
     registered = _registered_periodics()
 
     names = [entry.task.name.lower() for entry in registered]
-    assert len(registered) == 1, (
-        f"expected exactly one scheduled piece of recurring work, got {names}"
+    assert len(registered) == 2, (
+        "expected exactly two scheduled pieces of recurring work -- the daily "
+        "cadence and `report-overdue-scheduled-runs`' hourly overdue check -- "
+        f"got {names}"
     )
-    assert "daily" in names[0], (
-        f"the one scheduled piece of work is not the daily cadence: {names[0]}"
+    assert any("daily" in name for name in names), (
+        f"the daily cadence is not among the scheduled work: {names}"
+    )
+    assert any("overdue" in name for name in names), (
+        f"the overdue check is not among the scheduled work: {names}"
     )
 
 
@@ -225,8 +243,16 @@ def test_a_worker_that_never_went_away_defers_nothing_extra() -> None:
     """
     deferrer = _fresh_deferrer()
 
-    first = list(deferrer.get_previous_tasks(at=_MISSED_BY_TWO_HOURS))
-    second = list(deferrer.get_previous_tasks(at=_MISSED_BY_TWO_HOURS + 60))
+    first = [
+        entry
+        for entry in deferrer.get_previous_tasks(at=_MISSED_BY_TWO_HOURS)
+        if entry[0].task.name == _CATCH_UP_WORK
+    ]
+    second = [
+        entry
+        for entry in deferrer.get_previous_tasks(at=_MISSED_BY_TWO_HOURS + 60)
+        if entry[0].task.name == _CATCH_UP_WORK
+    ]
 
     assert len(first) == 1
     assert second == [], (
