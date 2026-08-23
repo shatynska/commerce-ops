@@ -416,16 +416,7 @@ def test_model_and_accessor_are_exported_from_the_layer_public_surface() -> None
     """
     from commerce_ops.shared import application
 
-    # `type: ignore[attr-defined]` throughout, for two distinct mypy
-    # behaviours rather than any doubt about the assertions -- all four hold
-    # at runtime, which is what this test checks:
-    #   - mypy models `__all__` specially and does not expose it as an
-    #     attribute of a module object, so reading it is always an error.
-    #   - `commerce_ops` ships no `py.typed` marker, so mypy treats the
-    #     package as untyped when it is reached by attribute access through
-    #     an imported module object rather than by a direct `from ... import`.
-    # Narrowed to `attr-defined` so any other typing fault still surfaces.
-    assert "Settings" in application.__all__  # type: ignore[attr-defined]
-    assert "get_settings" in application.__all__  # type: ignore[attr-defined]
-    assert application.Settings is Settings  # type: ignore[attr-defined]
-    assert application.get_settings is get_settings  # type: ignore[attr-defined]
+    assert "Settings" in application.__all__
+    assert "get_settings" in application.__all__
+    assert application.Settings is Settings
+    assert application.get_settings is get_settings

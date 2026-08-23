@@ -39,6 +39,14 @@ from commerce_ops.shared.infrastructure.driving.trigger_guard import (
     require_trigger_secret,
 )
 
+__all__ = [
+    "get_session",
+    "post_monitoring_message",
+    "router",
+    "run_daily_digest",
+    "run_pending_cadence_report",
+]
+
 router = APIRouter()
 
 _logger = logging.getLogger(__name__)

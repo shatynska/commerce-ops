@@ -216,7 +216,9 @@ def test_the_two_opening_modes_are_distinct() -> None:
     The two scenarios above would both pass if `GateOpening` collapsed to a
     single value. This asserts the distinction the requirement rests on.
     """
-    assert GateOpening.REQUIRES_CONFIRMATION is not GateOpening.AUTOMATIC
+    # Statically decidable given the enum as defined today -- that tautology
+    # is exactly what this guard exists to detect if it ever stops holding.
+    assert GateOpening.REQUIRES_CONFIRMATION is not GateOpening.AUTOMATIC  # type: ignore[comparison-overlap]
 
 
 # ---------------------------------------------------------------------------
