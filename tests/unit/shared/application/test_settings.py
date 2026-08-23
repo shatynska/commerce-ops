@@ -141,10 +141,21 @@ def _value_for(settings: Settings, env_var: str) -> Any:
 
 
 @pytest.fixture()
-def empty_environment(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Removes every declared variable, plus POSTGRES_PASSWORD, from the env."""
+def empty_environment(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Removes every declared variable, plus POSTGRES_PASSWORD, from the env.
+
+    Deleting the variables is not on its own enough to make one absent:
+    `Settings` declares `env_file=".env"`, a path relative to the working
+    directory, so a developer's own `.env` still supplied every value it
+    happened to define. That made these tests pass or fail according to
+    an untracked local file — `CLICKUP_LAUNCH_FOLDER_ID` being set was
+    enough to fail the optional-variable test. Running from an empty
+    directory leaves the environment as the only source, which is what
+    "absent" has to mean for any of this to be asserting anything.
+    """
     for var in ALL_DECLARED | DEPLOYMENT_ONLY_NOT_DECLARED:
         monkeypatch.delenv(var, raising=False)
+    monkeypatch.chdir(tmp_path)
 
 
 @pytest.fixture(autouse=True)
