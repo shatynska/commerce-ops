@@ -40,11 +40,19 @@ class Principal:
     fault; an empty tuple means it declared an empty one, which is legitimate
     and resolves to the scope permitting nothing. The two are deliberately
     distinguishable: "missing is not fine" — absent and empty differ.
+
+    `admin` is the optional admin declaration (`add-playbook-admin-ui`),
+    orthogonal to the visibility grant: grants say what a principal may
+    *see*, the declaration says it may hold the admin surface's *write*
+    authority. No grant of any shape confers it — an admin who may see
+    nothing is still an admin, and an all-products principal without the
+    declaration is not.
     """
 
     identity: str
     all_products: bool
     skus: tuple[Sku, ...] | None
+    admin: bool = False
 
     def __post_init__(self) -> None:
         faults: list[str] = []

@@ -69,6 +69,11 @@ REQUIRED_NOT_STARTUP_CRITICAL = frozenset(
 
 OPTIONAL = frozenset(
     {
+        # Added by add-playbook-admin-ui (tasks 3.6/2.4): absent, the
+        # `/playbook-admin` command refuses every caller rather than
+        # minting a link no browser could follow -- fail-closed
+        # degradation of that one surface, while everything else serves.
+        "ADMIN_BASE_URL",
         "CLICKUP_API_TOKEN",
         # Added by configure-application-logging (tasks 2.4) -- this
         # transcribed set now spans more than one change.

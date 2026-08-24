@@ -36,6 +36,7 @@ from commerce_ops.launch.application import (
     live_definitions,
 )
 from commerce_ops.launch.domain.launch_playbook import (
+    GATE_SEQUENCE,
     Binding,
     Cadence,
     ExecutionMode,
@@ -102,6 +103,7 @@ def _definition_from_row(row: PlaybookStep) -> StepDefinition:
 def _record_from_row(row: PlaybookStep) -> StepRecord:
     return StepRecord(
         definition=_definition_from_row(row),
+        display_order=row.display_order,
         created_by=row.created_by,
         created_on=row.created_on,
         updated_by=row.updated_by,
@@ -128,6 +130,7 @@ def _row_from_record(record: Any) -> PlaybookStep:
         hazard=definition.hazard.value,
         rule_policy=definition.rule_policy,
         provenance=definition.provenance,
+        display_order=getattr(record, "display_order", 0),
         created_by=record.created_by,
         created_on=record.created_on,
         updated_by=record.updated_by,
@@ -191,7 +194,21 @@ class PlaybookRepository:
         rows = await self._session.scalars(
             select(PlaybookStep).order_by(PlaybookStep.identifier)
         )
-        return tuple(_record_from_row(row) for row in rows), version
+        # Serving order: gate position in the framework's sequence, then
+        # the authored slot, then the identifier as a deterministic
+        # backstop (`add-playbook-admin-ui`). A gate the framework does
+        # not know cannot be persisted by an accepted write; sorting it
+        # last keeps the read from crashing on a hand-edited row.
+        gate_positions = {gate: index for index, gate in enumerate(GATE_SEQUENCE)}
+        records = sorted(
+            (_record_from_row(row) for row in rows),
+            key=lambda record: (
+                gate_positions.get(record.definition.gate, len(gate_positions)),
+                record.display_order,
+                record.definition.identifier,
+            ),
+        )
+        return tuple(records), version
 
     async def save(self, records: Sequence[Any], *, expected_version: int) -> None:
         """Persist the full replacement set, conditionally on the version

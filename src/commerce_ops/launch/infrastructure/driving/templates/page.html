@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Launch playbook steps</title>
+  <link rel="stylesheet" href="/admin/static/pico.min.css">
+  <script src="/admin/static/htmx.min.js" defer></script>
+</head>
+<body hx-boost="true">
+<main class="container">
+  <h1>Launch playbook steps</h1>
+
+  {% if notice %}
+  <article class="notice">{{ notice }}</article>
+  {% endif %}
+  {% if faults %}
+  <article class="faults">
+    <strong>The write was rejected whole; every fault found:</strong>
+    <ul>
+      {% for fault in faults %}
+      <li>{{ fault }}</li>
+      {% endfor %}
+    </ul>
+  </article>
+  {% endif %}
+
+  <form method="get" action="{{ page_path }}">
+    <fieldset role="group">
+      <select name="gate">
+        <option value=""{% if not gate_filter %} selected{% endif %}>every gate</option>
+        {% for option in gate_options %}
+        <option value="{{ option }}"{% if option == gate_filter %} selected{% endif %}>{{ option }}</option>
+        {% endfor %}
+      </select>
+      <select name="discipline">
+        <option value=""{% if not discipline_filter %} selected{% endif %}>every discipline</option>
+        {% for option in discipline_options %}
+        <option value="{{ option }}"{% if option == discipline_filter %} selected{% endif %}>{{ option }}</option>
+        {% endfor %}
+      </select>
+      <input type="search" name="q" placeholder="search descriptions" value="{{ q }}">
+      <button type="submit">Narrow</button>
+    </fieldset>
+  </form>
+
+  {% if show_retired %}
+  <p><a href="{{ page_path }}">Hide retired steps</a></p>
+  {% else %}
+  <p><a href="{{ page_path }}?retired=1">Show retired steps</a></p>
+  {% endif %}
+
+  {% for gate in gates %}
+  <section>
+    <h2>{{ gate.identifier }}</h2>
+    {% if gate.steps %}
+    <table>
+      <thead>
+        <tr><th>step</th><th>description</th><th>discipline</th><th>facts</th><th>actions</th></tr>
+      </thead>
+      <tbody>
+        {% for step in gate.steps %}
+        <tr>
+          <td><code>{{ step.identifier }}</code>{% if step.retired %} <mark>retired</mark>{% endif %}</td>
+          <td>{{ step.description }}</td>
+          <td>{{ step.discipline }}</td>
+          <td>{{ step.binding }} · {{ step.execution }}{% if step.blocking %} · blocks its gate{% endif %}</td>
+          <td>
+            {% if not step.retired %}
+            <form method="post" action="{{ page_path }}/steps/{{ step.identifier }}/up"><button type="submit" title="move up">↑</button></form>
+            <form method="post" action="{{ page_path }}/steps/{{ step.identifier }}/down"><button type="submit" title="move down">↓</button></form>
+            <a href="{{ page_path }}/steps/{{ step.identifier }}/edit">edit</a>
+            <form method="post" action="{{ page_path }}/steps/{{ step.identifier }}/retire"><button type="submit">retire</button></form>
+            {% else %}
+            <form method="post" action="{{ page_path }}/steps/{{ step.identifier }}/unretire"><button type="submit">unretire</button></form>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p><small>No steps to show at this gate.</small></p>
+    {% endif %}
+  </section>
+  {% endfor %}
+
+  <section>
+    <h2>Create a step</h2>
+    <p>The identifier is generated on save — <code>mg.&lt;discipline&gt;.&lt;seq&gt;</code>, never chosen.</p>
+    <form method="post" action="{{ page_path }}/steps/create">
+      {% with values = {}, include_discipline = true %}
+      {% include "_fields.html" %}
+      {% endwith %}
+      <button type="submit">Create</button>
+    </form>
+  </section>
+</main>
+<script>
+  document.body.addEventListener("htmx:responseError", function (event) {
+    if (event.detail.xhr && event.detail.xhr.status === 404) {
+      document.body.innerHTML =
+        "<main class='container'><h1>Signed out</h1>" +
+        "<p>This admin session has ended and nothing was saved. " +
+        "Mint a fresh link with the Slack command and reopen the page.</p></main>";
+    }
+  });
+</script>
+</body>
+</html>

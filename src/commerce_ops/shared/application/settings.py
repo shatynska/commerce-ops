@@ -154,6 +154,14 @@ class Settings(BaseSettings):
     clickup_launch_folder_id: NonEmpty | None = None
     clickup_webhook_secret: NonEmpty | None = None
 
+    # Optional: the public URL the admin surface is reachable at, consumed
+    # by `access`'s admin-link adapter to compose magic links (and, by its
+    # scheme, to decide the session cookie's Secure flag). Absent, the
+    # `/playbook-admin` command refuses every caller rather than minting a
+    # link no browser could follow — fail-closed degradation of that one
+    # surface, like the other capability-scoped optionals above.
+    admin_base_url: NonEmpty | None = None
+
     # Optional, and deliberately typed `str | None` rather than `NonEmpty |
     # None`: `application-logging`'s spec defines an empty value as "not
     # configured", and `NonEmpty` would make `preflight` report `LOG_LEVEL`

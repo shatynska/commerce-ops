@@ -1,0 +1,87 @@
+{# The authorable shape as one form body. `values` carries what the form
+   should show — current values on a fresh edit, the submitted values
+   around a rejection. Identifier and discipline are deliberately not
+   fields here: authoring refuses updates to them, so the edit surface
+   renders them as text (the create form passes include_discipline). #}
+{% if include_discipline %}
+<label>Discipline
+  <select name="discipline">
+    {% for option in discipline_options %}
+    <option value="{{ option }}"{% if option == values.get("discipline", discipline_options[0]) %} selected{% endif %}>{{ option }}</option>
+    {% endfor %}
+  </select>
+</label>
+{% endif %}
+<label>Description
+  <textarea name="description" rows="2">{{ values.get("description", "") }}</textarea>
+</label>
+<label>Gate
+  <select name="gate">
+    {% for option in gate_options %}
+    <option value="{{ option }}"{% if option == values.get("gate", gate_options[0]) %} selected{% endif %}>{{ option }}</option>
+    {% endfor %}
+  </select>
+</label>
+<label>Scope
+  <select name="scope">
+    {% for option in scope_options %}
+    <option value="{{ option }}"{% if option == values.get("scope", "product") %} selected{% endif %}>{{ option }}</option>
+    {% endfor %}
+  </select>
+</label>
+<label>Binding
+  <select name="binding">
+    {% for option in binding_options %}
+    <option value="{{ option }}"{% if option == values.get("binding", "framework") %} selected{% endif %}>{{ option }}</option>
+    {% endfor %}
+  </select>
+</label>
+<label>Blocking
+  <select name="blocking">
+    <option value="false"{% if values.get("blocking", "false") not in ("true", "on", "1", "yes") %} selected{% endif %}>no</option>
+    <option value="true"{% if values.get("blocking", "false") in ("true", "on", "1", "yes") %} selected{% endif %}>yes — holds its gate</option>
+  </select>
+</label>
+<label>Execution
+  <select name="execution">
+    {% for option in execution_options %}
+    <option value="{{ option }}"{% if option == values.get("execution", "human-attested") %} selected{% endif %}>{{ option }}</option>
+    {% endfor %}
+  </select>
+</label>
+<label>Hazard
+  <select name="hazard">
+    {% for option in hazard_options %}
+    <option value="{{ option }}"{% if option == values.get("hazard", "none") %} selected{% endif %}>{{ option }}</option>
+    {% endfor %}
+  </select>
+</label>
+<fieldset>
+  <legend>Timing anchor</legend>
+  <label>Kind
+    <select name="anchor_kind">
+      {% for option in anchor_kinds %}
+      <option value="{{ option }}"{% if option == values.get("anchor_kind", "offset") %} selected{% endif %}>{{ option }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>Days (offset)
+    <input name="anchor_days" inputmode="numeric" value="{{ values.get("anchor_days", "-7") }}">
+  </label>
+  <label>Start (window / open-ended)
+    <input name="anchor_start" inputmode="numeric" value="{{ values.get("anchor_start", "") }}">
+  </label>
+  <label>End (window)
+    <input name="anchor_end" inputmode="numeric" value="{{ values.get("anchor_end", "") }}">
+  </label>
+  <label>Cadence (recurring)
+    <select name="anchor_cadence">
+      {% for option in cadence_options %}
+      <option value="{{ option }}"{% if option == values.get("anchor_cadence", "weekly") %} selected{% endif %}>{{ option }}</option>
+      {% endfor %}
+    </select>
+  </label>
+</fieldset>
+<label>Rule policy (required for automated and AI-assisted steps)
+  <textarea name="rule_policy" rows="2">{{ values.get("rule_policy", "") }}</textarea>
+</label>

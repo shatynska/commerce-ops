@@ -13,6 +13,9 @@ from alembic import context
 # compares. They look unused, which is exactly the kind of import a later
 # cleanup removes -- without them, autogenerate would emit a drop for every
 # table it could no longer see.
+from commerce_ops.access.infrastructure.driven import (
+    models as _access_models,  # noqa: F401
+)
 from commerce_ops.catalog.infrastructure.driven import (
     models as _catalog_models,  # noqa: F401
 )

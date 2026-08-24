@@ -205,10 +205,16 @@ forbidden_modules =
 ; is the sanctioned direction, launch.application may call catalog's public
 ; surface, and that surface necessarily uses its own domain internally.
 ; Exempting those edges keeps the surface opaque without permitting
-; launch.infrastructure to import catalog.domain directly.
+; launch.infrastructure to import catalog.domain directly. The access
+; edges carry the same reasoning for the admin page's guard
+; (`add-playbook-admin-ui`): the page calls `verify_admin_session` on
+; access's public surface, and that surface uses its own domain
+; internally.
 ignore_imports =
     commerce_ops.catalog.application -> commerce_ops.catalog.domain.**
     commerce_ops.catalog.application.** -> commerce_ops.catalog.domain.**
+    commerce_ops.access.application -> commerce_ops.access.domain.**
+    commerce_ops.access.application.** -> commerce_ops.access.domain.**
 
 [importlinter:contract:omni-agent-domain-boundary]
 name = omni_agent.domain does not reach outside its own layer
