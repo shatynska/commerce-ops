@@ -31,4 +31,4 @@
 - [x] 4.2 import-linter clean: admin routes consume only the launch and access public application surfaces
 - [x] 4.3 `ruff check`, `ruff format --check`, and `mypy` clean
 - [x] 4.4 `openspec validate --strict` passes for the change
-- [ ] 4.5 At archive time, amend the `access-scope` Purpose in `openspec/specs/access-scope/spec.md` so it also covers answering whether an identity holds the admin write capability
+- [x] 4.5 At archive time, amend the `access-scope` Purpose in `openspec/specs/access-scope/spec.md` so it also covers answering whether an identity holds the admin write capability
