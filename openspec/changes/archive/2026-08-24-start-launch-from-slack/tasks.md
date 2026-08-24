@@ -16,6 +16,6 @@
 
 ## 4. Operational and record
 
-- [ ] 4.1 Reconfigure the `product_agent` Slack app: create the slash command (name settled with the team per design.md's open question) and point its Interactivity Request URL at the new route; verify end to end in the workspace.
+- [x] 4.1 Reconfigure the `product_agent` Slack app: create the slash command (name settled with the team per design.md's open question) and point its Interactivity Request URL at the new route; verify end to end in the workspace. — Done in the workspace; the command shipped as `/start-launch`. **Verified end to end 2026-08-24**: a real submission started a launch and returned the confirmation naming the product, its SKU and its launch date, together with the ClickUp sync cadence.
 - [x] 4.2 Close out `docs/deferred-work.md`'s parked `add-product-creation-clickup-task` entry as superseded by this change (and delete the stale local branch after merge). — Entry rewritten as superseded. **Branch deletion deferred to after merge**, as the task itself states; the branch `add-product-creation-clickup-task` (`0b9b85c`) still exists.
 - [x] 4.3 Update `docs/domain-map.md` if the slice notes reference product entry, recording that entry lives in `launch` and catalog remains without a driving surface of its own.
