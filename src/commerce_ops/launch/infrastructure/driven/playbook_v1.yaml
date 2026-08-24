@@ -28,11 +28,24 @@
 #     rule_policy: str           # optional
 #     provenance: str            # optional — a citation, never an identifier
 #
-# This is the v1 playbook: the eight gates and the metric conditions on the
-# three metric-checked gates, per the launch-playbook capability's spec,
-# with no step definitions. Authoring the step definitions is a follow-up
-# change; the gate sequence is shipped first because it is the part every
-# step has to attach to.
+# This is the v1 playbook: the eight gates, the metric conditions on the
+# three metric-checked gates, and the authored step set — per the
+# launch-playbook capability's spec.
+#
+# The steps below are authored from `docs/reference/product-launch.md`.
+# Each step's `identifier` is that document's own row ID and its
+# `provenance` is that row's SOURCE citation, so every step traces back to
+# exactly one reference row. The document's BUILD THE LISTING area is
+# represented completely (all 72 ID-bearing rows — 65 here on `listable`,
+# 7 reassigned to the gate their own timing serves); the other seven gates
+# carry a representative subset, curated so that every timing-anchor kind,
+# every discipline, both hazards and all three execution modes appear.
+#
+# Rows that restate a condition a gate already authors as a metric
+# condition are deliberately absent: one obligation is expressed once.
+# Most steps ship without a `rule_policy` on purpose — they appear in the
+# undecided-rule-policies report, which is how that outstanding decision
+# stays visible rather than looking settled.
 
 version: v1
 gates:
@@ -73,4 +86,898 @@ gates:
         threshold: TACOS falling
       - metric_id: review-rating
         threshold: rating stable at 4.5
-steps: []
+steps:
+  # --- commit ---
+  - identifier: lp.strategy.001
+    gate: commit
+    discipline: strategy
+    scope: product
+    timing_anchor: { kind: offset, days: -90 }
+    binding: framework
+    blocking: true
+    execution: human-attested
+    provenance: PLOG Intro
+  - identifier: lp.finance.001
+    gate: commit
+    discipline: finance
+    scope: product
+    timing_anchor: { kind: offset, days: -90 }
+    binding: framework
+    blocking: true
+    execution: human-attested
+    provenance: PLOG 1.1.2
+  - identifier: lp.strategy.003
+    gate: commit
+    discipline: strategy
+    scope: product
+    timing_anchor: { kind: offset, days: -90 }
+    binding: lesson
+    blocking: false
+    execution: human-attested
+    provenance: 8.1 Validating Product Ideas 2025
+  - identifier: lp.strategy.006
+    gate: commit
+    discipline: strategy
+    scope: product
+    timing_anchor: { kind: offset, days: -90 }
+    binding: lesson
+    blocking: false
+    execution: human-attested
+    hazard: compliance-obligation
+    provenance: 4 Products to Avoid 2025; Proactive Product Compliance 2025
+  # --- order ---
+  - identifier: lp.finance.010
+    gate: order
+    discipline: finance
+    scope: product
+    timing_anchor: { kind: offset, days: -60 }
+    binding: framework
+    blocking: true
+    execution: human-attested
+    provenance: PLOG 1.1.2 Part 4
+  - identifier: lp.inventory.004
+    gate: order
+    discipline: inventory
+    scope: product
+    timing_anchor: { kind: offset, days: -90 }
+    binding: framework
+    blocking: true
+    execution: human-attested
+    provenance: PLOG 1.1.2 Part 3
+  - identifier: lp.setup.009
+    gate: order
+    discipline: setup
+    scope: product
+    timing_anchor: { kind: offset, days: -90 }
+    binding: lesson
+    blocking: false
+    execution: human-attested
+    hazard: compliance-obligation
+    provenance: Andrew's Launch Checklist 2024; 09/24/2025 Prime Day & Listing Insights
+  # --- listable — barcodes & listing creation ---
+  - identifier: lp.setup.019
+    gate: listable
+    discipline: setup
+    scope: product
+    timing_anchor: { kind: offset, days: -60 }
+    binding: lesson
+    blocking: false
+    execution: human-attested
+    provenance: 'Listing Content BONUS: Purchasing Your UPC 2025'
+  - identifier: lp.setup.020
+    gate: listable
+    discipline: setup
+    scope: product
+    timing_anchor: { kind: offset, days: -60 }
+    binding: lesson
+    blocking: false
+    execution: human-attested
+    provenance: 'Listing Content BONUS: Purchasing Your UPC 2025'
+  - identifier: lp.setup.021
+    gate: listable
+    discipline: setup
+    scope: product
+    timing_anchor: { kind: offset, days: -60 }
+    binding: lesson
+    blocking: false
+    execution: human-attested
+    provenance: 'Listing Content BONUS: Creating Your Initial Listing 2025'
+  - identifier: lp.setup.022
+    gate: listable
+    discipline: setup
+    scope: product
+    timing_anchor: { kind: offset, days: -60 }
+    binding: lesson
+    blocking: false
+    execution: human-attested
+    provenance: 'Listing Content BONUS: Creating Your Initial Listing 2025'
+  - identifier: lp.setup.023
+    gate: listable
+    discipline: setup
+    scope: product
+    timing_anchor: { kind: offset, days: -60 }
+    binding: lesson
+    blocking: false
+    execution: human-attested
+    provenance: GS1 Barcodes - What They Are & Why You Need Them 2025
+  - identifier: lp.setup.024
+    gate: listable
+    discipline: setup
+    scope: product
+    timing_anchor: { kind: offset, days: -60 }
+    binding: lesson
+    blocking: false
+    execution: human-attested
+    hazard: compliance-obligation
+    provenance: Restricted Category Qualification 2026
+  - identifier: lp.inventory.017
+    gate: listable
+    discipline: inventory
+    scope: product
+    timing_anchor: { kind: offset, days: -60 }
+    binding: lesson
+    blocking: false
+    execution: human-attested
+    provenance: 05/20/2026 AI Workflows & Inventory Strategy
+  # --- listable — keyword research & indexation ---
+  - identifier: lp.strategy.015
+    gate: listable
+    discipline: strategy
+    scope: product
+    timing_anchor: { kind: offset, days: -60 }
+    binding: framework
+    blocking: true
+    execution: human-attested
+    provenance: PLOG 1.3.1
+  - identifier: lp.rank.001
+    gate: listable
+    discipline: rank
+    scope: product
+    timing_anchor: { kind: offset, days: -60 }
+    binding: framework
+    blocking: true
+    execution: human-attested
+    provenance: PPC 3.0 Phase 1 Step 1
+  - identifier: lp.rank.002
+    gate: listable
+    discipline: rank
+    scope: product
+    timing_anchor: { kind: offset, days: -30 }
+    binding: framework
+    blocking: true
+    execution: human-attested
+    provenance: PPC 3.0 Phase 1 Step 1
+  - identifier: lp.rank.003
+    gate: listable
+    discipline: rank
+    scope: product
+    timing_anchor: { kind: offset, days: -30 }
+    binding: framework
+    blocking: false
+    execution: human-attested
+    provenance: PPC 3.0 Phase 1 Step 1
+  - identifier: lp.rank.004
+    gate: listable
+    discipline: rank
+    scope: product
+    timing_anchor: { kind: offset, days: -60 }
+    binding: framework
+    blocking: true
+    execution: human-attested
+    provenance: PLOG 1.3.1
+  - identifier: lp.rank.005
+    gate: listable
+    discipline: rank
+    scope: product
+    timing_anchor: { kind: offset, days: -30 }
+    binding: lesson
+    blocking: false
+    execution: human-attested
+    provenance: 'Pre-Launch: Selecting your Launch Keywords 2025'
+  - identifier: lp.rank.006
+    gate: listable
+    discipline: rank
+    scope: product
+    timing_anchor: { kind: offset, days: -30 }
+    binding: lesson
+    blocking: false
+    execution: human-attested
+    provenance: 'Pre-Launch: Selecting your Launch Keywords 2025'
+  - identifier: lp.rank.007
+    gate: listable
+    discipline: rank
+    scope: product
+    timing_anchor: { kind: offset, days: -30 }
+    binding: lesson
+    blocking: false
+    execution: human-attested
+    provenance: Double Your Sales Challenge Day 2 2025
+  - identifier: lp.listing.019
+    gate: listable
+    discipline: listing
+    scope: product
+    timing_anchor: { kind: offset, days: -30 }
+    binding: framework
+    blocking: true
+    execution: human-attested
+    provenance: PLOG 1.3.3
+  - identifier: lp.listing.024
+    gate: listable
+    discipline: listing
+    scope: product
+    timing_anchor: { kind: offset, days: -15 }
+    binding: lesson
+    blocking: false
+    execution: human-attested
+    provenance: 'Pre-Launch: Setting up your Listing for Success 2025'
+  - identifier: lp.listing.025
+    gate: listable
+    discipline: listing
+    scope: product
+    timing_anchor: { kind: offset, days: -30 }
+    binding: framework
+    blocking: false
+    execution: human-attested
+    provenance: PLOG 1.3.2
+  - identifier: lp.listing.026
+    gate: listable
+    discipline: listing
+    scope: product
+    timing_anchor: { kind: offset, days: -14 }
+    binding: framework
+    blocking: true
+    execution: human-attested
+    provenance: PLOG 1.3.2
+  - identifier: lp.listing.027
+    gate: listable
+    discipline: listing
+    scope: product
+    timing_anchor: { kind: offset, days: -30 }
+    binding: lesson
+    blocking: false
+    execution: human-attested
+    provenance: 04/17/2024 Andrew's Product Launch Checklist
+  - identifier: lp.listing.028
+    gate: listable
+    discipline: listing
+    scope: product
+    timing_anchor: { kind: offset, days: -14 }
+    binding: lesson
+    blocking: false
+    execution: human-attested
+    provenance: PPC Optimization Part 3 2025
+  # --- listable — listing content & structure ---
+  - identifier: lp.listing.001
+    gate: listable
+    discipline: listing
+    scope: product
+    timing_anchor: { kind: offset, days: -30 }
+    binding: framework
+    blocking: true
+    execution: human-attested
+    provenance: PLOG 1.3.2
+  - identifier: lp.listing.002
+    gate: listable
+    discipline: listing
+    scope: product
+    timing_anchor: { kind: offset, days: -14 }
+    binding: framework
+    blocking: true
+    execution: human-attested
+    provenance: PLOG 1.3.2
+  - identifier: lp.listing.006
+    gate: listable
+    discipline: listing
+    scope: product
+    timing_anchor: { kind: offset, days: -60 }
+    binding: lesson
+    blocking: false
+    execution: human-attested
+    provenance: 'Listing Content BONUS: Creating Your Initial Listing 2025'
+  - identifier: lp.listing.007
+    gate: listable
+    discipline: listing
+    scope: product
+    timing_anchor: { kind: offset, days: -60 }
+    binding: lesson
+    blocking: false
+    execution: human-attested
+    provenance: Flat File Mastery 2025
+  - identifier: lp.listing.008
+    gate: listable
+    discipline: listing
+    scope: product
+    timing_anchor: { kind: offset, days: -60 }
+    binding: lesson
+    blocking: false
+    execution: human-attested
+    provenance: 'Listing Content BONUS: Flat Files 2025'
+  - identifier: lp.listing.014
+    gate: listable
+    discipline: listing
+    scope: product
+    timing_anchor: { kind: offset, days: -14 }
+    binding: framework
+    blocking: false
+    execution: ai-assisted
+    hazard: compliance-obligation
+    rule_policy: copy is run through the compliance advisor and flagged issues are resolved before publishing
+    provenance: PLOG 1.3.2
+  - identifier: lp.listing.015
+    gate: listable
+    discipline: listing
+    scope: product
+    timing_anchor: { kind: offset, days: -7 }
+    binding: framework
+    blocking: true
+    execution: human-attested
+    provenance: PLOG 2.3.2
+  - identifier: lp.listing.016
+    gate: listable
+    discipline: listing
+    scope: product
+    timing_anchor: { kind: offset, days: -14 }
+    binding: framework
+    blocking: false
+    execution: human-attested
+    provenance: PLOG 1.3.4 / 2.3.2
+  - identifier: lp.listing.017
+    gate: listable
+    discipline: listing
+    scope: product
+    timing_anchor: { kind: offset, days: -15 }
+    binding: lesson
+    blocking: false
+    execution: human-attested
+    provenance: 'Pre-Launch: Setting up your Listing for Success 2025'
+  - identifier: lp.listing.018
+    gate: listable
+    discipline: listing
+    scope: market
+    timing_anchor: { kind: offset, days: -30 }
+    binding: lesson
+    blocking: false
+    execution: human-attested
+    provenance: 04/09/2025 EU Market Expansion Q&A
+  - identifier: lp.listing.020
+    gate: listable
+    discipline: listing
+    scope: market
+    timing_anchor: { kind: offset, days: -14 }
+    binding: lesson
+    blocking: false
+    execution: human-attested
+    provenance: PPC Optimization Part 3 2025
+  - identifier: lp.listing.021
+    gate: listable
+    discipline: listing
+    scope: product
+    timing_anchor: { kind: offset, days: -30 }
+    binding: framework
+    blocking: false
+    execution: human-attested
+    provenance: PLOG 1.3.3
+  - identifier: lp.listing.022
+    gate: listable
+    discipline: listing
+    scope: product
+    timing_anchor: { kind: offset, days: -30 }
+    binding: lesson
+    blocking: false
+    execution: human-attested
+    provenance: 'Pre-Launch: Setting up your Listing for Success 2025'
+  - identifier: lp.listing.029
+    gate: listable
+    discipline: listing
+    scope: product
+    timing_anchor: { kind: offset, days: -30 }
+    binding: framework
+    blocking: false
+    execution: human-attested
+    provenance: PLOG 1.3.3
+  - identifier: lp.listing.030
+    gate: listable
+    discipline: listing
+    scope: product
+    timing_anchor: { kind: offset, days: -30 }
+    binding: framework
+    blocking: false
+    execution: human-attested
+    provenance: PLOG 1.3.2
+  # --- listable — variation family ---
+  - identifier: lp.listing.003
+    gate: listable
+    discipline: listing
+    scope: product
+    timing_anchor: { kind: offset, days: -30 }
+    binding: framework
+    blocking: false
+    execution: human-attested
+    provenance: PLOG 1.3.4
+  - identifier: lp.listing.004
+    gate: listable
+    discipline: listing
+    scope: product
+    timing_anchor: { kind: offset, days: -30 }
+    binding: framework
+    blocking: false
+    execution: human-attested
+    provenance: PLOG 1.3.4
+  - identifier: lp.listing.005
+    gate: listable
+    discipline: listing
+    scope: product
+    timing_anchor: { kind: offset, days: -30 }
+    binding: framework
+    blocking: false
+    execution: human-attested
+    provenance: PLOG 1.3.4
+  - identifier: lp.listing.009
+    gate: listable
+    discipline: listing
+    scope: product
+    timing_anchor: { kind: offset, days: -60 }
+    binding: lesson
+    blocking: false
+    execution: human-attested
+    provenance: 'Listing Content BONUS: Flat Files 2025'
+  - identifier: lp.listing.010
+    gate: listable
+    discipline: listing
+    scope: product
+    timing_anchor: { kind: offset, days: -60 }
+    binding: lesson
+    blocking: false
+    execution: human-attested
+    provenance: Flat File Mastery 2025
+  - identifier: lp.listing.011
+    gate: listable
+    discipline: listing
+    scope: product
+    timing_anchor: { kind: offset, days: -60 }
+    binding: lesson
+    blocking: false
+    execution: human-attested
+    provenance: 'Pre-Launch: Setting up your Listing for Success 2025'
+  - identifier: lp.listing.012
+    gate: listable
+    discipline: listing
+    scope: product
+    timing_anchor: { kind: offset, days: -30 }
+    binding: lesson
+    blocking: false
+    execution: human-attested
+    provenance: 'Pre-Launch: Setting up your Listing for Success 2025'
+  - identifier: lp.listing.013
+    gate: listable
+    discipline: listing
+    scope: product
+    timing_anchor: { kind: offset, days: -30 }
+    binding: lesson
+    blocking: false
+    execution: human-attested
+    hazard: prohibited-tactic
+    provenance: 'Launch: Week 1 Actions - Reviews 2025'
+  # --- listable — creative ---
+  - identifier: lp.strategy.016
+    gate: listable
+    discipline: strategy
+    scope: product
+    timing_anchor: { kind: offset, days: -30 }
+    binding: framework
+    blocking: false
+    execution: human-attested
+    provenance: PLOG 1.3.3
+  - identifier: lp.creative.003
+    gate: listable
+    discipline: creative
+    scope: product
+    timing_anchor: { kind: offset, days: -30 }
+    binding: framework
+    blocking: false
+    execution: human-attested
+    provenance: PLOG 1.3.3
+  - identifier: lp.creative.004
+    gate: listable
+    discipline: creative
+    scope: product
+    timing_anchor: { kind: offset, days: -30 }
+    binding: framework
+    blocking: false
+    execution: human-attested
+    provenance: PLOG 2.3.1
+  - identifier: lp.creative.005
+    gate: listable
+    discipline: creative
+    scope: product
+    timing_anchor: { kind: offset, days: -60 }
+    binding: framework
+    blocking: false
+    execution: human-attested
+    provenance: Titan Huddle 10.22.2025 Outsourcing PLOG
+  - identifier: lp.creative.006
+    gate: listable
+    discipline: creative
+    scope: product
+    timing_anchor: { kind: offset, days: -14 }
+    binding: lesson
+    blocking: false
+    execution: human-attested
+    provenance: 07/24/2024 Andrew's Launch Checklist
+  - identifier: lp.creative.007
+    gate: listable
+    discipline: creative
+    scope: product
+    timing_anchor: { kind: offset, days: -30 }
+    binding: lesson
+    blocking: false
+    execution: human-attested
+    provenance: 8.2 Expanding Tolerance 2025
+  - identifier: lp.creative.008
+    gate: listable
+    discipline: creative
+    scope: product
+    timing_anchor: { kind: offset, days: -30 }
+    binding: framework
+    blocking: true
+    execution: human-attested
+    provenance: PLOG 1.3.3
+  - identifier: lp.creative.009
+    gate: listable
+    discipline: creative
+    scope: product
+    timing_anchor: { kind: offset, days: -14 }
+    binding: framework
+    blocking: true
+    execution: human-attested
+    provenance: PLOG 1.3.3
+  - identifier: lp.creative.010
+    gate: listable
+    discipline: creative
+    scope: product
+    timing_anchor: { kind: offset, days: -60 }
+    binding: framework
+    blocking: false
+    execution: human-attested
+    provenance: PLOG 2.3.1
+  - identifier: lp.creative.011
+    gate: listable
+    discipline: creative
+    scope: product
+    timing_anchor: { kind: offset, days: -60 }
+    binding: framework
+    blocking: false
+    execution: human-attested
+    provenance: PLOG 2.3.1
+  - identifier: lp.creative.012
+    gate: listable
+    discipline: creative
+    scope: product
+    timing_anchor: { kind: offset, days: -60 }
+    binding: framework
+    blocking: false
+    execution: human-attested
+    provenance: PLOG 2.3.1
+  - identifier: lp.creative.013
+    gate: listable
+    discipline: creative
+    scope: product
+    timing_anchor: { kind: offset, days: -30 }
+    binding: framework
+    blocking: false
+    execution: human-attested
+    provenance: PPC 3.0 Phase 2
+  - identifier: lp.creative.014
+    gate: listable
+    discipline: creative
+    scope: product
+    timing_anchor: { kind: offset, days: -30 }
+    binding: framework
+    blocking: false
+    execution: human-attested
+    provenance: PLOG 1.3.4
+  - identifier: lp.creative.015
+    gate: listable
+    discipline: creative
+    scope: product
+    timing_anchor: { kind: offset, days: -30 }
+    binding: lesson
+    blocking: false
+    execution: human-attested
+    provenance: 04/17/2024 Andrew's Product Launch Checklist
+  - identifier: lp.creative.016
+    gate: listable
+    discipline: creative
+    scope: product
+    timing_anchor: { kind: offset, days: -30 }
+    binding: lesson
+    blocking: false
+    execution: human-attested
+    provenance: '02/12/2025 Panel: Product Launch Strategy'
+  - identifier: lp.creative.017
+    gate: listable
+    discipline: creative
+    scope: product
+    timing_anchor: { kind: offset, days: -30 }
+    binding: lesson
+    blocking: false
+    execution: human-attested
+    provenance: '02/12/2025 Panel: Product Launch Strategy'
+  - identifier: lp.creative.018
+    gate: listable
+    discipline: creative
+    scope: product
+    timing_anchor: { kind: offset, days: -30 }
+    binding: lesson
+    blocking: false
+    execution: human-attested
+    provenance: 07/28/2025 Launch Without Reviews
+  - identifier: lp.creative.019
+    gate: listable
+    discipline: creative
+    scope: product
+    timing_anchor: { kind: offset, days: -30 }
+    binding: framework
+    blocking: false
+    execution: human-attested
+    provenance: PLOG 2.3.4
+  - identifier: lp.creative.020
+    gate: listable
+    discipline: creative
+    scope: product
+    timing_anchor: { kind: offset, days: -30 }
+    binding: framework
+    blocking: false
+    execution: human-attested
+    provenance: PLOG 2.3.3
+  - identifier: lp.creative.021
+    gate: listable
+    discipline: creative
+    scope: product
+    timing_anchor: { kind: offset, days: -14 }
+    binding: framework
+    blocking: false
+    execution: human-attested
+    provenance: PLOG 2.3.3
+  - identifier: lp.creative.022
+    gate: listable
+    discipline: creative
+    scope: product
+    timing_anchor: { kind: offset, days: -30 }
+    binding: framework
+    blocking: false
+    execution: human-attested
+    provenance: PLOG 2.3.3
+  # --- stock-ready ---
+  - identifier: lp.inventory.019
+    gate: stock-ready
+    discipline: inventory
+    scope: product
+    timing_anchor: { kind: offset, days: -30 }
+    binding: framework
+    blocking: true
+    execution: human-attested
+    provenance: PLOG 1.1.1
+  - identifier: lp.inventory.008
+    gate: stock-ready
+    discipline: inventory
+    scope: product
+    timing_anchor: { kind: offset, days: -30 }
+    binding: lesson
+    blocking: false
+    execution: human-attested
+    provenance: 'Sourcing: PP Samples and Inspections; Product Testing and Certifications'
+  - identifier: lp.inventory.018
+    gate: stock-ready
+    discipline: inventory
+    scope: product
+    timing_anchor: { kind: offset, days: -30 }
+    binding: lesson
+    blocking: false
+    execution: human-attested
+    provenance: 10/20/2025 Optimizing Listings & Backend Data
+  # --- live ---
+  - identifier: lp.rank.008
+    gate: live
+    discipline: rank
+    scope: product
+    timing_anchor: { kind: offset, days: -7 }
+    binding: framework
+    blocking: true
+    execution: human-attested
+    provenance: PLOG 1.3.2
+  - identifier: lp.ppc.008
+    gate: live
+    discipline: ppc
+    scope: product
+    timing_anchor: { kind: offset, days: -7 }
+    binding: framework
+    blocking: true
+    execution: human-attested
+    provenance: PPC 3.0 Bid stacking
+  - identifier: lp.ppc.001
+    gate: live
+    discipline: ppc
+    scope: product
+    timing_anchor: { kind: offset, days: -14 }
+    binding: framework
+    blocking: true
+    execution: human-attested
+    provenance: Campaign Naming Convention
+  - identifier: lp.ppc.002
+    gate: live
+    discipline: ppc
+    scope: product
+    timing_anchor: { kind: offset, days: -14 }
+    binding: framework
+    blocking: true
+    execution: human-attested
+    provenance: PPC 3.0 Phase 1 Step 3
+  - identifier: lp.ppc.003
+    gate: live
+    discipline: ppc
+    scope: product
+    timing_anchor: { kind: offset, days: -60 }
+    binding: framework
+    blocking: true
+    execution: human-attested
+    provenance: PLOG 1.3.1
+  - identifier: lp.ppc.004
+    gate: live
+    discipline: ppc
+    scope: product
+    timing_anchor: { kind: offset, days: -14 }
+    binding: lesson
+    blocking: false
+    execution: human-attested
+    provenance: 'Launch: Day 1 Actions - Setting up Rank Campaigns 2025'
+  - identifier: lp.listing.032
+    gate: live
+    discipline: listing
+    scope: product
+    timing_anchor: { kind: offset, days: -7 }
+    binding: lesson
+    blocking: false
+    execution: human-attested
+    provenance: 07/24/2024 Andrew's Launch Checklist
+  - identifier: lp.price.013
+    gate: live
+    discipline: price
+    scope: product
+    timing_anchor: { kind: offset, days: -7 }
+    binding: lesson
+    blocking: false
+    execution: human-attested
+    provenance: 09/25/2024 Omega Accelerate Recap
+  - identifier: lp.price.014
+    gate: live
+    discipline: price
+    scope: product
+    timing_anchor: { kind: offset, days: -7 }
+    binding: lesson
+    blocking: false
+    execution: human-attested
+    hazard: prohibited-tactic
+    provenance: 08/28/2024 Alpha Q&A Buy Box & Pricing
+  # --- ignition ---
+  - identifier: lp.ppc.010
+    gate: ignition
+    discipline: ppc
+    scope: product
+    timing_anchor: { kind: offset, days: 0 }
+    binding: framework
+    blocking: true
+    execution: human-attested
+    provenance: PPC 3.0 Phase 1 Step 2
+  - identifier: lp.external.001
+    gate: ignition
+    discipline: external
+    scope: product
+    timing_anchor: { kind: offset, days: 0 }
+    binding: lesson
+    blocking: false
+    execution: human-attested
+    provenance: 04/17/2024 Andrew's Product Launch Checklist
+  - identifier: lp.customer.007
+    gate: ignition
+    discipline: customer
+    scope: product
+    timing_anchor: { kind: window, start: 0, end: 6 }
+    binding: lesson
+    blocking: false
+    execution: human-attested
+    provenance: 'Launch: Week 1 Actions - Reviews 2025; 01/29/2025 Q&A Vine Reviews'
+  - identifier: lp.ppc.016
+    gate: ignition
+    discipline: ppc
+    scope: product
+    timing_anchor: { kind: recurring, cadence: daily }
+    binding: framework
+    blocking: false
+    execution: human-attested
+    provenance: PPC 3.0 Phase 1 Step 2
+  - identifier: lp.strategy.021
+    gate: ignition
+    discipline: strategy
+    scope: product
+    timing_anchor: { kind: window, start: 0, end: 6 }
+    binding: lesson
+    blocking: false
+    execution: human-attested
+    hazard: prohibited-tactic
+    provenance: 'Launch: Week 1 Actions - Reviews 2025'
+  - identifier: lp.listing.023
+    gate: ignition
+    discipline: listing
+    scope: product
+    timing_anchor: { kind: offset, days: 0 }
+    binding: lesson
+    blocking: false
+    execution: human-attested
+    provenance: 06/02/2025 Pricing Confidence & Launch Setup
+  - identifier: lp.creative.023
+    gate: ignition
+    discipline: creative
+    scope: product
+    timing_anchor: { kind: offset, days: 0 }
+    binding: lesson
+    blocking: false
+    execution: human-attested
+    provenance: 06/11/2026 AI Workflows & Strikethrough Pricing
+  # --- phase-one-complete ---
+  - identifier: lp.ppc.029
+    gate: phase-one-complete
+    discipline: ppc
+    scope: product
+    timing_anchor: { kind: window, start: 7, end: 27 }
+    binding: framework
+    blocking: true
+    execution: human-attested
+    provenance: PPC 3.0 Phase 1 Step 3
+  - identifier: lp.customer.002
+    gate: phase-one-complete
+    discipline: customer
+    scope: product
+    timing_anchor: { kind: recurring, cadence: weekly }
+    binding: framework
+    blocking: false
+    execution: human-attested
+    provenance: PLOG 1.3.4
+  - identifier: lp.traffic.001
+    gate: phase-one-complete
+    discipline: traffic
+    scope: product
+    timing_anchor: { kind: window, start: 7, end: 27 }
+    binding: framework
+    blocking: false
+    execution: automated
+    rule_policy: 'stop-rule: if CTR and CVR have not improved over the window, halt external traffic and fix the listing first'
+    provenance: PLOG 2.1.2
+  # --- graduated ---
+  - identifier: lp.strategy.030
+    gate: graduated
+    discipline: strategy
+    scope: product
+    timing_anchor: { kind: open-ended, start: 59 }
+    binding: framework
+    blocking: true
+    execution: human-attested
+    provenance: States+Drivers
+  - identifier: lp.strategy.029
+    gate: graduated
+    discipline: strategy
+    scope: product
+    timing_anchor: { kind: open-ended, start: 59 }
+    binding: framework
+    blocking: false
+    execution: human-attested
+    provenance: States+Drivers Section 4
+  - identifier: lp.finance.031
+    gate: graduated
+    discipline: finance
+    scope: product
+    timing_anchor: { kind: open-ended, start: 59 }
+    binding: framework
+    blocking: false
+    execution: human-attested
+    provenance: PLOG 1.1.2

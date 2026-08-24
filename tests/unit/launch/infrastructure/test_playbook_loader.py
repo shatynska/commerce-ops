@@ -231,20 +231,6 @@ def test_shipped_playbook_exposes_the_eight_gates_in_order() -> None:
     assert positions == sorted(positions)
 
 
-def test_shipped_playbook_ships_with_no_step_definitions() -> None:
-    """Not a spec scenario — `tasks.md` 4.2 and `proposal.md`.
-
-    DERIVED: "Ship the playbook containing the eight gates and no step
-    definitions. Authoring the step definitions is deliberately a follow-up
-    change." Asserted so that the follow-up cannot land inside this change
-    unnoticed. The delta spec itself says nothing about
-    how many steps the shipped playbook holds; if the import change lands,
-    this assertion is superseded and should be removed with that change,
-    not weakened to fit.
-    """
-    assert list(load_shipped_playbook().steps) == []
-
-
 # ---------------------------------------------------------------------------
 # Requirement: An incoherent playbook is rejected at load time
 # ---------------------------------------------------------------------------
