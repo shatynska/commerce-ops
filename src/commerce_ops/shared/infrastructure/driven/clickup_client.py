@@ -89,11 +89,14 @@ def _due_date_from(raw: object) -> date | None:
 def _task_state(raw: Mapping[str, object]) -> ClickUpTaskState:
     status = raw.get("status") or {}
     assert isinstance(status, Mapping)
+    description = raw.get("description")
     return ClickUpTaskState(
         id=str(raw["id"]),
         status=str(status.get("status", "")),
         closed=status.get("type") == _CLOSED_STATUS_TYPE,
         due_date=_due_date_from(raw.get("due_date")),
+        name=str(raw.get("name", "")),
+        description=str(description) if description else None,
     )
 
 

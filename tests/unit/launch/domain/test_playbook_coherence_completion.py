@@ -127,6 +127,34 @@ def _step(**overrides: Any) -> StepDefinition:
     return StepDefinition(**attributes)
 
 
+def _hold(gate: str) -> StepDefinition:
+    """A blocking filler holding `gate` — the gate-holding floor
+    (`move-playbook-steps-to-postgres`) forbids coherent playbooks with
+    unheld gates, so `_playbook` fills whichever gates the test's own
+    steps leave unheld. Automated with a decided rule so no other
+    coherence rule fires; the `hold.` namespace tells fillers apart."""
+    return _step(
+        identifier=f"hold.{gate}",
+        gate=gate,
+        blocking=True,
+        execution=ExecutionMode.AUTOMATED,
+        rule_policy="Held until the automated check reports green.",
+    )
+
+
+def _hold_ids(steps: tuple[StepDefinition, ...]) -> set[str]:
+    held = {step.gate for step in steps if step.blocking}
+    return {f"hold.{gate}" for gate in SPECIFIED_GATE_ORDER if gate not in held}
+
+
+def _fill(steps: tuple[StepDefinition, ...]) -> tuple[StepDefinition, ...]:
+    held = {step.gate for step in steps if step.blocking}
+    return (
+        *steps,
+        *(_hold(gate) for gate in SPECIFIED_GATE_ORDER if gate not in held),
+    )
+
+
 def _playbook(
     *,
     gates: tuple[Gate, ...] | None = None,
@@ -135,7 +163,7 @@ def _playbook(
     return LaunchPlaybook(
         version="test-v1",
         gates=specified_gates() if gates is None else gates,
-        steps=steps,
+        steps=_fill(steps),
     )
 
 
@@ -179,7 +207,13 @@ def test_a_non_blocking_lesson_step_is_accepted() -> None:
         blocking=False,
     )
 
-    (read_back,) = _playbook(steps=(step,)).steps_for_gate("listable")
+    # A lesson can never block, so `listable` also carries its holding
+    # filler; the read-back targets the step under test.
+    read_back = next(
+        candidate
+        for candidate in _playbook(steps=(step,)).steps_for_gate("listable")
+        if candidate.identifier == "ppc.consider-exact-match-first"
+    )
 
     assert read_back.binding is Binding.LESSON
     assert read_back.blocking is False
@@ -291,4 +325,5 @@ def test_a_coherent_playbook_with_the_completed_surface_loads() -> None:
     assert {step.identifier for step in playbook.steps} == {
         "inventory.stock-checked-in",
         "ppc.consider-exact-match-first",
+        *_hold_ids(steps),
     }

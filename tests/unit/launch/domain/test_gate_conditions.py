@@ -142,6 +142,29 @@ def _step(**overrides: Any) -> StepDefinition:
     return StepDefinition(**attributes)
 
 
+def _hold(gate: str) -> StepDefinition:
+    """A blocking filler holding `gate` — the gate-holding floor
+    (`move-playbook-steps-to-postgres`) forbids coherent playbooks with
+    unheld gates, so `_playbook` fills whichever gates the test's own
+    steps leave unheld. Automated with a decided rule so no other
+    coherence rule fires; the `hold.` namespace tells fillers apart."""
+    return _step(
+        identifier=f"hold.{gate}",
+        gate=gate,
+        blocking=True,
+        execution=ExecutionMode.AUTOMATED,
+        rule_policy="Held until the automated check reports green.",
+    )
+
+
+def _fill(steps: tuple[StepDefinition, ...]) -> tuple[StepDefinition, ...]:
+    held = {step.gate for step in steps if step.blocking}
+    return (
+        *steps,
+        *(_hold(gate) for gate in SPECIFIED_GATE_ORDER if gate not in held),
+    )
+
+
 def _playbook(
     *,
     gates: tuple[Gate, ...] | None = None,
@@ -150,7 +173,7 @@ def _playbook(
     return LaunchPlaybook(
         version="test-v1",
         gates=specified_gates() if gates is None else gates,
-        steps=steps,
+        steps=_fill(steps),
     )
 
 
@@ -269,9 +292,11 @@ def test_a_non_blocking_step_produces_no_condition() -> None:
     conditions = list(playbook.conditions_for_gate("listable"))
 
     # SPECIFIED: "A non-blocking step SHALL NOT appear among a gate's
-    # conditions" — with no blocking step and no authored metric
-    # condition, the gate waits on nothing.
-    assert conditions == []
+    # conditions" — the gate waits on nothing beyond the holding filler
+    # the gate-holding floor requires, and never on the step under test.
+    obligations = [c for c in conditions if isinstance(c, StepObligation)]
+    assert [obligation.step_id for obligation in obligations] == ["hold.listable"]
+    assert len(conditions) == 1
 
 
 def test_authored_metric_conditions_appear_alongside_derived_obligations() -> None:
@@ -328,6 +353,12 @@ def test_conditions_are_scoped_to_the_asked_gate() -> None:
     live_conditions = list(playbook.conditions_for_gate("live"))
     listable_conditions = list(playbook.conditions_for_gate("listable"))
 
-    assert live_conditions == []
+    # `live` carries exactly its holding filler's obligation — never the
+    # listable step's obligation or the stock-ready metric condition.
+    assert [c.step_id for c in live_conditions if isinstance(c, StepObligation)] == [
+        "hold.live"
+    ]
+    assert len(live_conditions) == 1
     assert len(listable_conditions) == 1
     assert isinstance(listable_conditions[0], StepObligation)
+    assert listable_conditions[0].step_id == "listing.a-plus-content"

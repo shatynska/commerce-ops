@@ -269,6 +269,80 @@ def sessionless(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(module, "transaction", _fake_transaction)
 
 
+class _FakePlaybookRepository:
+    """The served-playbook read (`move-playbook-steps-to-postgres`),
+    substituted like the other collaborator globals: serves a minimal
+    coherent playbook (every gate held, as the gate-holding floor
+    requires) without touching any database."""
+
+    def __init__(self, *args: object, **kwargs: object) -> None: ...
+
+    async def get(self, version: str) -> Any:
+        from commerce_ops.launch.domain.launch_playbook import (
+            Binding,
+            ExecutionMode,
+            Gate,
+            GateOpening,
+            Hazard,
+            LaunchPlaybook,
+            OffsetAnchor,
+            Scope,
+            StepDefinition,
+        )
+        from commerce_ops.shared.domain.discipline import Discipline
+
+        gate_order = (
+            "commit",
+            "order",
+            "listable",
+            "stock-ready",
+            "live",
+            "ignition",
+            "phase-one-complete",
+            "graduated",
+        )
+        confirmation = {"commit", "order", "phase-one-complete", "graduated"}
+        gates = tuple(
+            Gate(
+                identifier=identifier,
+                position=position,
+                opening=(
+                    GateOpening.REQUIRES_CONFIRMATION
+                    if identifier in confirmation
+                    else GateOpening.AUTOMATIC
+                ),
+            )
+            for position, identifier in enumerate(gate_order, start=1)
+        )
+        steps = tuple(
+            StepDefinition(
+                identifier=f"hold.{gate}",
+                description=f"Blocking work holding the {gate} gate",
+                gate=gate,
+                discipline=next(iter(Discipline)),
+                scope=Scope.PRODUCT,
+                timing_anchor=OffsetAnchor(days=0),
+                binding=Binding.FRAMEWORK,
+                blocking=True,
+                execution=ExecutionMode.AUTOMATED,
+                hazard=Hazard.NONE,
+                rule_policy="Held until the automated check reports green.",
+                provenance=None,
+            )
+            for gate in gate_order
+        )
+        return LaunchPlaybook(version="test-v1", gates=gates, steps=steps)
+
+
+@pytest.fixture(autouse=True)
+def served_playbook(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        importlib.import_module(SLACK_ENTRY_MODULE),
+        "PlaybookRepository",
+        _FakePlaybookRepository,
+    )
+
+
 @pytest.fixture(autouse=True)
 def slack_env(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     monkeypatch.setenv(SIGNING_SECRET_VAR, SIGNING_SECRET)

@@ -202,6 +202,19 @@ def _step(**overrides: Any) -> StepDefinition:
     return StepDefinition(**attributes)
 
 
+def _hold(gate: str) -> StepDefinition:
+    """A blocking filler holding `gate` — the gate-holding floor
+    (`move-playbook-steps-to-postgres`) forbids coherent playbooks with
+    unheld gates; automated with a decided rule so no other rule fires."""
+    return _step(
+        identifier=f"hold.{gate}",
+        gate=gate,
+        blocking=True,
+        execution=ExecutionMode.AUTOMATED,
+        rule_policy="Held until the automated check reports green.",
+    )
+
+
 def _playbook(
     version: str = "v1", steps: tuple[StepDefinition, ...] = ()
 ) -> LaunchPlaybook:
@@ -218,7 +231,9 @@ def _playbook(
         )
         for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1)
     )
-    return LaunchPlaybook(version=version, gates=gates, steps=steps)
+    held = {step.gate for step in steps if step.blocking}
+    fillers = tuple(_hold(gate) for gate in SPECIFIED_GATE_ORDER if gate not in held)
+    return LaunchPlaybook(version=version, gates=gates, steps=(*steps, *fillers))
 
 
 def _start(

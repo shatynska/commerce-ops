@@ -25,10 +25,12 @@ from sqlalchemy import (
     Date,
     DateTime,
     ForeignKey,
+    Integer,
     String,
+    Text,
     UniqueConstraint,
 )
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 
@@ -222,6 +224,12 @@ class LaunchClickUpTask(Base):
     last_observed_closed: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False
     )
+    # `move-playbook-steps-to-postgres`: the name and body the system last
+    # composed for the task — the key of conditional wording-healing. Null
+    # on rows predating the change (adopt-if-matching on first observation)
+    # and wherever the system has not written that field.
+    retained_name: Mapped[str | None] = mapped_column(Text, nullable=True)
+    retained_body: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class LaunchMetricAttestation(Base):
@@ -251,3 +259,65 @@ class LaunchMetricAttestation(Base):
         DateTime(timezone=True), nullable=False
     )
     evidence: Mapped[str] = mapped_column(String, nullable=False)
+
+
+class PlaybookStep(Base):
+    """One stored step of the live launch playbook.
+
+    `move-playbook-steps-to-postgres` moved the step set here from the
+    repo-authored YAML; the framework (gates, coherence rules) stays in
+    code. The definition columns mirror `StepDefinition`; the attribution
+    columns carry who created, updated, retired, or un-retired the row —
+    a retired row persists (retire, never delete), excluded from the
+    served playbook while `retired_by` is set and `unretired_by` is not.
+    `timing_anchor` is the anchor's JSON shape (`{"kind": ..., ...}`),
+    exactly as the seed's source format spelled it.
+    """
+
+    __tablename__ = "playbook_steps"
+
+    identifier: Mapped[str] = mapped_column(String, primary_key=True)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    gate: Mapped[str] = mapped_column(String, nullable=False)
+    discipline: Mapped[str] = mapped_column(String, nullable=False)
+    scope: Mapped[str] = mapped_column(String, nullable=False)
+    timing_anchor: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    binding: Mapped[str] = mapped_column(String, nullable=False)
+    blocking: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    execution: Mapped[str] = mapped_column(String, nullable=False)
+    hazard: Mapped[str] = mapped_column(String, nullable=False)
+    rule_policy: Mapped[str | None] = mapped_column(Text, nullable=True)
+    provenance: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    created_by: Mapped[str | None] = mapped_column(String, nullable=True)
+    created_on: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    updated_by: Mapped[str | None] = mapped_column(String, nullable=True)
+    updated_on: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    retired_by: Mapped[str | None] = mapped_column(String, nullable=True)
+    retired_on: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    unretired_by: Mapped[str | None] = mapped_column(String, nullable=True)
+    unretired_on: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+
+class PlaybookStepSet(Base):
+    """The single optimistic set-version serializing every step write.
+
+    One row, ever: each accepted write persists conditionally on the
+    version it loaded and bumps it, and the served playbook's version
+    identifier derives from it — so "which definition era did this launch
+    start under" moves with every accepted write.
+    """
+
+    __tablename__ = "playbook_step_set"
+    __table_args__ = (CheckConstraint("id = 1", name="ck_playbook_step_set_singleton"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    version: Mapped[int] = mapped_column(Integer, nullable=False)

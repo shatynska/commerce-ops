@@ -183,8 +183,31 @@ def _step(**overrides: Any) -> StepDefinition:
     return StepDefinition(**attributes)
 
 
+def _hold(gate: str) -> StepDefinition:
+    """A blocking filler holding `gate` — the gate-holding floor
+    (`move-playbook-steps-to-postgres`) forbids coherent playbooks with
+    unheld gates, so `_playbook` fills whichever gates the test's own
+    steps leave unheld. Automated, so the sync never projects a filler and
+    every projection assertion is untouched by them."""
+    return _step(
+        identifier=f"hold.{gate}",
+        gate=gate,
+        blocking=True,
+        execution=ExecutionMode.AUTOMATED,
+        rule_policy="Held until the automated check reports green.",
+    )
+
+
+def _fill(steps: tuple[StepDefinition, ...]) -> tuple[StepDefinition, ...]:
+    held = {step.gate for step in steps if step.blocking}
+    return (
+        *steps,
+        *(_hold(gate) for gate in SPECIFIED_GATE_ORDER if gate not in held),
+    )
+
+
 def _playbook(steps: tuple[StepDefinition, ...] = ()) -> LaunchPlaybook:
-    return LaunchPlaybook(version="test-v1", gates=_gates(), steps=steps)
+    return LaunchPlaybook(version="test-v1", gates=_gates(), steps=_fill(steps))
 
 
 def _start(playbook: LaunchPlaybook) -> Launch:
@@ -307,6 +330,10 @@ class _TaskMapping:
     step_id: str
     task_id: str
     last_observed_closed: bool = False
+    # `move-playbook-steps-to-postgres`: the retained last-written
+    # compositions the conditional wording-healing keys on.
+    retained_name: str | None = None
+    retained_body: str | None = None
 
 
 class _FakeMapping:
@@ -345,6 +372,22 @@ class _FakeMapping:
 
     async def observe(self, product_id: ProductId, step_id: str, closed: bool) -> None:
         self.tasks[(product_id, step_id)].last_observed_closed = closed
+
+    async def record_composition(
+        self,
+        product_id: ProductId,
+        step_id: str,
+        *,
+        name: str | None = None,
+        body: str | None = None,
+    ) -> None:
+        """`move-playbook-steps-to-postgres`: a system write of a field
+        updates that field's retained value; `None` leaves it untouched."""
+        mapping = self.tasks[(product_id, step_id)]
+        if name is not None:
+            mapping.retained_name = name
+        if body is not None:
+            mapping.retained_body = body
 
     async def resolve_task(self, task_id: str) -> _TaskMapping | None:
         for mapping in self.tasks.values():

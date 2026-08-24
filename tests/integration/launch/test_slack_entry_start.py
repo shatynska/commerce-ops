@@ -65,10 +65,10 @@ manifest as unresolved project questions:
   `tests/unit/launch/application/test_scope_aware_launch_reads.py` already
   established and reflects into by parameter name, reused here rather than
   re-invented. `store` is a real `LaunchRepository(session)`; `playbooks`
-  is `_ShippedPlaybooks` below, a thin real substitute for whatever port
+  is `_ServedPlaybooks` below, a thin real substitute for whatever port
   `read_launch` expects, backed by the real
   `commerce_ops.launch.infrastructure.driven.playbook_loader
-  .load_shipped_playbook()`.
+  the live `PlaybookRepository` read.
 - The persisted launch record's attribute names for its playbook version
   and launch date are not fixed by any artifact; read through the same
   multi-candidate `_read` approach
@@ -111,9 +111,6 @@ from commerce_ops.catalog.infrastructure.driven.product_repository import (
 )
 from commerce_ops.launch.application import read_launch
 from commerce_ops.launch.infrastructure.driven.launch_repository import LaunchRepository
-from commerce_ops.launch.infrastructure.driven.playbook_loader import (
-    load_shipped_playbook,
-)
 from commerce_ops.main import app
 from commerce_ops.shared.domain.access_scope import AccessScope
 from commerce_ops.shared.domain.identity import Sku
@@ -176,16 +173,18 @@ async def engine() -> AsyncIterator[AsyncEngine]:
         await engine.dispose()
 
 
-class _ShippedPlaybooks:
+class _ServedPlaybooks:
     """A real substitute for whatever `playbooks` port `read_launch`
-    expects: `.get(version)` resolves to the actual shipped playbook,
-    exactly like `_FakePlaybooks` in
-    `test_scope_aware_launch_reads.py`, except backed by the real loader
-    rather than a fabricated `LaunchPlaybook`.
+    expects: `.get(version)` resolves to a pre-loaded copy of the live
+    served playbook — the playbook is live, so the version selects
+    nothing (`move-playbook-steps-to-postgres`).
     """
 
+    def __init__(self, playbook: Any) -> None:
+        self._playbook = playbook
+
     def get(self, version: str) -> Any:
-        return load_shipped_playbook()
+        return self._playbook
 
 
 def _read(subject: object, field: str) -> Any:
@@ -203,6 +202,19 @@ def _read(subject: object, field: str) -> Any:
     )
 
 
+async def _served_version(engine: AsyncEngine) -> str:
+    """The served playbook's version identifier, derived from the
+    step-set version exactly as the adapter derives it."""
+    from sqlalchemy import text
+
+    maker = async_sessionmaker(engine, expire_on_commit=False)
+    async with maker() as session:
+        version = await session.scalar(
+            text("SELECT version FROM playbook_step_set WHERE id = 1")
+        )
+    return f"v{version}"
+
+
 async def _reread_launch(
     engine: AsyncEngine, product_id: Any, *, scope: AccessScope | None = None
 ) -> Any:
@@ -218,12 +230,17 @@ async def _reread_launch(
     collaborator's public signature, not the implementation of the change
     under test.
     """
+    from commerce_ops.launch.infrastructure.driven.playbook_repository import (
+        PlaybookRepository,
+    )
+
     maker = async_sessionmaker(engine, expire_on_commit=False)
     async with maker() as session:
         store = LaunchRepository(session)
+        playbook = await PlaybookRepository(session).get("live")
         return await read_launch(
             store,
-            _ShippedPlaybooks(),
+            _ServedPlaybooks(playbook),
             product_id=product_id,
             as_of=datetime.now(UTC).date(),
             scope=scope or AccessScope.unrestricted(),
@@ -463,8 +480,10 @@ async def test_a_launch_is_started_with_a_date(
 
     launch = await _reread_launch(engine, product.id)
     assert launch is not None, "the launch was not started"
-    # SPECIFIED: pinned to the shipped playbook version.
-    assert _read(launch, "version") == load_shipped_playbook().version
+    # SPECIFIED (launch-entry, as revised by move-playbook-steps-to-
+    # postgres): the launch records the served playbook's version
+    # identifier as its audit stamp.
+    assert _read(launch, "version") == await _served_version(engine)
     # SPECIFIED: with that launch date.
     assert _read(launch, "launch_date") == date.fromisoformat(launch_date)
 

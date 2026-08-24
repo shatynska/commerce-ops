@@ -132,6 +132,34 @@ def _step(**overrides: Any) -> StepDefinition:
     return StepDefinition(**attributes)
 
 
+def _hold(gate: str) -> StepDefinition:
+    """A blocking filler holding `gate` — the gate-holding floor
+    (`move-playbook-steps-to-postgres`) forbids coherent playbooks with
+    unheld gates, so `_playbook` fills whichever gates the test's own
+    steps leave unheld. Automated with a decided rule so no other
+    coherence rule fires; the `hold.` namespace tells fillers apart."""
+    return _step(
+        identifier=f"hold.{gate}",
+        gate=gate,
+        blocking=True,
+        execution=ExecutionMode.AUTOMATED,
+        rule_policy="Held until the automated check reports green.",
+    )
+
+
+def _hold_ids(steps: tuple[StepDefinition, ...]) -> set[str]:
+    held = {step.gate for step in steps if step.blocking}
+    return {f"hold.{gate}" for gate in SPECIFIED_GATE_ORDER if gate not in held}
+
+
+def _fill(steps: tuple[StepDefinition, ...]) -> tuple[StepDefinition, ...]:
+    held = {step.gate for step in steps if step.blocking}
+    return (
+        *steps,
+        *(_hold(gate) for gate in SPECIFIED_GATE_ORDER if gate not in held),
+    )
+
+
 def _playbook(
     *,
     gates: tuple[Gate, ...] | None = None,
@@ -140,7 +168,7 @@ def _playbook(
     return LaunchPlaybook(
         version="test-v1",
         gates=specified_gates() if gates is None else gates,
-        steps=steps,
+        steps=_fill(steps),
     )
 
 
@@ -164,7 +192,13 @@ def test_a_step_definition_reads_back_its_description() -> None:
     """
     step = _step(identifier="lp.creative.008", description=A_DESCRIPTION)
 
-    (read_back,) = _playbook(steps=(step,)).steps_for_gate("listable")
+    # The step under test asserts a false blocking flag, so `listable`
+    # also carries its holding filler; the read-back targets the step.
+    read_back = next(
+        candidate
+        for candidate in _playbook(steps=(step,)).steps_for_gate("listable")
+        if candidate.identifier == "lp.creative.008"
+    )
 
     # SPECIFIED: the description is present, and is the work the step
     # asks for rather than a restatement of the identifier.
@@ -195,7 +229,11 @@ def test_the_description_is_not_the_identifier() -> None:
     """
     step = _step(identifier="lp.creative.008", description=A_DESCRIPTION)
 
-    (read_back,) = _playbook(steps=(step,)).steps_for_gate("listable")
+    read_back = next(
+        candidate
+        for candidate in _playbook(steps=(step,)).steps_for_gate("listable")
+        if candidate.identifier == "lp.creative.008"
+    )
 
     # SPECIFIED: the description is the authored work statement, not a
     # value derived from the identifier.
@@ -308,10 +346,17 @@ def test_a_single_line_description_is_accepted() -> None:
 
     # SPECIFIED: it loads successfully and exposes its step definitions,
     # each carrying its own description.
-    assert {step.identifier: step.description for step in playbook.steps} == {
-        "lp.creative.008": A_DESCRIPTION,
-        "lp.strategy.001": "Product is VISIBLY BETTER on the search results page",
-    }
+    descriptions = {step.identifier: step.description for step in playbook.steps}
+    # Exactness preserved: the test's steps plus the holding fillers, no
+    # more, no fewer — each test step carrying its own description.
+    assert set(descriptions) == {"lp.creative.008", "lp.strategy.001"} | _hold_ids(
+        steps
+    )
+    assert descriptions["lp.creative.008"] == A_DESCRIPTION
+    assert (
+        descriptions["lp.strategy.001"]
+        == "Product is VISIBLY BETTER on the search results page"
+    )
 
 
 def test_a_description_fault_is_aggregated_with_another_fault() -> None:

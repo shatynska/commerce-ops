@@ -117,8 +117,36 @@ def _step(**overrides: Any) -> StepDefinition:
     return StepDefinition(**attributes)
 
 
+def _hold(gate: str) -> StepDefinition:
+    """A blocking filler holding `gate` — the gate-holding floor
+    (`move-playbook-steps-to-postgres`) forbids coherent playbooks with
+    unheld gates, so `_playbook` fills whichever gates the test's own
+    steps leave unheld. Automated with a decided rule so no other
+    coherence rule fires; the `hold.` namespace tells fillers apart."""
+    return _step(
+        identifier=f"hold.{gate}",
+        gate=gate,
+        blocking=True,
+        execution=ExecutionMode.AUTOMATED,
+        rule_policy="Held until the automated check reports green.",
+    )
+
+
+def _hold_ids(steps: tuple[StepDefinition, ...]) -> set[str]:
+    held = {step.gate for step in steps if step.blocking}
+    return {f"hold.{gate}" for gate in SPECIFIED_GATE_ORDER if gate not in held}
+
+
+def _fill(steps: tuple[StepDefinition, ...]) -> tuple[StepDefinition, ...]:
+    held = {step.gate for step in steps if step.blocking}
+    return (
+        *steps,
+        *(_hold(gate) for gate in SPECIFIED_GATE_ORDER if gate not in held),
+    )
+
+
 def _playbook(steps: tuple[StepDefinition, ...] = ()) -> LaunchPlaybook:
-    return LaunchPlaybook(version="test-v1", gates=_gates(), steps=steps)
+    return LaunchPlaybook(version="test-v1", gates=_gates(), steps=_fill(steps))
 
 
 # ---------------------------------------------------------------------------
@@ -229,13 +257,18 @@ def test_a_description_that_merely_contains_whitespace_is_accepted() -> None:
 
     playbook = _playbook(steps=steps)
 
-    # SPECIFIED: it loads, and the step is exposed.
-    assert [step.identifier for step in playbook.steps] == ["lp.creative.008"]
+    # SPECIFIED: it loads, and the step is exposed (alongside the
+    # holding fillers the gate-holding floor requires).
+    assert {step.identifier for step in playbook.steps} == {
+        "lp.creative.008"
+    } | _hold_ids(steps)
     # SPECIFIED: the description is not empty — the words survive. Whether
     # the loaded value is stored padded or stripped is NOT asserted: no
     # artifact says, and asserting either would fix a behaviour nobody
     # stated. See the foot of this file.
-    (loaded,) = playbook.steps
+    loaded = next(
+        step for step in playbook.steps if step.identifier == "lp.creative.008"
+    )
     assert loaded.description.strip() == A_DESCRIPTION
 
 

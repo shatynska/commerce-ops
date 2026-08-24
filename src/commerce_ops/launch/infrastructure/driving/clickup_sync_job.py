@@ -38,8 +38,9 @@ from commerce_ops.launch.infrastructure.driven.clickup_sync import (
 from commerce_ops.launch.infrastructure.driven.launch_repository import (
     LaunchRepository,
 )
-from commerce_ops.launch.infrastructure.driven.shipped_playbooks import (
-    ShippedPlaybooks,
+from commerce_ops.launch.infrastructure.driven.playbook_repository import (
+    PlaybookRepository,
+    ServedPlaybooks,
 )
 from commerce_ops.shared.infrastructure.driven import clickup_client as clickup
 from commerce_ops.shared.infrastructure.driven.database import session
@@ -79,7 +80,6 @@ SYNC_SCHEDULE = "*/10 * * * *"
 # reported overdue.
 SYNC_TOLERANCE = datetime.timedelta(hours=6)
 
-_playbooks = ShippedPlaybooks()
 
 # Injected by `worker.py` after `register_all()`, never at import and never
 # as a job argument. `None` in the HTTP process, which registers this module
@@ -116,11 +116,15 @@ async def reconcile_clickup_completions(timestamp: int) -> None:
         launches = LaunchRepository(db_session)
         mapping = ClickUpMappingRepository(db_session)
         active = await launches.list_active()
-        record = functools.partial(record_step_outcome, launches, _playbooks)
+        # The playbook is live and read per pass — every launch converges
+        # against the same served set, whatever version stamp it recorded.
+        playbook = await PlaybookRepository(db_session).get("live")
+        record = functools.partial(
+            record_step_outcome, launches, ServedPlaybooks(playbook)
+        )
 
         _logger.info("ClickUp completion pass starting over %d launch(es)", len(active))
         for launch in active:
-            playbook = _playbooks.get(launch.playbook_version)
             await converge_launch(
                 launch=launch,
                 playbook=playbook,

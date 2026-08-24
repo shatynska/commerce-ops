@@ -48,8 +48,8 @@ from commerce_ops.launch.application import start_launch
 from commerce_ops.launch.infrastructure.driven.launch_repository import (
     LaunchRepository,
 )
-from commerce_ops.launch.infrastructure.driven.playbook_loader import (
-    load_shipped_playbook,
+from commerce_ops.launch.infrastructure.driven.playbook_repository import (
+    PlaybookRepository,
 )
 from commerce_ops.shared.domain.identity import Asin, MarketplaceId, ProductId, Sku
 from commerce_ops.shared.infrastructure.driven.database import transaction
@@ -187,8 +187,9 @@ def build_modal_view() -> dict[str, Any]:
     """The modal's contract.
 
     Carries no playbook-version field, and that is a requirement rather than
-    an omission: `ShippedPlaybooks` resolves exactly one version and rejects
-    the rest, so asking for one invites input nothing could act on.
+    an omission: the playbook is live — every launch starts against the
+    current served set and records its version only as an audit stamp — so
+    asking for a version invites input nothing could act on.
     """
     return {
         "type": "modal",
@@ -387,7 +388,10 @@ async def _register_and_start(submission: _Submission) -> None:
         )
         await start_launch(
             LaunchRepository(db_session),
-            load_shipped_playbook(),
+            # The live served playbook: the launch records its version
+            # identifier as an audit stamp, and every later read serves
+            # the current set regardless of the stamp.
+            await PlaybookRepository(db_session).get("live"),
             product_id=product_id,
             launch_date=submission.launch_date,
         )

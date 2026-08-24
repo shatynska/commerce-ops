@@ -56,8 +56,8 @@ Aggregates, repositories-as-interfaces, and domain events are adopted per module
 
 Launch state is owned three ways, and the split is deliberate — neither system can do the other's job:
 
-- **The repository** owns the playbook *definition*: the gate sequence, the step definitions, and which step belongs to which gate, authored as versioned YAML (per `launch-playbook`'s "Playbooks are versioned") and loaded by `playbook_loader.py`.
-- **Postgres** owns each product's *position* in that playbook and its per-step completion state — per-product, mutable, and with no business in a versioned definition file.
+- **The repository** owns the playbook *framework*: the gate sequence, the opening modes, the authored metric conditions, and every coherence rule, as code in `launch_playbook.py`. The *step definitions* moved to Postgres as a live set (`move-playbook-steps-to-postgres`, 2026-08): seeded once from the authored YAML, then edited only through the `playbook-authoring` write use cases, each write validated as the whole playbook it would produce — so the database can hold nothing the repository's rulebook would reject. A launch records the served version identifier as an audit stamp; no read branches on it.
+- **Postgres** also owns each product's *position* in that playbook and its per-step completion state — per-product and mutable, like the step set itself.
 - **ClickUp** owns *human completion*. The ops team marks work done where they already work, and ClickUp reports completion back so gate-opening logic can evaluate against it.
 
 Making Postgres the sole owner of completion would require the team to stop completing work where they complete it — a process change imposed by an implementation detail. Making ClickUp the owner of structure would require gate sequencing, blocking-step rules and timing anchors to be expressed in ClickUp's data model, which cannot express them: `launch_playbook.py` already encodes coherence rules (a `prohibited-tactic` step can never block a gate; an `automated` step must carry a rule policy) that no task tracker enforces.

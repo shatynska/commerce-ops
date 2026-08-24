@@ -162,8 +162,25 @@ def _step(**overrides: Any) -> StepDefinition:
     return StepDefinition(**attributes)
 
 
+def _hold(gate: str) -> StepDefinition:
+    """A blocking filler holding `gate` — the gate-holding floor
+    (`move-playbook-steps-to-postgres`) forbids coherent playbooks with
+    unheld gates, so `_playbook` fills whichever gates the test's own
+    steps leave unheld. Automated with a decided rule so no other
+    coherence rule fires; the `hold.` namespace tells fillers apart."""
+    return _step(
+        identifier=f"hold.{gate}",
+        gate=gate,
+        blocking=True,
+        execution=ExecutionMode.AUTOMATED,
+        rule_policy="Held until the automated check reports green.",
+    )
+
+
 def _playbook(steps: tuple[StepDefinition, ...] = ()) -> LaunchPlaybook:
-    return LaunchPlaybook(version="test-v1", gates=_gates(), steps=steps)
+    held = {step.gate for step in steps if step.blocking}
+    fillers = tuple(_hold(gate) for gate in SPECIFIED_GATE_ORDER if gate not in held)
+    return LaunchPlaybook(version="test-v1", gates=_gates(), steps=(*steps, *fillers))
 
 
 def _start(playbook: LaunchPlaybook) -> tuple[Launch, LaunchStarted]:
@@ -193,9 +210,23 @@ def _approval(**overrides: Any) -> GateApproval:
     return GateApproval(**attributes)
 
 
+def _satisfy_fillers(launch: Launch, playbook: LaunchPlaybook) -> None:
+    """Record `Satisfied` for the current gate's holding fillers, so the
+    walk is blocked only by the steps a test authored deliberately."""
+    for step in playbook.steps_for_gate(launch.current_gate):
+        if step.blocking and step.identifier.startswith("hold."):
+            launch.record_step_outcome(
+                playbook,
+                step_id=step.identifier,
+                outcome=Satisfied,
+                provenance=_provenance(source="automated"),
+            )
+
+
 def _advance_to(launch: Launch, playbook: LaunchPlaybook, gate_id: str) -> None:
     """Walk the launch forward to `gate_id`, approving confirmation gates."""
     while launch.current_gate != gate_id:
+        _satisfy_fillers(launch, playbook)
         if launch.current_gate in CONFIRMATION_GATES:
             launch.approve_gate(launch.current_gate, _approval())
         launch.advance_gate(playbook)

@@ -49,8 +49,9 @@ from commerce_ops.launch.infrastructure.driven.clickup_sync import transition_ou
 from commerce_ops.launch.infrastructure.driven.launch_repository import (
     LaunchRepository,
 )
-from commerce_ops.launch.infrastructure.driven.shipped_playbooks import (
-    ShippedPlaybooks,
+from commerce_ops.launch.infrastructure.driven.playbook_repository import (
+    PlaybookRepository,
+    ServedPlaybooks,
 )
 from commerce_ops.shared.infrastructure.driven.database import session
 
@@ -76,8 +77,6 @@ STATUS_CHANGE_EVENT: Final = "taskStatusUpdated"
 _CLOSED_STATUS_TYPE: Final = "closed"
 _CLICKUP_SOURCE: Final = "clickup"
 _GRADUATED_GATE: Final = "graduated"
-
-_playbooks = ShippedPlaybooks()
 
 
 def _webhook_secret() -> str | None:
@@ -177,10 +176,20 @@ async def receive_clickup_event(request: Request) -> Response:
             # open statuses. Nothing happened that the launch records.
             return _acknowledged()
 
+        # Every observation updates the retained state — a retired step's
+        # included, so nothing is replayed after an un-retirement.
         await mapping.observe(mapped.product_id, mapped.step_id, now_closed)
+
+        playbook = await PlaybookRepository(db_session).get(launch.playbook_version)
+        if mapped.step_id not in {step.identifier for step in playbook.steps}:
+            # A retired step's task records nothing: the step is no longer
+            # part of the launch's obligations. Acknowledged quietly, like
+            # every other delivery there is nothing to record for.
+            return _acknowledged()
+
         await record_step_outcome(
             launches,
-            _playbooks,
+            ServedPlaybooks(playbook),
             product_id=mapped.product_id,
             step_id=mapped.step_id,
             outcome=outcome,

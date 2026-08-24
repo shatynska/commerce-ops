@@ -42,8 +42,9 @@ from commerce_ops.catalog.infrastructure.driven.product_repository import (
 )
 from commerce_ops.launch.application import read_launches
 from commerce_ops.launch.infrastructure.driven.launch_repository import LaunchRepository
-from commerce_ops.launch.infrastructure.driven.shipped_playbooks import (
-    ShippedPlaybooks,
+from commerce_ops.launch.infrastructure.driven.playbook_repository import (
+    PlaybookRepository,
+    ServedPlaybooks,
 )
 from commerce_ops.launch.infrastructure.driving import clickup_sync_job
 from commerce_ops.registrations import register_all
@@ -98,7 +99,7 @@ async def _read_launch_reports(*, as_of: date) -> tuple[LaunchReport, ...]:
     async with session() as db_session:
         return await read_launches(
             LaunchRepository(db_session),
-            ShippedPlaybooks(),
+            ServedPlaybooks(await PlaybookRepository(db_session).get("live")),
             as_of=as_of,
             scope=_INTERNAL_SCOPE,
         )

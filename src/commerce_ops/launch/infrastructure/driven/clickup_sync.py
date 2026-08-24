@@ -79,6 +79,15 @@ class MappingStore(Protocol):
         self, product_id: ProductId, step_id: str, closed: bool
     ) -> None: ...
 
+    async def record_composition(
+        self,
+        product_id: ProductId,
+        step_id: str,
+        *,
+        name: str | None = None,
+        body: str | None = None,
+    ) -> None: ...
+
 
 ProductReader = Callable[[ProductId], Awaitable[Any]]
 """Reads the catalog product a launch is for. Supplied by the composition
@@ -222,6 +231,76 @@ def _task_body(step: StepDefinition) -> str | None:
     return step.description
 
 
+def _wants_rewrite(
+    retained: str | None, current_in_clickup: str | None, desired: str | None
+) -> bool:
+    """Whether a field may be rewritten to `desired`: only while the field
+    in ClickUp still carries exactly what the system last wrote for it —
+    a field that differs has been edited by a person and is never touched.
+    """
+    if retained is None or desired is None:
+        return False
+    return current_in_clickup == retained and retained != desired
+
+
+async def _heal_wording(
+    *,
+    step: StepDefinition,
+    task: Any,
+    mapped: Any,
+    product_id: ProductId,
+    clickup: Any,
+    mapping: MappingStore,
+) -> None:
+    """Drive the task's name and body toward the step's current composition
+    — each field independently, and only while it still carries the
+    system's own words.
+
+    A mapping predating retained compositions holds none: a field whose
+    ClickUp content is exactly what the system would currently compose is
+    adopted as retained (an unedited legacy task starts healing); anything
+    else is left unadopted and forever unrewritten — where the system
+    cannot tell an authored change from a person's edit, the person wins.
+    """
+    desired_name = _task_name(step)
+    desired_body = _task_body(step)
+    retained_name = getattr(mapped, "retained_name", None)
+    retained_body = getattr(mapped, "retained_body", None)
+    task_name = getattr(task, "name", None)
+    task_body = getattr(task, "description", None)
+
+    adopt_name = retained_name is None and task_name == desired_name
+    adopt_body = (
+        retained_body is None and desired_body is not None and task_body == desired_body
+    )
+    if adopt_name or adopt_body:
+        await mapping.record_composition(
+            product_id,
+            step.identifier,
+            name=desired_name if adopt_name else None,
+            body=desired_body if adopt_body else None,
+        )
+        retained_name = desired_name if adopt_name else retained_name
+        retained_body = desired_body if adopt_body else retained_body
+
+    write_name = _wants_rewrite(retained_name, task_name, desired_name)
+    write_body = _wants_rewrite(retained_body, task_body, desired_body)
+    if not write_name and not write_body:
+        return
+    fields: dict[str, object] = {}
+    if write_name:
+        fields["name"] = desired_name
+    if write_body:
+        fields["description"] = desired_body
+    await clickup.update_task(mapped.task_id, fields)
+    await mapping.record_composition(
+        product_id,
+        step.identifier,
+        name=desired_name if write_name else None,
+        body=desired_body if write_body else None,
+    )
+
+
 async def converge_launch(
     *,
     launch: Launch,
@@ -270,13 +349,31 @@ async def converge_launch(
         if task is not None and mapped is not None:
             task_id = mapped.task_id
             current_due = _as_date(task.due_date)
+            await _heal_wording(
+                step=step,
+                task=task,
+                mapped=mapped,
+                product_id=launch.product_id,
+                clickup=clickup,
+                mapping=mapping,
+            )
         else:
+            composed_name = _task_name(step)
+            composed_body = _task_body(step)
             created = await clickup.create_task(
                 list_id=list_id,
-                name=_task_name(step),
-                description=_task_body(step),
+                name=composed_name,
+                description=composed_body,
             )
             await mapping.record_task(launch.product_id, step.identifier, created.id)
+            # Whenever the system writes a name or body, the retained
+            # value follows the write — creation included.
+            await mapping.record_composition(
+                launch.product_id,
+                step.identifier,
+                name=composed_name,
+                body=composed_body,
+            )
             task_id = str(created.id)
             current_due = None
 
@@ -334,6 +431,7 @@ async def reconcile_launch(
         return
 
     present = {task.id: task for task in await clickup.list_tasks(list_id)}
+    defined = {step.identifier for step in playbook.steps}
 
     for mapped in await mapping.tasks_for(launch.product_id):
         task = present.get(mapped.task_id)
@@ -342,7 +440,14 @@ async def reconcile_launch(
         outcome = transition_outcome(mapped.last_observed_closed, task.closed)
         if outcome is None:
             continue
+        # The observation always updates the retained state — retired
+        # steps included, so what happened during retirement is never
+        # replayed as a transition later.
         await mapping.observe(launch.product_id, mapped.step_id, task.closed)
+        if mapped.step_id not in defined:
+            # A retired step's task records nothing: the step is no
+            # longer part of the launch's obligations.
+            continue
         await record_outcome(
             product_id=launch.product_id,
             step_id=mapped.step_id,

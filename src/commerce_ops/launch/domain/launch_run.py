@@ -368,7 +368,6 @@ class Launch:
         a later recording replaces the stored outcome and provenance, and
         never reverses a gate that has already opened.
         """
-        self._require_pinned_version(playbook)
         step = self._defined_step(playbook, step_id)
 
         kind = _outcome_type(outcome)
@@ -396,7 +395,6 @@ class Launch:
         """Record a human's satisfaction of a metric condition the pinned
         playbook authors on the named gate; any other (gate, metric)
         pairing is rejected."""
-        self._require_pinned_version(playbook)
         authored = any(
             condition.metric_id == attestation.metric_id
             for condition in self._authored_conditions(playbook, attestation.gate_id)
@@ -441,7 +439,6 @@ class Launch:
         graduation: the launch stays at `graduated` and the returned
         events include `LaunchGraduated`.
         """
-        self._require_pinned_version(playbook)
         if self._graduated:
             raise LaunchError(
                 f"product '{self.product_id.value}' has already graduated"
@@ -498,7 +495,6 @@ class Launch:
         step's timing anchor — absent when the launch has no date, and
         absent for recurring anchors, which carry a cadence rather than a
         due date."""
-        self._require_pinned_version(playbook)
         step = self._defined_step(playbook, step_id)
         if self.launch_date is None:
             return None
@@ -511,7 +507,6 @@ class Launch:
         is at risk exactly when a blocking step's due period has fully
         passed and the step has not reached a permitted terminal
         outcome."""
-        self._require_pinned_version(playbook)
         if self.launch_date is None:
             return None
         blocking = {step.identifier for step in playbook.steps if step.blocking}
@@ -542,7 +537,6 @@ class Launch:
         reads a report. `date_at_risk` is this, narrowed to blocking
         steps.
         """
-        self._require_pinned_version(playbook)
         if self.launch_date is None:
             return ()
         return tuple(
@@ -562,7 +556,6 @@ class Launch:
         A graduated launch is never awaiting anything: `graduated` is the
         last gate, and the launch stays there once it opens.
         """
-        self._require_pinned_version(playbook)
         if self._graduated or not self._requires_confirmation(playbook):
             return False
         if self._unsatisfied_gate_conditions(playbook):
@@ -572,13 +565,11 @@ class Launch:
 
     # -- internals ----------------------------------------------------------
 
-    def _require_pinned_version(self, playbook: LaunchPlaybook) -> None:
-        if playbook.version != self.playbook_version:
-            raise LaunchError(
-                f"this launch pinned playbook version "
-                f"'{self.playbook_version}' and cannot be evaluated against "
-                f"version '{playbook.version}'"
-            )
+    # No pinned-version guard exists any more, on purpose
+    # (`move-playbook-steps-to-postgres`): the playbook is live and the
+    # recorded version identifier is an audit stamp — "no subsequent read
+    # of the playbook branches on it" — so a launch stamped under an
+    # earlier definition is evaluated against whatever set is served now.
 
     def _defined_step(self, playbook: LaunchPlaybook, step_id: str) -> StepDefinition:
         for step in playbook.steps:

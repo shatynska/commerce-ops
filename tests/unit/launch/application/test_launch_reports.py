@@ -178,8 +178,45 @@ def _step(**overrides: Any) -> StepDefinition:
     return StepDefinition(**attributes)
 
 
+def _hold(gate: str) -> StepDefinition:
+    """A blocking filler holding `gate` — the gate-holding floor
+    (`move-playbook-steps-to-postgres`) forbids coherent playbooks with
+    unheld gates, so `_playbook` fills whichever gates the test's own
+    steps leave unheld. Automated with a decided rule so no other
+    coherence rule fires, and anchored a year after launch so a filler
+    can never be the overdue step an at-risk assertion is about."""
+    return _step(
+        identifier=f"hold.{gate}",
+        gate=gate,
+        blocking=True,
+        execution=ExecutionMode.AUTOMATED,
+        rule_policy="Held until the automated check reports green.",
+        timing_anchor=OffsetAnchor(days=365),
+    )
+
+
+def _fillers(steps: tuple[StepDefinition, ...]) -> tuple[StepDefinition, ...]:
+    held = {step.gate for step in steps if step.blocking}
+    return tuple(_hold(gate) for gate in SPECIFIED_GATE_ORDER if gate not in held)
+
+
 def _playbook(steps: tuple[StepDefinition, ...] = ()) -> LaunchPlaybook:
-    return LaunchPlaybook(version="test-v1", gates=_gates(), steps=steps)
+    return LaunchPlaybook(
+        version="test-v1", gates=_gates(), steps=(*steps, *_fillers(steps))
+    )
+
+
+def _satisfy_fillers(launch: Launch, playbook: LaunchPlaybook) -> None:
+    """Record `Satisfied` for the current gate's holding fillers, so the
+    only conditions in play are the ones a test authored deliberately."""
+    for step in playbook.steps_for_gate(launch.current_gate):
+        if step.blocking and step.identifier.startswith("hold."):
+            launch.record_step_outcome(
+                playbook,
+                step_id=step.identifier,
+                outcome=Satisfied,
+                provenance=_provenance(),
+            )
 
 
 def _provenance() -> Provenance:
@@ -222,6 +259,7 @@ def _advance_to(launch: Launch, playbook: LaunchPlaybook, gate: str) -> Launch:
     """Walk a launch to `gate` along the ordinary path, approving each
     confirmation gate on the way (the walk `test_graduation.py` records)."""
     while launch.current_gate != gate:
+        _satisfy_fillers(launch, playbook)
         if launch.current_gate in CONFIRMATION_GATES:
             launch.approve_gate(launch.current_gate, _approval())
         launch.advance_gate(playbook)
@@ -498,7 +536,11 @@ async def test_a_step_entry_carries_its_owning_discipline() -> None:
     (report,) = tuple(reports)
     entries = _read(report, "steps")
     # SPECIFIED: *every* step entry carries one, not merely the first.
-    assert len(tuple(entries)) == 2
+    # The playbook also carries the holding fillers the gate-holding floor
+    # requires, each an entry of its own.
+    assert len(tuple(entries)) == 2 + len(
+        [step for step in playbook.steps if step.identifier.startswith("hold.")]
+    )
     assert _read(_entry_for(report, "listing.title-conforms"), "discipline") == (
         Discipline("listing")
     )
@@ -597,6 +639,9 @@ async def test_a_satisfied_confirmation_gate_without_an_approval_awaits() -> Non
         playbook, product_id=_new_product_id(), launch_date=AT_RISK_LAUNCH_DATE
     )
     assert launch.current_gate == "commit"
+    # Satisfying the holding filler restores the premise: every blocking
+    # condition attached to `commit` is satisfied.
+    _satisfy_fillers(launch, playbook)
 
     report = await _report_for(launch, playbook)
 
@@ -648,6 +693,7 @@ async def test_a_recorded_approving_approval_ends_the_wait() -> None:
     launch = _start(
         playbook, product_id=_new_product_id(), launch_date=AT_RISK_LAUNCH_DATE
     )
+    _satisfy_fillers(launch, playbook)
     launch.approve_gate("commit", _approval())
 
     report = await _report_for(launch, playbook)
