@@ -4,7 +4,7 @@
 
 The shipped playbook's 97 steps each already point at exactly one reference row, and that row's text sits on the line above the row's metadata line. So the descriptions are not written fresh: they are transcribed from rows the playbook already names. See proposal.md for motivation.
 
-`launch_positions` was empty on the deployment when `author-playbook-steps` checked it. This change does not inherit that: **task 1.2 re-confirms it and is still open**, so the statements below hold pending that check. If a launch has started since, no task is renamed — the sync never renames a mapped task — and the list simply carries both namings.
+`launch_positions` was empty on the deployment when `author-playbook-steps` checked it. This change did not inherit that, and task 1.2 was right not to: **checked after the deploy on 2026-08-24, the table holds 4 launches, all pinned to `v1`** — started through `start-launch-from-slack`, which shipped in between. The conclusions below still hold, though by a different route than either branch anticipated: no task was ever projected for those launches, because the deployment carries no ClickUp credentials, so there is no old-naming task to preserve and nothing to migrate.
 
 ## Goals / Non-Goals
 
@@ -88,6 +88,6 @@ No data migration and no schema migration — `StepDefinition` is a value object
 
 Had tasks existed, they would have kept their old names: the sync never renames a mapped task, and the mapping is by task id. That is a property to preserve, not a gap to close, so this change does not add a renaming pass.
 
-If task 1.2 finds a launch that started since the earlier check, that is the outcome: its already-projected tasks keep their code-only names, newly projected ones read as work, and the list carries both. That mixed naming is accepted rather than migrated, for the same reason — a name a person may have edited is not the system's to rewrite.
+Task 1.2 did find launches that started since the earlier check — 4 of them. The mixed-naming branch nonetheless never engages: none had been projected, because ClickUp is unconfigured on the deployment, so every task they eventually receive is created fresh under the new naming. The branch stays written down because it is the rule for any launch that *has* been projected — an already-projected task keeps its code-only name, newly projected ones read as work, and the list carries both, accepted rather than migrated, since a name a person may have edited is not the system's to rewrite.
 
 Rollback is reverting the field and the YAML together.
