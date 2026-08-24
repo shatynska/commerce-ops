@@ -11,7 +11,7 @@ Now is the moment because `author-playbook-steps` has just made this concrete �
 - A projected ClickUp task is named from the step's description with its identifier appended — `Main image scroll-stopping, unlike others · lp.creative.008` — so the list reads as work while a task can still be traced to its step by eye.
 - The discipline drops out of the task name. It is recoverable from the identifier's own second segment (`lp.creative.008`), and spending name width on a word already encoded there costs the reader the wording this change exists to surface.
 - A task's name is set once, at creation, and never rewritten — unlike its due date, which the system keeps in step with the launch schedule. A person may legitimately retitle a task in their own list, and no pass should undo that.
-- A composed name too long for the task system is shortened, keeping the identifier, with the full description carried in the task's body — so no step fails to project because its wording is long.
+- A composed name too long for the task system is shortened — the description cut, then `…`, then ` · ` and the identifier in full — with the full description carried in the task's body in that case only — a task whose name fits is created without a body — so no step fails to project because its wording is long. ClickUp's limit was measured at 2048 characters (it rejects rather than truncates), and the longest name the reference document can produce is 271, so this is a guarantee held in reserve rather than a live failure being fixed.
 
 ## Capabilities
 
@@ -32,5 +32,5 @@ Now is the moment because `author-playbook-steps` has just made this concrete �
 - `src/commerce_ops/launch/infrastructure/driven/clickup_sync.py` — `_task_name` composes description and identifier, shortens an over-long name, and passes the full description as the created task's body.
 - `src/commerce_ops/launch/infrastructure/driven/playbook_loader.py` also needs its missing-key path closed: a `KeyError` there is currently caught by neither of the loader's two handlers, so an absent key aborts the load without naming the step.
 - Tests: roughly sixteen per-file `_step(**overrides)` factories each need a default description, plus the shipped-playbook and task-naming assertions.
-- **No data migration.** Task names are cosmetic to the sync, which maps a step to its task by recorded task id and never by name; and `launch_positions` is empty, so no task named the old way exists anywhere.
+- **No data migration.** Task names are cosmetic to the sync, which maps a step to its task by recorded task id and never by name; and `launch_positions` was empty at the earlier check and is re-confirmed by task 1.2 before the YAML is edited. If a launch has started since, its existing tasks keep their old names and the list carries both namings — accepted rather than migrated.
 - `docs/domain-map.md` — the `StepDefinition` attribute list is enumerated there and gains the field.

@@ -19,7 +19,7 @@ Each step definition SHALL declare all of:
 - optionally, the rule policy stating what we specifically do — which MAY be absent while the decision is outstanding
 - optionally, a provenance reference into the source material it derives from
 
-The description is required and SHALL NOT be empty. A step whose work cannot be read from the step itself is indistinguishable, to whoever is asked to do it, from a step that was never written down; the identifier names the step and the provenance says where it came from, but neither states the work. The coherence rules below reject a playbook that declares a step with an empty or absent description; that rejection is stated once, with the other load-time rules, rather than twice.
+The description is required and SHALL NOT be empty, and a description consisting only of whitespace SHALL be treated as empty. A step whose work cannot be read from the step itself is indistinguishable, to whoever is asked to do it, from a step that was never written down; the identifier names the step and the provenance says where it came from, but neither states the work. The coherence rules below reject a playbook that declares a step with an empty, whitespace-only, or absent description; that rejection is stated once, with the other load-time rules, rather than twice.
 
 #### Scenario: A step definition is read back with every declared attribute
 
@@ -43,6 +43,8 @@ The set is closed deliberately, and is not "trailing punctuation": reference row
 
 Transcribing this way is what makes every shipped description re-derivable from the reference document and comparable against it, so that a divergence between the two is detectable rather than silent. The reference document's wording belongs to the team that wrote it; this specification moves it, and does not improve it.
 
+A shipped step's identifier SHALL carry its declared discipline as its second segment (`lp.creative.008` is a `creative` step). This is what allows a surface composed from the identifier to omit the discipline without losing it, and it holds for every step of the authored set.
+
 Rows of the reference document that restate a condition a gate already authors as a metric condition SHALL NOT additionally appear as steps: one obligation is expressed once.
 
 #### Scenario: The shipped playbook loads with steps
@@ -60,6 +62,7 @@ Rows of the reference document that restate a condition a gate already authors a
 
 - **WHEN** any authored step is read from the loaded playbook
 - **THEN** its identifier is a reference-document row ID and its provenance reference is that row's source citation
+- **AND** the second segment of that identifier is the step's declared discipline
 
 #### Scenario: A step states its work without the source document
 
@@ -86,7 +89,7 @@ A playbook SHALL be rejected when any of the following holds:
 - a gate's declared opening mode does not match the mode this specification assigns to it
 - two step definitions share an identifier
 - a step definition declares a gate that is not in the gate sequence
-- a step definition's description is empty, or is not declared at all
+- a step definition's description is empty, consists only of whitespace, or is not declared at all
 - a step definition's description spans more than one line — a description is composed into a task's name, and a name is a single line
 - a step definition's execution mode is automated or AI-assisted while its rule policy is absent
 - a step definition is classified `prohibited-tactic` and is also marked as blocking its gate
@@ -115,7 +118,7 @@ A playbook SHALL be rejected when any of the following holds:
 
 #### Scenario: A step with no description is rejected by name
 
-- **WHEN** a playbook declares a step whose description is empty, or omits the description entirely
+- **WHEN** a playbook declares a step whose description is empty, consists only of whitespace, or omits the description entirely
 - **THEN** loading fails with an error naming that step, in the same aggregated report as any other fault
 
 #### Scenario: A description spanning several lines is rejected
