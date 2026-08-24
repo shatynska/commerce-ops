@@ -1,10 +1,10 @@
 """The undecided-rule-policy report: which steps still lack a decided rule.
 
-A pure query over a loaded `LaunchPlaybook` — this layer may not reach the
-YAML loader (`.importlinter`'s module-layers contract: application never
-imports infrastructure), so the caller loads the playbook (the existing
-`launch.infrastructure.driven.playbook_loader` from a driving adapter or
-test) and hands it in. Keeps the outstanding rule-policy decisions visible
+A pure query over a loaded `LaunchPlaybook` — this layer may not reach
+the storage adapter (`.importlinter`'s module-layers contract:
+application never imports infrastructure), so the caller loads the
+playbook (`launch.infrastructure.driven.playbook_repository` from a
+driving adapter or test) and hands it in. Keeps the outstanding rule-policy decisions visible
 while the playbook is authored, rather than surfacing one at a time.
 """
 

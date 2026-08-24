@@ -33,9 +33,17 @@ class ClickUpTaskState:
 
     `closed` is taken from ClickUp's status `type` field, never from the
     status name, so the ops team can rename statuses freely.
+
+    `name` and `description` joined with `move-playbook-steps-to-postgres`:
+    conditional wording-healing compares what a task currently carries
+    against the composition the system last wrote, so a read must expose
+    both fields. They default to empty/absent so earlier constructions
+    stay valid.
     """
 
     id: str
     status: str
     closed: bool
     due_date: date | None
+    name: str = ""
+    description: str | None = None

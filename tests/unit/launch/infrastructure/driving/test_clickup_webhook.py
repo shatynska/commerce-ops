@@ -101,6 +101,7 @@ from commerce_ops.launch.domain.launch_run import (
     ApprovalDecision,
     GateApproval,
     Launch,
+    Provenance,
 )
 from commerce_ops.launch.infrastructure.driving import clickup_webhook as webhook_module
 from commerce_ops.shared.domain.discipline import Discipline
@@ -170,12 +171,35 @@ def _step(**overrides: Any) -> StepDefinition:
     return StepDefinition(**attributes)
 
 
+def _hold(gate: str) -> StepDefinition:
+    """A blocking filler holding `gate` — the gate-holding floor
+    (`move-playbook-steps-to-postgres`) forbids coherent playbooks with
+    unheld gates, so `_playbook` fills whichever gates the test's own
+    steps leave unheld. Automated, so the sync never projects a filler and
+    every projection assertion is untouched by them."""
+    return _step(
+        identifier=f"hold.{gate}",
+        gate=gate,
+        blocking=True,
+        execution=ExecutionMode.AUTOMATED,
+        rule_policy="Held until the automated check reports green.",
+    )
+
+
+def _fill(steps: tuple[StepDefinition, ...]) -> tuple[StepDefinition, ...]:
+    held = {step.gate for step in steps if step.blocking}
+    return (
+        *steps,
+        *(_hold(gate) for gate in SPECIFIED_GATE_ORDER if gate not in held),
+    )
+
+
 def _playbook() -> LaunchPlaybook:
     gates = tuple(
         Gate(identifier=identifier, position=position, opening=_opening_for(identifier))
         for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1)
     )
-    return LaunchPlaybook(version="test-v1", gates=gates, steps=(_step(),))
+    return LaunchPlaybook(version="test-v1", gates=gates, steps=_fill((_step(),)))
 
 
 def _active_launch() -> Launch:
@@ -191,6 +215,19 @@ def _graduated_launch() -> Launch:
         product_id=PRODUCT_ID, playbook=playbook, launch_date=LAUNCH_DATE
     )
     while launch.current_gate != "graduated":
+        for step in playbook.steps_for_gate(launch.current_gate):
+            if step.blocking and step.identifier.startswith("hold."):
+                launch.record_step_outcome(
+                    playbook,
+                    step_id=step.identifier,
+                    outcome=Satisfied,
+                    provenance=Provenance(
+                        source="automated",
+                        who="hold-filler",
+                        when=APPROVED_AT,
+                        evidence="filler obligations satisfied by the walk",
+                    ),
+                )
         if launch.current_gate in CONFIRMATION_GATES:
             launch.approve_gate(
                 launch.current_gate,
@@ -315,6 +352,22 @@ def configured_secret(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
 @pytest.fixture(autouse=True)
 def sessionless(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(webhook_module, "session", _fake_session)
+
+
+class _FakePlaybookRepository:
+    """The served-playbook read (`move-playbook-steps-to-postgres`),
+    substituted like every other collaborator global: serves the fixture
+    playbook, which defines the mapped step."""
+
+    def __init__(self, *args: object, **kwargs: object) -> None: ...
+
+    async def get(self, version: str) -> LaunchPlaybook:
+        return _playbook()
+
+
+@pytest.fixture(autouse=True)
+def served_playbook(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(webhook_module, "PlaybookRepository", _FakePlaybookRepository)
 
 
 @pytest.fixture()

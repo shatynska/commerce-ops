@@ -66,16 +66,25 @@ import pytest
 from commerce_ops.catalog.domain.product import StageTransitionError
 from commerce_ops.launch.application import GraduationStampError, advance_gate
 from commerce_ops.launch.domain.launch_playbook import (
+    Binding,
+    ExecutionMode,
     Gate,
     GateOpening,
+    Hazard,
     LaunchPlaybook,
+    OffsetAnchor,
+    Satisfied,
+    Scope,
+    StepDefinition,
 )
 from commerce_ops.launch.domain.launch_run import (
     ApprovalDecision,
     GateApproval,
     Launch,
     LaunchGraduated,
+    Provenance,
 )
+from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
 from commerce_ops.shared.domain.lifecycle_stage import Posture, SteadyState
 
@@ -113,15 +122,38 @@ def _opening_for(identifier: str) -> GateOpening:
     return GateOpening.AUTOMATIC
 
 
+def _hold(gate: str) -> StepDefinition:
+    """A blocking filler holding `gate` — the gate-holding floor
+    (`move-playbook-steps-to-postgres`) forbids a coherent playbook with
+    unheld gates, so a steps-free fixture is no longer constructible.
+    The walk satisfies these, restoring the premise that only the
+    approval requirements remain."""
+    return StepDefinition(
+        identifier=f"hold.{gate}",
+        description=f"Blocking work holding the {gate} gate",
+        gate=gate,
+        discipline=next(iter(Discipline)),
+        scope=Scope.PRODUCT,
+        timing_anchor=OffsetAnchor(days=0),
+        binding=Binding.FRAMEWORK,
+        blocking=True,
+        execution=ExecutionMode.AUTOMATED,
+        hazard=Hazard.NONE,
+        rule_policy="Held until the automated check reports green.",
+        provenance=None,
+    )
+
+
 def _playbook() -> LaunchPlaybook:
-    """A coherent playbook with no steps and no metric conditions, so
-    every gate's blocking conditions are (vacuously) satisfied and only
-    the approval requirements remain."""
+    """A coherent playbook with no metric conditions and only the holding
+    fillers the gate-holding floor requires; once they are satisfied,
+    only the approval requirements remain."""
     gates = tuple(
         Gate(identifier=identifier, position=position, opening=_opening_for(identifier))
         for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1)
     )
-    return LaunchPlaybook(version="test-v1", gates=gates, steps=())
+    steps = tuple(_hold(gate) for gate in SPECIFIED_GATE_ORDER)
+    return LaunchPlaybook(version="test-v1", gates=gates, steps=steps)
 
 
 def _approval(**overrides: Any) -> GateApproval:
@@ -140,9 +172,33 @@ def _launch_at_graduated(playbook: LaunchPlaybook) -> Launch:
     with the graduation approval (posture `Scale`) already recorded."""
     launch, _ = Launch.start(product_id=PRODUCT_ID, playbook=playbook)
     while launch.current_gate != "graduated":
+        for step in playbook.steps_for_gate(launch.current_gate):
+            launch.record_step_outcome(
+                playbook,
+                step_id=step.identifier,
+                outcome=Satisfied,
+                provenance=Provenance(
+                    source="automated",
+                    who="hold-filler",
+                    when=APPROVED_AT,
+                    evidence="filler obligations satisfied by the walk",
+                ),
+            )
         if launch.current_gate in CONFIRMATION_GATES:
             launch.approve_gate(launch.current_gate, _approval())
         launch.advance_gate(playbook)
+    for step in playbook.steps_for_gate("graduated"):
+        launch.record_step_outcome(
+            playbook,
+            step_id=step.identifier,
+            outcome=Satisfied,
+            provenance=Provenance(
+                source="automated",
+                who="hold-filler",
+                when=APPROVED_AT,
+                evidence="filler obligations satisfied by the walk",
+            ),
+        )
     launch.approve_gate("graduated", _approval(posture=Posture.SCALE))
     return launch
 

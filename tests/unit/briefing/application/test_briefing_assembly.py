@@ -86,6 +86,7 @@ from commerce_ops.launch.domain.launch_playbook import (
     Hazard,
     LaunchPlaybook,
     OffsetAnchor,
+    Satisfied,
     Scope,
     StepDefinition,
 )
@@ -93,6 +94,7 @@ from commerce_ops.launch.domain.launch_run import (
     ApprovalDecision,
     GateApproval,
     Launch,
+    Provenance,
 )
 from commerce_ops.shared.domain.access_scope import AccessScope
 from commerce_ops.shared.domain.discipline import Discipline
@@ -181,8 +183,45 @@ def _step(**overrides: Any) -> StepDefinition:
     return StepDefinition(**attributes)
 
 
+def _hold(gate: str) -> StepDefinition:
+    """A blocking filler holding `gate` — the gate-holding floor
+    (`move-playbook-steps-to-postgres`) forbids coherent playbooks with
+    unheld gates, so `_playbook` fills whichever gates the test's own
+    steps leave unheld. Automated with a decided rule so no other
+    coherence rule fires, and anchored a year after launch so a filler is
+    never the overdue step a briefing item is about."""
+    return _step(
+        identifier=f"hold.{gate}",
+        gate=gate,
+        blocking=True,
+        execution=ExecutionMode.AUTOMATED,
+        rule_policy="Held until the automated check reports green.",
+        timing_anchor=OffsetAnchor(days=365),
+    )
+
+
+def _satisfy_fillers(launch: Launch, playbook: LaunchPlaybook) -> None:
+    """Record `Satisfied` for the current gate's holding fillers, so the
+    conditions in play are only the ones a test authored deliberately."""
+    for step in playbook.steps_for_gate(launch.current_gate):
+        if step.blocking and step.identifier.startswith("hold."):
+            launch.record_step_outcome(
+                playbook,
+                step_id=step.identifier,
+                outcome=Satisfied,
+                provenance=Provenance(
+                    source="automated",
+                    who="hold-filler",
+                    when=APPROVED_AT,
+                    evidence="filler obligations satisfied by the walk",
+                ),
+            )
+
+
 def _playbook(steps: tuple[StepDefinition, ...] = ()) -> LaunchPlaybook:
-    return LaunchPlaybook(version="test-v1", gates=_gates(), steps=steps)
+    held = {step.gate for step in steps if step.blocking}
+    fillers = tuple(_hold(gate) for gate in SPECIFIED_GATE_ORDER if gate not in held)
+    return LaunchPlaybook(version="test-v1", gates=_gates(), steps=(*steps, *fillers))
 
 
 def _approval() -> GateApproval:
@@ -216,9 +255,11 @@ def _launch(
         product_id=product_id, playbook=playbook, launch_date=launch_date
     )
     while launch.current_gate != at_gate:
+        _satisfy_fillers(launch, playbook)
         if launch.current_gate in CONFIRMATION_GATES:
             launch.approve_gate(launch.current_gate, _approval())
         launch.advance_gate(playbook)
+    _satisfy_fillers(launch, playbook)
     return launch
 
 

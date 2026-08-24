@@ -164,12 +164,29 @@ def _step(**overrides: Any) -> StepDefinition:
     return StepDefinition(**attributes)
 
 
+def _hold(gate: str) -> StepDefinition:
+    """A blocking filler holding `gate` — the gate-holding floor
+    (`move-playbook-steps-to-postgres`) forbids coherent playbooks with
+    unheld gates, so `_playbook` fills whichever gates the test's own
+    steps leave unheld. Automated with a decided rule so no other
+    coherence rule fires; the `hold.` namespace tells fillers apart."""
+    return _step(
+        identifier=f"hold.{gate}",
+        gate=gate,
+        blocking=True,
+        execution=ExecutionMode.AUTOMATED,
+        rule_policy="Held until the automated check reports green.",
+    )
+
+
 def _playbook(
     steps: tuple[StepDefinition, ...] = (),
     metric_conditions: dict[str, tuple[MetricCondition, ...]] | None = None,
 ) -> LaunchPlaybook:
+    held = {step.gate for step in steps if step.blocking}
+    fillers = tuple(_hold(gate) for gate in SPECIFIED_GATE_ORDER if gate not in held)
     return LaunchPlaybook(
-        version="test-v1", gates=_gates(metric_conditions), steps=steps
+        version="test-v1", gates=_gates(metric_conditions), steps=(*steps, *fillers)
     )
 
 
@@ -200,9 +217,23 @@ def _approval(**overrides: Any) -> GateApproval:
     return GateApproval(**attributes)
 
 
+def _satisfy_fillers(launch: Launch, playbook: LaunchPlaybook) -> None:
+    """Record `Satisfied` for the current gate's holding fillers, so a
+    test is blocked only by the conditions it authored deliberately."""
+    for step in playbook.steps_for_gate(launch.current_gate):
+        if step.blocking and step.identifier.startswith("hold."):
+            launch.record_step_outcome(
+                playbook,
+                step_id=step.identifier,
+                outcome=Satisfied,
+                provenance=_provenance(source="automated"),
+            )
+
+
 def _advance_to(launch: Launch, playbook: LaunchPlaybook, gate_id: str) -> None:
     """Walk the launch forward to `gate_id`, approving confirmation gates."""
     while launch.current_gate != gate_id:
+        _satisfy_fillers(launch, playbook)
         if launch.current_gate in CONFIRMATION_GATES:
             launch.approve_gate(launch.current_gate, _approval())
         launch.advance_gate(playbook)
@@ -323,6 +354,7 @@ def test_an_advance_moves_to_exactly_the_next_gate() -> None:
     launch, _ = _start(playbook)
 
     for expected_next in SPECIFIED_GATE_ORDER[1:]:
+        _satisfy_fillers(launch, playbook)
         if launch.current_gate in CONFIRMATION_GATES:
             launch.approve_gate(launch.current_gate, _approval())
         launch.advance_gate(playbook)
@@ -353,6 +385,9 @@ def test_a_confirmation_gate_with_satisfied_conditions_but_no_approval_stays_clo
     """
     playbook = _playbook()
     launch, _ = _start(playbook)
+    # The gate-holding floor gives `commit` a filler obligation; satisfying
+    # it restores the premise that only the approval is missing.
+    _satisfy_fillers(launch, playbook)
 
     with pytest.raises(LaunchError):
         launch.advance_gate(playbook)
@@ -371,6 +406,7 @@ def test_a_confirmation_gate_opens_once_approved() -> None:
     """
     playbook = _playbook()
     launch, _ = _start(playbook)
+    _satisfy_fillers(launch, playbook)
     launch.approve_gate("commit", _approval(approver="Helen"))
 
     events = launch.advance_gate(playbook)
@@ -409,6 +445,7 @@ def test_a_rejecting_decision_keeps_the_gate_closed() -> None:
     launch, _ = _start(playbook)
     # SPECIFIED: a rejecting decision is recorded — recording it is not
     # itself an error.
+    _satisfy_fillers(launch, playbook)
     launch.approve_gate("commit", _approval(decision=ApprovalDecision.REJECTING))
 
     with pytest.raises(LaunchError):
@@ -486,6 +523,7 @@ def test_an_attested_metric_condition_counts_as_satisfied() -> None:
     playbook = _playbook(metric_conditions={"listable": (STOCK_CONDITION,)})
     launch, _ = _start(playbook)
     _advance_to(launch, playbook, "listable")
+    _satisfy_fillers(launch, playbook)
 
     launch.record_metric_attestation(playbook, _attestation())
     events = launch.advance_gate(playbook)
@@ -506,6 +544,7 @@ def test_an_unattested_metric_condition_keeps_the_gate_closed() -> None:
     playbook = _playbook(metric_conditions={"listable": (STOCK_CONDITION,)})
     launch, _ = _start(playbook)
     _advance_to(launch, playbook, "listable")
+    _satisfy_fillers(launch, playbook)
 
     with pytest.raises(LaunchError) as caught:
         launch.advance_gate(playbook)

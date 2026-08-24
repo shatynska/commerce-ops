@@ -31,12 +31,16 @@ from commerce_ops.shared.domain.identity import ProductId
 
 @dataclass(frozen=True, slots=True)
 class ClickUpTaskMapping:
-    """One step's ClickUp task, and the closed state last observed for it."""
+    """One step's ClickUp task, the closed state last observed for it, and
+    the name/body the system last composed for it (None where the system
+    never wrote that field, or on rows predating retained compositions)."""
 
     product_id: ProductId
     step_id: str
     task_id: str
     last_observed_closed: bool
+    retained_name: str | None = None
+    retained_body: str | None = None
 
 
 def _row_id(product_id: ProductId) -> uuid.UUID | None:
@@ -143,6 +147,32 @@ class ClickUpMappingRepository:
         row.last_observed_closed = closed
         await self._session.commit()
 
+    async def record_composition(
+        self,
+        product_id: ProductId,
+        step_id: str,
+        *,
+        name: str | None = None,
+        body: str | None = None,
+    ) -> None:
+        """Retain what the system just wrote for a task's field — every
+        system write of a name or body updates that field's retained
+        value; `None` leaves the field's retained value untouched."""
+        row_id = _row_id(product_id)
+        if row_id is None:
+            raise ValueError(f"no launch for product '{product_id.value}'")
+        row = await self._session.get(LaunchClickUpTask, (row_id, step_id))
+        if row is None:
+            raise ValueError(
+                f"step '{step_id}' of product '{product_id.value}' has no "
+                f"mapped ClickUp task to retain a composition for"
+            )
+        if name is not None:
+            row.retained_name = name
+        if body is not None:
+            row.retained_body = body
+        await self._session.commit()
+
 
 def _mapping_from(row: LaunchClickUpTask) -> ClickUpTaskMapping:
     return ClickUpTaskMapping(
@@ -150,4 +180,6 @@ def _mapping_from(row: LaunchClickUpTask) -> ClickUpTaskMapping:
         step_id=row.step_id,
         task_id=row.task_id,
         last_observed_closed=row.last_observed_closed,
+        retained_name=row.retained_name,
+        retained_body=row.retained_body,
     )

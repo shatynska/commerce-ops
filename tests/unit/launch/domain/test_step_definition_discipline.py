@@ -98,8 +98,33 @@ def _step(**overrides: Any) -> StepDefinition:
     return StepDefinition(**attributes)
 
 
+def _hold(gate: str) -> StepDefinition:
+    """A blocking filler holding `gate` — the gate-holding floor
+    (`move-playbook-steps-to-postgres`) forbids coherent playbooks with
+    unheld gates, so `_playbook` fills whichever gates the test's own
+    steps leave unheld. Automated with a decided rule so no other
+    coherence rule fires; `hold.` namespace so assertions can tell fillers
+    from the steps under test."""
+    return _step(
+        identifier=f"hold.{gate}",
+        gate=gate,
+        blocking=True,
+        execution=ExecutionMode.AUTOMATED,
+        rule_policy="Held until the automated check reports green.",
+    )
+
+
+def _hold_ids(steps: tuple[StepDefinition, ...]) -> set[str]:
+    held = {step.gate for step in steps if step.blocking}
+    return {f"hold.{gate}" for gate in SPECIFIED_GATE_ORDER if gate not in held}
+
+
 def _playbook(steps: tuple[StepDefinition, ...] = ()) -> LaunchPlaybook:
-    return LaunchPlaybook(version="test-v1", gates=specified_gates(), steps=steps)
+    held = {step.gate for step in steps if step.blocking}
+    fillers = tuple(_hold(gate) for gate in SPECIFIED_GATE_ORDER if gate not in held)
+    return LaunchPlaybook(
+        version="test-v1", gates=specified_gates(), steps=(*steps, *fillers)
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -139,7 +164,11 @@ def test_each_shared_discipline_is_accepted_on_a_step() -> None:
     `tests/unit/shared/domain/test_discipline.py`).
     """
     for member in Discipline:
-        step = _step(identifier=f"step.{member.value}-example", discipline=member)
+        step = _step(
+            identifier=f"step.{member.value}-example",
+            discipline=member,
+            blocking=True,
+        )
 
         (read_back,) = _playbook(steps=(step,)).steps_for_gate(step.gate)
 
@@ -218,7 +247,7 @@ def test_unauthored_optional_attributes_are_absent() -> None:
         scope=Scope.PRODUCT,
         timing_anchor=OffsetAnchor(days=-90),
         binding=Binding.FRAMEWORK,
-        blocking=False,
+        blocking=True,
         execution=ExecutionMode.HUMAN_ATTESTED,
     )
 
@@ -243,16 +272,23 @@ def test_steps_can_be_selected_by_gate_and_by_scope() -> None:
     `track` fixtures.
     """
     product_listable = _step(
-        identifier="sourcing.unit-economics", gate="listable", scope=Scope.PRODUCT
+        identifier="sourcing.unit-economics",
+        gate="listable",
+        scope=Scope.PRODUCT,
+        blocking=True,
     )
     market_listable = _step(
         identifier="listing.a-plus-content", gate="listable", scope=Scope.MARKET
     )
     market_live = _step(
-        identifier="rank.indexation-confirmed", gate="live", scope=Scope.MARKET
+        identifier="rank.indexation-confirmed",
+        gate="live",
+        scope=Scope.MARKET,
+        blocking=True,
     )
 
-    playbook = _playbook(steps=(product_listable, market_listable, market_live))
+    steps = (product_listable, market_listable, market_live)
+    playbook = _playbook(steps=steps)
 
     # SPECIFIED: exactly the steps declaring that gate — no more, no fewer.
     assert {step.identifier for step in playbook.steps_for_gate("listable")} == {
@@ -262,7 +298,11 @@ def test_steps_can_be_selected_by_gate_and_by_scope() -> None:
     assert {step.identifier for step in playbook.steps_for_gate("live")} == {
         "rank.indexation-confirmed"
     }
-    assert list(playbook.steps_for_gate("graduated")) == []
+    # The gate-holding floor forbids a stepless gate in a coherent
+    # playbook, so an undeclared gate returns exactly its holding filler.
+    assert {step.identifier for step in playbook.steps_for_gate("graduated")} == {
+        "hold.graduated"
+    }
 
     # SPECIFIED: the same holds when querying by scope.
     assert {step.identifier for step in playbook.steps_with_scope(Scope.MARKET)} == {
@@ -270,5 +310,6 @@ def test_steps_can_be_selected_by_gate_and_by_scope() -> None:
         "rank.indexation-confirmed",
     }
     assert {step.identifier for step in playbook.steps_with_scope(Scope.PRODUCT)} == {
-        "sourcing.unit-economics"
+        "sourcing.unit-economics",
+        *_hold_ids(steps),
     }

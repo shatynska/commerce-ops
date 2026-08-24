@@ -81,6 +81,7 @@ from commerce_ops.launch.domain.launch_playbook import (
     Hazard,
     LaunchPlaybook,
     OffsetAnchor,
+    Satisfied,
     Scope,
     StepDefinition,
 )
@@ -88,6 +89,7 @@ from commerce_ops.launch.domain.launch_run import (
     ApprovalDecision,
     GateApproval,
     Launch,
+    Provenance,
 )
 from commerce_ops.launch.infrastructure.driven.clickup_mapping import (
     ClickUpMappingRepository,
@@ -173,12 +175,28 @@ def _step(**overrides: Any) -> StepDefinition:
     return StepDefinition(**attributes)
 
 
+def _hold(gate: str) -> StepDefinition:
+    """A blocking filler holding `gate` — the gate-holding floor
+    (`move-playbook-steps-to-postgres`) forbids coherent playbooks with
+    unheld gates; automated with a decided rule so no other rule fires."""
+    return _step(
+        identifier=f"hold.{gate}",
+        gate=gate,
+        blocking=True,
+        execution=ExecutionMode.AUTOMATED,
+        rule_policy="Held until the automated check reports green.",
+    )
+
+
 def _playbook() -> LaunchPlaybook:
     gates = tuple(
         Gate(identifier=identifier, position=position, opening=_opening_for(identifier))
         for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1)
     )
-    return LaunchPlaybook(version="test-v1", gates=gates, steps=(_step(),))
+    steps = (_step(),)
+    held = {step.gate for step in steps if step.blocking}
+    fillers = tuple(_hold(gate) for gate in SPECIFIED_GATE_ORDER if gate not in held)
+    return LaunchPlaybook(version="test-v1", gates=gates, steps=(*steps, *fillers))
 
 
 def _start(product_id: ProductId, playbook: LaunchPlaybook) -> Launch:
@@ -190,6 +208,19 @@ def _start(product_id: ProductId, playbook: LaunchPlaybook) -> Launch:
 
 def _walk_to_graduated(launch: Launch, playbook: LaunchPlaybook) -> Launch:
     while launch.current_gate != "graduated":
+        for step in playbook.steps_for_gate(launch.current_gate):
+            if step.blocking:
+                launch.record_step_outcome(
+                    playbook,
+                    step_id=step.identifier,
+                    outcome=Satisfied,
+                    provenance=Provenance(
+                        source="automated",
+                        who="hold-filler",
+                        when=APPROVED_AT,
+                        evidence="filler obligations satisfied by the walk",
+                    ),
+                )
         if launch.current_gate in CONFIRMATION_GATES:
             launch.approve_gate(
                 launch.current_gate,

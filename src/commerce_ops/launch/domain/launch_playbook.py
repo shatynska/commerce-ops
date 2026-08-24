@@ -2,9 +2,9 @@
 
 Pure domain code — no I/O, no framework, no YAML. `LaunchPlaybook` enforces
 its own coherence at construction; a driven adapter (see
-`launch.infrastructure.driven.playbook_loader`) is responsible for turning
-a file into the values this module's constructors expect, not for
-re-implementing any of the rules below.
+`launch.infrastructure.driven.playbook_repository`) is responsible for
+turning stored rows into the values this module's constructors expect,
+not for re-implementing any of the rules below.
 
 **Timing-anchor convention.** Every offset is relative to the marketing
 launch date, which is offset zero: the launch day itself is offset 0, the
@@ -322,6 +322,45 @@ GATE_SEQUENCE: tuple[str, ...] = _SPECIFIED_GATE_IDS
 launch-instance side (`launch_run`) validates and advances against the
 same sequence this specification fixes."""
 
+# The metric conditions each gate authors — framework data, code-owned like
+# the sequence and the opening modes. `move-playbook-steps-to-postgres`
+# moved the *steps* into the database and deliberately left the gates here:
+# a manager edits steps, never the framework.
+_AUTHORED_METRIC_CONDITIONS: dict[str, tuple[MetricCondition, ...]] = {
+    "stock-ready": (
+        MetricCondition(
+            MetricId("units-fulfillable"),
+            "60–80 fulfillable units, excluding Vine",
+        ),
+    ),
+    "phase-one-complete": (
+        MetricCondition(MetricId("sales-velocity"), "~10 units/day sustained"),
+        MetricCondition(MetricId("organic-share"), "organic share above 40%"),
+    ),
+    "graduated": (
+        MetricCondition(MetricId("tacos"), "TACOS falling"),
+        MetricCondition(MetricId("review-rating"), "rating stable at 4.5"),
+    ),
+}
+
+
+def framework_gates() -> tuple[Gate, ...]:
+    """The eight gates exactly as this specification fixes them — sequence,
+    opening modes, and authored metric conditions.
+
+    The one construction every served playbook and every write validation
+    uses, so "code-owned framework" is a single definition rather than a
+    convention."""
+    return tuple(
+        Gate(
+            identifier=identifier,
+            position=position,
+            opening=opening,
+            metric_conditions=_AUTHORED_METRIC_CONDITIONS.get(identifier, ()),
+        )
+        for position, (identifier, opening) in enumerate(_SPECIFIED_GATES, start=1)
+    )
+
 
 def _gate_sequence_faults(gates: tuple[Gate, ...]) -> list[str]:
     faults: list[str] = []
@@ -407,6 +446,25 @@ def _step_faults(
     return faults
 
 
+def _gate_holding_faults(
+    gates: tuple[Gate, ...], steps: tuple[StepDefinition, ...]
+) -> list[str]:
+    """The gate-holding floor: every gate needs at least one blocking step.
+
+    Promoted from a shipped-set test to a construction rule by
+    `move-playbook-steps-to-postgres`: with an editable step set the floor
+    must hold after every write, and construction is where every other
+    coherence rule already lives — one rulebook for load and write alike.
+    """
+    held = {step.gate for step in steps if step.blocking}
+    return [
+        f"gate '{gate.identifier}' has no blocking step attached — a gate "
+        f"whose step obligations are an empty set opens for free"
+        for gate in gates
+        if gate.identifier not in held
+    ]
+
+
 def _gate_condition_faults(gates: tuple[Gate, ...]) -> list[str]:
     return [
         f"gate '{gate.identifier}' authors a metric condition "
@@ -435,6 +493,7 @@ class LaunchPlaybook:
             *_gate_sequence_faults(self.gates),
             *_gate_condition_faults(self.gates),
             *_step_faults(self.gates, self.steps),
+            *_gate_holding_faults(self.gates, self.steps),
         ]
         if faults:
             raise InvalidPlaybookError(faults)

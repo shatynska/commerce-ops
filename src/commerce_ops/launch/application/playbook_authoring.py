@@ -1,0 +1,284 @@
+"""Write use cases of the `playbook-authoring` capability.
+
+The step set lives in a store behind the `StepSetStore` port; these four
+operations are the only way it changes. Every write is validated by
+constructing the **entire** `LaunchPlaybook` the write would produce —
+the live definitions after the mutation, over the code-owned
+`framework_gates()` — so the same coherence rulebook guards load and
+write alike, and a rejected write reports every fault at once
+(`InvalidPlaybookError`) while persisting nothing.
+
+Writes are serialized by the store's optimistic set-version: each
+operation loads the set with its version and persists conditionally on
+that version being unchanged. A lost race (`StaleStepSetError`) is
+retried against the fresh set, re-validating — the retry may now be
+rightly rejected (the second of two retirements that together would
+leave a gate unheld).
+
+Identifiers are generated, never chosen: `mg.<discipline>.<seq>`, the
+`mg.` namespace keeping a step's origin legible next to the seeded
+`lp.*` rows, the discipline segment keeping the identifier truthful —
+which is also why `update_step` refuses to change a step's discipline
+(retire the step and create its successor instead).
+"""
+
+from __future__ import annotations
+
+import re
+from collections.abc import Sequence
+from dataclasses import dataclass, replace
+from datetime import UTC, datetime
+from typing import Any, Protocol
+
+from commerce_ops.launch.domain.launch_playbook import (
+    Binding,
+    ExecutionMode,
+    Hazard,
+    LaunchPlaybook,
+    Scope,
+    StepDefinition,
+    TimingAnchor,
+    framework_gates,
+)
+
+AUTHORED_NAMESPACE = "mg"
+"""The generated-identifier namespace, distinct from the seeded `lp.*`."""
+
+_WRITE_ATTEMPTS = 3
+"""How many times a write retries after losing the set-version race."""
+
+
+class StaleStepSetError(RuntimeError):
+    """A conditional persist lost the race: the step set changed between
+    load and save. The write path retries against the fresh set."""
+
+
+@dataclass(slots=True)
+class StepRecord:
+    """One stored step: its definition plus the attribution trail.
+
+    `definition.provenance` carries the seed citation (for `lp.*` rows)
+    or nothing; who created, updated, retired, or un-retired the step is
+    recorded here, on the row, not in the definition.
+    """
+
+    definition: StepDefinition
+    created_by: str | None = None
+    created_on: datetime | None = None
+    updated_by: str | None = None
+    updated_on: datetime | None = None
+    retired_by: str | None = None
+    retired_on: datetime | None = None
+    unretired_by: str | None = None
+    unretired_on: datetime | None = None
+
+    @property
+    def retired(self) -> bool:
+        return self.retired_by is not None and self.unretired_by is None
+
+
+class StepSetStore(Protocol):
+    """The step-set persistence port.
+
+    `load` returns every stored record — retired included — with the
+    current set-version; `save` persists a full replacement set
+    conditionally on that version, raising `StaleStepSetError` when it
+    has moved.
+    """
+
+    async def load(self) -> tuple[Sequence[Any], int]: ...
+
+    async def save(self, records: Sequence[Any], *, expected_version: int) -> None: ...
+
+
+def _as_record(row: Any) -> StepRecord:
+    """A loaded row as a `StepRecord`, whatever concrete type the store
+    yielded — the attribute spellings are the port's contract."""
+    if isinstance(row, StepRecord):
+        return row
+    return StepRecord(
+        definition=row.definition,
+        created_by=row.created_by,
+        created_on=row.created_on,
+        updated_by=row.updated_by,
+        updated_on=row.updated_on,
+        retired_by=row.retired_by,
+        retired_on=row.retired_on,
+        unretired_by=row.unretired_by,
+        unretired_on=row.unretired_on,
+    )
+
+
+def _is_retired(row: Any) -> bool:
+    return row.retired_by is not None and row.unretired_by is None
+
+
+def live_definitions(records: Sequence[Any]) -> tuple[StepDefinition, ...]:
+    """The definitions the served playbook carries: everything not retired."""
+    return tuple(row.definition for row in records if not _is_retired(row))
+
+
+def _validate(records: Sequence[Any], version: int) -> None:
+    """Construct the playbook the write would produce; `InvalidPlaybookError`
+    propagates with every fault, exactly as a load would report them."""
+    LaunchPlaybook(
+        version=f"set-v{version}",
+        gates=framework_gates(),
+        steps=live_definitions(records),
+    )
+
+
+def _generate_identifier(records: Sequence[Any], discipline: Any) -> str:
+    """The next `mg.<discipline>.<seq>` — counted over every stored row,
+    retired ones included, so a generated identifier never collides."""
+    pattern = re.compile(
+        rf"{AUTHORED_NAMESPACE}\.{re.escape(discipline.value)}\.(\d+)$"
+    )
+    highest = 0
+    for row in records:
+        matched = pattern.fullmatch(row.definition.identifier)
+        if matched:
+            highest = max(highest, int(matched.group(1)))
+    return f"{AUTHORED_NAMESPACE}.{discipline.value}.{highest + 1:03d}"
+
+
+def _find(records: Sequence[Any], step_id: str) -> int:
+    for index, row in enumerate(records):
+        if row.definition.identifier == step_id:
+            return index
+    raise ValueError(f"no stored step carries identifier '{step_id}'")
+
+
+async def create_step(
+    *,
+    steps: StepSetStore,
+    principal: str,
+    description: str,
+    gate: str,
+    discipline: Any,
+    scope: Scope,
+    timing_anchor: TimingAnchor,
+    binding: Binding,
+    blocking: bool,
+    execution: ExecutionMode,
+    hazard: Hazard = Hazard.NONE,
+    rule_policy: str | None = None,
+) -> StepRecord:
+    """Create a step with a generated `mg.*` identifier, attributed to
+    `principal`. Validated as the whole playbook it would produce."""
+    for _ in range(_WRITE_ATTEMPTS):
+        records, version = await steps.load()
+        definition = StepDefinition(
+            identifier=_generate_identifier(records, discipline),
+            description=description,
+            gate=gate,
+            discipline=discipline,
+            scope=scope,
+            timing_anchor=timing_anchor,
+            binding=binding,
+            blocking=blocking,
+            execution=execution,
+            hazard=hazard,
+            rule_policy=rule_policy,
+        )
+        record = StepRecord(
+            definition=definition,
+            created_by=principal,
+            created_on=datetime.now(UTC),
+        )
+        candidate = (*records, record)
+        _validate(candidate, version + 1)
+        try:
+            await steps.save(candidate, expected_version=version)
+        except StaleStepSetError:
+            continue
+        return record
+    raise StaleStepSetError(
+        f"create_step lost the set-version race {_WRITE_ATTEMPTS} times"
+    )
+
+
+async def update_step(
+    *,
+    steps: StepSetStore,
+    principal: str,
+    step_id: str,
+    **fields: Any,
+) -> StepRecord:
+    """Update a step's authorable fields — never its identifier and never
+    its discipline (the identifier's second segment must keep telling the
+    truth; retire and create a successor to move a step's discipline)."""
+    if "identifier" in fields:
+        raise ValueError("a step's identifier is not updatable")
+    if "discipline" in fields:
+        raise ValueError(
+            f"a step's discipline is not updatable: '{step_id}' keeps its "
+            f"discipline because the identifier's second segment carries it; "
+            f"retire the step and create its successor instead"
+        )
+    for _ in range(_WRITE_ATTEMPTS):
+        records, version = await steps.load()
+        index = _find(records, step_id)
+        record = _as_record(records[index])
+        record.definition = replace(record.definition, **fields)
+        record.updated_by = principal
+        record.updated_on = datetime.now(UTC)
+        candidate = (*records[:index], record, *records[index + 1 :])
+        _validate(candidate, version + 1)
+        try:
+            await steps.save(candidate, expected_version=version)
+        except StaleStepSetError:
+            continue
+        return record
+    raise StaleStepSetError(
+        f"update_step lost the set-version race {_WRITE_ATTEMPTS} times"
+    )
+
+
+async def retire_step(
+    *, steps: StepSetStore, principal: str, step_id: str
+) -> StepRecord:
+    """Retire a step: excluded from the served set, never deleted. Rejected
+    whole when the remaining set is incoherent — retiring a gate's last
+    blocking step included."""
+    for _ in range(_WRITE_ATTEMPTS):
+        records, version = await steps.load()
+        index = _find(records, step_id)
+        record = _as_record(records[index])
+        record.retired_by = principal
+        record.retired_on = datetime.now(UTC)
+        record.unretired_by = None
+        record.unretired_on = None
+        candidate = (*records[:index], record, *records[index + 1 :])
+        _validate(candidate, version + 1)
+        try:
+            await steps.save(candidate, expected_version=version)
+        except StaleStepSetError:
+            continue
+        return record
+    raise StaleStepSetError(
+        f"retire_step lost the set-version race {_WRITE_ATTEMPTS} times"
+    )
+
+
+async def unretire_step(
+    *, steps: StepSetStore, principal: str, step_id: str
+) -> StepRecord:
+    """Restore a retired step to the served set under its original
+    identifier, attributing the reversal like the retirement was."""
+    for _ in range(_WRITE_ATTEMPTS):
+        records, version = await steps.load()
+        index = _find(records, step_id)
+        record = _as_record(records[index])
+        record.unretired_by = principal
+        record.unretired_on = datetime.now(UTC)
+        candidate = (*records[:index], record, *records[index + 1 :])
+        _validate(candidate, version + 1)
+        try:
+            await steps.save(candidate, expected_version=version)
+        except StaleStepSetError:
+            continue
+        return record
+    raise StaleStepSetError(
+        f"unretire_step lost the set-version race {_WRITE_ATTEMPTS} times"
+    )

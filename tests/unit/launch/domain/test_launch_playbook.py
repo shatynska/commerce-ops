@@ -139,16 +139,43 @@ def _step(**overrides: Any) -> StepDefinition:
     return StepDefinition(**attributes)
 
 
+def _hold(gate: str) -> StepDefinition:
+    """A blocking filler holding `gate`, satisfying the gate-holding floor.
+
+    `move-playbook-steps-to-postgres` promoted the floor (every gate holds
+    at least one blocking step) to a construction rule, so a fixture can no
+    longer build a coherent playbook with unheld gates. Fillers are
+    automated (with a decided rule, so no other rule fires) and carry the
+    `hold.` namespace so an assertion can tell them from the test's own
+    steps.
+    """
+    return _step(
+        identifier=f"hold.{gate}",
+        gate=gate,
+        blocking=True,
+        execution=ExecutionMode.AUTOMATED,
+        rule_policy="Held until the automated check reports green.",
+    )
+
+
+def _hold_ids(steps: tuple[StepDefinition, ...]) -> set[str]:
+    """The filler identifiers `_playbook` adds for this step set."""
+    held = {step.gate for step in steps if step.blocking}
+    return {f"hold.{gate}" for gate in SPECIFIED_GATE_ORDER if gate not in held}
+
+
 def _playbook(
     *,
     version: str = "test-v1",
     gates: tuple[Gate, ...] | None = None,
     steps: tuple[StepDefinition, ...] = (),
 ) -> LaunchPlaybook:
+    held = {step.gate for step in steps if step.blocking}
+    fillers = tuple(_hold(gate) for gate in SPECIFIED_GATE_ORDER if gate not in held)
     return LaunchPlaybook(
         version=version,
         gates=specified_gates() if gates is None else gates,
-        steps=steps,
+        steps=(*steps, *fillers),
     )
 
 
@@ -208,8 +235,8 @@ def test_steps_at_the_same_gate_carry_no_ordering() -> None:
     WHEN two step definitions declare the same gate
     THEN the playbook expresses no ordering between them.
     """
-    first = _step(identifier="listing.first", gate="listable")
-    second = _step(identifier="listing.second", gate="listable")
+    first = _step(identifier="listing.first", gate="listable", blocking=True)
+    second = _step(identifier="listing.second", gate="listable", blocking=True)
 
     forward = _playbook(steps=(first, second))
     reversed_ = _playbook(steps=(second, first))
@@ -266,7 +293,7 @@ def test_unauthored_optional_attributes_are_absent() -> None:
         scope=Scope.PRODUCT,
         timing_anchor=OffsetAnchor(days=-90),
         binding=Binding.FRAMEWORK,
-        blocking=False,
+        blocking=True,
         execution=ExecutionMode.HUMAN_ATTESTED,
     )
 
@@ -289,16 +316,23 @@ def test_steps_can_be_selected_by_gate_and_by_scope() -> None:
     AND the same holds when querying by scope.
     """
     product_listable = _step(
-        identifier="sourcing.unit-economics", gate="listable", scope=Scope.PRODUCT
+        identifier="sourcing.unit-economics",
+        gate="listable",
+        scope=Scope.PRODUCT,
+        blocking=True,
     )
     market_listable = _step(
         identifier="listing.a-plus-content", gate="listable", scope=Scope.MARKET
     )
     market_live = _step(
-        identifier="rank.indexation-confirmed", gate="live", scope=Scope.MARKET
+        identifier="rank.indexation-confirmed",
+        gate="live",
+        scope=Scope.MARKET,
+        blocking=True,
     )
 
-    playbook = _playbook(steps=(product_listable, market_listable, market_live))
+    steps = (product_listable, market_listable, market_live)
+    playbook = _playbook(steps=steps)
 
     # SPECIFIED: exactly the steps declaring that gate — no more, no fewer.
     assert {step.identifier for step in playbook.steps_for_gate("listable")} == {
@@ -308,7 +342,12 @@ def test_steps_can_be_selected_by_gate_and_by_scope() -> None:
     assert {step.identifier for step in playbook.steps_for_gate("live")} == {
         "rank.indexation-confirmed"
     }
-    assert list(playbook.steps_for_gate("graduated")) == []
+    # The gate-holding floor forbids a coherent playbook from leaving any
+    # gate stepless, so "a gate the test declared nothing at" now returns
+    # exactly its holding filler — still no more, no fewer.
+    assert {step.identifier for step in playbook.steps_for_gate("graduated")} == {
+        "hold.graduated"
+    }
 
     # SPECIFIED: the same holds when querying by scope.
     assert {step.identifier for step in playbook.steps_with_scope(Scope.MARKET)} == {
@@ -316,7 +355,8 @@ def test_steps_can_be_selected_by_gate_and_by_scope() -> None:
         "rank.indexation-confirmed",
     }
     assert {step.identifier for step in playbook.steps_with_scope(Scope.PRODUCT)} == {
-        "sourcing.unit-economics"
+        "sourcing.unit-economics",
+        *_hold_ids(steps),
     }
 
 
@@ -384,11 +424,16 @@ def test_two_steps_may_cite_the_same_provenance_reference() -> None:
     first = _step(identifier="inventory.cover-floor", provenance="lp.inventory.040")
     second = _step(identifier="inventory.cover-ceiling", provenance="lp.inventory.040")
 
-    playbook = _playbook(steps=(first, second))
+    steps = (first, second)
+    playbook = _playbook(steps=steps)
 
     # SPECIFIED: a shared provenance reference is not a uniqueness fault.
     by_identifier = {step.identifier: step for step in playbook.steps}
-    assert set(by_identifier) == {"inventory.cover-floor", "inventory.cover-ceiling"}
+    assert set(by_identifier) == {
+        "inventory.cover-floor",
+        "inventory.cover-ceiling",
+        *_hold_ids(steps),
+    }
     assert by_identifier["inventory.cover-floor"].provenance == "lp.inventory.040"
     assert by_identifier["inventory.cover-ceiling"].provenance == "lp.inventory.040"
 
@@ -633,6 +678,7 @@ def test_automated_step_with_a_rule_policy_is_accepted() -> None:
         identifier="price.buy-box-check",
         execution=ExecutionMode.AUTOMATED,
         rule_policy="Buy Box share is at or above 90% over a rolling week.",
+        blocking=True,
     )
 
     (read_back,) = _playbook(steps=(step,)).steps_for_gate("listable")
@@ -674,7 +720,13 @@ def test_prohibited_tactic_that_does_not_block_is_accepted() -> None:
         blocking=False,
     )
 
-    (read_back,) = _playbook(steps=(step,)).steps_for_gate("listable")
+    # A prohibited tactic can never block, so `listable` also carries its
+    # holding filler; the read-back targets the step under test.
+    read_back = next(
+        candidate
+        for candidate in _playbook(steps=(step,)).steps_for_gate("listable")
+        if candidate.identifier == "reviews.purchase-ring"
+    )
 
     assert read_back.hazard is Hazard.PROHIBITED_TACTIC
     assert read_back.blocking is False
@@ -713,8 +765,18 @@ def test_a_coherent_playbook_loads() -> None:
     THEN it loads successfully and exposes its gates and step definitions.
     """
     steps = (
-        _step(identifier="sourcing.unit-economics", gate="commit", scope=Scope.PRODUCT),
-        _step(identifier="listing.a-plus-content", gate="listable", scope=Scope.MARKET),
+        _step(
+            identifier="sourcing.unit-economics",
+            gate="commit",
+            scope=Scope.PRODUCT,
+            blocking=True,
+        ),
+        _step(
+            identifier="listing.a-plus-content",
+            gate="listable",
+            scope=Scope.MARKET,
+            blocking=True,
+        ),
     )
 
     playbook = _playbook(version="v1", steps=steps)
@@ -724,6 +786,7 @@ def test_a_coherent_playbook_loads() -> None:
     assert {step.identifier for step in playbook.steps} == {
         "sourcing.unit-economics",
         "listing.a-plus-content",
+        *_hold_ids(steps),
     }
 
 
@@ -747,6 +810,7 @@ def test_human_attested_step_with_no_rule_policy_loads() -> None:
         identifier="strategy.phase-one-criteria",
         execution=ExecutionMode.HUMAN_ATTESTED,
         rule_policy=None,
+        blocking=True,
     )
 
     (read_back,) = _playbook(steps=(step,)).steps_for_gate("listable")
