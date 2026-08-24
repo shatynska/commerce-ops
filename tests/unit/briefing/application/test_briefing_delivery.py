@@ -85,6 +85,7 @@ from commerce_ops.launch.domain.launch_run import (
     GateApproval,
     Launch,
 )
+from commerce_ops.shared.domain.access_scope import AccessScope
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId, Sku
 from commerce_ops.shared.domain.lifecycle_stage import Launching
@@ -286,7 +287,10 @@ def _active(name: str, sku: str) -> _CatalogProduct:
 async def _reports_for(playbook: LaunchPlaybook, *launches: Launch) -> tuple[Any, ...]:
     return tuple(
         await read_launches(
-            _FakeLaunchStore(*launches), _FakePlaybooks(playbook), as_of=AS_OF
+            _FakeLaunchStore(*launches),
+            _FakePlaybooks(playbook),
+            as_of=AS_OF,
+            scope=AccessScope.unrestricted(),
         )
     )
 

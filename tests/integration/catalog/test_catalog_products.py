@@ -92,6 +92,7 @@ from commerce_ops.catalog.domain.product import StageTransitionError
 from commerce_ops.catalog.infrastructure.driven.product_repository import (
     CatalogProductRepository,
 )
+from commerce_ops.shared.domain.access_scope import AccessScope
 from commerce_ops.shared.domain.identity import Asin, MarketplaceId, ProductId, Sku
 from commerce_ops.shared.domain.lifecycle_stage import (
     Development,
@@ -185,7 +186,9 @@ async def test_a_product_is_registered_with_required_fields_only(
     )
 
     async with new_store() as other:
-        reread = await get_product_by_id(other, registered.id)
+        reread = await get_product_by_id(
+            other, registered.id, scope=AccessScope.unrestricted()
+        )
 
     assert reread is not None
     # SPECIFIED: persisted with those values.
@@ -222,7 +225,7 @@ async def test_registering_a_duplicate_sku_is_rejected_without_persisting(
 
     # SPECIFIED: no new record — the SKU still resolves to the original.
     async with new_store() as other:
-        reread = await get_product_by_sku(other, sku)
+        reread = await get_product_by_sku(other, sku, scope=AccessScope.unrestricted())
     assert reread is not None
     assert reread.id == original.id
     assert reread.name == "Widget"
@@ -245,7 +248,9 @@ async def test_an_asin_recorded_later_is_reported_on_read_back(
     await record_asin(store, registered.id, Asin("B0EXAMPLE1"))
 
     async with new_store() as other:
-        reread = await get_product_by_id(other, registered.id)
+        reread = await get_product_by_id(
+            other, registered.id, scope=AccessScope.unrestricted()
+        )
     assert reread is not None
     # SPECIFIED: reading the product back reports that ASIN.
     assert reread.asin == Asin("B0EXAMPLE1")
@@ -276,7 +281,9 @@ async def test_a_product_is_retrieved_by_identifier_with_every_field(
     )
 
     async with new_store() as other:
-        reread = await get_product_by_id(other, registered.id)
+        reread = await get_product_by_id(
+            other, registered.id, scope=AccessScope.unrestricted()
+        )
 
     assert reread is not None
     # SPECIFIED: identity, name, current stage, and stage-entry time.
@@ -303,7 +310,9 @@ async def test_a_product_is_retrieved_by_sku(
     )
 
     async with new_store() as other:
-        reread = await get_product_by_sku(other, registered.sku)
+        reread = await get_product_by_sku(
+            other, registered.sku, scope=AccessScope.unrestricted()
+        )
 
     # SPECIFIED: the same product.
     assert reread is not None
@@ -325,9 +334,13 @@ async def test_an_unknown_product_reports_absence(
     if lookup == "by-unknown-identifier":
         # ProductId is opaque (generated, never parsed), so any non-empty
         # value that no registration produced is a valid unknown key.
-        result = await get_product_by_id(store, ProductId(str(uuid.uuid4())))
+        result = await get_product_by_id(
+            store, ProductId(str(uuid.uuid4())), scope=AccessScope.unrestricted()
+        )
     else:
-        result = await get_product_by_sku(store, unique_sku())
+        result = await get_product_by_sku(
+            store, unique_sku(), scope=AccessScope.unrestricted()
+        )
 
     # SPECIFIED: absence is reported (`None`), not an error raised.
     assert result is None
@@ -360,7 +373,7 @@ async def test_products_are_listed_with_identifier_sku_name_and_stage(
     )
 
     async with new_store() as other:
-        listed = await list_products(other)
+        listed = await list_products(other, scope=AccessScope.unrestricted())
 
     by_id = {entry.id: entry for entry in listed}
     for registered in (first, second):
@@ -395,7 +408,9 @@ async def test_a_confirmed_stage_change_is_persisted(
     await change_stage(store, registered.id, Launching(phase=1), confirmed_by=CONFIRMER)
 
     async with new_store() as other:
-        reread = await get_product_by_id(other, registered.id)
+        reread = await get_product_by_id(
+            other, registered.id, scope=AccessScope.unrestricted()
+        )
     assert reread is not None
     # SPECIFIED: the stage is Launching phase 1, with the change's
     # confirmer recorded.
@@ -429,7 +444,9 @@ async def test_a_rejected_stage_change_leaves_the_stored_stage_unchanged(
         )
 
     async with new_store() as other:
-        reread = await get_product_by_id(other, registered.id)
+        reread = await get_product_by_id(
+            other, registered.id, scope=AccessScope.unrestricted()
+        )
     assert reread is not None
     # SPECIFIED: the stored stage is unchanged.
     assert reread.stage == Development()

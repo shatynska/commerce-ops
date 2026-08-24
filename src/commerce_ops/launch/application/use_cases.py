@@ -46,6 +46,7 @@ from commerce_ops.launch.domain.launch_run import (
     StepOutcomeValue,
     StepProgress,
 )
+from commerce_ops.shared.domain.access_scope import AccessScope
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
 from commerce_ops.shared.domain.lifecycle_stage import SteadyState
@@ -225,9 +226,17 @@ async def read_launch(
     *,
     product_id: ProductId,
     as_of: date,
+    scope: AccessScope,
 ) -> LaunchReport | None:
     """The launch with every step's due period and the at-risk evaluation
-    as of `as_of`; absence is reported as None, not an error."""
+    as of `as_of`; absence is reported as None, not an error.
+
+    A launch the caller's scope does not permit reports the same absence as
+    a product with no launch record — telling them apart would confirm the
+    existence of a launch the caller may not see.
+    """
+    if not scope.permits(product_id):
+        return None
     launch = await launches.get_by_product_id(product_id)
     if launch is None:
         return None
@@ -239,19 +248,26 @@ async def read_launches(
     playbooks: Playbooks,
     *,
     as_of: date,
+    scope: AccessScope,
 ) -> tuple[LaunchReport, ...]:
-    """Every persisted launch position, reported as of `as_of`.
+    """Every persisted launch position the caller's scope permits, reported
+    as of `as_of`.
 
-    Filtered by nothing: this context does not own a product's stage, and
-    its persisted shape does not distinguish a graduated launch from one
-    standing at the final gate. A caller wanting only live launches asks
-    the catalog for the stage stamp (`launch-instance`, "Launch positions
-    are enumerable with their reports"). An empty store is an empty
-    result, not an error.
+    Never filtered by lifecycle: this context does not own a product's
+    stage, and its persisted shape does not distinguish a graduated launch
+    from one standing at the final gate. A caller wanting only live
+    launches asks the catalog for the stage stamp (`launch-instance`,
+    "Launch positions are enumerable with their reports").
+
+    Scope filtering is a different question from that one, and does not
+    reopen it: it decides whose launches the caller may see at all, never
+    which stage of launch is worth reporting. An empty store — and a scope
+    permitting nothing — is an empty result, not an error.
     """
     return tuple(
         _report_for(launch, playbooks.get(launch.playbook_version), as_of)
         for launch in await launches.list_all()
+        if scope.permits(launch.product_id)
     )
 
 

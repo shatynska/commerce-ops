@@ -5,6 +5,10 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from commerce_ops.access.application import PrincipalsDirectory
+from commerce_ops.access.infrastructure.driven.principals_loader import (
+    load_shipped_principals,
+)
 from commerce_ops.launch.infrastructure.driving import (
     clickup_webhook as launch_clickup_webhook,
 )
@@ -35,6 +39,20 @@ async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
 # registry. This process never runs the work; it reports on it, and it can
 # only report on what it knows about (tasks.md 1.3).
 register_all()
+
+# Eagerly, before this process serves anything: `access-scope` requires a
+# malformed principals directory to stop the process from starting to serve
+# rather than surface on an individual asker's resolution, and this is the
+# process that will serve scope resolution.
+#
+# Not in `preflight.py`, though that is where a deploy-time check would
+# otherwise belong: `runtime-configuration` requires the configuration check
+# to read only the process environment and its outcome to depend only on the
+# declared variables, which a repo-owned file's faults would break. The file
+# needs no configuration to read, so loading it here leaves
+# `runtime-configuration`'s "importing and starting require no configuration"
+# guarantee intact.
+principals: PrincipalsDirectory = load_shipped_principals()
 
 app = FastAPI(lifespan=_lifespan)
 app.include_router(health.router)

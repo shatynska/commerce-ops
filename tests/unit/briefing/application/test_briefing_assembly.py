@@ -94,6 +94,7 @@ from commerce_ops.launch.domain.launch_run import (
     GateApproval,
     Launch,
 )
+from commerce_ops.shared.domain.access_scope import AccessScope
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId, Sku
 from commerce_ops.shared.domain.lifecycle_stage import (
@@ -308,7 +309,10 @@ async def _reports_for(
 ) -> tuple[Any, ...]:
     return tuple(
         await read_launches(
-            _FakeLaunchStore(*launches), _FakePlaybooks(playbook), as_of=as_of
+            _FakeLaunchStore(*launches),
+            _FakePlaybooks(playbook),
+            as_of=as_of,
+            scope=AccessScope.unrestricted(),
         )
     )
 

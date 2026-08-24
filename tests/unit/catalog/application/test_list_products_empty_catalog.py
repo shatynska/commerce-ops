@@ -50,6 +50,7 @@ import pytest
 
 from commerce_ops.catalog.application import list_products
 from commerce_ops.catalog.domain.product import Product
+from commerce_ops.shared.domain.access_scope import AccessScope
 
 pytestmark = pytest.mark.anyio
 
@@ -75,7 +76,7 @@ async def test_an_empty_catalog_lists_nothing() -> None:
     WHEN the product list is requested and no products exist
     THEN an empty result is returned.
     """
-    result = await list_products(_EmptyStore())
+    result = await list_products(_EmptyStore(), scope=AccessScope.unrestricted())
 
     # SPECIFIED: an empty result — not None, not an error. Asserted via
     # emptiness rather than `== []` so a tuple or other empty sequence
