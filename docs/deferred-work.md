@@ -92,13 +92,29 @@ The job runner's history grows without limit. At one daily job that is years fro
 
 **Recorded in**: `replace-cron-with-job-runner`'s `design.md` (Non-Goals).
 
-### The parked `add-product-creation-clickup-task` change
+### Repositories commit their own writes, so a caller cannot own a transaction
 
-A fully reviewed change proposal on the local branch of the same name (commit `0b9b85c`), never implemented. It adds a Slack modal on the `product_agent` app for creating a product, plus a best-effort ClickUp task — and it is the only thing that would give `clickup_client` a caller, which it currently lacks entirely.
+`CatalogProductRepository.add` and `LaunchRepository.save` each end with `await self._session.commit()`, and `add` performs its own `rollback()` before raising `DuplicateSkuError`. Two writes through two repositories are therefore **two transactions**, however carefully a caller shares one session between them.
 
-**It is stale in two ways.** Its tasks were written before the Bolt migration and describe a hand-rolled `SignatureVerifier` and manual form-body parsing, both of which Bolt supersedes — and `shared/infrastructure/driving/slack_app.py` now exists as the registry it should register with. It also predates `centralize-database-session`, so its instruction to obtain a session from `monitoring.py` needs repointing at the shared provider.
+That collides with `launch-entry`'s "Registration and start are atomic", whose scenario is precisely: registration succeeds, the launch start is rejected, and *neither* may survive. `start-launch-from-slack`'s `design.md` Decision 3 specifies the mechanism as "both writes run in a single `session()` scope" — which does not hold against repositories that commit inside that scope.
 
-Needs an `openspec-update-change` pass before implementation. Parked deliberately: its domain logic warrants review first.
+**What was built instead**, to ship the capability: `shared/infrastructure/driven/database.py`'s `transaction()` binds a session to an explicit connection with SQLAlchemy's `join_transaction_mode="create_savepoint"`, so each inner `commit()` releases a SAVEPOINT and each inner `rollback()` unwinds only to one. The outer transaction, begun and ended by that provider, is the only thing that decides whether anything persists. It is a **workaround at one call site** for a property the repositories should have.
+
+**The right fix** is to make those repositories commit-neutral — the write, the flush, and the domain-rejection translation stay; the `commit()` moves out to whoever owns the unit of work. Deferred rather than done here because it is not this change's scope: `CatalogProductRepository` and `LaunchRepository` are also called by the ClickUp webhook, the completion-loop sync job and the daily digest, each of which would need its transaction boundary decided. That is its own reviewable change.
+
+Until then, any *new* caller needing two writes to land together must use `transaction()`, not `session()` — and every other caller still relies on its repository to commit.
+
+**Verified against Postgres** (2026-08-24): `tests/integration/launch/test_slack_entry_start.py` passes, including the scenario that forces the launch start to fail after a real catalog write and asserts nothing survives and the SKU stays free for resubmission.
+
+**Recorded in**: `start-launch-from-slack`'s `design.md` (Decision 3); the workaround is documented on `transaction()` itself.
+
+### The parked `add-product-creation-clickup-task` change — superseded
+
+**Closed out by `start-launch-from-slack`**, which covers this ground on current foundations: a slash command and modal on the `product_agent` app that registers the product and starts its launch. The ClickUp half of the parked proposal is obsolete rather than deferred — the completion loop (`launch-clickup-sync`) now projects a launch's whole list and per-step tasks automatically, so a single hand-created task would be duplicated or fought by the next convergence pass. It remains true that `clickup_client` gains no new caller from this direction.
+
+Retained here only as a pointer: the proposal still sits on the local branch of the same name (commit `0b9b85c`), to be deleted once `start-launch-from-slack` merges.
+
+**Recorded in**: `start-launch-from-slack`'s `proposal.md` (Why).
 
 ### Small cleanups, not worth a change each
 

@@ -63,10 +63,12 @@ REQUIRED_NOT_STARTUP_CRITICAL = (
     "OMNI_AGENT_SLACK_BOT_TOKEN",
     "PRODUCT_AGENT_SLACK_BOT_TOKEN",
     "PRODUCT_AGENT_MONITORING_CHANNEL_ID",
+    # Moved here from OPTIONAL_ENV_VARS by start-launch-from-slack
+    # (tasks 1.1), the launch-entry surface being its first consumer.
+    "PRODUCT_AGENT_SLACK_SIGNING_SECRET",
 )
 
 OPTIONAL_ENV_VARS = (
-    "PRODUCT_AGENT_SLACK_SIGNING_SECRET",
     "CLICKUP_API_TOKEN",
     # Added by configure-application-logging (tasks 2.5) -- this
     # transcribed set now spans more than one change.

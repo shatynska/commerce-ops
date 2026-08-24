@@ -93,6 +93,7 @@ The one place that answers "which products exist and what stage is each in". Eve
   - Stage changes are **human-confirmed** (quarterly review; graduation event) — the system never self-stamps a posture.
 - Domain events: `StageChanged`.
 - Deliberately *not* a rich context: no launch knowledge, no metric knowledge. Listing *content* (copy, images, A+) is a future sibling context, not part of `catalog` — see open questions on naming.
+- **Still no driving surface of its own** (2026-08-24, `start-launch-from-slack`): registration remains reachable only through the `register_product` use case. Product *entry* — the Slack slash command and modal bringing a new product into the system — lives in **`launch`**, because the act the user performs is starting a launch and registration is the half of it the catalog owns. That adapter may not construct catalog's store (`.importlinter`), so the composition root injects a registrar running `register_product` over a store built on the adapter's own session.
 
 ### `launch` — the launch execution engine (core)
 

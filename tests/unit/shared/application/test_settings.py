@@ -59,12 +59,16 @@ REQUIRED_NOT_STARTUP_CRITICAL = frozenset(
         "OMNI_AGENT_SLACK_BOT_TOKEN",
         "PRODUCT_AGENT_SLACK_BOT_TOKEN",
         "PRODUCT_AGENT_MONITORING_CHANNEL_ID",
+        # Moved here from OPTIONAL by start-launch-from-slack (tasks 1.1):
+        # the launch-entry surface is its first consumer, so a deployment
+        # without it is misconfigured rather than merely feature-less. Not
+        # startup-critical, like the other Slack credentials.
+        "PRODUCT_AGENT_SLACK_SIGNING_SECRET",
     }
 )
 
 OPTIONAL = frozenset(
     {
-        "PRODUCT_AGENT_SLACK_SIGNING_SECRET",
         "CLICKUP_API_TOKEN",
         # Added by configure-application-logging (tasks 2.4) -- this
         # transcribed set now spans more than one change.
