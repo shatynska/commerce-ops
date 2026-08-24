@@ -10,6 +10,14 @@
 #                                # omitting the key entirely is a fault. A SKU no
 #                                # product has confers nothing, and does not fail
 #                                # the load — it is a stale line, not a broken file.
+#     admin: true                # OPTIONAL (add-playbook-admin-ui): the entry may
+#                                # hold the admin surface's write authority.
+#                                # Orthogonal to the visibility grant — no grant of
+#                                # any shape confers it, and an admin who sees
+#                                # nothing is still an admin. Must be a bare YAML
+#                                # boolean; a quoted "true", a "yes", or a number
+#                                # fails the load naming the entry. Absent means
+#                                # not admin-capable.
 #
 # An entry declares exactly one of `all_products` and `skus`. Declaring both,
 # or neither, fails the load — and the directory is validated at startup, so a
@@ -26,4 +34,7 @@
 #     skus:
 #       - WIDGET-001
 
-principals: []
+principals:
+  - identity: U078TC45LHM
+    all_products: true
+    admin: true
