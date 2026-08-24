@@ -1,6 +1,6 @@
 ## 1. Pre-authoring checks
 
-- [ ] 1.1 Confirm no real launch has pinned `v1` — the deployment's `launch_positions` table (the version is pinned by its `playbook_version` column) is empty or holds only disposable test rows. Delete any disposable test rows before deploy, so the first convergence pass does not project ~92 tasks onto a stale test launch; the five child tables cascade on delete, but a ClickUp list a test launch already created does not and is archived by hand. If a real launch exists, switch this change to shipping the content as `v2` per design.md Decision 1 and adjust the tasks below accordingly.
+- [x] 1.1 Confirm no real launch has pinned `v1` — the deployment's `launch_positions` table (the version is pinned by its `playbook_version` column) is empty or holds only disposable test rows. Delete any disposable test rows before deploy, so the first convergence pass does not project ~92 tasks onto a stale test launch; the five child tables cascade on delete, but a ClickUp list a test launch already created does not and is archived by hand. If a real launch exists, switch this change to shipping the content as `v2` per design.md Decision 1 and adjust the tasks below accordingly.
 
 ## 2. Author the step definitions
 
