@@ -22,7 +22,7 @@ The versioning cut-off recorded in `docs/domain-map.md` (2026-08-23, `complete-p
 
 ### 1. `v1` is edited in place, not versioned to `v2`
 
-The recorded cut-off allows it while no launch has pinned `v1`. Before merge, confirm the deployment's `launches` table is empty (or contains only disposable test rows); if a real launch exists by then, this change ships the same content as `v2` instead and the launch keeps resolving `v1`. Editing in place was chosen over always-`v2` because `ShippedPlaybooks` resolves exactly one version — shipping `v2` while nothing pins `v1` would leave dead content.
+The recorded cut-off allows it while no launch has pinned `v1`. Before merge, confirm the deployment's `launch_positions` table is empty (or contains only disposable test rows — the pinned version is its `playbook_version` column); if a real launch exists by then, this change ships the same content as `v2` instead and the launch keeps resolving `v1`. Editing in place was chosen over always-`v2` because `ShippedPlaybooks` resolves exactly one version — shipping `v2` while nothing pins `v1` would leave dead content.
 
 ### 2. Column mapping from the reference document
 
