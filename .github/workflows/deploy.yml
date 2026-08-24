@@ -118,6 +118,7 @@ jobs:
             echo "OMNI_AGENT_SLACK_BOT_TOKEN=${{ secrets.OMNI_AGENT_SLACK_BOT_TOKEN }}"
             echo "POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}"
             echo "PRODUCT_AGENT_SLACK_BOT_TOKEN=${{ secrets.PRODUCT_AGENT_SLACK_BOT_TOKEN }}"
+            echo "PRODUCT_AGENT_SLACK_SIGNING_SECRET=${{ secrets.PRODUCT_AGENT_SLACK_SIGNING_SECRET }}"
             echo "PRODUCT_AGENT_MONITORING_CHANNEL_ID=${{ secrets.PRODUCT_AGENT_MONITORING_CHANNEL_ID }}"
             # A repository/Environment variable, not a secret: the
             # threshold is not sensitive, and masking it in logs would

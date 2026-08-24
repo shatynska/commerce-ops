@@ -4,16 +4,25 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from commerce_ops.access.application import PrincipalsDirectory
 from commerce_ops.access.infrastructure.driven.principals_loader import (
     load_shipped_principals,
 )
+from commerce_ops.catalog.application import register_product
+from commerce_ops.catalog.infrastructure.driven.product_repository import (
+    CatalogProductRepository,
+)
 from commerce_ops.launch.infrastructure.driving import (
     clickup_webhook as launch_clickup_webhook,
 )
+from commerce_ops.launch.infrastructure.driving import (
+    slack_entry as launch_slack_entry,
+)
 from commerce_ops.omni_agent.infrastructure.driving import slack as omni_agent_slack
 from commerce_ops.registrations import register_all
+from commerce_ops.shared.domain.identity import Asin, MarketplaceId, ProductId, Sku
 from commerce_ops.shared.infrastructure.driven.database import dispose_engine
 from commerce_ops.shared.infrastructure.driving import health, scheduled_runs
 from commerce_ops.shared.infrastructure.logging import configure_logging
@@ -61,3 +70,40 @@ app.include_router(omni_agent_slack.router)
 # Mounted without a prefix, as the Slack adapter is: the router declares
 # its own full path.
 app.include_router(launch_clickup_webhook.router)
+app.include_router(launch_slack_entry.router)
+
+
+async def _register_catalog_product(
+    db_session: AsyncSession,
+    *,
+    sku: Sku,
+    marketplace_id: MarketplaceId,
+    name: str,
+    asin: Asin | None,
+) -> ProductId:
+    """Registers a product on the launch-entry adapter's own session.
+
+    Lives here, in the composition root, because `.importlinter`'s
+    `products-infrastructure-boundary` bars the launch module from
+    constructing catalog's store -- exactly as `worker.py` supplies
+    `clickup_sync_job.read_product` for the same reason. Building the store
+    on the *caller's* session is what puts the catalog write and the launch
+    write in one transaction (design.md Decision 3).
+
+    Returns the identifier rather than the aggregate, so the adapter never
+    handles a catalog domain object.
+    """
+    product = await register_product(
+        CatalogProductRepository(db_session),
+        sku=sku,
+        marketplace_id=marketplace_id,
+        name=name,
+        asin=asin,
+    )
+    return product.id
+
+
+# Injected after the routers, never at import of the adapter itself: the
+# adapter resolves this at call time, so the assignment need only happen
+# before the first request.
+launch_slack_entry.register_catalog_product = _register_catalog_product

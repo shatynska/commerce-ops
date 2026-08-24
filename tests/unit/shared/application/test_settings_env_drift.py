@@ -62,7 +62,14 @@ KNOWN_READS_AT_TIME_OF_WRITING = frozenset(
 )
 
 # tasks.md 6.1's seeded exemption table.
-SEEDED_EXEMPTIONS = frozenset({"OPENAI_API_KEY", "PRODUCT_AGENT_SLACK_SIGNING_SECRET"})
+#
+# `PRODUCT_AGENT_SLACK_SIGNING_SECRET` was seeded here as declared-but-unread,
+# its reason naming `add-product-creation-clickup-task` as the change whose
+# read would land. `start-launch-from-slack` supersedes that change and lands
+# the read itself, in `launch/infrastructure/driving/slack_entry.py`, so the
+# variable is no longer exempt -- an exemption for a variable the source does
+# read is exactly the stale entry this file's other tests exist to catch.
+SEEDED_EXEMPTIONS = frozenset({"OPENAI_API_KEY"})
 
 
 # --------------------------------------------------------------------------
@@ -268,8 +275,7 @@ def test_every_declared_variable_is_read_or_carries_an_exemption() -> None:
     instead, or the absence of such a reason SHALL be detected automatically.
 
     This is the direction the exemption table exists for: `OPENAI_API_KEY` is
-    read by `langchain_openai`, and `PRODUCT_AGENT_SLACK_SIGNING_SECRET` has
-    no consumer yet.
+    read by `langchain_openai` rather than by this application's own source.
     """
     read = _environment_names_read_by_source()
     declared = _declared_env_names()

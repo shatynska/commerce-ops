@@ -128,6 +128,14 @@ class Settings(BaseSettings):
     omni_agent_slack_bot_token: NonEmpty
     product_agent_slack_bot_token: NonEmpty
     product_agent_monitoring_channel_id: NonEmpty
+    # Required as of `start-launch-from-slack`, its first consumer: the
+    # `product_agent` app now receives inbound Slack traffic, so a
+    # deployment without this is misconfigured rather than merely
+    # feature-less. Required but *not* startup-critical, matching the other
+    # Slack credentials -- absent, it is reported by name at startup, the
+    # process still serves, and the launch-entry surface rejects every
+    # request until it arrives (fail-closed degradation).
+    product_agent_slack_signing_secret: NonEmpty
 
     # Optional: registered `production` secrets that no caller reaches yet.
     # `CLICKUP_API_TOKEN` in particular must stay optional --
@@ -135,7 +143,6 @@ class Settings(BaseSettings):
     # any one caller" has a scenario "Credential absent until first use", so
     # treating its absence as a fault would contradict a specification
     # already recorded in `openspec/specs/`.
-    product_agent_slack_signing_secret: NonEmpty | None = None
     clickup_api_token: NonEmpty | None = None
 
     # Optional for the same reason `CLICKUP_API_TOKEN` is: each degrades
@@ -170,10 +177,6 @@ ENV_VAR_EXEMPTIONS: Final[Mapping[str, str]] = {
     "OPENAI_API_KEY": (
         "read by langchain_openai.ChatOpenAI, constructed in "
         "omni_agent/application/graph.py"
-    ),
-    "PRODUCT_AGENT_SLACK_SIGNING_SECRET": (
-        "registered production secret with no consumer yet; the read lands "
-        "with add-product-creation-clickup-task"
     ),
 }
 

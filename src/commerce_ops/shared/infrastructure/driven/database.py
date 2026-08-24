@@ -66,6 +66,43 @@ async def session() -> AsyncIterator[AsyncSession]:
         yield db_session
 
 
+@asynccontextmanager
+async def transaction() -> AsyncIterator[AsyncSession]:
+    """Yields a session whose callees' commits cannot end the transaction.
+
+    `session()` is not enough when two writes must land together. Every
+    repository in this project commits its own write -- `CatalogProductRepository.add`
+    and `LaunchRepository.save` both call `commit()` -- so two writes through
+    two repositories are two transactions however carefully the caller shares
+    one session between them.
+
+    Binding the session to an explicit connection with
+    `join_transaction_mode="create_savepoint"` makes each inner `commit()`
+    release a SAVEPOINT instead, leaving the outer transaction -- begun and
+    ended here -- the only thing that decides whether anything persists. An
+    inner `rollback()` (the one `add` performs before raising
+    `DuplicateSkuError`) likewise unwinds only to its savepoint.
+
+    A stopgap, deliberately: the correct fix is to make those repositories
+    commit-neutral and let their caller own the boundary. Recorded in
+    `docs/deferred-work.md` under "Repositories commit their own writes".
+    """
+    engine, _ = _get_engine_and_session_factory()
+    async with engine.connect() as connection, connection.begin():
+        db_session = AsyncSession(
+            bind=connection,
+            join_transaction_mode="create_savepoint",
+            expire_on_commit=False,
+        )
+        try:
+            yield db_session
+        finally:
+            # Closing before the outer transaction resolves: the session's
+            # own savepoint machinery must be released while its connection
+            # is still the one it joined.
+            await db_session.close()
+
+
 async def get_session() -> AsyncIterator[AsyncSession]:
     """The FastAPI dependency -- a thin `AsyncIterator` over `session()`."""
     async with session() as db_session:
