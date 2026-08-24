@@ -96,7 +96,7 @@ AMAZON_US_LABEL: Final = "Amazon US"
 # How long the ClickUp completion loop may take to project the new launch's
 # work. Named in the confirmation on purpose: otherwise the first question
 # after a successful start is "where are the tasks?" (design.md Decision 6).
-CLICKUP_SYNC_CADENCE_DESCRIPTION: Final = "within about 30 minutes"
+CLICKUP_SYNC_CADENCE_DESCRIPTION: Final = "within about 10 minutes"
 
 
 class CatalogRegistrar(Protocol):
