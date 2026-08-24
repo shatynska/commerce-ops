@@ -209,10 +209,13 @@ def test_gates_expose_a_stable_order() -> None:
 
 
 # DERIVED: attribute names that would express an ordering between two
-# steps. The spec forbids the concept ("Step definitions attached to the
-# same gate SHALL carry no ordering relative to one another"; "Gates SHALL
-# be the only ordering primitive"), not any particular spelling of it, so
-# this list is a best-effort probe rather than an exhaustive one.
+# steps. Since `add-playbook-admin-ui`, same-gate steps DO carry an
+# authored presentation order — but it lives in the serving layer
+# (`StepRecord.display_order`), never on the domain's `StepDefinition`,
+# because it must stay invisible to the commitment machinery ("Gates
+# SHALL remain the only *commitment* ordering primitive"). This probe
+# pins that design boundary, not any particular spelling of it, so the
+# list is a best-effort probe rather than an exhaustive one.
 ORDERING_ATTRIBUTE_NAMES: Final = (
     "position",
     "order",
@@ -230,10 +233,20 @@ ORDERING_ATTRIBUTE_NAMES: Final = (
 
 
 def test_steps_at_the_same_gate_carry_no_ordering() -> None:
-    """Scenario: Steps at the same gate are unordered.
+    """Scenario: Steps at the same gate are unordered (retained name;
+    revised meaning since `add-playbook-admin-ui`: unordered *to the
+    commitment machinery*).
+
+    Steps now carry an authored within-gate order, but it is
+    presentation truth only — it rides the serving layer's records,
+    never the domain's `StepDefinition`, so nothing the domain evaluates
+    can depend on it. The behavioral half (advancement, blocking and
+    completion identical under any permutation) lives in
+    `test_within_gate_order_commitment_neutrality.py`; this test pins
+    the structural half.
 
     WHEN two step definitions declare the same gate
-    THEN the playbook expresses no ordering between them.
+    THEN the domain model expresses no ordering between them.
     """
     first = _step(identifier="listing.first", gate="listable", blocking=True)
     second = _step(identifier="listing.second", gate="listable", blocking=True)
@@ -241,8 +254,8 @@ def test_steps_at_the_same_gate_carry_no_ordering() -> None:
     forward = _playbook(steps=(first, second))
     reversed_ = _playbook(steps=(second, first))
 
-    # SPECIFIED: authoring order carries no meaning, so the same two steps
-    # are attached to the gate either way round.
+    # SPECIFIED: to the commitment machinery the gate's steps are a set,
+    # so the same two steps are attached to the gate either way round.
     assert {step.identifier for step in forward.steps_for_gate("listable")} == {
         "listing.first",
         "listing.second",
@@ -252,13 +265,15 @@ def test_steps_at_the_same_gate_carry_no_ordering() -> None:
         "listing.second",
     }
 
-    # SPECIFIED: a step definition carries no ordering relative to another.
-    # If a step grew an ordering attribute, the model would express an
-    # ordering the spec says does not exist.
+    # SPECIFIED (design boundary): a step *definition* carries no ordering
+    # relative to another — the authored slot lives on the stored record,
+    # and if it ever reached `StepDefinition` the domain would be handed
+    # an ordering its evaluations must never see.
     for name in ORDERING_ATTRIBUTE_NAMES:
         assert not hasattr(first, name), (
-            f"StepDefinition exposes {name!r}: gates are meant to be the "
-            f"only ordering primitive in the playbook"
+            f"StepDefinition exposes {name!r}: the authored within-gate "
+            f"order is serving-layer truth, and gates are meant to remain "
+            f"the only commitment ordering primitive in the playbook"
         )
 
 
