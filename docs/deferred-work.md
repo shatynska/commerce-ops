@@ -8,22 +8,6 @@ Delete an entry when it is done or when it stops being true. An entry that no lo
 
 ---
 
-## Needs a decision before it can be built
-
-### `specify-non-string-message-content`
-
-`omni_agent`'s `answer_question` ends with `return result["messages"][-1].content`, which LangChain types as `Any` and which can genuinely be a **list of content blocks** rather than a string. `tighten-type-checking` holds that line with a scoped `# type: ignore` rather than fixing it, because fixing it means choosing what the ops team sees, and the recorded `omni-agent` spec settles neither option:
-
-- **Join the text blocks.** The model did answer, so reporting a failure would be wrong. Sits awkwardly with nothing, but produces a lossy join for structured content.
-- **Treat it as a failure.** Simpler, but `slack.py` catches broadly and posts "Sorry, I ran into an error" for a call that succeeded — which reads against `omni-agent`'s "Model failure is surfaced, not masked", scoped as it is to a *failed* model call.
-
-**Latent, not live**: `build_production_graph` pins `ChatOpenAI(model="gpt-4o-mini")` with no multimodal input and no structured output, so `.content` is a `str` on every path exercised today. There is time to specify it properly.
-
-**Blocks**: archiving `tighten-type-checking` (its task 5.5 makes proposing this change a precondition).
-**Recorded in**: `tighten-type-checking`'s `design.md`, "The `Any` return … is held with a scoped ignore".
-
----
-
 ## Belongs to the `/infrastructure` repository, not this one
 
 These affect the host or the deployment platform, and would be wrong to fix here.
