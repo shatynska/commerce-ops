@@ -487,31 +487,6 @@ async def test_the_composed_name_uses_the_authored_separator() -> None:
     assert created[0]["name"] == f"{STEP_DESCRIPTION}{SEPARATOR}{STEP_ID}"
 
 
-async def test_the_discipline_does_not_appear_in_the_task_name() -> None:
-    """Requirement context: "The discipline drops out of the task name".
-
-    SPECIFIED by `proposal.md` and `design.md` Decision 4: the discipline
-    is "recoverable from the identifier's own second segment", and name
-    width spent restating it "costs the reader the wording this change
-    exists to surface". The delta's own requirement states the name as
-    the description followed by the identifier and nothing else.
-
-    The step is given a discipline (`ppc`) that its identifier's second
-    segment (`creative`) does not name, so a name still carrying the
-    discipline is detectable — which it would not be for a step whose
-    discipline and identifier segment agree.
-    """
-    playbook = _playbook(steps=(_step(discipline=Discipline("ppc")),))
-    collaborators = _Collaborators()
-
-    await _converge(_start(playbook), playbook, collaborators)
-
-    created = collaborators.clickup.calls_named("create_task")
-    assert len(created) == 1
-    # SPECIFIED: the discipline is not part of the name.
-    assert "ppc" not in created[0]["name"].lower()
-
-
 async def test_a_renamed_task_still_resolves_to_its_step() -> None:
     """Scenario: A renamed task still resolves to its step.
 

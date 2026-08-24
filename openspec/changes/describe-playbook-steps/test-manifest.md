@@ -369,6 +369,8 @@ existing tests, which is where candidates 2–4 come from.
 
 ### Candidate 2 — a pass-1 test whose assertion *form* the revised delta forecloses
 
+**RESOLVED 2026-08-24 — confirmed by the user and deleted.** `test_the_discipline_does_not_appear_in_the_task_name` has been removed from `tests/unit/launch/infrastructure/driven/test_clickup_task_naming.py`. Its whole body was the foreclosed assertion, so nothing remained to keep; the clause is covered by `test_clickup_task_name_composition.py::test_the_discipline_is_not_appended_as_a_further_element`, which asserts the same `ppc`-versus-`creative` fixture as a compositional equality instead of a string absence — strictly stronger, and conformant with the delta's carve-out.
+
 - **Test:** `tests/unit/launch/infrastructure/driven/test_clickup_task_naming.py::test_the_discipline_does_not_appear_in_the_task_name`
 - **Superseded by:** `launch-clickup-sync` delta, Requirement *Human-attested
   steps are projected as tasks* — "Before any shortening under the rule
