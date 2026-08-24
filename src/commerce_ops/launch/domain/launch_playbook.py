@@ -276,6 +276,7 @@ class StepDefinition:
     """A single unit of launch work, resolved before a gate opens."""
 
     identifier: str
+    description: str
     gate: str
     discipline: Discipline
     scope: Scope
@@ -379,6 +380,18 @@ def _step_faults(
             faults.append(
                 f"step '{step.identifier}' has execution mode "
                 f"'{step.execution.value}' but no rule policy"
+            )
+        if not step.description.strip():
+            faults.append(
+                f"step '{step.identifier}' has an empty description — a step "
+                f"whose work cannot be read from the step itself is "
+                f"indistinguishable from one nobody wrote down"
+            )
+        elif "\n" in step.description or "\r" in step.description:
+            faults.append(
+                f"step '{step.identifier}' has a description spanning more "
+                f"than one line — a description is composed into a task's "
+                f"name, and a name is a single line"
             )
         if step.hazard is Hazard.PROHIBITED_TACTIC and step.blocking:
             faults.append(

@@ -154,6 +154,7 @@ def _opening_for(identifier: str) -> GateOpening:
 def _step(**overrides: Any) -> StepDefinition:
     attributes: dict[str, Any] = {
         "identifier": STEP_ID,
+        "description": "Work this step asks for",
         "gate": "listable",
         "discipline": _any_discipline(),
         "scope": Scope.PRODUCT,

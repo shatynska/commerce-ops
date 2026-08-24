@@ -111,6 +111,7 @@ gates:
 _TWO_FAULTY_STEPS_YAML: Final = """\
 steps:
   - identifier: inventory.reversed-window
+    description: Work this step asks for
     gate: stock-ready
     discipline: inventory
     scope: product
@@ -122,6 +123,7 @@ steps:
     blocking: false
     execution: human-attested
   - identifier: ppc.unknown-gate
+    description: Work this step asks for
     gate: pre-launch
     discipline: ppc
     scope: market

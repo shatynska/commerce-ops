@@ -12,6 +12,14 @@
 #         threshold: str         # human-readable description of what must hold
 # steps:
 #   - identifier: str
+#     description: str           # the work the step asks for, in one line,
+#                                # transcribed from the reference row this
+#                                # step's identifier names (trailing
+#                                # whitespace and any trailing ; : , .
+#                                # removed, nothing else altered). Required:
+#                                # a step states its own work, so nothing
+#                                # downstream needs the reference document
+#                                # to render it for a person.
 #     gate: str                  # a gate identifier
 #     discipline: strategy | finance | setup | inventory | creative | listing |
 #                 rank | price | ppc | customer | external | traffic
@@ -89,6 +97,7 @@ gates:
 steps:
   # --- commit ---
   - identifier: lp.strategy.001
+    description: "Product is VISIBLY BETTER on the search results page"
     gate: commit
     discipline: strategy
     scope: product
@@ -98,6 +107,7 @@ steps:
     execution: human-attested
     provenance: PLOG Intro
   - identifier: lp.finance.001
+    description: "Unit economics clear 70%+ CM1 and 35% CM2 before anything is committed (some Titan members push for 80%+ CM1, 45%+ CM2)"
     gate: commit
     discipline: finance
     scope: product
@@ -107,6 +117,7 @@ steps:
     execution: human-attested
     provenance: PLOG 1.1.2
   - identifier: lp.strategy.003
+    description: "Demand gate: at least 8 keywords with 1,000+ monthly searches each at relevancy score 3 - '8 or more ways that a thousand customers can find us each month'"
     gate: commit
     discipline: strategy
     scope: product
@@ -116,6 +127,7 @@ steps:
     execution: human-attested
     provenance: 8.1 Validating Product Ideas 2025
   - identifier: lp.strategy.006
+    description: "Screen against the FBA-prohibited hazmat list and high-compliance categories (furniture, medical devices, supplements, grills, fire pits, balloons, lighters, CO detectors) before sourcing"
     gate: commit
     discipline: strategy
     scope: product
@@ -127,6 +139,7 @@ steps:
     provenance: 4 Products to Avoid 2025; Proactive Product Compliance 2025
   # --- order ---
   - identifier: lp.finance.010
+    description: "Terms negotiated: pay when stock ships, and the first order split into several smaller shipments"
     gate: order
     discipline: finance
     scope: product
@@ -136,6 +149,7 @@ steps:
     execution: human-attested
     provenance: PLOG 1.1.2 Part 4
   - identifier: lp.inventory.004
+    description: "HS code verified via the Flexport lookup and cross-checked against the freight forwarder's answer"
     gate: order
     discipline: inventory
     scope: product
@@ -145,6 +159,7 @@ steps:
     execution: human-attested
     provenance: PLOG 1.1.2 Part 3
   - identifier: lp.setup.009
+    description: "Book compliance testing BEFORE the production run - turnaround ~2 weeks, and it must be an Amazon-approved lab (US, Canada, UK, Europe list)"
     gate: order
     discipline: setup
     scope: product
@@ -156,6 +171,7 @@ steps:
     provenance: Andrew's Launch Checklist 2024; 09/24/2025 Prime Day & Listing Insights
   # --- listable — barcodes & listing creation ---
   - identifier: lp.setup.019
+    description: "Buy the GS1 barcode from the country your COMPANY is based in, not the country you sell in - a UK company selling in the US still buys UK GS1"
     gate: listable
     discipline: setup
     scope: product
@@ -165,6 +181,7 @@ steps:
     execution: human-attested
     provenance: 'Listing Content BONUS: Purchasing Your UPC 2025'
   - identifier: lp.setup.020
+    description: "TOS RISK: the GS1 record must match Seller Central exactly - legal company name INCLUDING address, and brand name matching the listing - or listing creation throws the 'brand name glitch' error"
     gate: listable
     discipline: setup
     scope: product
@@ -174,6 +191,7 @@ steps:
     execution: human-attested
     provenance: 'Listing Content BONUS: Purchasing Your UPC 2025'
   - identifier: lp.setup.021
+    description: "Wait 3-5 days after buying the UPC before creating the listing so it lands in the GS1 database Amazon checks"
     gate: listable
     discipline: setup
     scope: product
@@ -183,6 +201,7 @@ steps:
     execution: human-attested
     provenance: 'Listing Content BONUS: Creating Your Initial Listing 2025'
   - identifier: lp.setup.022
+    description: "Create the listing BEFORE inventory ships, for three reasons"
     gate: listable
     discipline: setup
     scope: product
@@ -192,6 +211,7 @@ steps:
     execution: human-attested
     provenance: 'Listing Content BONUS: Creating Your Initial Listing 2025'
   - identifier: lp.setup.023
+    description: "Keep the GTIN on the listing rather than taking an exemption - exemptions break FNSKU/barcode defaults, and 3PLs, retailers and Google Merchant Center all require a GTIN"
     gate: listable
     discipline: setup
     scope: product
@@ -201,6 +221,7 @@ steps:
     execution: human-attested
     provenance: GS1 Barcodes - What They Are & Why You Need Them 2025
   - identifier: lp.setup.024
+    description: "Clear category gating early through the Qualification Center using label and artwork mock-ups, 'before you spend any money on the inventory upfront'"
     gate: listable
     discipline: setup
     scope: product
@@ -211,6 +232,7 @@ steps:
     hazard: compliance-obligation
     provenance: Restricted Category Qualification 2026
   - identifier: lp.inventory.017
+    description: "Decide FNSKU vs manufacturer barcode deliberately"
     gate: listable
     discipline: inventory
     scope: product
@@ -221,6 +243,7 @@ steps:
     provenance: 05/20/2026 AI Workflows & Inventory Strategy
   # --- listable — keyword research & indexation ---
   - identifier: lp.strategy.015
+    description: "Like-for-like competitors identified with every keyword they rank for, and separately the relevant keywords they do NOT rank for"
     gate: listable
     discipline: strategy
     scope: product
@@ -230,6 +253,7 @@ steps:
     execution: human-attested
     provenance: PLOG 1.3.1
   - identifier: lp.rank.001
+    description: "Root keywords selected in Titan Tools from competitors' organic positions, search volume and relevance scores"
     gate: listable
     discipline: rank
     scope: product
@@ -239,6 +263,7 @@ steps:
     execution: human-attested
     provenance: PPC 3.0 Phase 1 Step 1
   - identifier: lp.rank.002
+    description: "ONE keyword family chosen to launch on - a cluster of terms targeting the same feature, use case or buyer avatar"
     gate: listable
     discipline: rank
     scope: product
@@ -248,6 +273,7 @@ steps:
     execution: human-attested
     provenance: PPC 3.0 Phase 1 Step 1
   - identifier: lp.rank.003
+    description: "Head term not attacked head-on at launch (worked example"
     gate: listable
     discipline: rank
     scope: product
@@ -257,6 +283,7 @@ steps:
     execution: human-attested
     provenance: PPC 3.0 Phase 1 Step 1
   - identifier: lp.rank.004
+    description: "Finalised keyword and competitor list loaded into Titan Tools for tracking (stated key output of the step)"
     gate: listable
     discipline: rank
     scope: product
@@ -266,6 +293,7 @@ steps:
     execution: human-attested
     provenance: PLOG 1.3.1
   - identifier: lp.rank.005
+    description: "Build keyword sets by keyword family and deploy no more than 15,000 searches of volume at a time - keyword sets must stay under that ceiling"
     gate: listable
     discipline: rank
     scope: product
@@ -275,6 +303,7 @@ steps:
     execution: human-attested
     provenance: 'Pre-Launch: Selecting your Launch Keywords 2025'
   - identifier: lp.rank.006
+    description: "Non-subjective and semi-subjective products usually exceed 15,000 total searches, so deploy in multiple waves through phase 1"
     gate: listable
     discipline: rank
     scope: product
@@ -284,6 +313,7 @@ steps:
     execution: human-attested
     provenance: 'Pre-Launch: Selecting your Launch Keywords 2025'
   - identifier: lp.rank.007
+    description: "Reality check on rank ambition: a competitor at target revenue held only 8 high-volume keywords on page one out of 684 - you do not need breadth, you need those 8"
     gate: listable
     discipline: rank
     scope: product
@@ -293,6 +323,7 @@ steps:
     execution: human-attested
     provenance: Double Your Sales Challenge Day 2 2025
   - identifier: lp.listing.019
+    description: "Top ~20% of search terms that will bring 80%+ of sales identified, with which competitors rank highest on them, how much click and conversion share goes to the top 3 positions, and how those competitors price"
     gate: listable
     discipline: listing
     scope: product
@@ -302,6 +333,7 @@ steps:
     execution: human-attested
     provenance: PLOG 1.3.3
   - identifier: lp.listing.024
+    description: "Run the Listing Optimizer to confirm highest-relevance keywords appear in PHRASE form and every individual keyword appears somewhere in copy or backend"
     gate: listable
     discipline: listing
     scope: product
@@ -311,6 +343,7 @@ steps:
     execution: human-attested
     provenance: 'Pre-Launch: Setting up your Listing for Success 2025'
   - identifier: lp.listing.025
+    description: "Rufus default questions on our listing and competitors' documented, and the answers built into copy, images and A+"
     gate: listable
     discipline: listing
     scope: product
@@ -320,6 +353,7 @@ steps:
     execution: human-attested
     provenance: PLOG 1.3.2
   - identifier: lp.listing.026
+    description: "Every researched keyword placed into bullets, description and backend so the listing indexes for it"
     gate: listable
     discipline: listing
     scope: product
@@ -329,6 +363,7 @@ steps:
     execution: human-attested
     provenance: PLOG 1.3.2
   - identifier: lp.listing.027
+    description: "Refresh keyword research 30 days out even though it was done 4-5 months earlier during product development"
     gate: listable
     discipline: listing
     scope: product
@@ -338,6 +373,7 @@ steps:
     execution: human-attested
     provenance: 04/17/2024 Andrew's Product Launch Checklist
   - identifier: lp.listing.028
+    description: "Launch keyword set = 10 to 20 hyper-relevant MID-volume keywords, one keyword per campaign"
     gate: listable
     discipline: listing
     scope: product
@@ -348,6 +384,7 @@ steps:
     provenance: PPC Optimization Part 3 2025
   # --- listable — listing content & structure ---
   - identifier: lp.listing.001
+    description: "Category-specific flat file template downloaded and every attribute populated - the Add a Product interface hides many attributes"
     gate: listable
     discipline: listing
     scope: product
@@ -357,6 +394,7 @@ steps:
     execution: human-attested
     provenance: PLOG 1.3.2
   - identifier: lp.listing.002
+    description: "Listing appears in the same browse paths as competitors, not only in search"
     gate: listable
     discipline: listing
     scope: product
@@ -366,6 +404,7 @@ steps:
     execution: human-attested
     provenance: PLOG 1.3.2
   - identifier: lp.listing.006
+    description: "Have the full content pack ready before touching Add-a-Product - UPC, title, main image, secondary images, bullets, description and the keyword list"
     gate: listable
     discipline: listing
     scope: product
@@ -375,6 +414,7 @@ steps:
     execution: human-attested
     provenance: 'Listing Content BONUS: Creating Your Initial Listing 2025'
   - identifier: lp.listing.007
+    description: "Pick the SUB-category deliberately, not just the main category - the chosen node changes which compliance fields and certifications Amazon then demands"
     gate: listable
     discipline: listing
     scope: product
@@ -384,6 +424,7 @@ steps:
     execution: human-attested
     provenance: Flat File Mastery 2025
   - identifier: lp.listing.008
+    description: "Use flat files rather than the UI once variations exist - 'a new child listing in about 2 minutes as opposed to 10 to 20 minutes'"
     gate: listable
     discipline: listing
     scope: product
@@ -393,6 +434,7 @@ steps:
     execution: human-attested
     provenance: 'Listing Content BONUS: Flat Files 2025'
   - identifier: lp.listing.014
+    description: "Listing copy run through the Amazon Compliance Advisor GPT for US law and Amazon TOS before publishing"
     gate: listable
     discipline: listing
     scope: product
@@ -404,6 +446,7 @@ steps:
     rule_policy: copy is run through the compliance advisor and flagged issues are resolved before publishing
     provenance: PLOG 1.3.2
   - identifier: lp.listing.015
+    description: "Instructions PDF and 3rd-party test-results PDF uploaded to the listing"
     gate: listable
     discipline: listing
     scope: product
@@ -413,6 +456,7 @@ steps:
     execution: human-attested
     provenance: PLOG 2.3.2
   - identifier: lp.listing.016
+    description: "Badge eligibility reviewed including Amazon Climate Pledge Friendly"
     gate: listable
     discipline: listing
     scope: product
@@ -422,6 +466,7 @@ steps:
     execution: human-attested
     provenance: PLOG 1.3.4 / 2.3.2
   - identifier: lp.listing.017
+    description: "Upload every creative asset to the listing WHILE IT IS INACTIVE, as each becomes available - do not batch them to the end"
     gate: listable
     discipline: listing
     scope: product
@@ -431,6 +476,7 @@ steps:
     execution: human-attested
     provenance: 'Pre-Launch: Setting up your Listing for Success 2025'
   - identifier: lp.listing.018
+    description: "EU rollout: existing US reviews PORT to other marketplaces - sequence marketplace launches so the review base carries with you"
     gate: listable
     discipline: listing
     scope: market
@@ -440,6 +486,7 @@ steps:
     execution: human-attested
     provenance: 04/09/2025 EU Market Expansion Q&A
   - identifier: lp.listing.020
+    description: "Non-US marketplaces: RESCALE the volume tier, do not copy the US band - on a smaller marketplace mid-tier may be 500 to 1,000 and low under 300"
     gate: listable
     discipline: listing
     scope: market
@@ -449,6 +496,7 @@ steps:
     execution: human-attested
     provenance: PPC Optimization Part 3 2025
   - identifier: lp.listing.021
+    description: "Title rendering checked on mobile and desktop - different categories display a different character count"
     gate: listable
     discipline: listing
     scope: product
@@ -458,6 +506,7 @@ steps:
     execution: human-attested
     provenance: PLOG 1.3.3
   - identifier: lp.listing.022
+    description: "Set all three release dates WELL into the future - Product Site Launch Date, Merchant Release Date, Offering Release Date"
     gate: listable
     discipline: listing
     scope: product
@@ -467,6 +516,7 @@ steps:
     execution: human-attested
     provenance: 'Pre-Launch: Setting up your Listing for Success 2025'
   - identifier: lp.listing.029
+    description: "Title written to convert for the top ~20% keywords, with 2+ versions created and tested against the control"
     gate: listable
     discipline: listing
     scope: product
@@ -476,6 +526,7 @@ steps:
     execution: human-attested
     provenance: PLOG 1.3.3
   - identifier: lp.listing.030
+    description: "Bullets, description and backend drafted for indexation"
     gate: listable
     discipline: listing
     scope: product
@@ -486,6 +537,7 @@ steps:
     provenance: PLOG 1.3.2
   # --- listable — variation family ---
   - identifier: lp.listing.003
+    description: "Category and GL matched across all child ASINs for 1+ week BEFORE combining them under a parent"
     gate: listable
     discipline: listing
     scope: product
@@ -495,6 +547,7 @@ steps:
     execution: human-attested
     provenance: PLOG 1.3.4
   - identifier: lp.listing.004
+    description: "Any parent/child restructure scheduled for a slow period or while out of stock - changes can hide reviews and variation types, or force a 24-hour delete and relist"
     gate: listable
     discipline: listing
     scope: product
@@ -504,6 +557,7 @@ steps:
     execution: human-attested
     provenance: PLOG 1.3.4
   - identifier: lp.listing.005
+    description: "Variation family designed so no poorly rated child drags the parent rating"
     gate: listable
     discipline: listing
     scope: product
@@ -513,6 +567,7 @@ steps:
     execution: human-attested
     provenance: PLOG 1.3.4
   - identifier: lp.listing.009
+    description: "Variation mechanics at creation: the parent carries no relationship type and no parent SKU"
     gate: listable
     discipline: listing
     scope: product
@@ -522,6 +577,7 @@ steps:
     execution: human-attested
     provenance: 'Listing Content BONUS: Flat Files 2025'
   - identifier: lp.listing.010
+    description: "Design the family so Amazon does not break it - 'variations that connect items with kits or different components are at a higher risk'"
     gate: listable
     discipline: listing
     scope: product
@@ -531,6 +587,7 @@ steps:
     execution: human-attested
     provenance: Flat File Mastery 2025
   - identifier: lp.listing.011
+    description: "Enrich EVERY child, not just the parent - the parent is never shown to customers, so do not put colours in parent copy and do not advertise the parent"
     gate: listable
     discipline: listing
     scope: product
@@ -540,6 +597,7 @@ steps:
     execution: human-attested
     provenance: 'Pre-Launch: Setting up your Listing for Success 2025'
   - identifier: lp.listing.012
+    description: "Set up the Canonical URL per the dedicated lesson"
     gate: listable
     discipline: listing
     scope: product
@@ -549,6 +607,7 @@ steps:
     execution: human-attested
     provenance: 'Pre-Launch: Setting up your Listing for Success 2025'
   - identifier: lp.listing.013
+    description: "Do not architect variation families around Vine stacking - enrolling each child then combining under a parent to inflate review count is closed"
     gate: listable
     discipline: listing
     scope: product
@@ -560,6 +619,7 @@ steps:
     provenance: 'Launch: Week 1 Actions - Reviews 2025'
   # --- listable — creative ---
   - identifier: lp.strategy.016
+    description: "CTR assets sequenced first - title, main image and price, at 'less than 10% of the time involved in optimizing the entire listing'"
     gate: listable
     discipline: strategy
     scope: product
@@ -569,6 +629,7 @@ steps:
     execution: human-attested
     provenance: PLOG 1.3.3
   - identifier: lp.creative.003
+    description: "CTR elements tested 3-5X more than any other part of the listing - in some categories as high as 55% of customers purchase from the Add to Cart button on the search results page"
     gate: listable
     discipline: creative
     scope: product
@@ -578,6 +639,7 @@ steps:
     execution: human-attested
     provenance: PLOG 1.3.3
   - identifier: lp.creative.004
+    description: "Every asset readable on mobile and desktop against the stated budget that Amazon shoppers average 17 seconds on site before checking out"
     gate: listable
     discipline: creative
     scope: product
@@ -587,6 +649,7 @@ steps:
     execution: human-attested
     provenance: PLOG 2.3.1
   - identifier: lp.creative.005
+    description: "Named owners assigned for the creative block - one for all designs, one for research, one to publish listing changes"
     gate: listable
     discipline: creative
     scope: product
@@ -596,6 +659,7 @@ steps:
     execution: human-attested
     provenance: Titan Huddle 10.22.2025 Outsourcing PLOG
   - identifier: lp.creative.006
+    description: "Most assets should be finished 1-2 weeks before launch to leave processing time"
     gate: listable
     discipline: creative
     scope: product
@@ -605,6 +669,7 @@ steps:
     execution: human-attested
     provenance: 07/24/2024 Andrew's Launch Checklist
   - identifier: lp.creative.007
+    description: "Deposition competitors in your own creative - read their reviews and sell the product that fixes their flaws"
     gate: listable
     discipline: creative
     scope: product
@@ -614,6 +679,7 @@ steps:
     execution: human-attested
     provenance: 8.2 Expanding Tolerance 2025
   - identifier: lp.creative.008
+    description: "Main image designed to be scroll-stopping and explicitly different from competitors, not blending in"
     gate: listable
     discipline: creative
     scope: product
@@ -623,6 +689,7 @@ steps:
     execution: human-attested
     provenance: PLOG 1.3.3
   - identifier: lp.creative.009
+    description: "Titles and main images survey-tested BEFORE going live, via Product Pinion, PickFu or Prolific"
     gate: listable
     discipline: creative
     scope: product
@@ -632,6 +699,7 @@ steps:
     execution: human-attested
     provenance: PLOG 1.3.3
   - identifier: lp.creative.010
+    description: "Image design brief written as concepts only - not ready-to-publish images - to confirm the story flow before design time is spent"
     gate: listable
     discipline: creative
     scope: product
@@ -641,6 +709,7 @@ steps:
     execution: human-attested
     provenance: PLOG 2.3.1
   - identifier: lp.creative.011
+    description: "Every image and video must confirm what the shopper is looking for, show why this product is better than the comparison set, and set expectations that encourage positive feedback"
     gate: listable
     discipline: creative
     scope: product
@@ -650,6 +719,7 @@ steps:
     execution: human-attested
     provenance: PLOG 2.3.1
   - identifier: lp.creative.012
+    description: "Competitor customer reviews mined to establish what matters in the category"
     gate: listable
     discipline: creative
     scope: product
@@ -659,6 +729,7 @@ steps:
     execution: human-attested
     provenance: PLOG 2.3.1
   - identifier: lp.creative.013
+    description: "Launch video produced at 15-20 seconds - anything over 30 seconds rarely performs as well"
     gate: listable
     discipline: creative
     scope: product
@@ -668,6 +739,7 @@ steps:
     execution: human-attested
     provenance: PPC 3.0 Phase 2
   - identifier: lp.creative.014
+    description: "Tutorial video and explanatory image added wherever user error is a predictable source of negative reviews"
     gate: listable
     discipline: creative
     scope: product
@@ -677,6 +749,7 @@ steps:
     execution: human-attested
     provenance: PLOG 1.3.4
   - identifier: lp.creative.015
+    description: "First item on the checklist at T-30: create the photoshoot list and get units to the photographer - allow 3 weeks even when paying extra, so budget a month"
     gate: listable
     discipline: creative
     scope: product
@@ -686,6 +759,7 @@ steps:
     execution: human-attested
     provenance: 04/17/2024 Andrew's Product Launch Checklist
   - identifier: lp.creative.016
+    description: "Send PRODUCTION-PERIOD samples to the photographer, never pre-production samples"
     gate: listable
     discipline: creative
     scope: product
@@ -695,6 +769,7 @@ steps:
     execution: human-attested
     provenance: '02/12/2025 Panel: Product Launch Strategy'
   - identifier: lp.creative.017
+    description: "Plan what the listing should LOOK like - infographics, image stack, A+ - before launch rather than during"
     gate: listable
     discipline: creative
     scope: product
@@ -704,6 +779,7 @@ steps:
     execution: human-attested
     provenance: '02/12/2025 Panel: Product Launch Strategy'
   - identifier: lp.creative.018
+    description: "Win the pre-review window on assets alone - with no rating, customers decide on image and price only"
     gate: listable
     discipline: creative
     scope: product
@@ -713,6 +789,7 @@ steps:
     execution: human-attested
     provenance: 07/28/2025 Launch Without Reviews
   - identifier: lp.creative.019
+    description: "A+ / A++ modules built to confirm what the product has and why it beats the comparison set, with the documented Rufus questions answered inside A+"
     gate: listable
     discipline: creative
     scope: product
@@ -722,6 +799,7 @@ steps:
     execution: human-attested
     provenance: PLOG 2.3.4
   - identifier: lp.creative.020
+    description: "ONE Brand Story designed for the whole brand, featuring the top sellers and the most logical cross-sell / up-sell"
     gate: listable
     discipline: creative
     scope: product
@@ -731,6 +809,7 @@ steps:
     execution: human-attested
     provenance: PLOG 2.3.3
   - identifier: lp.creative.021
+    description: "Brand Story previewed on desktop and mobile separately - they render differently"
     gate: listable
     discipline: creative
     scope: product
@@ -740,6 +819,7 @@ steps:
     execution: human-attested
     provenance: PLOG 2.3.3
   - identifier: lp.creative.022
+    description: "Brand Story slot used for content blocked elsewhere on the listing - screenshots of customer reviews, and promotion of Subscribe & Save"
     gate: listable
     discipline: creative
     scope: product
@@ -750,6 +830,7 @@ steps:
     provenance: PLOG 2.3.3
   # --- stock-ready ---
   - identifier: lp.inventory.019
+    description: "First order sized so the ASIN lands at 45-90 days of cover, and 91+ days where growth is expected"
     gate: stock-ready
     discipline: inventory
     scope: product
@@ -759,6 +840,7 @@ steps:
     execution: human-attested
     provenance: PLOG 1.1.1
   - identifier: lp.inventory.008
+    description: "Pre-shipment inspection pass criteria: 3-foot product drop test WITH packaging (the international standard is only 2-foot"
     gate: stock-ready
     discipline: inventory
     scope: product
@@ -768,6 +850,7 @@ steps:
     execution: human-attested
     provenance: 'Sourcing: PP Samples and Inspections; Product Testing and Certifications'
   - identifier: lp.inventory.018
+    description: "TOS RISK: never accept the 'convert to manufacturer barcode' prompt during shipment creation on stock already labelled FNSKU - a member did and the entire arriving shipment was lost"
     gate: stock-ready
     discipline: inventory
     scope: product
@@ -778,6 +861,7 @@ steps:
     provenance: 10/20/2025 Optimizing Listings & Backend Data
   # --- live ---
   - identifier: lp.rank.008
+    description: "Listing confirmed to be indexing for the full keyword list via Keyword Rank Tracker - ads cannot run on keywords the listing does not index for"
     gate: live
     discipline: rank
     scope: product
@@ -787,6 +871,7 @@ steps:
     execution: human-attested
     provenance: PLOG 1.3.2
   - identifier: lp.ppc.008
+    description: "Bid waterfall set: phrase 10-15% below exact, broad 15-20% below exact, autos at or below broad (exact $2.00 -> phrase $1.70-1.80, broad $1.60-1.70, autos $1.50 or below)"
     gate: live
     discipline: ppc
     scope: product
@@ -796,6 +881,7 @@ steps:
     execution: human-attested
     provenance: PPC 3.0 Bid stacking
   - identifier: lp.ppc.001
+    description: "Campaign naming convention fixed before any campaign is built - tokens joined by '"
     gate: live
     discipline: ppc
     scope: product
@@ -805,6 +891,7 @@ steps:
     execution: human-attested
     provenance: Campaign Naming Convention
   - identifier: lp.ppc.002
+    description: "Every target keyword bucketed at the 1,000 monthly searches threshold - 1,000+ gets its own single-keyword exact campaign, under 1,000 goes into a stacked exact campaign"
     gate: live
     discipline: ppc
     scope: product
@@ -814,6 +901,7 @@ steps:
     execution: human-attested
     provenance: PPC 3.0 Phase 1 Step 3
   - identifier: lp.ppc.003
+    description: "'Never-keywords' list built - terms the listing will index for as a by-product that must never receive ad spend"
     gate: live
     discipline: ppc
     scope: product
@@ -823,6 +911,7 @@ steps:
     execution: human-attested
     provenance: PLOG 1.3.1
   - identifier: lp.ppc.004
+    description: "Avoid launch keywords above 5,000 searches - 'you spend fast' and budget runs away"
     gate: live
     discipline: ppc
     scope: product
@@ -832,6 +921,7 @@ steps:
     execution: human-attested
     provenance: 'Launch: Day 1 Actions - Setting up Rank Campaigns 2025'
   - identifier: lp.listing.032
+    description: "Turn the listing LIVE 3-4 days before the actual launch date"
     gate: live
     discipline: listing
     scope: product
@@ -841,6 +931,7 @@ steps:
     execution: human-attested
     provenance: 07/24/2024 Andrew's Launch Checklist
   - identifier: lp.price.013
+    description: "Strike-through trigger, step by step: set your price = list price, take ONE full-price sale, wait about 6 hours for the order to process to paid, then set your price down to the sale price"
     gate: live
     discipline: price
     scope: product
@@ -850,6 +941,7 @@ steps:
     execution: human-attested
     provenance: 09/25/2024 Omega Accelerate Recap
   - identifier: lp.price.014
+    description: "TOS RISK: the fastest strike-through trigger discussed in-network is having a friend buy at list price, and the coach states plainly it is against TOS. Do not use it"
     gate: live
     discipline: price
     scope: product
@@ -861,6 +953,7 @@ steps:
     provenance: 08/28/2024 Alpha Q&A Buy Box & Pricing
   # --- ignition ---
   - identifier: lp.ppc.010
+    description: "Broad match campaigns launched FIRST, before any single-keyword exact campaign - they serve data collection, CTR relevance signal and initial sales velocity"
     gate: ignition
     discipline: ppc
     scope: product
@@ -870,6 +963,7 @@ steps:
     execution: human-attested
     provenance: PPC 3.0 Phase 1 Step 2
   - identifier: lp.external.001
+    description: "Launch day is the marketing ignition: blast the email list in THREE separate sends (one send generates too many same-day sales), social, influencers"
     gate: ignition
     discipline: external
     scope: product
@@ -879,6 +973,7 @@ steps:
     execution: human-attested
     provenance: 04/17/2024 Andrew's Product Launch Checklist
   - identifier: lp.customer.007
+    description: "Enrol Vine and take all 30 units - but ONLY after the strikethrough price is visible, or Vine reviewers will mark you down for the high price"
     gate: ignition
     discipline: customer
     scope: product
@@ -888,6 +983,7 @@ steps:
     execution: human-attested
     provenance: 'Launch: Week 1 Actions - Reviews 2025; 01/29/2025 Q&A Vine Reviews'
   - identifier: lp.ppc.016
+    description: "Search term report watched closely for the first two weeks and negated aggressively when broad goes off the rails - Amazon does not always keep the ad on the +modifier keywords specified"
     gate: ignition
     discipline: ppc
     scope: product
@@ -897,6 +993,7 @@ steps:
     execution: human-attested
     provenance: PPC 3.0 Phase 1 Step 2
   - identifier: lp.strategy.021
+    description: "TOS RISK: Titan's own Week 1 lesson contains a 'friends and friends of friends' step - line people up to purchase, drip-feed the sales, ask for reviews and keep the activity off social media"
     gate: ignition
     discipline: strategy
     scope: product
@@ -907,6 +1004,7 @@ steps:
     hazard: prohibited-tactic
     provenance: 'Launch: Week 1 Actions - Reviews 2025'
   - identifier: lp.listing.023
+    description: "On LAUNCH DAY backdate Product Site Launch Date to the actual launch day and set Merchant and Offering Release Dates to match - 'or you'll open your listing and it won't be available'"
     gate: ignition
     discipline: listing
     scope: product
@@ -916,6 +1014,7 @@ steps:
     execution: human-attested
     provenance: 06/02/2025 Pricing Confidence & Launch Setup
   - identifier: lp.creative.023
+    description: "A+ content is NOT essential for launch - do not delay three weeks waiting on it, add it shortly after"
     gate: ignition
     discipline: creative
     scope: product
@@ -926,6 +1025,7 @@ steps:
     provenance: 06/11/2026 AI Workflows & Strikethrough Pricing
   # --- phase-one-complete ---
   - identifier: lp.ppc.029
+    description: "Single-keyword exact campaigns launched for 1,000+ search keywords showing rank traction - one per campaign so bid and placement modifiers are controlled independently"
     gate: phase-one-complete
     discipline: ppc
     scope: product
@@ -935,6 +1035,7 @@ steps:
     execution: human-attested
     provenance: PPC 3.0 Phase 1 Step 3
   - identifier: lp.customer.002
+    description: "All product reviews and seller feedback read, with the common reasons for negative feedback listed"
     gate: phase-one-complete
     discipline: customer
     scope: product
@@ -944,6 +1045,7 @@ steps:
     execution: human-attested
     provenance: PLOG 1.3.4
   - identifier: lp.traffic.001
+    description: "Traffic push stop-rule applied - if CTR and CVR have not improved, stop sending traffic and fix the listing first"
     gate: phase-one-complete
     discipline: traffic
     scope: product
@@ -955,6 +1057,7 @@ steps:
     provenance: PLOG 2.1.2
   # --- graduated ---
   - identifier: lp.strategy.030
+    description: "Consistent availability and stable demand confirmed over the last 60 days before assigning a permanent state"
     gate: graduated
     discipline: strategy
     scope: product
@@ -964,6 +1067,7 @@ steps:
     execution: human-attested
     provenance: States+Drivers
   - identifier: lp.strategy.029
+    description: "State and driver assigned at handoff via the decision flow - Inventory Override gate, then performance gate, then the 5-question core fork"
     gate: graduated
     discipline: strategy
     scope: product
@@ -973,6 +1077,7 @@ steps:
     execution: human-attested
     provenance: States+Drivers Section 4
   - identifier: lp.finance.031
+    description: "Fee Preview report run to verify the SKU is not being over-charged Pick & Pack fees, and reimbursements filed"
     gate: graduated
     discipline: finance
     scope: product

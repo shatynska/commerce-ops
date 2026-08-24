@@ -80,6 +80,7 @@ gates:
 _ONE_DECIDED_ONE_UNDECIDED_YAML: Final = """\
 steps:
   - identifier: price.buy-box-check
+    description: Work this step asks for
     gate: live
     discipline: price
     scope: market
@@ -91,6 +92,7 @@ steps:
     execution: automated
     rule_policy: Buy Box share is at or above 90% over a rolling week.
   - identifier: strategy.phase-one-criteria
+    description: Work this step asks for
     gate: commit
     discipline: strategy
     scope: product
@@ -106,6 +108,7 @@ steps:
 _FULLY_DECIDED_YAML: Final = """\
 steps:
   - identifier: price.buy-box-check
+    description: Work this step asks for
     gate: live
     discipline: price
     scope: market
@@ -117,6 +120,7 @@ steps:
     execution: automated
     rule_policy: Buy Box share is at or above 90% over a rolling week.
   - identifier: strategy.phase-one-criteria
+    description: Work this step asks for
     gate: commit
     discipline: strategy
     scope: product

@@ -82,6 +82,7 @@ def specified_gates() -> tuple[Gate, ...]:
 def _step(**overrides: Any) -> StepDefinition:
     attributes: dict[str, Any] = {
         "identifier": "listing.title-conforms",
+        "description": "Work this step asks for",
         "gate": "listable",
         "discipline": _any_discipline(),
         "scope": Scope.PRODUCT,
@@ -211,6 +212,7 @@ def test_unauthored_optional_attributes_are_absent() -> None:
     """
     step = StepDefinition(
         identifier="strategy.undecided",
+        description="Work this step asks for",
         gate="commit",
         discipline=_any_discipline(),
         scope=Scope.PRODUCT,

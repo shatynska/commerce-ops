@@ -144,6 +144,7 @@ def _gates() -> tuple[Gate, ...]:
 def _step(**overrides: Any) -> StepDefinition:
     attributes: dict[str, Any] = {
         "identifier": "listing.title-conforms",
+        "description": "Work this step asks for",
         "gate": "live",
         "discipline": Discipline("listing"),
         "scope": Scope.PRODUCT,
