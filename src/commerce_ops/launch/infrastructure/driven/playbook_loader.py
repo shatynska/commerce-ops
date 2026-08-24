@@ -63,6 +63,14 @@ def load_playbook(path: Path) -> LaunchPlaybook:
             steps.append(_build_step_definition(raw_step))
         except InvalidPlaybookError as exc:
             faults.extend(exc.faults)
+        except KeyError as exc:
+            # A required key absent from the document. Caught here rather
+            # than left to escape, because a `KeyError` is a `LookupError`
+            # and so matches neither of the other handlers: without this the
+            # whole load aborts on the first such step, naming neither the
+            # step nor the key.
+            identifier = raw_step.get("identifier", "<unknown>")
+            faults.append(f"step '{identifier}': missing required key {exc}")
         except ValueError as exc:
             identifier = raw_step.get("identifier", "<unknown>")
             faults.append(f"step '{identifier}': {exc}")
@@ -140,6 +148,7 @@ def _parse_discipline(raw: str) -> Discipline | str:
 def _build_step_definition(raw: Mapping[str, Any]) -> StepDefinition:
     return StepDefinition(
         identifier=raw["identifier"],
+        description=raw["description"],
         gate=raw["gate"],
         discipline=_parse_discipline(raw["discipline"]),  # type: ignore[arg-type]
         scope=Scope(raw["scope"]),

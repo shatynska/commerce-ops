@@ -126,6 +126,7 @@ def _step(**overrides: Any) -> StepDefinition:
     """Build a valid `StepDefinition`, overriding named attributes."""
     attributes: dict[str, Any] = {
         "identifier": "inventory.fulfillable-units",
+        "description": "Work this step asks for",
         "gate": "stock-ready",
         "discipline": _any_discipline(),
         "scope": Scope.PRODUCT,

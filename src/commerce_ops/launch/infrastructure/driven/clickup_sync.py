@@ -179,8 +179,47 @@ def _list_name(product: Any) -> str:
     return f"{product.name} ({product.sku})"
 
 
+CLICKUP_TASK_NAME_LIMIT = 2048
+"""The longest task name ClickUp accepts, measured against the live API on
+2026-08-24: 2048 characters are stored intact, 2049 is refused with
+`HTTP 400` / `INPUT_005 "Task name invalid"` — it refuses rather than
+truncating. Counted the way `len()` counts characters; the ladder used
+ASCII only, so it does not distinguish characters from bytes, which cannot
+matter while the longest name this playbook can compose is 271 (see the
+change's design.md, Decision 4)."""
+
+_NAME_SEPARATOR = " · "
+_NAME_CUT_MARK = "…"
+
+
 def _task_name(step: StepDefinition) -> str:
-    return f"{step.identifier} · {step.discipline.value}"
+    """The step's work, then its identifier — never its discipline.
+
+    The discipline is not appended because the identifier's own second
+    segment already carries it (`lp.creative.008` is a `creative` step), and
+    the width would be spent restating what is already there instead of on
+    the wording that makes the task readable. A description that happens to
+    name its own discipline is composed unaltered; the rule is about what is
+    appended, not about what the wording says.
+    """
+    composed = f"{step.description}{_NAME_SEPARATOR}{step.identifier}"
+    if len(composed) <= CLICKUP_TASK_NAME_LIMIT:
+        return composed
+
+    # Keep the identifier whole — it is what makes the task traceable — and
+    # surrender no more of the description than the limit requires. The full
+    # wording is not lost: `_task_body` carries it into the task.
+    tail = f"{_NAME_CUT_MARK}{_NAME_SEPARATOR}{step.identifier}"
+    kept = max(CLICKUP_TASK_NAME_LIMIT - len(tail), 0)
+    return f"{step.description[:kept]}{tail}"
+
+
+def _task_body(step: StepDefinition) -> str | None:
+    """The full description, but only where the name could not carry it."""
+    composed = f"{step.description}{_NAME_SEPARATOR}{step.identifier}"
+    if len(composed) <= CLICKUP_TASK_NAME_LIMIT:
+        return None
+    return step.description
 
 
 async def converge_launch(
@@ -232,7 +271,11 @@ async def converge_launch(
             task_id = mapped.task_id
             current_due = _as_date(task.due_date)
         else:
-            created = await clickup.create_task(list_id=list_id, name=_task_name(step))
+            created = await clickup.create_task(
+                list_id=list_id,
+                name=_task_name(step),
+                description=_task_body(step),
+            )
             await mapping.record_task(launch.product_id, step.identifier, created.id)
             task_id = str(created.id)
             current_due = None
