@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Edit {{ step_id }}</title>
+  <link rel="stylesheet" href="/admin/static/pico.min.css">
+  <script src="/admin/static/htmx.min.js" defer></script>
+</head>
+<body hx-boost="true">
+<main class="container">
+  <h1>Edit step</h1>
+  <p>
+    Identifier: <code>{{ step_id }}</code> — Discipline: {{ discipline }}
+    <br><small>Both are read-only: other surfaces rely on the identifier's
+    discipline segment telling the truth, so a discipline change is a
+    retirement plus a successor step.</small>
+  </p>
+
+  {% if notice %}
+  <article class="notice">{{ notice }}</article>
+  {% endif %}
+  {% if faults %}
+  <article class="faults">
+    <strong>The write was rejected whole; every fault found:</strong>
+    <ul>
+      {% for fault in faults %}
+      <li>{{ fault }}</li>
+      {% endfor %}
+    </ul>
+  </article>
+  {% endif %}
+
+  <form method="post" action="{{ page_path }}/steps/{{ step_id }}/edit">
+    {% with include_discipline = false %}
+    {% include "_fields.html" %}
+    {% endwith %}
+    <button type="submit">Save</button>
+    <a href="{{ page_path }}">Back to the table</a>
+  </form>
+</main>
+</body>
+</html>

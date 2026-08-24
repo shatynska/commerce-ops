@@ -55,3 +55,15 @@ async def resolve_scope(
         permitted.append(product_id)
 
     return AccessScope.permitting(permitted)
+
+
+def resolve_admin_capability(directory: PrincipalsDirectory, *, identity: str) -> bool:
+    """Whether `identity` holds the admin surface's write authority.
+
+    Fail-closed and sync: it consults only the loaded directory. An
+    identity the directory does not declare, and a declared one whose
+    entry carries no admin declaration, each answer `False` — visibility
+    grants of any shape confer nothing here (`add-playbook-admin-ui`).
+    """
+    principal = directory.entry_for(identity)
+    return principal is not None and principal.admin

@@ -50,10 +50,11 @@ def load_principals(path: Path) -> PrincipalsDirectory:
             principals.append(_build_principal(raw))
         except InvalidPrincipalsError as exc:
             faults.extend(exc.faults)
-        except ValueError as exc:
-            # A fault the shared vocabulary raised — a malformed SKU grant.
-            # Named against its entry, since the value alone would not say
-            # which principal has to be corrected.
+        except (TypeError, ValueError) as exc:
+            # A fault the shared vocabulary raised (a malformed SKU grant) or
+            # a mistyped admin declaration. Named against its entry, since
+            # the value alone would not say which principal has to be
+            # corrected.
             identity = raw.get("identity", "<unknown>")
             faults.append(f"principal '{identity}': {exc}")
 
@@ -89,7 +90,20 @@ def _build_principal(raw: Mapping[str, Any]) -> Principal:
         # Absent and empty differ: a missing key is a fault the domain
         # rejects, an empty list is a legitimate grant of nothing.
         skus=_build_skus(raw.get("skus")),
+        admin=_build_admin(raw.get("admin")),
     )
+
+
+def _build_admin(raw: Any) -> bool:
+    """The optional admin declaration: absent means not declared, and only
+    a genuine boolean counts — `admin: "yes"`, a quoted `"true"`, or a
+    number is a mistyped declaration, and a mistyped grant of write
+    authority is rejected rather than guessed at."""
+    if raw is None:
+        return False
+    if not isinstance(raw, bool):
+        raise TypeError(f"the admin declaration must be a boolean, got {raw!r}")
+    return raw
 
 
 def _build_skus(raw: Sequence[Any] | None) -> tuple[Sku, ...] | None:

@@ -271,7 +271,9 @@ class PlaybookStep(Base):
     a retired row persists (retire, never delete), excluded from the
     served playbook while `retired_by` is set and `unretired_by` is not.
     `timing_anchor` is the anchor's JSON shape (`{"kind": ..., ...}`),
-    exactly as the seed's source format spelled it.
+    exactly as the seed's source format spelled it. `display_order` is
+    the authored within-gate slot (`add-playbook-admin-ui`): serving
+    reads gate position, then slot, then identifier.
     """
 
     __tablename__ = "playbook_steps"
@@ -288,6 +290,7 @@ class PlaybookStep(Base):
     hazard: Mapped[str] = mapped_column(String, nullable=False)
     rule_policy: Mapped[str | None] = mapped_column(Text, nullable=True)
     provenance: Mapped[str | None] = mapped_column(Text, nullable=True)
+    display_order: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
 
     created_by: Mapped[str | None] = mapped_column(String, nullable=True)
     created_on: Mapped[datetime | None] = mapped_column(

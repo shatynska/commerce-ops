@@ -10,12 +10,16 @@ from commerce_ops.access.application import PrincipalsDirectory
 from commerce_ops.access.infrastructure.driven.principals_loader import (
     load_shipped_principals,
 )
+from commerce_ops.access.infrastructure.driving import admin_link as access_admin_link
 from commerce_ops.catalog.application import register_product
 from commerce_ops.catalog.infrastructure.driven.product_repository import (
     CatalogProductRepository,
 )
 from commerce_ops.launch.infrastructure.driving import (
     clickup_webhook as launch_clickup_webhook,
+)
+from commerce_ops.launch.infrastructure.driving import (
+    playbook_admin as launch_playbook_admin,
 )
 from commerce_ops.launch.infrastructure.driving import (
     slack_entry as launch_slack_entry,
@@ -71,6 +75,8 @@ app.include_router(omni_agent_slack.router)
 # its own full path.
 app.include_router(launch_clickup_webhook.router)
 app.include_router(launch_slack_entry.router)
+app.include_router(access_admin_link.router)
+app.include_router(launch_playbook_admin.router)
 
 
 async def _register_catalog_product(
@@ -107,3 +113,10 @@ async def _register_catalog_product(
 # adapter resolves this at call time, so the assignment need only happen
 # before the first request.
 launch_slack_entry.register_catalog_product = _register_catalog_product
+
+# The admin page's guard collaborators, injected the same way: the launch
+# module may not import the access module's infrastructure, so the
+# composition root hands it the startup-validated directory and the same
+# session store the exchange route writes into.
+launch_playbook_admin.directory = principals
+launch_playbook_admin.admin_sessions = access_admin_link.admin_sessions

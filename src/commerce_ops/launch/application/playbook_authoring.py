@@ -1,6 +1,6 @@
 """Write use cases of the `playbook-authoring` capability.
 
-The step set lives in a store behind the `StepSetStore` port; these four
+The step set lives in a store behind the `StepSetStore` port; these five
 operations are the only way it changes. Every write is validated by
 constructing the **entire** `LaunchPlaybook` the write would produce —
 the live definitions after the mutation, over the code-owned
@@ -60,9 +60,15 @@ class StepRecord:
     `definition.provenance` carries the seed citation (for `lp.*` rows)
     or nothing; who created, updated, retired, or un-retired the step is
     recorded here, on the row, not in the definition.
+
+    `display_order` is the authored within-gate slot
+    (`add-playbook-admin-ui`): presentation truth only — the domain's
+    commitment machinery never sees it. Serving reads gate position,
+    then slot, then identifier.
     """
 
     definition: StepDefinition
+    display_order: int = 0
     created_by: str | None = None
     created_on: datetime | None = None
     updated_by: str | None = None
@@ -98,6 +104,7 @@ def _as_record(row: Any) -> StepRecord:
         return row
     return StepRecord(
         definition=row.definition,
+        display_order=getattr(row, "display_order", 0),
         created_by=row.created_by,
         created_on=row.created_on,
         updated_by=row.updated_by,
@@ -149,6 +156,35 @@ def _find(records: Sequence[Any], step_id: str) -> int:
     raise ValueError(f"no stored step carries identifier '{step_id}'")
 
 
+def _copy_record(row: Any) -> StepRecord:
+    """A fresh `StepRecord` for `row`, never the loaded object itself —
+    so a write that loses the save race has mutated nothing."""
+    record = _as_record(row)
+    if record is row:
+        copied: StepRecord = replace(record)
+        return copied
+    return record
+
+
+def _slot_of(row: Any) -> int:
+    return int(getattr(row, "display_order", 0))
+
+
+def _last_slot_of_gate(
+    records: Sequence[Any], gate: str, *, excluding: str | None = None
+) -> int:
+    """The slot after every live step of `gate` — where a created,
+    un-retired, or gate-changed step appends."""
+    highest = 0
+    for row in records:
+        if row.definition.gate != gate or _is_retired(row):
+            continue
+        if row.definition.identifier == excluding:
+            continue
+        highest = max(highest, _slot_of(row))
+    return highest + 1
+
+
 async def create_step(
     *,
     steps: StepSetStore,
@@ -183,6 +219,7 @@ async def create_step(
         )
         record = StepRecord(
             definition=definition,
+            display_order=_last_slot_of_gate(records, gate),
             created_by=principal,
             created_on=datetime.now(UTC),
         )
@@ -220,7 +257,13 @@ async def update_step(
         records, version = await steps.load()
         index = _find(records, step_id)
         record = _as_record(records[index])
+        gate_before = record.definition.gate
         record.definition = replace(record.definition, **fields)
+        if record.definition.gate != gate_before:
+            # A gate change appends to the new gate's order.
+            record.display_order = _last_slot_of_gate(
+                records, record.definition.gate, excluding=step_id
+            )
         record.updated_by = principal
         record.updated_on = datetime.now(UTC)
         candidate = (*records[:index], record, *records[index + 1 :])
@@ -261,6 +304,65 @@ async def retire_step(
     )
 
 
+async def reorder_step(
+    *, steps: StepSetStore, principal: str, step_id: str, target_index: int
+) -> StepRecord:
+    """Move a live step to `target_index` (0-based) among its own gate's
+    live steps, renumbering the gate's slots as one atomic write. The
+    unmoved steps keep their relative order; the step's definition — its
+    gate included — is untouched; the move is attributed to `principal`
+    on the moved step, as an update is. Validated and serialized exactly
+    like every other write."""
+    for _ in range(_WRITE_ATTEMPTS):
+        records, version = await steps.load()
+        index = _find(records, step_id)
+        if _is_retired(records[index]):
+            raise ValueError(f"step '{step_id}' is retired and holds no slot to move")
+        gate = records[index].definition.gate
+        gate_live = sorted(
+            (
+                position
+                for position, row in enumerate(records)
+                if row.definition.gate == gate and not _is_retired(row)
+            ),
+            key=lambda position: (
+                _slot_of(records[position]),
+                records[position].definition.identifier,
+            ),
+        )
+        if not 0 <= target_index < len(gate_live):
+            raise ValueError(
+                f"target index {target_index} is outside gate '{gate}', "
+                f"which holds {len(gate_live)} live steps"
+            )
+        sequence = [position for position in gate_live if position != index]
+        sequence.insert(target_index, index)
+        now = datetime.now(UTC)
+        moved: StepRecord | None = None
+        renumbered: dict[int, StepRecord] = {}
+        for slot, position in enumerate(sequence, start=1):
+            copy = _copy_record(records[position])
+            copy.display_order = slot
+            if position == index:
+                copy.updated_by = principal
+                copy.updated_on = now
+                moved = copy
+            renumbered[position] = copy
+        candidate = tuple(
+            renumbered.get(position, row) for position, row in enumerate(records)
+        )
+        _validate(candidate, version + 1)
+        try:
+            await steps.save(candidate, expected_version=version)
+        except StaleStepSetError:
+            continue
+        assert moved is not None
+        return moved
+    raise StaleStepSetError(
+        f"reorder_step lost the set-version race {_WRITE_ATTEMPTS} times"
+    )
+
+
 async def unretire_step(
     *, steps: StepSetStore, principal: str, step_id: str
 ) -> StepRecord:
@@ -270,6 +372,10 @@ async def unretire_step(
         records, version = await steps.load()
         index = _find(records, step_id)
         record = _as_record(records[index])
+        # Rejoin at the end of the gate's order, not the remembered slot.
+        record.display_order = _last_slot_of_gate(
+            records, record.definition.gate, excluding=step_id
+        )
         record.unretired_by = principal
         record.unretired_on = datetime.now(UTC)
         candidate = (*records[:index], record, *records[index + 1 :])

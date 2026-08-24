@@ -12,9 +12,42 @@ never depends on a scope having already been derived.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Protocol
 
 from commerce_ops.shared.domain.identity import ProductId, Sku
+
+
+class LinkTokenStore(Protocol):
+    """Persistence for the single-use admin link tokens (`admin-session`).
+
+    Stores only hashes — the raw token rides the minted link and is never
+    at rest. `claim` atomically spends: it answers the bound principal for
+    an unspent, unexpired hash and marks it spent in the same operation,
+    so a token can never exchange twice; every other case — spent,
+    expired, never minted — answers `None`, indistinguishably.
+    """
+
+    async def save(
+        self, *, token_hash: str, principal: str, expires_at: datetime
+    ) -> None: ...
+
+    async def claim(self, token_hash: str, *, now: datetime) -> str | None: ...
+
+
+class AdminSessionStore(Protocol):
+    """Persistence for the browser sessions the token exchange establishes.
+
+    Stores only hashes, like the token store. `find` answers the bound
+    principal for an unexpired session hash and `None` for everything
+    else — expired and never-established alike.
+    """
+
+    async def save(
+        self, *, session_hash: str, principal: str, expires_at: datetime
+    ) -> None: ...
+
+    async def find(self, session_hash: str, *, now: datetime) -> str | None: ...
 
 
 class SkuResolver(Protocol):
