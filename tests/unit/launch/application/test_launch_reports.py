@@ -92,6 +92,7 @@ from commerce_ops.launch.domain.launch_run import (
     Launch,
     Provenance,
 )
+from commerce_ops.shared.domain.access_scope import AccessScope
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
 
@@ -365,6 +366,7 @@ async def test_all_launch_positions_are_reported() -> None:
         _FakeLaunchStore(at_risk, healthy, resolved),
         _FakePlaybooks(playbook),
         as_of=AS_OF,
+        scope=AccessScope.unrestricted(),
     )
 
     by_product = _reports_by_product(reports)
@@ -414,7 +416,10 @@ async def test_no_launches_yields_an_empty_enumeration() -> None:
     playbook = _playbook()
 
     reports = await read_launches(
-        _FakeLaunchStore(), _FakePlaybooks(playbook), as_of=AS_OF
+        _FakeLaunchStore(),
+        _FakePlaybooks(playbook),
+        as_of=AS_OF,
+        scope=AccessScope.unrestricted(),
     )
 
     # SPECIFIED: an empty result, not an error -- reaching this assertion
@@ -442,7 +447,10 @@ async def test_enumeration_does_not_filter_by_lifecycle() -> None:
     )
 
     reports = await read_launches(
-        _FakeLaunchStore(launch), _FakePlaybooks(playbook), as_of=AS_OF
+        _FakeLaunchStore(launch),
+        _FakePlaybooks(playbook),
+        as_of=AS_OF,
+        scope=AccessScope.unrestricted(),
     )
 
     assert set(_reports_by_product(reports)) == {product_id}
@@ -483,6 +491,7 @@ async def test_a_step_entry_carries_its_owning_discipline() -> None:
         ),
         _FakePlaybooks(playbook),
         as_of=AS_OF,
+        scope=AccessScope.unrestricted(),
     )
 
     (report,) = tuple(reports)
@@ -530,6 +539,7 @@ async def test_the_at_risk_evaluation_names_its_overdue_blocking_steps() -> None
         ),
         _FakePlaybooks(playbook),
         as_of=AS_OF,
+        scope=AccessScope.unrestricted(),
     )
 
     (report,) = tuple(reports)
@@ -558,7 +568,10 @@ async def test_the_at_risk_evaluation_names_its_overdue_blocking_steps() -> None
 
 async def _report_for(launch: Launch, playbook: LaunchPlaybook) -> Any:
     reports = await read_launches(
-        _FakeLaunchStore(launch), _FakePlaybooks(playbook), as_of=AS_OF
+        _FakeLaunchStore(launch),
+        _FakePlaybooks(playbook),
+        as_of=AS_OF,
+        scope=AccessScope.unrestricted(),
     )
     (report,) = tuple(reports)
     return report

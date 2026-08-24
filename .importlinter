@@ -6,6 +6,7 @@ root_packages =
 name = Module layers (infrastructure -> application -> domain)
 type = layers
 containers =
+    commerce_ops.access
     commerce_ops.briefing
     commerce_ops.catalog
     commerce_ops.launch
@@ -16,12 +17,53 @@ layers =
     application
     domain
 
+[importlinter:contract:access-domain-boundary]
+name = access.domain does not reach outside its own layer
+type = forbidden
+source_modules =
+    commerce_ops.access.domain
+forbidden_modules =
+    commerce_ops.briefing
+    commerce_ops.catalog
+    commerce_ops.launch
+    commerce_ops.omni_agent
+    commerce_ops.shared.application
+    commerce_ops.shared.infrastructure
+
+[importlinter:contract:access-application-boundary]
+name = access.application does not reach into other modules' internals
+type = forbidden
+source_modules =
+    commerce_ops.access.application
+forbidden_modules =
+    commerce_ops.briefing
+    commerce_ops.catalog
+    commerce_ops.launch
+    commerce_ops.omni_agent
+    commerce_ops.shared.infrastructure
+; Stricter than its peers on purpose: `access` asks the catalog what a SKU
+; names through a consumer-owned port the composition root satisfies, so it
+; needs no other module at all — not even a public surface. Forbidding
+; `catalog` wholesale keeps that closure honest.
+
+[importlinter:contract:access-infrastructure-boundary]
+name = access.infrastructure does not reach into other modules
+type = forbidden
+source_modules =
+    commerce_ops.access.infrastructure
+forbidden_modules =
+    commerce_ops.briefing
+    commerce_ops.catalog
+    commerce_ops.launch
+    commerce_ops.omni_agent
+
 [importlinter:contract:briefing-domain-boundary]
 name = briefing.domain does not reach outside its own layer
 type = forbidden
 source_modules =
     commerce_ops.briefing.domain
 forbidden_modules =
+    commerce_ops.access
     commerce_ops.catalog
     commerce_ops.launch
     commerce_ops.omni_agent
@@ -34,6 +76,8 @@ type = forbidden
 source_modules =
     commerce_ops.briefing.application
 forbidden_modules =
+    commerce_ops.access.domain
+    commerce_ops.access.infrastructure
     commerce_ops.catalog.domain
     commerce_ops.catalog.infrastructure
     commerce_ops.launch.domain
@@ -47,6 +91,8 @@ type = forbidden
 source_modules =
     commerce_ops.briefing.infrastructure
 forbidden_modules =
+    commerce_ops.access.domain
+    commerce_ops.access.infrastructure
     commerce_ops.catalog.domain
     commerce_ops.catalog.infrastructure
     commerce_ops.launch.domain
@@ -68,6 +114,7 @@ type = forbidden
 source_modules =
     commerce_ops.catalog.domain
 forbidden_modules =
+    commerce_ops.access
     commerce_ops.briefing
     commerce_ops.launch
     commerce_ops.omni_agent
@@ -80,6 +127,8 @@ type = forbidden
 source_modules =
     commerce_ops.catalog.application
 forbidden_modules =
+    commerce_ops.access.domain
+    commerce_ops.access.infrastructure
     commerce_ops.briefing
     commerce_ops.launch.domain
     commerce_ops.launch.infrastructure
@@ -94,6 +143,8 @@ type = forbidden
 source_modules =
     commerce_ops.catalog.infrastructure
 forbidden_modules =
+    commerce_ops.access.domain
+    commerce_ops.access.infrastructure
     commerce_ops.briefing
     commerce_ops.launch.domain
     commerce_ops.launch.infrastructure
@@ -105,6 +156,7 @@ type = forbidden
 source_modules =
     commerce_ops.launch.domain
 forbidden_modules =
+    commerce_ops.access
     commerce_ops.briefing
     commerce_ops.catalog
     commerce_ops.omni_agent
@@ -117,6 +169,8 @@ type = forbidden
 source_modules =
     commerce_ops.launch.application
 forbidden_modules =
+    commerce_ops.access.domain
+    commerce_ops.access.infrastructure
     commerce_ops.briefing
     commerce_ops.catalog.domain
     commerce_ops.catalog.infrastructure
@@ -139,6 +193,8 @@ type = forbidden
 source_modules =
     commerce_ops.launch.infrastructure
 forbidden_modules =
+    commerce_ops.access.domain
+    commerce_ops.access.infrastructure
     commerce_ops.briefing
     commerce_ops.catalog.domain
     commerce_ops.catalog.infrastructure
@@ -160,6 +216,7 @@ type = forbidden
 source_modules =
     commerce_ops.omni_agent.domain
 forbidden_modules =
+    commerce_ops.access
     commerce_ops.briefing
     commerce_ops.catalog
     commerce_ops.launch
@@ -172,6 +229,8 @@ type = forbidden
 source_modules =
     commerce_ops.omni_agent.application
 forbidden_modules =
+    commerce_ops.access.domain
+    commerce_ops.access.infrastructure
     commerce_ops.briefing
     commerce_ops.catalog.domain
     commerce_ops.catalog.infrastructure
@@ -185,6 +244,7 @@ type = forbidden
 source_modules =
     commerce_ops.omni_agent.infrastructure
 forbidden_modules =
+    commerce_ops.access
     commerce_ops.briefing
     commerce_ops.catalog
     commerce_ops.launch
@@ -195,6 +255,7 @@ type = forbidden
 source_modules =
     commerce_ops.shared
 forbidden_modules =
+    commerce_ops.access
     commerce_ops.briefing
     commerce_ops.catalog
     commerce_ops.launch

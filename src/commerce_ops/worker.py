@@ -18,6 +18,7 @@ from datetime import date
 
 from commerce_ops.catalog.domain.product import Product
 from commerce_ops.launch.application import LaunchReport
+from commerce_ops.shared.domain.access_scope import AccessScope
 from commerce_ops.shared.domain.identity import ProductId
 from commerce_ops.shared.infrastructure.driven.database import dispose_engine
 from commerce_ops.shared.infrastructure.driven.job_runner import app
@@ -61,6 +62,13 @@ register_all()
 # (tasks.md 4.2).
 overdue_check.notifier = slack_notifier
 
+# Scheduled work is not a person: the daily briefing addresses the whole
+# team and the ClickUp sync names a list for every launch, so neither
+# impersonates an asker whose visibility could be narrower. Named once here,
+# at the composition root, so that every internal read says which scope it
+# runs under rather than defaulting into one.
+_INTERNAL_SCOPE = AccessScope.unrestricted()
+
 
 async def _read_catalog_product(product_id: ProductId) -> Product | None:
     """Name a launch's ClickUp list after its catalog product.
@@ -72,7 +80,9 @@ async def _read_catalog_product(product_id: ProductId) -> Product | None:
     and this read is not part of their transaction.
     """
     async with session() as db_session:
-        return await get_product_by_id(CatalogProductRepository(db_session), product_id)
+        return await get_product_by_id(
+            CatalogProductRepository(db_session), product_id, scope=_INTERNAL_SCOPE
+        )
 
 
 clickup_sync_job.read_product = _read_catalog_product
@@ -87,7 +97,10 @@ async def _read_launch_reports(*, as_of: date) -> tuple[LaunchReport, ...]:
     """
     async with session() as db_session:
         return await read_launches(
-            LaunchRepository(db_session), ShippedPlaybooks(), as_of=as_of
+            LaunchRepository(db_session),
+            ShippedPlaybooks(),
+            as_of=as_of,
+            scope=_INTERNAL_SCOPE,
         )
 
 

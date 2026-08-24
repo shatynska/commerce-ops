@@ -19,6 +19,7 @@ from datetime import UTC, datetime
 from commerce_ops.catalog.application.errors import ProductNotFoundError
 from commerce_ops.catalog.application.ports import CatalogStore, ProductLister
 from commerce_ops.catalog.domain.product import Product, StageChanged
+from commerce_ops.shared.domain.access_scope import AccessScope
 from commerce_ops.shared.domain.identity import Asin, MarketplaceId, ProductId, Sku
 from commerce_ops.shared.domain.lifecycle_stage import LifecycleStage
 
@@ -64,17 +65,33 @@ async def change_stage(
 
 
 async def get_product_by_id(
-    store: CatalogStore, product_id: ProductId
+    store: CatalogStore, product_id: ProductId, *, scope: AccessScope
 ) -> Product | None:
-    return await store.get_by_id(product_id)
+    return _visible(await store.get_by_id(product_id), scope)
 
 
-async def get_product_by_sku(store: CatalogStore, sku: Sku) -> Product | None:
-    return await store.get_by_sku(sku)
+async def get_product_by_sku(
+    store: CatalogStore, sku: Sku, *, scope: AccessScope
+) -> Product | None:
+    return _visible(await store.get_by_sku(sku), scope)
 
 
-async def list_products(store: ProductLister) -> Sequence[Product]:
-    return await store.list()
+async def list_products(
+    store: ProductLister, *, scope: AccessScope
+) -> Sequence[Product]:
+    return [product for product in await store.list() if scope.permits(product.id)]
+
+
+def _visible(product: Product | None, scope: AccessScope) -> Product | None:
+    """The product, or `None` when the caller may not see it.
+
+    Out-of-scope and non-existent are deliberately one answer: telling them
+    apart would confirm the existence of a product the caller may not see,
+    and would leave callers two absences to handle instead of one.
+    """
+    if product is None or not scope.permits(product.id):
+        return None
+    return product
 
 
 async def _existing(store: CatalogStore, product_id: ProductId) -> Product:
