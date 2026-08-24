@@ -55,9 +55,10 @@ from commerce_ops.shared.infrastructure.driven.recurring_work import registered_
 JOB_PACKAGE = "commerce_ops.launch.infrastructure.driving"
 
 # `design.md`: "Cadence: every 30 minutes, tolerance sized per the
-# `scheduled-jobs` overdue conventions." DERIVED from design.md, not from
-# a scenario -- the spec fixes only that a schedule is declared.
-EXPECTED_INTERVAL_SECONDS = 30 * 60
+# `scheduled-jobs` overdue conventions", lowered to 10 on 2026-08-24 (see
+# `SYNC_SCHEDULE`'s own note). DERIVED from design.md, not from a
+# scenario -- the spec fixes only that a schedule is declared.
+EXPECTED_INTERVAL_SECONDS = 10 * 60
 
 
 def _reconciliation_periodic() -> Any:
@@ -106,14 +107,14 @@ def test_the_reconciliation_pass_runs_on_a_declared_schedule() -> None:
     assert entry.cron, "the ClickUp reconciliation pass has an empty schedule"
 
 
-def test_the_declared_schedule_becomes_due_every_thirty_minutes() -> None:
+def test_the_declared_schedule_becomes_due_every_ten_minutes() -> None:
     """Requirement clause: "periodically".
 
     SPECIFIED: consecutive due moments exist, so the pass is periodic
     rather than declared once and never due again. DERIVED (`design.md`,
-    "Cadence: every 30 minutes"): the interval itself. If the cadence is
-    revised, this figure is the thing to correct -- the periodicity it
-    guards is not.
+    "Cadence: every 30 minutes", revised to 10): the interval itself. If
+    the cadence is revised again, this figure is the thing to correct --
+    the periodicity it guards is not.
     """
     entry = _reconciliation_periodic()
     reference = datetime.datetime(2027, 3, 10, 12, 0, tzinfo=datetime.UTC).timestamp()
@@ -122,7 +123,7 @@ def test_the_declared_schedule_becomes_due_every_thirty_minutes() -> None:
     second = entry.croniter.get_next(ret_type=float, start_time=first)
 
     assert second - first == EXPECTED_INTERVAL_SECONDS, (
-        "expected consecutive due moments 30 minutes apart, got "
+        "expected consecutive due moments 10 minutes apart, got "
         f"{(second - first) / 60:.1f} minutes"
     )
 

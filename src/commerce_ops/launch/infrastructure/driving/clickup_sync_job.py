@@ -59,15 +59,23 @@ _logger = logging.getLogger(__name__)
 
 TASK_NAME = "launch.clickup.completion_pass"
 
-# Every 30 minutes. The webhook is what makes completion prompt; this pass
+# Every 10 minutes. The webhook is what makes completion prompt; this pass
 # exists to catch what it missed, so its cadence sets how long a dropped
 # delivery can go unnoticed, not how quickly completion is normally seen.
-SYNC_SCHEDULE = "*/30 * * * *"
+#
+# Lowered from 30 minutes on 2026-08-24. That figure was sized for a pass
+# standing behind a working webhook; until one is registered, this pass is
+# the only path completion travels, and half an hour of it is felt by
+# whoever ticked the task. Steady-state cost is two ClickUp reads per
+# active launch per pass, so tripling the rate stays far inside the
+# ~100 req/min budget. The first projection of a new launch (~185 calls)
+# is unaffected -- that spike is per launch, not per pass.
+SYNC_SCHEDULE = "*/10 * * * *"
 
 # Comfortably longer than the worker's own liveness tolerance, which
 # `scheduled-jobs` requires of every piece of work it runs: an absent
 # worker must become visible before the work it failed to run does. Also
-# far longer than the 30-minute gap, so a merely delayed run is never
+# far longer than the 10-minute gap, so a merely delayed run is never
 # reported overdue.
 SYNC_TOLERANCE = datetime.timedelta(hours=6)
 
