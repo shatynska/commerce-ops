@@ -1,7 +1,15 @@
 ## 1. Pre-authoring check
 
 - [x] 1.1 Confirm ClickUp's actual task-name limit **and its behaviour at the limit**, and record both. **Done 2026-08-24:** the limit is **2048 characters**, and ClickUp **rejects** an over-long name (`HTTP 400`, `INPUT_005 "Task name invalid"`) rather than truncating it — measured against the live API in a throwaway list, since the published limits pages do not state it. Recorded in design.md Decision 4, together with what it changes: the worst composed name across all 358 reference rows is 271 characters, so shortening is a defensive guarantee rather than a live failure being fixed. Express the number in `clickup_sync.py` as a named constant, not a bare literal.
-- [ ] 1.2 Re-confirm that `launch_positions` is empty before the in-place `v1` edit, rather than inheriting the confirmation made under `author-playbook-steps`. The Migration Plan's "no task exists under the old naming" rests on it. If a launch has started since, the tasks it already projected keep their old names (the sync never renames a mapped task) — record that mixed naming as the accepted outcome instead of assuming the case away.
+- [x] 1.2 Re-confirm that `launch_positions` is empty before the in-place `v1` edit, rather than inheriting the confirmation made under `author-playbook-steps`. The Migration Plan's "no task exists under the old naming" rests on it. If a launch has started since, the tasks it already projected keep their old names (the sync never renames a mapped task) — record that mixed naming as the accepted outcome instead of assuming the case away.
+
+  **Checked 2026-08-24, after the deploy: the premise was false.** The deployment's `launch_positions` held **5 rows, all pinned to `v1`** — launches started since `author-playbook-steps` checked, which is what `start-launch-from-slack` shipping in between made possible. (An earlier reading of this check said 4; a fifth submission arrived at 10:30Z, between that reading and the cleanup below.)
+
+  **No mixed naming arises even so, for a reason the branch did not anticipate.** Mixed naming needs tasks projected under the old scheme, and none exist: the deployment had no ClickUp credentials at all (`deploy.yml`'s rendered `.env` carried no `CLICKUP_*` variable), so no convergence pass had ever projected anything. The ClickUp workspace confirmed it — no per-launch list existed. Every task a `v1` launch gets is therefore created fresh under the new naming.
+
+  **Settled 2026-08-24, not carried forward.** All 5 were test submissions (`TestSKU`…`TestSKU5`, "Disposable food tray"…"tray5", every one still at the `commit` gate), and all 5 were deleted — launch rows and catalog products alike — *before* `deliver-clickup-variables` (#46) put the credentials on the host. So the ~92-tasks-per-launch projection this note warned about never ran against them, and the question of mixed naming is closed rather than deferred: no task under the old naming exists anywhere, and none can now be created.
+
+  The missing credentials were their own defect, not a property of this change; they are fixed in #46, and the reasoning is recorded there and in `docs/deferred-work.md`.
 
 ## 2. The field
 

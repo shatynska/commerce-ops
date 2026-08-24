@@ -122,6 +122,10 @@ Until then, any *new* caller needing two writes to land together must use `trans
 
 **Recorded in**: `clickup-task-client`'s "Authentication is configured independently of any one caller"; `launch-clickup-sync`'s projection requirement; the optionality comments in `shared/application/settings.py`.
 
+**Before that configuration lands, clear the test launches.** Checked on the deployment 2026-08-24: `launch_positions` holds 4 rows pinned to `v1`, all of them test launches started while trying out `start-launch-from-slack`, and the owner has confirmed they are disposable. None has ever been projected — the deployment carries no `CLICKUP_*` variable at all, so no convergence pass has reached ClickUp and no per-launch list exists. The moment a token and a valid folder id arrive, the first pass would project roughly 92 tasks per launch, about 368 in total, onto launches nobody wants. Delete them first: the five child tables cascade on delete, and here there is no ClickUp list left behind to archive by hand.
+
+**A second, separate defect in the same area.** `CLICKUP_LAUNCH_FOLDER_ID` is currently set to `901220457229`, which is the id of the *list* named "Launches", not a folder — `GET /list/901220457229` resolves, `GET /folder/901220457229` does not. Projection creates one list per launch inside a parent folder, so that value cannot work even once the token is present. Whoever takes this up needs a real folder id, not just the three variables added to `deploy.yml`.
+
 ### The parked `add-product-creation-clickup-task` change — superseded
 
 **Closed out by `start-launch-from-slack`**, which covers this ground on current foundations: a slash command and modal on the `product_agent` app that registers the product and starts its launch. The ClickUp half of the parked proposal is obsolete rather than deferred — the completion loop (`launch-clickup-sync`) now projects a launch's whole list and per-step tasks automatically, so a single hand-created task would be duplicated or fought by the next convergence pass. It remains true that `clickup_client` gains no new caller from this direction.

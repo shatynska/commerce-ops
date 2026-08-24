@@ -93,10 +93,10 @@ A step definition's owning discipline SHALL be one of the disciplines the shared
 - **THEN** loading fails with an error naming the step and the unrecognised discipline
 
 ### Requirement: A step definition declares how it is to be resolved
-
 Each step definition SHALL declare all of:
 
 - a unique identifier within the playbook, expressed as a human-readable slug
+- a description: the work the step asks for, readable without consulting the source material, and occupying a single line
 - the gate it must be resolved before
 - the discipline that owns it — drawn from the shared vocabulary's discipline set
 - its scope: whether the step concerns the product itself, or the product on one marketplace
@@ -108,10 +108,12 @@ Each step definition SHALL declare all of:
 - optionally, the rule policy stating what we specifically do — which MAY be absent while the decision is outstanding
 - optionally, a provenance reference into the source material it derives from
 
+The description is required and SHALL NOT be empty, and a description consisting only of whitespace SHALL be treated as empty. A step whose work cannot be read from the step itself is indistinguishable, to whoever is asked to do it, from a step that was never written down; the identifier names the step and the provenance says where it came from, but neither states the work. The coherence rules below reject a playbook that declares a step with an empty, whitespace-only, or absent description; that rejection is stated once, with the other load-time rules, rather than twice.
+
 #### Scenario: A step definition is read back with every declared attribute
 
 - **WHEN** a step definition is read from a loaded playbook
-- **THEN** its identifier, gate, discipline, scope, timing anchor, binding, blocking flag, execution mode, and hazard classification are all present
+- **THEN** its identifier, description, gate, discipline, scope, timing anchor, binding, blocking flag, execution mode, and hazard classification are all present
 - **AND** its rule policy and provenance reference are present only if authored
 
 #### Scenario: Steps can be selected by gate and by scope
@@ -235,7 +237,6 @@ A playbook SHALL carry a version identifier, so that a launch run against it can
 - **THEN** it reports the version identifier it was authored with
 
 ### Requirement: An incoherent playbook is rejected at load time
-
 Loading a playbook SHALL validate its coherence and SHALL fail rather than returning a partially valid playbook. The failure SHALL report **every** fault found, each naming the offending step or gate, so that authoring a large playbook does not require repeated load attempts to discover successive faults. This SHALL cover malformed individual step definitions — a step whose shape is wrong or whose timing anchor is invalid — and malformed authored metric conditions, as well as violations of the coherence rules below, since during a bulk import malformed steps are the likelier error and reporting them one at a time is the experience this requirement exists to prevent.
 
 A playbook SHALL be rejected when any of the following holds:
@@ -244,6 +245,8 @@ A playbook SHALL be rejected when any of the following holds:
 - a gate's declared opening mode does not match the mode this specification assigns to it
 - two step definitions share an identifier
 - a step definition declares a gate that is not in the gate sequence
+- a step definition's description is empty, consists only of whitespace, or is not declared at all
+- a step definition's description spans more than one line — a description is composed into a task's name, and a name is a single line
 - a step definition's execution mode is automated or AI-assisted while its rule policy is absent
 - a step definition is classified `prohibited-tactic` and is also marked as blocking its gate
 - a step definition's binding is `lesson` and it is marked as blocking its gate — advice that blocks a gate the way a framework rule does is a category error
@@ -268,6 +271,16 @@ A playbook SHALL be rejected when any of the following holds:
 
 - **WHEN** a step definition declares a gate that is not part of the gate sequence
 - **THEN** loading fails with an error naming the step and the unknown gate
+
+#### Scenario: A step with no description is rejected by name
+
+- **WHEN** a playbook declares a step whose description is empty, consists only of whitespace, or omits the description entirely
+- **THEN** loading fails with an error naming that step, in the same aggregated report as any other fault
+
+#### Scenario: A description spanning several lines is rejected
+
+- **WHEN** a playbook declares a step whose description contains a line break
+- **THEN** loading fails with an error naming that step
 
 #### Scenario: Automation without a decided rule
 
@@ -328,8 +341,15 @@ The capability SHALL report which of a loaded playbook's step definitions carry 
 - **THEN** the report is empty
 
 ### Requirement: The shipped playbook carries the authored step set
+The shipped `v1` playbook SHALL carry authored step definitions, not an empty step list. The authored set SHALL represent the reference launch plan (`docs/reference/product-launch.md`) as follows: the BUILD THE LISTING area is represented completely — every ID-bearing row of that area appears as a step — and every other gate carries a representative subset. Each step's identifier SHALL be the reference document's own row ID, its description SHALL be that row's own text, and its provenance SHALL carry that row's source citation, so every authored step traces to exactly one reference row and can be read without opening it.
 
-The shipped `v1` playbook SHALL carry authored step definitions, not an empty step list. The authored set SHALL represent the reference launch plan (`docs/reference/product-launch.md`) as follows: the BUILD THE LISTING area is represented completely — every ID-bearing row of that area appears as a step — and every other gate carries a representative subset. Each step's identifier SHALL be the reference document's own row ID, and its provenance SHALL carry that row's source citation, so every authored step traces to exactly one reference row.
+A shipped step's description SHALL be the text of its reference row transcribed unaltered, except that trailing whitespace SHALL be removed, and then any trailing character in the closed set `;` `:` `,` `.` — repeating until neither whitespace nor one of those four characters remains at the end. No other character SHALL be stripped, and nothing else SHALL be changed — not the wording, the casing, or the order of clauses.
+
+The set is closed deliberately, and is not "trailing punctuation": reference rows end variously in a closing quote, a closing parenthesis, or a `+` (as in "A+"), and each of those is part of what the row says rather than a fragment's terminal mark. A rule broad enough to remove them would silently corrupt the text it exists to preserve.
+
+Transcribing this way is what makes every shipped description re-derivable from the reference document and comparable against it, so that a divergence between the two is detectable rather than silent. The reference document's wording belongs to the team that wrote it; this specification moves it, and does not improve it.
+
+A shipped step's identifier SHALL carry its declared discipline as its second segment (`lp.creative.008` is a `creative` step). This is what allows a surface composed from the identifier to omit the discipline without losing it, and it holds for every step of the authored set.
 
 Rows of the reference document that restate a condition a gate already authors as a metric condition SHALL NOT additionally appear as steps: one obligation is expressed once.
 
@@ -348,6 +368,17 @@ Rows of the reference document that restate a condition a gate already authors a
 
 - **WHEN** any authored step is read from the loaded playbook
 - **THEN** its identifier is a reference-document row ID and its provenance reference is that row's source citation
+- **AND** the second segment of that identifier is the step's declared discipline
+
+#### Scenario: A step states its work without the source document
+
+- **WHEN** any authored step is read from the loaded playbook
+- **THEN** its description is non-empty
+
+#### Scenario: Every description re-derives from its reference row
+
+- **WHEN** every authored step's description is compared against the text of the reference row its identifier names, reduced by the trimming rule above
+- **THEN** each description equals that row's trimmed text exactly
 
 #### Scenario: A gate-authored condition is not duplicated as a step
 
