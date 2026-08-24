@@ -87,15 +87,28 @@ REGISTRAR_ATTRIBUTES: tuple[str, ...] = (
     "register_product",
 )
 
-# Deliberately slow, relative to a normal test's runtime, but far under
-# Slack's real 3-second ack window -- large enough that a response gated on
-# it would be trivially distinguishable from one that was not.
-SLOW_PERSISTENCE_SECONDS = 0.3
+# Deliberately slow, relative to a normal test's runtime, but under Slack's
+# real 3-second ack window -- large enough that a response gated on it would
+# be trivially distinguishable from one that was not.
+#
+# Scaled up from 0.3s after CI failed at 0.190s against a 0.15s threshold.
+# The behaviour was correct there -- 0.190s is well under the delay, so the
+# acknowledgement plainly had not waited on persistence -- but roughly 0.19s
+# of fixed framework overhead on a slower runner consumed most of a 0.15s
+# budget. Enlarging the delay leaves that overhead a small fraction of the
+# signal instead of most of it.
+SLOW_PERSISTENCE_SECONDS = 1.5
 
-# Generous relative to the 0.3s the slow collaborator takes; a ceiling on
-# waiting, never an assertion about timing.
-_DEFERRED_WORK_TIMEOUT_SECONDS = 5.0
-ACK_SHOULD_RETURN_WITHIN_SECONDS = 0.15
+# Half the delay, exactly as before the rescale: what this asserts is
+# unchanged in relative terms -- the round trip returned well before the
+# collaborator did -- and only the absolute scale moved, so the threshold
+# is not a number that can be quietly relaxed away from the delay it
+# derives from.
+ACK_SHOULD_RETURN_WITHIN_SECONDS = SLOW_PERSISTENCE_SECONDS / 2
+
+# Generous relative to the delay; a ceiling on waiting, never an assertion
+# about timing.
+_DEFERRED_WORK_TIMEOUT_SECONDS = SLOW_PERSISTENCE_SECONDS + 5.0
 
 
 # --------------------------------------------------------------------------
