@@ -45,4 +45,4 @@
 ## 9. Record the decision and align spec prose
 
 - [x] 9.1 Amend `AGENTS.md` and `README.md`: the repository owns the playbook framework (gates, coherence rules, vocabulary); the database owns the step content, edited through validated write use cases
-- [ ] 9.2 At archive time, direct spec edits declared in the proposal: amend the Purposes of `launch-playbook`, `launch-entry`, and `launch-instance` (drop "authored in the repository" / "the version the build ships" / "pinned playbook version"), and rename the requirement header "The shipped playbook carries the authored step set" to "The seeded step set carries the authored v1 definitions"
+- [x] 9.2 At archive time, direct spec edits declared in the proposal: amend the Purposes of `launch-playbook`, `launch-entry`, and `launch-instance` (drop "authored in the repository" / "the version the build ships" / "pinned playbook version"), and rename the requirement header "The shipped playbook carries the authored step set" to "The seeded step set carries the authored v1 definitions"
