@@ -120,6 +120,18 @@ jobs:
             echo "PRODUCT_AGENT_SLACK_BOT_TOKEN=${{ secrets.PRODUCT_AGENT_SLACK_BOT_TOKEN }}"
             echo "PRODUCT_AGENT_SLACK_SIGNING_SECRET=${{ secrets.PRODUCT_AGENT_SLACK_SIGNING_SECRET }}"
             echo "PRODUCT_AGENT_MONITORING_CHANNEL_ID=${{ secrets.PRODUCT_AGENT_MONITORING_CHANNEL_ID }}"
+            # The completion loop's three variables, registered as
+            # `production` secrets since 2026-08-23 but never rendered until
+            # now. Nothing else sets them on the host, and both services read
+            # them from this file: absent, the reconciliation pass raises
+            # `ClickUpSyncError` on the first launch that needs a list and
+            # fails every run thereafter, while the webhook rejects every
+            # delivery. Neither is visible at startup, because
+            # `settings.py` declares all three optional -- see
+            # docs/deferred-work.md, "The ClickUp variables are optional".
+            echo "CLICKUP_API_TOKEN=${{ secrets.CLICKUP_API_TOKEN }}"
+            echo "CLICKUP_LAUNCH_FOLDER_ID=${{ secrets.CLICKUP_LAUNCH_FOLDER_ID }}"
+            echo "CLICKUP_WEBHOOK_SECRET=${{ secrets.CLICKUP_WEBHOOK_SECRET }}"
             # A repository/Environment variable, not a secret: the
             # threshold is not sensitive, and masking it in logs would
             # serve nothing. No LOG_LEVEL variable exists yet, so this
