@@ -26,5 +26,5 @@
 
 ## 6. Verification and record
 
-- [x] 6.1 Run `uv run pytest tests/unit tests/agents`, mypy, ruff, and import-linter; run `tests/integration` before push. **Commit-time gate green (2026-08-24):** 622 passed, mypy clean over 203 files, `ruff check` and `ruff format --check` clean, import-linter 17/17 contracts kept. **`tests/integration` still unrun** — it skips without `DATABASE_URL`, and the local Postgres container stopped partway through; run it before pushing.
+- [x] 6.1 Run `uv run pytest tests/unit tests/agents`, mypy, ruff, and import-linter; run `tests/integration` before push. **Commit-time gate green (2026-08-24):** 622 passed, mypy clean over 203 files, `ruff check` and `ruff format --check` clean, import-linter 17/17 contracts kept. **`tests/integration` green too (2026-08-24): 45 passed** against local Postgres with `DATABASE_URL` set and `alembic upgrade head` applied. Note it skips silently without `DATABASE_URL` — an earlier run reported "3 passed, 37 skipped", which is not a pass of this tier. All of the above re-run after rebasing onto `origin/main` (636 unit+agent tests, mypy over 211 files).
 - [x] 6.2 Update `docs/domain-map.md`: add the description to the `StepDefinition` attribute list, and record that a projected ClickUp task is named from it while the step-to-task association remains the recorded mapping, never the name.
