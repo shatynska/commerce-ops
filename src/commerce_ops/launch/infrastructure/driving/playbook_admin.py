@@ -35,7 +35,7 @@ from typing import Any, Final
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from commerce_ops.access.application import list_people, verify_admin_session
@@ -84,6 +84,22 @@ _STATUS_LABELS: Final = {
     StepStatus.ACTIVE: "active",
     StepStatus.RETIRED: "retired",
 }
+
+# Hoisted to module scope so `_submitted_values` can name the same default
+# the create template falls back to. Built as a key of `_option_context()`
+# it was reachable only from a template.
+_DISCIPLINE_OPTIONS: Final = tuple(d.value for d in Discipline)
+
+# Creating never offers `retired`: retirement is the end of a step's life,
+# reached through the retire flow that records who ended it. A step created
+# straight into it would render behind the control that reveals retired
+# steps, where the redirect's fragment addresses nothing and the
+# falls-outside-the-narrowing notice cannot help.
+_CREATE_STATUS_OPTIONS: Final = tuple(
+    (status.value, label)
+    for status, label in _STATUS_LABELS.items()
+    if status is not StepStatus.RETIRED
+)
 
 router = APIRouter()
 
@@ -423,7 +439,7 @@ def _option_context() -> dict[str, Any]:
     return {
         "page_path": PAGE_PATH,
         "gate_options": GATE_SEQUENCE,
-        "discipline_options": [d.value for d in Discipline],
+        "discipline_options": list(_DISCIPLINE_OPTIONS),
         "scope_options": [s.value for s in Scope],
         "kind_options": [k.value for k in StepKind],
         "status_options": [
@@ -544,14 +560,40 @@ def _move_targets(visible_live: list[Any], at: int) -> tuple[str | None, str | N
     return up, down
 
 
+def _created_outside(
+    records: tuple[Any, ...] | Any, narrowing: _Narrowing, created: str
+) -> Any | None:
+    """The just-created step, when the narrowing hides it and clearing the
+    narrowing would bring it back — otherwise `None`, and no notice.
+
+    The test is what *this page's read* returns, never "the served set":
+    the served set is the active steps alone, and a step created as a
+    draft is outside it while being exactly the step the notice exists to
+    find. The offer clears the gate, discipline and search but not the
+    retired control, so a step retired since it was created is correctly
+    left alone: clearing what the offer clears would still not reveal it,
+    and an offer the admin cannot act on is worse than saying nothing.
+    """
+    record = next(
+        (r for r in records if r.definition.identifier == created),
+        None,
+    )
+    if record is None or narrowing.shows(record):
+        return None
+    cleared = _Narrowing(retired=narrowing.retired)
+    return record if cleared.shows(record) else None
+
+
 async def _render_page(
     narrowing: _Narrowing,
     *,
     notice: str | None = None,
     faults: tuple[str, ...] = (),
+    created: str = "",
 ) -> HTMLResponse:
     records, version = await steps.load()
     people = _people_by_identifier(await _roster_people())
+    outside = _created_outside(records, narrowing, created) if created else None
 
     gates = []
     for gate in GATE_SEQUENCE:
@@ -606,8 +648,48 @@ async def _render_page(
         show_retired_link=narrowing.suffix(retired="1"),
         notice=notice,
         faults=faults,
+        created=created,
+        # Named, so the notice can say which step it means; and the offer
+        # keeps carrying `created` plus the fragment, so clearing lands on
+        # the step rather than at the top of the whole set.
+        created_outside=(
+            {
+                "identifier": outside.definition.identifier,
+                "name": outside.definition.name,
+                # Not `clear`: Jinja resolves `mapping.clear` to `dict.clear`,
+                # the built-in method, and renders it into the href.
+                "clear_url": narrowing.suffix(
+                    gate="", discipline="", q="", created=created
+                ),
+            }
+            if outside is not None
+            else None
+        ),
         assignee_options=_assignee_options(list(people.values())),
         **_option_context(),
+    )
+    return HTMLResponse(html)
+
+
+async def _render_new(
+    values: dict[str, Any],
+    *,
+    faults: tuple[str, ...] = (),
+    notice: str | None = None,
+    narrowing: _Narrowing,
+) -> HTMLResponse:
+    """The create surface, on its own page. A rejection re-renders *this*,
+    not the list — which is what keeps every submitted value, the
+    discipline and the named assignees included."""
+    context = _option_context()
+    context["status_options"] = list(_CREATE_STATUS_OPTIONS)
+    html = _TEMPLATES.get_template("new.html").render(
+        values=values,
+        faults=faults,
+        notice=notice,
+        narrowing=narrowing,
+        assignee_options=_assignee_options(await _roster_people()),
+        **context,
     )
     return HTMLResponse(html)
 
@@ -662,8 +744,19 @@ def _submitted_values(
     form: dict[str, str], assignees: tuple[str, ...] = ()
 ) -> dict[str, Any]:
     """The submitted form, echoed back around a rejection: the spec
-    requires the form to still hold what was typed."""
+    requires the form to still hold what was typed.
+
+    `discipline` is here for the create surface alone — editing renders it
+    as text, because authoring refuses to update it. Without the key a
+    rejected create reverted to the first option, and the corrected retry
+    generated an identifier carrying the wrong discipline, which
+    `update_step` will not correct: retire-and-succeed was the only way
+    back. The default is the same one the template falls back to, never
+    `""`, which matches no option and leaves the browser showing the first
+    one anyway.
+    """
     return {
+        "discipline": form.get("discipline") or _DISCIPLINE_OPTIONS[0],
         "name": form.get("name", ""),
         "description": form.get("description", ""),
         "gate": form.get("gate", ""),
@@ -711,7 +804,26 @@ async def _form_of(request: Request) -> tuple[dict[str, str], tuple[str, ...]]:
 async def step_table(
     request: Request, principal: str = Depends(_require_admin)
 ) -> Response:
-    return await _render_page(_filters_of(request))
+    # `created` is what a fragment cannot be: server-visible. A redirect to
+    # `…#step-<id>` tells the browser where to scroll and tells this route
+    # nothing, so without the parameter the list could not know a create
+    # had happened, let alone that the narrowing hides it.
+    return await _render_page(
+        _filters_of(request), created=request.query_params.get("created", "")
+    )
+
+
+@router.get(PAGE_PATH + "/steps/new")
+async def new_form(
+    request: Request, principal: str = Depends(_require_admin)
+) -> Response:
+    """Creating on its own surface, reachable from the list without
+    traversing the step set — the whole point of the change. Buried at the
+    bottom of the list it sat below twenty screens of steps, and an admin
+    opening the page concluded there was no way to add one."""
+    return await _render_new(
+        {"discipline": _DISCIPLINE_OPTIONS[0]}, narrowing=_filters_of(request)
+    )
 
 
 @router.get(PAGE_PATH + "/steps/{step_id}/edit")
@@ -770,10 +882,23 @@ async def create(
 ) -> Response:
     narrowing = _filters_of(request)
     form, assignees = await _form_of(request)
+
+    # Two submissions the create surface cannot have produced: its select
+    # always submits a discipline, and it never offers `retired`. Neither
+    # is a rejection with a half-typed form behind it, so neither renders
+    # one — the reordering requirement sets the same pattern, refusing a
+    # move submitted where the control was absent rather than trusting the
+    # control's absence.
+    submitted_discipline = form.get("discipline") or ""
+    if not submitted_discipline:
+        raise HTTPException(status_code=400, detail="discipline is required")
+    if form.get("status") == StepStatus.RETIRED.value:
+        raise HTTPException(status_code=400, detail="a step cannot be created retired")
+
     try:
         fields = _authorable_fields(form, assignees)
-        discipline = Discipline(form.get("discipline") or Discipline.LISTING.value)
-        await create_step(
+        discipline = Discipline(submitted_discipline)
+        record = await create_step(
             steps=steps,
             principal=principal,
             discipline=discipline,
@@ -783,10 +908,29 @@ async def create(
         )
     except (InvalidPlaybookError, ValueError) as rejected:
         faults = getattr(rejected, "faults", (str(rejected),))
-        return await _render_page(narrowing, faults=tuple(faults))
+        return await _render_new(
+            _submitted_values(form, assignees),
+            faults=tuple(faults),
+            narrowing=narrowing,
+        )
     except StaleStepSetError:
-        return await _render_page(narrowing, notice=STALE_NOTICE)
-    return await _render_page(narrowing)
+        return await _render_new(
+            _submitted_values(form, assignees),
+            notice=STALE_NOTICE,
+            narrowing=narrowing,
+        )
+
+    # Alone among the writes, a create lands the admin on a *different*
+    # page from the one they posted to, so rendering the list here would
+    # leave the URL on the create path with a resubmit on refresh. The
+    # fragment addresses the created step wherever it renders — among its
+    # gate's active steps when created active, among the non-active steps
+    # otherwise.
+    identifier = record.definition.identifier
+    return RedirectResponse(
+        f"{PAGE_PATH}{narrowing.suffix(created=identifier)}#step-{identifier}",
+        status_code=303,
+    )
 
 
 @router.post(PAGE_PATH + "/steps/{step_id}/retire")

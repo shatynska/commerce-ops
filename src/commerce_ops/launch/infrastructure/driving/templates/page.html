@@ -14,6 +14,17 @@
   {% if notice %}
   <article class="notice">{{ notice }}</article>
   {% endif %}
+  {# A create the narrowing hides would otherwise look like a create that
+     did not happen. The narrowing wins — it is what the admin chose — but
+     the page says so, and the offer keeps addressing the created step so
+     that clearing lands on it rather than at the top of the whole set. #}
+  {% if created_outside %}
+  <article class="notice">
+    “{{ created_outside.name }}” (<code>{{ created_outside.identifier }}</code>)
+    was created, and falls outside the steps shown here.
+    <a href="{{ page_path }}{{ created_outside.clear_url }}#step-{{ created_outside.identifier }}">Clear the narrowing to see it</a>
+  </article>
+  {% endif %}
   {% if faults %}
   <article class="faults">
     <strong>The write was rejected whole; every fault found:</strong>
@@ -44,6 +55,17 @@
       <button type="submit">Narrow</button>
     </fieldset>
   </form>
+
+  {# Ahead of the gate tables, so reaching it never depends on how many
+     steps are shown. As the last section of this page it sat below some
+     twenty screens of steps, and an admin opening the page for the first
+     time concluded there was no way to add one at all.
+
+     Un-boosted deliberately: `hx-boost` is inherited from `<body>`, so
+     left alone htmx would swap the create page into *this* body, discard
+     that page's own `<body>` attributes, turn its POST into an XHR and
+     drop the redirect's fragment on the floor. #}
+  <p><a href="{{ page_path }}/steps/new{{ narrowing.suffix() }}" role="button" hx-boost="false">Add step</a></p>
 
   {% if narrowing.retired %}
   <p><a href="{{ page_path }}{{ hide_retired }}">Hide retired steps</a></p>
@@ -101,7 +123,7 @@
       </thead>
       <tbody>
         {% for step in gate.steps %}
-        <tr class="step status-{{ step.status }}">
+        <tr class="step status-{{ step.status }}" id="step-{{ step.identifier }}">
           {{ step_cells(step) }}
           <td>
             {% if reorderable %}
@@ -149,7 +171,7 @@
         </thead>
         <tbody>
           {% for step in gate.pending %}
-          <tr class="step status-{{ step.status }}">
+          <tr class="step status-{{ step.status }}" id="step-{{ step.identifier }}">
             {{ step_cells(step) }}
             <td>
               {% if step.retired %}
@@ -169,16 +191,6 @@
   </section>
   {% endfor %}
 
-  <section>
-    <h2>Create a step</h2>
-    <p>The identifier is generated on save — <code>mg.&lt;discipline&gt;.&lt;seq&gt;</code>, never chosen.</p>
-    <form method="post" action="{{ page_path }}/steps/create{{ narrowing.suffix() }}">
-      {% with values = {}, include_discipline = true %}
-      {% include "_fields.html" %}
-      {% endwith %}
-      <button type="submit">Create</button>
-    </form>
-  </section>
 </main>
 <script>
   document.body.addEventListener("htmx:responseError", function (event) {
