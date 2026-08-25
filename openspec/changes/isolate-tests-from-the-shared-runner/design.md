@@ -61,7 +61,7 @@ while True:
     conn = await self._getconn_unchecked(deadline - monotonic())
     try:
         await self._check_connection(conn)
-    except CLIENT_EXCEPTIONS:          # ← CancelledError lands here
+    except CLIENT_EXCEPTIONS:  # ← CancelledError lands here
         await self._putconn(conn, from_getconn=True)
     else:
         return conn
