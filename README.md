@@ -118,6 +118,17 @@ With no database configured anywhere, tests needing one skip and say so. **With 
 
 Note the pre-push hook exists only if you ran the second install command above; without it, none of this runs before a push. CI runs the tier unconditionally against its own Postgres, where an absent or unreachable database fails the job rather than skipping.
 
+Once the database *is* reachable, the roster needs a first admin. In a deployed container this happens on its own: the start chain runs `preflight`, then `alembic upgrade head`, then the seeding step, then the server, and the step makes the Slack identity `BOOTSTRAP_ADMIN_IDENTITY` names an active admin. If the roster has no admin and the variable is unset, that step fails and the server never starts — a deployment nobody can administer stops at a named step rather than crash-looping.
+
+Running `uvicorn` directly skips that chain, so a fresh local database has no admin until you run the step yourself — the same shape as needing `alembic upgrade head`:
+
+```
+export BOOTSTRAP_ADMIN_IDENTITY=U078TC45LHM
+uv run python -m commerce_ops.seed_admin
+```
+
+It is inert once the roster holds an admin of its own. The integration tier needs the variable for the same reason a deployment does.
+
 ## Deferred work
 
 `docs/deferred-work.md` records what this project has deliberately not done, and why — decisions awaiting a team call, items belonging to the `/infrastructure` repository, and technical work postponed with its reasoning.

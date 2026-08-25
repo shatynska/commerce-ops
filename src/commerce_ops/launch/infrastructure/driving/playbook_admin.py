@@ -19,7 +19,7 @@ through a stylesheet URL either.
 Collaborators are module-level names referenced as bare globals — the
 `clickup_webhook.py` pattern that lets tests substitute fakes with
 `monkeypatch.setattr`: `steps` (the step-set store; in production a
-wrapper opening its own session per operation), and `directory` /
+wrapper opening its own session per operation), and `roster` /
 `admin_sessions`, injected by `main.py` the way `slack_entry`'s catalog
 registrar is, because this module may not import the access module's
 infrastructure.
@@ -69,7 +69,7 @@ from commerce_ops.shared.infrastructure.driven.database import session
 
 __all__ = [
     "admin_sessions",
-    "directory",
+    "roster",
     "router",
     "steps",
     "verify_admin_session",
@@ -196,10 +196,10 @@ class _RequestScopedSteps:
 steps: StepSetStore = _RequestScopedSteps()
 
 # Injected by `main.py` after the app is built (the `register_catalog_product`
-# pattern): the loaded principals directory and the access module's session
-# store. Resolved at call time; absent injection refuses every request,
-# which is the failing-closed direction.
-directory: Any = None
+# pattern): the roster store and the access module's session store. Resolved
+# at call time; absent injection refuses every request, which is the
+# failing-closed direction.
+roster: Any = None
 admin_sessions: Any = None
 
 
@@ -210,7 +210,7 @@ async def _require_admin(request: Request) -> str:
     principal: str | None = None
     if session_id:
         principal = await verify_admin_session(
-            directory,
+            roster,
             admin_sessions,
             session_id=session_id,
             now=datetime.now(UTC),

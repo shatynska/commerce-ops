@@ -131,33 +131,47 @@ That breaks `admin-session`'s requirement *"Admin access fails closed and absenc
 Not fixed in `reorder-steps-under-filters`, which added a route riding the same guard and verified that route's *refusal* shape, but did not change the guard. A fix is small — refuse when either global is absent, before the cookie is read — and belongs with a test at the `admin-session` tier rather than folded into an unrelated change.
 
 **Recorded in**: `reorder-steps-under-filters`'s implementation notes; the false claim is the comment above `directory`/`admin_sessions` in `playbook_admin.py`.
-### The integration tier hangs intermittently when two files run together
 
-`tests/integration/shared/test_scheduled_runs_freshness_unreachable.py` followed by `tests/integration/shared/test_scheduled_run_history.py` intermittently **hangs forever** rather than failing. The run stops; nothing times out on its own.
+### `procrastinate` and `psycopg_pool` can outlive a cancellation
 
-**Reproduction**, on unmodified `main` with a migrated database:
+Two library behaviours combine so that **a cancelled task can survive its own
+cancellation and run forever**, and any caller that cancels a task touching the
+connection pool inherits them. They are recorded here because they are not
+fixed — only this project's exposure to them was.
 
-```
-pytest tests/integration/shared/test_scheduled_runs_freshness_unreachable.py \
-       tests/integration/shared/test_scheduled_run_history.py -q -p no:randomly
-```
+This is what made the integration tier hang intermittently until
+`isolate-tests-from-the-shared-runner` (2026-08-25). The tests are no longer
+exposed: the two files that start a worker own private `procrastinate.App`s
+whose periodic registries are empty, so no side task loops, and a tier-level
+guard in `tests/integration/conftest.py` fails any future test that starts a
+worker against a registry holding production work. The archived change carries
+the captured await chain and the measurements.
 
-**Rate is load-sensitive**, which is the hardest thing about it: measured at 2/5 and 1/3 while the machine was busy with other work, and 1/12 once it was quiet. A CI runner is typically more contended than a laptop, so the high end is the one to expect there.
+**`src/` still has a caller.** `worker.py:56` calls `register_all()` and
+`worker.py:141` calls `app.run_worker_async()` with `install_signal_handlers`
+defaulting to `True`, so the deployed worker runs this same cancel-and-gather
+path over a periodic deferrer on **every** SIGTERM, with all three real jobs
+registered. What bounds it there is not absence but Docker's stop grace
+period: a wedged shutdown is ended by SIGKILL rather than hanging forever.
+Benign in effect — but if a worker is ever seen being killed on stop rather
+than exiting cleanly, this is the mechanism to look at first.
 
-**Signature.** The main thread parks in `run_until_complete → run_forever → selectors.select` inside an `anyio` test (`faulthandler_timeout` dump), while every Postgres connection sits `idle` with `wait_event = ClientRead`. The client is awaiting something that is not the database. The stall lands on `test_a_retried_run_that_succeeds_is_recorded_as_succeeded`, which drives a procrastinate runner through `runner_app.open_async()` and `_drain()`.
+- `procrastinate`'s `cancel_and_capture_errors` (`utils.py:232`) gathers side
+  tasks with no timeout after a single `cancel()`.
+- `psycopg_pool` classifies `asyncio.CancelledError` as a retryable client
+  exception (`pool_async.py:38`) and retries around it.
 
-**Ruled out**, each by experiment rather than reasoning:
+Three side tasks are cancelled on that path, not one. The periodic deferrer is
+where this was caught, and it dominates because with an armed registry it does
+pool work at `periodic.py:136` immediately, before its first sleep. But
+`_update_heartbeat` (`worker.py:483-492`) and `_poll_jobs_to_abort`
+(`worker.py:494-514`) loop over pool-backed calls too — they merely sleep
+first, so a cancellation usually lands where it propagates. Their exposure is
+inference from the same verified mechanism rather than something measured, and
+it is the reason a rare stall should be checked against this entry before being
+filed as something new.
 
-- *Caused by `verify-the-integration-tier`* — reproduces on `main` with none of that change present.
-- *A fault inside either file* — each file alone passes 5/5 in about 0.9s, on both branches.
-- *Specific to one of the two unreachable tests* — 2/5 and 1/5 respectively, no meaningful difference at that sample size.
-- *An engine orphaned by `_no_engine_left_over`, which calls `_get_engine_and_session_factory.cache_clear()` without disposing* — the strongest early candidate, weakened because `main.py`'s lifespan already `await dispose_engine()`s on shutdown, so the unreachable test's engine is disposed when its `TestClient` exits. Worth revisiting, not concluded. Note that fixture and `test_slack_entry_start.py:339` are the only two places reaching past the public `dispose_engine()` into the private cache; five sibling files use the helper.
-
-**Not attempted:** capturing the awaited coroutine. A pytest plugin dumping `asyncio.all_tasks()` on `SIGALRM` produced 0/12 stalls against 1/12 without it — too low a base rate to tell masking from luck.
-
-**Why it was invisible until 2026-08-25:** the tier had never run. CI had no integration step, the `pre-push` hook set no `DATABASE_URL`, and every test skipped. `verify-the-integration-tier` makes the tier run and gives the CI job a `timeout-minutes` ceiling, so a stall now fails fast and visibly instead of wedging a runner — a bound, not a fix.
-
-**Recorded in**: `verify-the-integration-tier`'s `design.md` (Risks) and this investigation.
+Neither has been reported upstream.
 
 ### Small cleanups, not worth a change each
 

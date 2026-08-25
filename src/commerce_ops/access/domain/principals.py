@@ -1,15 +1,18 @@
-"""The principals directory: who is declared, and what each may see.
+"""The roster: who is known, and in what capacity.
 
-Implements the coherence rules of `access-scope`'s requirement *A principals
-directory is loaded from a repo-owned definition and validated*. Deterministic
-and I/O-free: the YAML file itself is the loader's concern
-(`access.infrastructure.driven.principals_loader`), which translates its
-values into the ones these constructors expect and merges whatever they
-raise into one reported failure — the shape `launch`'s playbook already uses.
+Implements the coherence rules of the `roster` capability. Deterministic
+and I/O-free: persistence is the store adapter's concern
+(`access.infrastructure.driven.roster_repository`), which translates
+stored rows into the values these constructors expect and re-implements
+none of the rules below.
 
-Nothing here authenticates. A principal's identity is the opaque string an
-adapter has already established; the domain never learns that it came from
-Slack.
+Two of those rules are properties of the whole set rather than of any one
+person — a Slack identity names exactly one human, and the roster never
+loses its last active admin — which is why a write validates the roster it
+would produce rather than the row it touches.
+
+Nothing here authenticates. A person's Slack identity is the opaque string
+an adapter has already established; the domain never learns how.
 """
 
 from __future__ import annotations
@@ -17,14 +20,14 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from commerce_ops.shared.domain.identity import Sku
 
+class InvalidRosterError(ValueError):
+    """A roster (or a person within one) fails coherence.
 
-class InvalidPrincipalsError(ValueError):
-    """A principals directory (or an entry within one) fails coherence.
-
-    Carries every fault found in one load attempt, not just the first, so a
-    directory does not have to be corrected one error at a time.
+    Carries every fault found in one validation, not just the first, so a
+    rejected write does not have to be corrected one fault at a time —
+    the shape `InvalidPrincipalsError` established, kept deliberately
+    (`move-principals-to-roster`, tasks.md 1.1).
     """
 
     def __init__(self, faults: Sequence[str]) -> None:
@@ -33,86 +36,129 @@ class InvalidPrincipalsError(ValueError):
 
 
 @dataclass(frozen=True, slots=True)
-class Principal:
-    """One declared identity and the single visibility grant it carries.
+class Person:
+    """One known human: identity data, authority, and whether they are current.
 
-    `skus is None` means the entry declared no SKU list *at all*, which is a
-    fault; an empty tuple means it declared an empty one, which is legitimate
-    and resolves to the scope permitting nothing. The two are deliberately
-    distinguishable: "missing is not fine" — absent and empty differ.
+    The identifier is generated, never chosen by a caller, and never
+    reused — a step's assignees will reference it, so it must not move
+    when the person's data is corrected. The Slack identity is the
+    credential an adapter establishes; it is unique across the *whole*
+    roster, deactivated entries included, and immutable, so an identifier
+    can never be quietly re-pointed at a different human.
 
-    `admin` is the optional admin declaration (`add-playbook-admin-ui`),
-    orthogonal to the visibility grant: grants say what a principal may
-    *see*, the declaration says it may hold the admin surface's *write*
-    authority. No grant of any shape confers it — an admin who may see
-    nothing is still an admin, and an all-products principal without the
-    declaration is not.
+    Attribution does not live here: who created, updated, deactivated or
+    reactivated a person is recorded on the stored row
+    (`access.application.roster.PersonRecord`), the split
+    `launch`'s `StepDefinition`/`StepRecord` already uses.
     """
 
-    identity: str
-    all_products: bool
-    skus: tuple[Sku, ...] | None
+    identifier: str
+    display_name: str
+    slack_identity: str
+    clickup_user_id: str | None = None
     admin: bool = False
+    active: bool = True
 
     def __post_init__(self) -> None:
-        faults: list[str] = []
-
-        if not self.identity:
-            faults.append("a principal entry declares an empty identity")
-        elif self.identity != self.identity.strip():
-            faults.append(
-                "a principal identity must not carry leading or trailing "
-                f"whitespace: {self.identity!r}"
-            )
-
-        if self.all_products and self.skus is not None:
-            faults.append(
-                f"principal '{self.identity}' declares both an all-products "
-                "grant and a SKU grant list, and may declare only one"
-            )
-        elif not self.all_products and self.skus is None:
-            faults.append(
-                f"principal '{self.identity}' declares neither an all-products "
-                "grant nor a SKU grant list, and must declare one"
-            )
-
+        faults = self.faults()
         if faults:
-            raise InvalidPrincipalsError(faults)
+            raise InvalidRosterError(faults)
 
-    @property
-    def granted_skus(self) -> tuple[Sku, ...]:
-        """The SKUs granted, which is none when the grant is all-products."""
-        return self.skus or ()
+    def faults(self) -> tuple[str, ...]:
+        """Every coherence fault this person carries, named against it.
+
+        Exposed as well as raised so a whole-roster validation can gather
+        each entry's faults into one rejection rather than surfacing the
+        first and hiding the rest.
+        """
+        found: list[str] = []
+        who = self.slack_identity or self.identifier or "<unidentified>"
+
+        if not self.identifier or not self.identifier.strip():
+            found.append("a person entry carries an empty identifier")
+
+        if not self.display_name or not self.display_name.strip():
+            found.append(f"person '{who}' carries an empty display name")
+
+        if not self.slack_identity:
+            found.append(f"person '{self.identifier}' carries an empty Slack identity")
+        elif self.slack_identity != self.slack_identity.strip():
+            found.append(
+                f"person '{self.identifier}' carries a Slack identity with "
+                f"leading or trailing whitespace: {self.slack_identity!r}"
+            )
+
+        if self.clickup_user_id is not None and not self.clickup_user_id.strip():
+            found.append(
+                f"person '{who}' carries an empty ClickUp user id — omit it "
+                f"instead, since absent and empty differ"
+            )
+
+        return tuple(found)
 
 
 @dataclass(frozen=True, slots=True)
-class PrincipalsDirectory:
-    """Every declared principal, each identity appearing at most once."""
+class Roster:
+    """Every known person, validated as a whole.
 
-    principals: tuple[Principal, ...]
+    Two of the rules are properties of the *set*, not of any entry, which
+    is why validation happens here and why a write validates the roster
+    it would produce rather than the row it touches: a Slack identity is
+    unique across every entry, and the roster never loses its last active
+    admin.
+    """
+
+    people: tuple[Person, ...] = ()
 
     def __post_init__(self) -> None:
+        faults = [fault for person in self.people for fault in person.faults()]
+        faults.extend(self._duplicate_identity_faults())
+        faults.extend(self._admin_floor_faults())
+        if faults:
+            raise InvalidRosterError(faults)
+
+    def _duplicate_identity_faults(self) -> list[str]:
         seen: set[str] = set()
         duplicated: list[str] = []
-        for principal in self.principals:
-            if principal.identity in seen and principal.identity not in duplicated:
-                duplicated.append(principal.identity)
-            seen.add(principal.identity)
+        for person in self.people:
+            if (
+                person.slack_identity in seen
+                and person.slack_identity not in duplicated
+            ):
+                duplicated.append(person.slack_identity)
+            seen.add(person.slack_identity)
+        return [
+            f"the Slack identity '{identity}' is carried by more than one "
+            f"person — an identity names exactly one human, deactivated "
+            f"entries included"
+            for identity in duplicated
+        ]
 
-        if duplicated:
-            # A later entry silently winning is exactly what this forbids:
-            # two entries granting different visibility to one identity have
-            # no defensible resolution, so the directory is refused instead.
-            raise InvalidPrincipalsError(
-                [
-                    f"principal '{identity}' is declared more than once"
-                    for identity in duplicated
-                ]
+    def _admin_floor_faults(self) -> list[str]:
+        """The floor: a roster holding anyone holds an active admin.
+
+        An empty roster is coherent — nobody is declared yet, which is
+        the state the startup seed exists to resolve. A roster holding
+        people but no active admin is not: it locks the door and
+        swallows the key, so the write producing it is rejected whole.
+        """
+        if not self.people:
+            return []
+        if any(person.active and person.admin for person in self.people):
+            return []
+        return [
+            (
+                "the roster would be left without an active admin — nobody "
+                "could administer it, and no write could restore one"
             )
+        ]
 
-    def entry_for(self, identity: str) -> Principal | None:
-        """The entry declaring `identity`, or `None` for a stranger."""
-        for principal in self.principals:
-            if principal.identity == identity:
-                return principal
+    def entry_for(self, slack_identity: str) -> Person | None:
+        """The person carrying `slack_identity`, or `None` for a stranger."""
+        for person in self.people:
+            if person.slack_identity == slack_identity:
+                return person
         return None
+
+    def active_admins(self) -> tuple[Person, ...]:
+        return tuple(person for person in self.people if person.active and person.admin)

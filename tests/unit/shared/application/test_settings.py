@@ -74,6 +74,9 @@ OPTIONAL = frozenset(
         # minting a link no browser could follow -- fail-closed
         # degradation of that one surface, while everything else serves.
         "ADMIN_BASE_URL",
+        # Added by move-principals-to-roster (tasks 3.4): names the first
+        # admin for the startup seed; inert once the roster holds one.
+        "BOOTSTRAP_ADMIN_IDENTITY",
         "CLICKUP_API_TOKEN",
         # Added by configure-application-logging (tasks 2.4) -- this
         # transcribed set now spans more than one change.

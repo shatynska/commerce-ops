@@ -1,69 +1,78 @@
-"""Resolving an established identity to what it may see.
+"""Resolving an established identity to what it may see, over the roster.
 
-Implements `access-scope`'s resolution requirements. Every path answers with
-an `AccessScope` — never `None`, never an exception — because the callers
-are read use cases that must be able to filter unconditionally, and because
-a resolution that could fail would fail toward the asker at exactly the
-moment access control matters most.
+Implements `access-scope`'s resolution requirements. Every path answers
+with an `AccessScope` — never `None`, never an exception — because the
+callers are read use cases that must be able to filter unconditionally,
+and because a resolution that could fail would fail toward the asker at
+exactly the moment access control matters most.
+
+Product-level differentiation is deliberately absent since
+`move-principals-to-roster`: an active roster member sees every product,
+and what a person may see will be differentiated by *information kind* in
+a later change, never by product.
+
+Both resolutions read the roster per call rather than a cached copy:
+`admin-session` promises that deactivating a person revokes their access
+on their next request, and a cache would have to be invalidated across
+two processes to keep that true. A roster is tens of rows.
 """
 
 from __future__ import annotations
 
 import logging
+from typing import Any
 
-from commerce_ops.access.application.ports import SkuResolver
-from commerce_ops.access.domain.principals import PrincipalsDirectory
+from commerce_ops.access.application.roster import RosterStore, people_of
+from commerce_ops.access.domain.principals import Person
 from commerce_ops.shared.domain.access_scope import AccessScope
-from commerce_ops.shared.domain.identity import ProductId
 
 _logger = logging.getLogger(__name__)
 
 
-async def resolve_scope(
-    directory: PrincipalsDirectory,
-    resolve_sku: SkuResolver,
-    *,
-    identity: str,
-) -> AccessScope:
-    """What `identity` may see, according to `directory`.
+async def _active_person(roster: RosterStore, identity: str) -> Person | None:
+    """The active person carrying `identity`, or `None`.
 
-    An identity the directory does not declare sees nothing: access fails
-    closed, and a stranger is answered with the same kind of value everyone
-    else gets rather than a distinct "unknown".
+    `None` covers all three fail-closed cases alike — unknown,
+    deactivated, and a roster that could not be read — because no caller
+    may distinguish them: an unreadable store must never widen access,
+    and must never surface as an error toward the asker.
     """
-    principal = directory.entry_for(identity)
-    if principal is None:
-        return AccessScope.nothing()
+    try:
+        rows, _ = await roster.load()
+    except Exception:
+        _logger.exception(
+            "the roster could not be read while resolving access for '%s'; "
+            "resolving as no access",
+            identity,
+        )
+        return None
 
-    if principal.all_products:
-        return AccessScope.unrestricted()
-
-    permitted: list[ProductId] = []
-    for sku in principal.granted_skus:
-        product_id = await resolve_sku(sku)
-        if product_id is None:
-            # A stale grant narrows what this principal sees and nothing
-            # more: failing here would let one outdated line lock someone
-            # out of every product they may legitimately see.
-            _logger.warning(
-                "principal '%s' is granted SKU '%s', which no product has; "
-                "the grant confers nothing",
-                identity,
-                sku.value,
-            )
-            continue
-        permitted.append(product_id)
-
-    return AccessScope.permitting(permitted)
+    for person in people_of(rows):
+        if person.slack_identity == identity and person.active:
+            return person
+    return None
 
 
-def resolve_admin_capability(directory: PrincipalsDirectory, *, identity: str) -> bool:
+async def resolve_scope(roster: Any, *, identity: str) -> AccessScope:
+    """What `identity` may see, according to the roster.
+
+    An active member sees every product. A deactivated member, an
+    identity the roster does not carry, and a roster that cannot be read
+    each see nothing: access fails closed, and every case is answered
+    with the same kind of value rather than a distinct "unknown".
+    """
+    person = await _active_person(roster, identity)
+    return AccessScope.unrestricted() if person is not None else AccessScope.nothing()
+
+
+async def resolve_admin_capability(roster: Any, *, identity: str) -> bool:
     """Whether `identity` holds the admin surface's write authority.
 
-    Fail-closed and sync: it consults only the loaded directory. An
-    identity the directory does not declare, and a declared one whose
-    entry carries no admin declaration, each answer `False` — visibility
-    grants of any shape confer nothing here (`add-playbook-admin-ui`).
+    Fail-closed: an identity the roster does not carry, one carried only
+    by a deactivated entry, an active entry without the admin flag, and a
+    roster that cannot be read each answer `False`. Membership of any
+    shape confers nothing by itself — an admin who is deactivated is not
+    an admin, and an active member without the flag never was.
     """
-    principal = directory.entry_for(identity)
-    return principal is not None and principal.admin
+    person = await _active_person(roster, identity)
+    return person is not None and person.admin

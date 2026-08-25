@@ -2,101 +2,63 @@
 
 ## Purpose
 
-Answers "which products may this caller see" — and, since `add-playbook-admin-ui`, "does this caller hold the admin write capability": owns the repo-owned principals directory and derives from it, fail-closed, the access scope every read use case filters by and the orthogonal per-entry admin declaration the admin surface is gated on. It never authenticates — adapters establish who is asking; this capability only says what that identity may see and whether it may hold the admin surface.
+Answers "which products may this caller see" — and, since `add-playbook-admin-ui`, "does this caller hold the admin write capability": resolves both, fail-closed, from the roster (`move-principals-to-roster`, which replaced the repo-owned principals directory), yielding the access scope every read use case filters by and the orthogonal per-entry admin declaration the admin surface is gated on. Product-level differentiation is deliberately absent — an active member sees every product, and what a person may see will be differentiated by information kind in a later change. It never authenticates — adapters establish who is asking; this capability only says what that identity may see and whether it may hold the admin surface.
 
 ## Requirements
 
-### Requirement: A principals directory is loaded from a repo-owned definition and validated
-
-The system SHALL read principal definitions from a repo-owned directory file mapping a Slack user identity to a visibility declaration: either an all-products grant, or a list of SKU grants (which MAY be empty). Loading SHALL reject a malformed directory rather than carry it: a duplicate principal identity, an empty or whitespace-padded identity, an entry declaring both an all-products grant and SKU grants, an entry declaring neither, and a SKU grant value that is empty or carries leading or trailing whitespace SHALL each fail the load with an error naming the offending entry. The directory SHALL be loaded and validated before the system serves any scope resolution: a malformed directory SHALL prevent the process from starting to serve, and SHALL never surface as an error on an individual asker's resolution.
-
-#### Scenario: A well-formed directory loads
-
-- **WHEN** the principals directory declares one identity with an all-products grant and another with a list of SKU grants
-- **THEN** the directory loads and both principals are known
-
-#### Scenario: A duplicate identity is rejected at load
-
-- **WHEN** the principals directory declares the same identity twice
-- **THEN** the load fails with an error naming that identity
-
-#### Scenario: An entry declaring both grant forms is rejected
-
-- **WHEN** a principal entry declares an all-products grant and also lists SKU grants
-- **THEN** the load fails with an error naming that entry
-
-#### Scenario: An entry declaring no grant form is rejected
-
-- **WHEN** a principal entry declares neither an all-products grant nor a SKU grant list
-- **THEN** the load fails with an error naming that entry
-
-#### Scenario: A malformed SKU grant value is rejected
-
-- **WHEN** a principal entry lists a SKU grant that is empty or padded with whitespace
-- **THEN** the load fails rather than silently trimming or skipping it
-
-#### Scenario: A malformed directory prevents serving rather than failing resolutions
-
-- **WHEN** the process starts against a malformed principals directory
-- **THEN** startup fails with the load error naming the offending entry, and no scope resolution ever observes the malformed directory
-
-### Requirement: A known principal's scope derives from its grants
-
-Given a loaded principals directory, the system SHALL resolve a Slack user identity to an access scope: an all-products grant SHALL yield the unrestricted scope; a list of SKU grants SHALL yield a scope permitting exactly the product identifiers of the registered products those SKUs identify; an empty grant list SHALL yield the scope permitting nothing.
-
-#### Scenario: An all-products principal resolves to the unrestricted scope
-
-- **WHEN** the scope is resolved for an identity whose entry carries the all-products grant
-- **THEN** the resolved scope permits every product identifier
-
-#### Scenario: SKU grants resolve to exactly those products
-
-- **WHEN** the scope is resolved for an identity granted two SKUs, both belonging to registered products
-- **THEN** the resolved scope permits exactly those two products' identifiers and no other
-
-#### Scenario: An empty grant list resolves to the empty scope
-
-- **WHEN** the scope is resolved for an identity whose entry carries an empty SKU grant list
-- **THEN** the resolved scope permits no product identifier
-
 ### Requirement: An unknown asker resolves to the empty scope
 
-Resolving a scope for an identity the principals directory does not declare SHALL yield the scope permitting nothing — the same scope type every resolution yields, never an error and never a distinct "unknown" result. Access fails closed.
+Resolving a scope for an identity no roster entry carries SHALL yield the scope permitting nothing — the same scope type every resolution yields, never an error and never a distinct "unknown" result. Access fails closed.
 
 #### Scenario: A stranger sees nothing
 
-- **WHEN** the scope is resolved for a Slack user identity with no entry in the principals directory
+- **WHEN** the scope is resolved for a Slack user identity with no roster entry
 - **THEN** the resolved scope permits no product identifier, and the resolution succeeds
 
-### Requirement: A grant naming an unregistered SKU confers nothing without failing the resolution
+### Requirement: An active roster member resolves to the unrestricted scope
 
-When a SKU grant names a SKU no registered product has, that grant SHALL confer no visibility, and the resolution SHALL still succeed with the principal's remaining grants honored — one stale grant never locks a principal out of the products they may legitimately see, and never turns into an error for the asker.
+The system SHALL resolve a Slack user identity against the roster: an identity an active roster entry carries SHALL resolve to the unrestricted scope — every product, including ones registered after the resolution. An identity carried only by a deactivated entry SHALL resolve to the scope permitting nothing, exactly as a stranger does. A resolution that cannot read the roster store SHALL yield the scope permitting nothing — fail-closed, never an error toward the asker. Product-level visibility differentiation is deliberately absent: what a person may see will be differentiated by information kind in a later change, never by product.
 
-#### Scenario: A stale grant is skipped, the rest stand
+#### Scenario: An active member sees every product
 
-- **WHEN** the scope is resolved for an identity granted one SKU belonging to a registered product and one SKU no product has
-- **THEN** the resolved scope permits exactly the registered product's identifier, and the resolution succeeds
+- **WHEN** the scope is resolved for a Slack user identity an active roster entry carries
+- **THEN** the resolved scope permits every product identifier
 
-### Requirement: A principal can be declared admin-capable
+#### Scenario: A deactivated member sees nothing
 
-The principals directory SHALL support an optional per-entry admin declaration, distinct from and orthogonal to visibility grants: grants say what a principal may *see*; the admin declaration says the principal may hold the admin surface's *write* authority. An entry without the declaration SHALL mean exactly what it means today — no existing directory file becomes invalid, and no visibility grant of any shape SHALL by itself confer admin capability. A malformed admin declaration value SHALL fail the directory load with an error naming the offending entry, like every other directory fault. Resolution SHALL be fail-closed: an identity the directory does not know, and a known identity whose entry carries no admin declaration, SHALL each resolve as not admin-capable.
+- **WHEN** the scope is resolved for a Slack user identity carried only by a deactivated roster entry
+- **THEN** the resolved scope permits no product identifier, and the resolution succeeds
+
+#### Scenario: An unreachable store fails closed
+
+- **WHEN** the scope is resolved while the roster store cannot be read
+- **THEN** the resolved scope permits no product identifier, and the resolution succeeds without surfacing an error to the asker
+
+### Requirement: Admin capability resolves from the roster
+
+A roster entry SHALL carry an admin declaration, distinct from and orthogonal to visibility: membership says what a person may *see*; the admin declaration says the person may hold the admin surface's *write* authority — no membership of any shape SHALL by itself confer it. Resolution SHALL be fail-closed: an identity the roster does not know, an identity carried only by a deactivated entry, an active entry without the admin declaration, and a resolution that cannot read the roster store SHALL each resolve as not admin-capable, never as an error toward the asker.
 
 #### Scenario: A declared entry resolves admin-capable
 
-- **WHEN** admin capability is resolved for an identity whose entry carries the admin declaration
+- **WHEN** admin capability is resolved for an identity whose active roster entry carries the admin declaration
 - **THEN** the identity resolves as admin-capable
 
-#### Scenario: Visibility grants confer nothing
+#### Scenario: Membership confers nothing
 
-- **WHEN** admin capability is resolved for an identity whose entry carries the all-products grant but no admin declaration
+- **WHEN** admin capability is resolved for an identity whose active roster entry carries no admin declaration
+- **THEN** the identity resolves as not admin-capable
+
+#### Scenario: A deactivated admin fails closed
+
+- **WHEN** admin capability is resolved for an identity whose roster entry carries the admin declaration but is deactivated
 - **THEN** the identity resolves as not admin-capable
 
 #### Scenario: An unknown identity fails closed
 
-- **WHEN** admin capability is resolved for an identity the directory does not know
+- **WHEN** admin capability is resolved for an identity the roster does not know
 - **THEN** the identity resolves as not admin-capable
 
-#### Scenario: A malformed admin declaration is rejected at load
+#### Scenario: An unreachable store fails closed
 
-- **WHEN** the principals directory declares an entry whose admin declaration carries a malformed value
-- **THEN** the load fails with an error naming that entry
+- **WHEN** admin capability is resolved while the roster store cannot be read
+- **THEN** the identity resolves as not admin-capable, and the resolution succeeds
