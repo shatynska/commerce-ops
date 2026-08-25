@@ -1,7 +1,7 @@
 ## Why
 
 The steps management page is unusable at the size of the set it actually
-serves. The seeded playbook holds 105 steps, 65 of them in the `listable`
+serves. The seeded playbook holds 97 steps, 65 of them in the `listable`
 gate alone, so an admin filters first as a matter of course — and every
 write then throws the filter away and returns the unfiltered list. The
 cause is not the page's server-rendered approach: the filter state lives
