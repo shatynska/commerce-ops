@@ -132,95 +132,22 @@ Not fixed in `reorder-steps-under-filters`, which added a route riding the same 
 
 **Recorded in**: `reorder-steps-under-filters`'s implementation notes; the false claim is the comment above `directory`/`admin_sessions` in `playbook_admin.py`.
 
-### The integration tier hangs intermittently — cause identified 2026-08-25
+### `procrastinate` and `psycopg_pool` can outlive a cancellation
 
-**Superseded.** The earlier version of this entry recorded a stall nobody
-could explain, with three hypotheses each falsified by experiment. The cause
-is now identified, reproduced and isolated. The fix is proposed as
-`isolate-tests-from-the-shared-runner`; this entry stays only until that
-change ships, and should be deleted with it.
+Two library behaviours combine so that **a cancelled task can survive its own
+cancellation and run forever**, and any caller that cancels a task touching the
+connection pool inherits them. They are recorded here because they are not
+fixed — only this project's exposure to them was.
 
-**One line does it.** `runner_app` is a process-wide `procrastinate.App`.
-Four integration modules call `registrations.register_all()` at import
-(`test_known_work_anchor.py`, `test_overdue_report_suppression_store.py`,
-`test_scheduled_runs_freshness_cache.py`,
-`test_scheduled_runs_freshness_unreachable.py`), and pytest imports every
-selected module at collection — so in any run containing one of them,
-`runner_app.periodic_registry` holds this application's three real jobs
-before the first test executes.
+This is what made the integration tier hang intermittently until
+`isolate-tests-from-the-shared-runner` (2026-08-25). The tests are no longer
+exposed: the two files that start a worker own private `procrastinate.App`s
+whose periodic registries are empty, so no side task loops, and a tier-level
+guard in `tests/integration/conftest.py` fails any future test that starts a
+worker against a registry holding production work. The archived change carries
+the captured await chain and the measurements.
 
-`test_scheduled_run_history.py::_drain()` then calls
-`runner_app.run_worker_async(...)`, whose worker always starts a
-`_periodic_deferrer` side task. With an empty registry that task returns at
-once ("No periodic task found"); with the armed one it enters a real
-defer/sleep loop and the test's worker executes **production jobs**.
-
-On `_drain()` exit, `Worker._shutdown` calls
-`utils.cancel_and_capture_errors`, which cancels each side task **once** and
-then `asyncio.gather`s them **with no deadline**. That is safe only if every
-side task honours its cancellation, and the deferrer does not:
-`psycopg_pool` defines `CLIENT_EXCEPTIONS = (Exception, asyncio.CancelledError)`
-and `_getconn_with_check_loop` catches it inside a `while True:` retry —
-a window procrastinate holds open on every query, since its `_create_pool`
-passes `check=check_connection`. The `CancelledError` is swallowed, the
-deferrer's loop continues, nothing cancels it again, and the gather waits
-forever.
-
-**The stall is not frozen — it is ticking.** A wedged
-`pytest tests/integration` left running committed at 12:30:00, 12:40:00 and
-12:50:00: the orphaned deferrer, still offering
-`launch.clickup.completion_pass` on its `*/10 * * * *` schedule an hour after
-cancellation. That also re-reads the old `faulthandler` signature — main
-thread in `selectors.select`, every Postgres connection `idle`/`ClientRead` —
-as a sleep between cron ticks rather than a deadlock.
-
-**Controlled experiment.** `test_scheduled_run_history.py` alone, 15 runs per
-arm under a 60s ceiling, the only difference a pytest plugin calling
-`register_all()`: **2/15** stalls with it, **0/15** without.
-
-**The two-file reproduction was minimal, not special.** Any arming module
-plus this one reproduces it, and two of the four sort *before* it
-alphabetically — which is why the full tier hangs too, not only the
-documented pair. The stall lands on the retry tests because those call
-`_drain(passes=5)`: five worker cycles, so five cancellations, against one
-everywhere else.
-
-### Tests defer and run production jobs — the same root, the quieter half
-
-Not a hang, and worse. Because the registry is armed, the tier's own worker
-has been deferring and executing this application's real recurring work
-against whatever database the tier points at. Found in the development
-database on 2026-08-25:
-
-| task | status | rows |
-|---|---|---|
-| `briefing.daily` | failed | 3 |
-| `launch.clickup.completion_pass` | failed | 28 |
-| `shared.scheduled_runs.overdue_check` | succeeded | 16 |
-| `products.monitoring.daily` | succeeded | 1 |
-
-`products.monitoring.daily` is a task name no longer registered anywhere, so
-those rows outlived their own definition. Which process deferred any given row
-is not recorded by procrastinate's schema, so the case against them rests on
-what they do — distort a developer-local `last_successful_run` — not on who
-wrote them.
-
-They fail fast today only because no `CLICKUP_*`, Slack or OpenAI variable is
-set in a test process. The moment the ClickUp variables become required — as
-the entry above records the owner has asked — this tier begins making real
-outbound calls and writing into a real ClickUp folder. It also distorts
-`last_successful_run`, which the overdue reporter reads to decide what is
-overdue.
-
-**Recorded in**: `isolate-tests-from-the-shared-runner`'s `design.md`, which
-carries the captured await chain and the experiment.
-
-### The upstream properties this depends on
-
-Both remain true whatever this project does about its tests, and any caller
-that cancels a task touching the connection pool inherits them.
-
-**`src/` already has one.** `worker.py:56` calls `register_all()` and
+**`src/` still has a caller.** `worker.py:56` calls `register_all()` and
 `worker.py:141` calls `app.run_worker_async()` with `install_signal_handlers`
 defaulting to `True`, so the deployed worker runs this same cancel-and-gather
 path over a periodic deferrer on **every** SIGTERM, with all three real jobs
