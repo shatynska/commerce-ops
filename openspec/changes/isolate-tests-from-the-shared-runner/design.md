@@ -258,7 +258,8 @@ rather than a hypothesis. Both are deliberate acts, both are out of scope, and
 naming them is what stops the guard being read as total. What the class-level
 wrapper *does* cover beyond `run_worker_async` is the synchronous
 `App.run_worker`, which delegates to it (`procrastinate/app.py:350-361`).
- The two compose rather than compete: the private App is what these
+
+The two compose rather than compete: the private App is what these
 tests drive, and the guard is what makes the goal true for tests nobody has
 written yet — it asks nothing of a future author, which is the property the
 rejected fixture lacked and the private App does not supply either.
@@ -361,6 +362,26 @@ Kept rather than removed once Decision 1 lands, on the same reasoning
 invisible for as long as it was, partly because nothing in the tier could
 fail fast. A ceiling converts the next wedge — in a library version bump, or
 in a shape nobody has thought of — into a named failing test.
+
+**And it is load-bearing today, not insurance.** Emptying the registry removes
+the deferrer's exposure, but the deferrer is not the only side task with that
+shape: `_update_heartbeat` (`worker.py:483-492`) and `_poll_jobs_to_abort`
+(`worker.py:494-514`) both loop over pool-backed `job_manager` calls and are
+cancelled on the same `cancel_and_capture_errors` path at `worker.py:557`.
+That they would swallow a cancellation the same way is inference from the
+verified mechanism, not something measured here — but it is why "registry
+emptied, therefore a hang is impossible" would be the wrong conclusion to draw,
+and why a rare stall after this change should be read as this residual before
+it is read as a new defect.
+
+The deferrer dominates for a structural reason worth recording: with the
+registry armed it calls `defer_jobs()` at `periodic.py:136` *immediately*,
+before its first `wait()`, so a cancellation at `_drain()`'s rapid start/stop
+cadence very often lands inside pool work. Both others `await
+asyncio.sleep(interval)` first, so a cancellation almost always lands in the
+sleep, where it propagates normally. That asymmetry is the best available
+explanation for both the 0/15 unarmed arm and the stall landing on the
+`_drain(passes=5)` tests.
 
 ### Decision 3 — Delete the rows this defect wrote
 

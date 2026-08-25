@@ -234,6 +234,16 @@ than exiting cleanly, this is the mechanism to look at first.
 - `psycopg_pool` classifies `asyncio.CancelledError` as a retryable client
   exception (`pool_async.py:38`) and retries around it.
 
+Three side tasks are cancelled on that path, not one. The periodic deferrer is
+where this was caught, and it dominates because with an armed registry it does
+pool work at `periodic.py:136` immediately, before its first sleep. But
+`_update_heartbeat` (`worker.py:483-492`) and `_poll_jobs_to_abort`
+(`worker.py:494-514`) loop over pool-backed calls too — they merely sleep
+first, so a cancellation usually lands where it propagates. Their exposure is
+inference from the same verified mechanism rather than something measured, and
+it is the reason a rare stall should be checked against this entry before being
+filed as something new.
+
 Neither has been reported upstream.
 
 ### Small cleanups, not worth a change each
