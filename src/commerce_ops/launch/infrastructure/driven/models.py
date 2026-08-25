@@ -230,6 +230,12 @@ class LaunchClickUpTask(Base):
     # and wherever the system has not written that field.
     retained_name: Mapped[str | None] = mapped_column(Text, nullable=True)
     retained_body: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # `redesign-step-fields`: the ClickUp users the system last assigned,
+    # retained for the same reason the name and body are. Null on rows
+    # predating the change, which is read as "last set to nobody" — an
+    # unassigned task is the failure the projection exists to fix, so
+    # silence there is the system's own doing rather than a person's edit.
+    retained_assignees: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
 
 
 class LaunchMetricAttestation(Base):
@@ -267,28 +273,37 @@ class PlaybookStep(Base):
     `move-playbook-steps-to-postgres` moved the step set here from the
     repo-authored YAML; the framework (gates, coherence rules) stays in
     code. The definition columns mirror `StepDefinition`; the attribution
-    columns carry who created, updated, retired, or un-retired the row —
-    a retired row persists (retire, never delete), excluded from the
-    served playbook while `retired_by` is set and `unretired_by` is not.
+    columns carry who created, updated, retired, or un-retired the row.
+    A retired row persists (retire, never delete): since
+    `redesign-step-fields` what excludes it from the served playbook is
+    its `status`, not the attribution — one answer to "is this step in
+    play" rather than two that can disagree, while `retired_by` and its
+    siblings go on recording who moved the step and when.
     `timing_anchor` is the anchor's JSON shape (`{"kind": ..., ...}`),
-    exactly as the seed's source format spelled it. `display_order` is
-    the authored within-gate slot (`add-playbook-admin-ui`): serving
+    exactly as the seed's source format spelled it; `assignees` is a JSON
+    array of the roster's generated identifiers, never of names.
+    `display_order` is the authored within-gate slot
+    (`add-playbook-admin-ui`), held only by an `active` step: serving
     reads gate position, then slot, then identifier.
     """
 
     __tablename__ = "playbook_steps"
 
     identifier: Mapped[str] = mapped_column(String, primary_key=True)
-    description: Mapped[str] = mapped_column(Text, nullable=False)
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
     gate: Mapped[str] = mapped_column(String, nullable=False)
     discipline: Mapped[str] = mapped_column(String, nullable=False)
     scope: Mapped[str] = mapped_column(String, nullable=False)
     timing_anchor: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
-    binding: Mapped[str] = mapped_column(String, nullable=False)
     blocking: Mapped[bool] = mapped_column(Boolean, nullable=False)
-    execution: Mapped[str] = mapped_column(String, nullable=False)
+    kind: Mapped[str] = mapped_column(String, nullable=False)
+    needs_confirmation: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    status: Mapped[str] = mapped_column(String, nullable=False)
     hazard: Mapped[str] = mapped_column(String, nullable=False)
-    rule_policy: Mapped[str | None] = mapped_column(Text, nullable=True)
+    assignees: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
+    automation_brief: Mapped[str | None] = mapped_column(Text, nullable=True)
+    handler: Mapped[str | None] = mapped_column(Text, nullable=True)
     provenance: Mapped[str | None] = mapped_column(Text, nullable=True)
     display_order: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
 

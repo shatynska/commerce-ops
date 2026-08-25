@@ -17,6 +17,7 @@ convention `launch_repository` records.
 from __future__ import annotations
 
 import uuid
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 from sqlalchemy import delete, select
@@ -32,8 +33,8 @@ from commerce_ops.shared.domain.identity import ProductId
 @dataclass(frozen=True, slots=True)
 class ClickUpTaskMapping:
     """One step's ClickUp task, the closed state last observed for it, and
-    the name/body the system last composed for it (None where the system
-    never wrote that field, or on rows predating retained compositions)."""
+    the name, body and assignees the system last set on it (None where the
+    system never wrote that field, or on rows predating retention)."""
 
     product_id: ProductId
     step_id: str
@@ -41,6 +42,7 @@ class ClickUpTaskMapping:
     last_observed_closed: bool
     retained_name: str | None = None
     retained_body: str | None = None
+    retained_assignees: tuple[str, ...] | None = None
 
 
 def _row_id(product_id: ProductId) -> uuid.UUID | None:
@@ -154,10 +156,15 @@ class ClickUpMappingRepository:
         *,
         name: str | None = None,
         body: str | None = None,
+        assignees: Sequence[str] | None = None,
     ) -> None:
         """Retain what the system just wrote for a task's field — every
-        system write of a name or body updates that field's retained
-        value; `None` leaves the field's retained value untouched."""
+        system write of a name, a body or an assignee set updates that
+        field's retained value; `None` leaves it untouched.
+
+        An *empty* assignee sequence is a value, not an absence: it
+        records that the system last set nobody, which is what lets a
+        later pass tell its own silence from a person's edit."""
         row_id = _row_id(product_id)
         if row_id is None:
             raise ValueError(f"no launch for product '{product_id.value}'")
@@ -171,6 +178,8 @@ class ClickUpMappingRepository:
             row.retained_name = name
         if body is not None:
             row.retained_body = body
+        if assignees is not None:
+            row.retained_assignees = [str(user) for user in assignees]
         await self._session.commit()
 
 
@@ -182,4 +191,7 @@ def _mapping_from(row: LaunchClickUpTask) -> ClickUpTaskMapping:
         last_observed_closed=row.last_observed_closed,
         retained_name=row.retained_name,
         retained_body=row.retained_body,
+        retained_assignees=(
+            None if row.retained_assignees is None else tuple(row.retained_assignees)
+        ),
     )

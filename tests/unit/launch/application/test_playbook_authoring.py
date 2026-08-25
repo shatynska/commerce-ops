@@ -86,8 +86,6 @@ from commerce_ops.launch.application import (
     update_step,
 )
 from commerce_ops.launch.domain.launch_playbook import (
-    Binding,
-    ExecutionMode,
     Gate,
     GateOpening,
     Hazard,
@@ -96,6 +94,8 @@ from commerce_ops.launch.domain.launch_playbook import (
     OffsetAnchor,
     Scope,
     StepDefinition,
+    StepKind,
+    StepStatus,
 )
 from commerce_ops.shared.domain.discipline import Discipline
 
@@ -157,16 +157,17 @@ def _gates() -> tuple[Gate, ...]:
 def _step(**overrides: Any) -> StepDefinition:
     attributes: dict[str, Any] = {
         "identifier": "listing.title-conforms",
-        "description": "Work this step asks for",
+        "name": "Work this step asks for",
         "gate": "listable",
         "discipline": A_DISCIPLINE,
         "scope": Scope.PRODUCT,
         "timing_anchor": OffsetAnchor(days=-7),
-        "binding": Binding.FRAMEWORK,
         "blocking": False,
-        "execution": ExecutionMode.HUMAN_ATTESTED,
+        "kind": StepKind.HUMAN,
+        "status": StepStatus.ACTIVE,
+        "needs_confirmation": False,
         "hazard": Hazard.NONE,
-        "rule_policy": None,
+        "automation_brief": None,
         "provenance": None,
     }
     attributes.update(overrides)
@@ -176,12 +177,13 @@ def _step(**overrides: Any) -> StepDefinition:
 def _holding_step(gate: str) -> StepDefinition:
     return _step(
         identifier=f"hold.{gate}",
-        description=f"Blocking work holding the {gate} gate",
+        name=f"Blocking work holding the {gate} gate",
         gate=gate,
-        binding=Binding.FRAMEWORK,
         blocking=True,
-        execution=ExecutionMode.AUTOMATED,
-        rule_policy="Held until the automated check reports green.",
+        kind=StepKind.AUTOMATED,
+        status=StepStatus.ACTIVE,
+        automation_brief="Held until the automated check reports green.",
+        handler="fixture.holding_check",
     )
 
 
@@ -260,7 +262,17 @@ def _identifier(record: Any) -> str:
 
 
 def _is_retired(record: Any) -> bool:
-    return record.retired_by is not None and record.unretired_by is None
+    """Read off the *status*, not the attribution.
+
+    `redesign-step-fields` (design.md Decision 2) made the status the one
+    answer to "is this step in play"; the attribution columns stay,
+    recording who moved the step and when."""
+    return record.definition.status is StepStatus.RETIRED
+
+
+def _is_active(record: Any) -> bool:
+    """Whether the step is served — and so whether it holds a slot."""
+    return record.definition.status is StepStatus.ACTIVE
 
 
 def _record_named(store: _FakeStepStore, identifier: str) -> Any:
@@ -280,16 +292,17 @@ def _live_definitions(store: _FakeStepStore) -> tuple[StepDefinition, ...]:
 
 
 _CREATE_DEFAULTS: Final = {
-    "description": "Refresh the hero image ahead of ignition",
+    "name": "Refresh the hero image ahead of ignition",
     "gate": "ignition",
     "discipline": A_DISCIPLINE,
     "scope": Scope.PRODUCT,
     "timing_anchor": OffsetAnchor(days=-3),
-    "binding": Binding.FRAMEWORK,
     "blocking": False,
-    "execution": ExecutionMode.HUMAN_ATTESTED,
+    "kind": StepKind.HUMAN,
+    "status": StepStatus.ACTIVE,
+    "needs_confirmation": False,
     "hazard": Hazard.NONE,
-    "rule_policy": None,
+    "automation_brief": None,
 }
 
 
@@ -343,7 +356,7 @@ async def test_a_created_step_is_persisted_with_identifier_and_authorship() -> N
     assert re.fullmatch(r"mg\.[^.]+\.\S+", definition.identifier), definition.identifier
     assert definition.identifier.split(".")[1] == A_DISCIPLINE.value
     # The authorable fields round-trip as given.
-    assert definition.description == _CREATE_DEFAULTS["description"]
+    assert definition.name == _CREATE_DEFAULTS["name"]
     assert definition.gate == "ignition"
     # SPECIFIED: provenance records the authoring principal and date.
     assert record.created_by == PRINCIPAL
@@ -361,15 +374,16 @@ async def test_created_identifiers_never_collide_retired_included() -> None:
     live_authored = _SeededRecord(
         _step(
             identifier=f"mg.{A_DISCIPLINE.value}.001",
-            description="An earlier authored step",
+            name="An earlier authored step",
             gate="ignition",
         )
     )
     retired_authored = _SeededRecord(
         _step(
             identifier=f"mg.{A_DISCIPLINE.value}.002",
-            description="A retired authored step",
+            name="A retired authored step",
             gate="ignition",
+            status=StepStatus.RETIRED,
         )
     )
     retired_authored.retired_by = "olena"
@@ -402,12 +416,10 @@ async def test_an_update_replaces_fields_under_the_unchanged_identifier() -> Non
     """
     store = _seeded_store()
 
-    await _update(
-        store, "hold.ignition", description="Hold ignition until QA signs off"
-    )
+    await _update(store, "hold.ignition", name="Hold ignition until QA signs off")
 
     record = _record_named(store, "hold.ignition")
-    assert _definition(record).description == "Hold ignition until QA signs off"
+    assert _definition(record).name == "Hold ignition until QA signs off"
 
 
 async def test_a_discipline_change_is_rejected() -> None:
@@ -440,7 +452,7 @@ async def test_an_edit_to_a_seeded_step_keeps_its_citation_and_is_attributed() -
     seeded = _SeededRecord(
         _step(
             identifier=f"lp.{A_DISCIPLINE.value}.008",
-            description="The reference row's own wording",
+            name="The reference row's own wording",
             gate="listable",
             provenance="product-launch.md · BUILD THE LISTING · row 8",
         )
@@ -450,12 +462,12 @@ async def test_an_edit_to_a_seeded_step_keeps_its_citation_and_is_attributed() -
     await _update(
         store,
         seeded.definition.identifier,
-        description="The reference row's wording, corrected",
+        name="The reference row's wording, corrected",
     )
 
     record = _record_named(store, f"lp.{A_DISCIPLINE.value}.008")
     definition = _definition(record)
-    assert definition.description == "The reference row's wording, corrected"
+    assert definition.name == "The reference row's wording, corrected"
     # SPECIFIED: the seed citation survives the edit...
     assert definition.provenance == "product-launch.md · BUILD THE LISTING · row 8"
     # ...while the edit itself is attributed.
@@ -482,7 +494,7 @@ async def test_retiring_marks_the_step_and_deletes_nothing() -> None:
     extra = _SeededRecord(
         _step(
             identifier="listing.a-plus-content",
-            description="Optional A+ content ahead of launch",
+            name="Optional A+ content ahead of launch",
             gate="listable",
             blocking=False,
         )
@@ -511,9 +523,10 @@ async def test_unretiring_restores_the_step_and_is_attributed() -> None:
     retired = _SeededRecord(
         _step(
             identifier="listing.a-plus-content",
-            description="Optional A+ content ahead of launch",
+            name="Optional A+ content ahead of launch",
             gate="listable",
             blocking=False,
+            status=StepStatus.RETIRED,
         )
     )
     retired.retired_by = "olena"
@@ -533,46 +546,6 @@ async def test_unretiring_restores_the_step_and_is_attributed() -> None:
 # ---------------------------------------------------------------------------
 # Requirement: Every write is validated as the playbook it would produce
 # ---------------------------------------------------------------------------
-
-
-async def test_a_rejected_write_reports_all_faults_and_persists_nothing() -> None:
-    """Scenario: A rejected write reports all faults and persists nothing.
-
-    WHEN an update would leave a step's description empty and would also
-    mark a `lesson`-bound step as blocking
-    THEN the write is rejected reporting both faults
-    AND the stored step set is unchanged.
-    """
-    lesson = _SeededRecord(
-        _step(
-            identifier="creative.image-advice",
-            description="Advice on the hero image",
-            gate="listable",
-            binding=Binding.LESSON,
-            blocking=False,
-        )
-    )
-    store = _seeded_store(extra=(lesson,))
-    records_before = store.records
-
-    # One update carrying two faults on the same lesson-bound step: an
-    # emptied description, and a blocking flag no lesson may carry.
-    with pytest.raises(InvalidPlaybookError) as caught:
-        await _update(store, "creative.image-advice", description="   ", blocking=True)
-
-    message = str(caught.value).lower()
-    # SPECIFIED: every fault is reported, naming the offending step.
-    assert "creative.image-advice" in str(caught.value)
-    # DERIVED (fault wording): the two faults are recognizably distinct —
-    # one about the description, one about lesson/blocking. Correcting
-    # these substrings to the implemented fault wording is a fixture
-    # correction; collapsing to a single-fault check is not.
-    assert "description" in message
-    assert "lesson" in message or "block" in message
-
-    # SPECIFIED: nothing of a rejected write is persisted.
-    assert store.saves == []
-    assert store.records == records_before
 
 
 async def test_retiring_a_gates_last_blocking_step_is_rejected() -> None:
@@ -609,14 +582,14 @@ async def test_the_set_after_accepted_writes_loads_coherently() -> None:
     store = _seeded_store()
     before = {_identifier(record) for record in store.records}
 
-    await _create(store, description="First authored step", gate="ignition")
+    await _create(store, name="First authored step", gate="ignition")
     created_id = next(
         _identifier(record)
         for record in store.records
         if _identifier(record) not in before
     )
-    await _update(store, created_id, description="First authored step, reworded")
-    await _create(store, description="Second authored step", gate="commit")
+    await _update(store, created_id, name="First authored step, reworded")
+    await _create(store, name="Second authored step", gate="commit")
     await _retire(store, created_id)
 
     playbook = LaunchPlaybook(

@@ -39,7 +39,7 @@
         <option value="{{ option }}"{% if option == narrowing.discipline %} selected{% endif %}>{{ option }}</option>
         {% endfor %}
       </select>
-      <input type="search" name="q" placeholder="search descriptions" value="{{ narrowing.q }}">
+      <input type="search" name="q" placeholder="search names and descriptions" value="{{ narrowing.q }}">
       {% if narrowing.retired %}<input type="hidden" name="retired" value="1">{% endif %}
       <button type="submit">Narrow</button>
     </fieldset>
@@ -62,26 +62,48 @@
   </article>
   {% endif %}
 
+  {% macro status_control(step) %}
+  {# Every status move goes through one control. Crossing `retired` is
+     resolved by the authoring write, not here, so this cannot become a
+     second way out of it that records nobody. #}
+  <form method="post" action="{{ page_path }}/steps/{{ step.identifier }}/status{{ narrowing.suffix() }}">
+    <select name="status" aria-label="status of {{ step.identifier }}">
+      {% for option, label in status_options %}
+      <option value="{{ option }}"{% if option == step.status %} selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit">set status</button>
+  </form>
+  {% endmacro %}
+
+  {% macro step_cells(step) %}
+  {# The identifier carries the position beside it so both read as one
+     fact: where this step stands among its gate's *active* steps. A
+     step that holds no slot renders none rather than a misleading one. #}
+  <td>
+    <code>{{ step.identifier }}</code>
+    {% if step.position %}<small>{{ step.position }} / {{ step.live_count }}</small>{% endif %}
+  </td>
+  <td>{{ step.status_label }}</td>
+  <td>{% if step.assignees %}{{ step.assignees | join(", ") }}{% else %}<em>unowned</em>{% endif %}</td>
+  <td>{{ step.name }}</td>
+  <td>{{ step.discipline }}</td>
+  <td>{{ step.kind }}{% if step.needs_confirmation %} · needs confirmation{% endif %}{% if step.blocking %} · blocks its gate{% endif %}</td>
+  {% endmacro %}
+
   {% for gate in gates %}
   <section>
     <h2>{{ gate.identifier }}</h2>
     {% if gate.steps %}
     <table>
       <thead>
-        <tr><th>at</th><th>step</th><th>description</th><th>discipline</th><th>facts</th><th>actions</th></tr>
+        <tr><th>step</th><th>status</th><th>assignees</th><th>name</th><th>discipline</th><th>facts</th><th>actions</th></tr>
       </thead>
       <tbody>
         {% for step in gate.steps %}
-        <tr>
-          {# The position is read against the whole gate, so a move that crosses
-             steps the filter hides is visible as a change in this number. #}
-          <td>{% if step.position %}{{ step.position }} / {{ step.live_count }}{% endif %}</td>
-          <td><code>{{ step.identifier }}</code>{% if step.retired %} <mark>retired</mark>{% endif %}</td>
-          <td>{{ step.description }}</td>
-          <td>{{ step.discipline }}</td>
-          <td>{{ step.binding }} · {{ step.execution }}{% if step.blocking %} · blocks its gate{% endif %}</td>
+        <tr class="step status-{{ step.status }}">
+          {{ step_cells(step) }}
           <td>
-            {% if not step.retired %}
             {% if reorderable %}
             {# Both controls speak one vocabulary — the visible step to come to
                rest after — so the placement rule has a single code path. An end
@@ -103,18 +125,46 @@
               <button type="submit" title="move down"{% if step.down is none %} disabled{% endif %}>↓</button>
             </form>
             {% endif %}
+            {{ status_control(step) }}
             <a href="{{ page_path }}/steps/{{ step.identifier }}/edit{{ narrowing.suffix() }}">edit</a>
             <form method="post" action="{{ page_path }}/steps/{{ step.identifier }}/retire{{ narrowing.suffix() }}"><button type="submit">retire</button></form>
-            {% else %}
-            <form method="post" action="{{ page_path }}/steps/{{ step.identifier }}/unretire{{ narrowing.suffix() }}"><button type="submit">unretire</button></form>
-            {% endif %}
           </td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
     {% else %}
-    <p><small>No steps to show at this gate.</small></p>
+    <p><small>No active steps at this gate.</small></p>
+    {% endif %}
+
+    {% if gate.pending %}
+    {# Set apart from the served set, never interleaved with it: an author
+       can tell at a glance which steps a launch is actually held to.
+       These hold no slot, so they carry no position and no move control. #}
+    <details open>
+      <summary>Not served at this gate ({{ gate.pending | length }})</summary>
+      <table class="not-served">
+        <thead>
+          <tr><th>step</th><th>status</th><th>assignees</th><th>name</th><th>discipline</th><th>facts</th><th>actions</th></tr>
+        </thead>
+        <tbody>
+          {% for step in gate.pending %}
+          <tr class="step status-{{ step.status }}">
+            {{ step_cells(step) }}
+            <td>
+              {% if step.retired %}
+              <form method="post" action="{{ page_path }}/steps/{{ step.identifier }}/unretire{{ narrowing.suffix() }}"><button type="submit">unretire</button></form>
+              {% else %}
+              {{ status_control(step) }}
+              <a href="{{ page_path }}/steps/{{ step.identifier }}/edit{{ narrowing.suffix() }}">edit</a>
+              <form method="post" action="{{ page_path }}/steps/{{ step.identifier }}/retire{{ narrowing.suffix() }}"><button type="submit">retire</button></form>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </details>
     {% endif %}
   </section>
   {% endfor %}

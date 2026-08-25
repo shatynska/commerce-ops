@@ -37,8 +37,11 @@ class ClickUpTaskState:
     `name` and `description` joined with `move-playbook-steps-to-postgres`:
     conditional wording-healing compares what a task currently carries
     against the composition the system last wrote, so a read must expose
-    both fields. They default to empty/absent so earlier constructions
-    stay valid.
+    both fields. `assignees` joined with `redesign-step-fields` for the
+    same reason — a person's own assignment change is respected the way
+    an edited name or body is, which the loop can only tell by reading
+    what the task currently carries. They default to empty/absent so
+    earlier constructions stay valid.
     """
 
     id: str
@@ -47,3 +50,4 @@ class ClickUpTaskState:
     due_date: date | None
     name: str = ""
     description: str | None = None
+    assignees: tuple[str, ...] = ()

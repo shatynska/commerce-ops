@@ -31,8 +31,6 @@ from typing import Any, Final
 import pytest
 
 from commerce_ops.launch.domain.launch_playbook import (
-    Binding,
-    ExecutionMode,
     Gate,
     GateOpening,
     Hazard,
@@ -41,6 +39,8 @@ from commerce_ops.launch.domain.launch_playbook import (
     OffsetAnchor,
     Scope,
     StepDefinition,
+    StepKind,
+    StepStatus,
     WindowAnchor,
 )
 from commerce_ops.shared.domain.discipline import Discipline
@@ -82,16 +82,17 @@ def specified_gates() -> tuple[Gate, ...]:
 def _step(**overrides: Any) -> StepDefinition:
     attributes: dict[str, Any] = {
         "identifier": "listing.title-conforms",
-        "description": "Work this step asks for",
+        "name": "Work this step asks for",
         "gate": "listable",
         "discipline": _any_discipline(),
         "scope": Scope.PRODUCT,
         "timing_anchor": OffsetAnchor(days=-7),
-        "binding": Binding.FRAMEWORK,
         "blocking": False,
-        "execution": ExecutionMode.HUMAN_ATTESTED,
+        "kind": StepKind.HUMAN,
+        "status": StepStatus.ACTIVE,
+        "needs_confirmation": False,
         "hazard": Hazard.NONE,
-        "rule_policy": None,
+        "automation_brief": None,
         "provenance": None,
     }
     attributes.update(overrides)
@@ -109,8 +110,10 @@ def _hold(gate: str) -> StepDefinition:
         identifier=f"hold.{gate}",
         gate=gate,
         blocking=True,
-        execution=ExecutionMode.AUTOMATED,
-        rule_policy="Held until the automated check reports green.",
+        kind=StepKind.AUTOMATED,
+        status=StepStatus.ACTIVE,
+        automation_brief="Held until the automated check reports green.",
+        handler="fixture.holding_check",
     )
 
 
@@ -201,17 +204,16 @@ def test_step_definition_is_read_back_with_every_declared_attribute() -> None:
         discipline=discipline,
         scope=Scope.MARKET,
         timing_anchor=anchor,
-        binding=Binding.FRAMEWORK,
         blocking=True,
-        execution=ExecutionMode.HUMAN_ATTESTED,
+        kind=StepKind.HUMAN,
+        status=StepStatus.ACTIVE,
         hazard=Hazard.COMPLIANCE_OBLIGATION,
-        rule_policy="At least 60 fulfillable units checked in.",
         provenance="lp.inventory.040",
     )
 
     (read_back,) = _playbook(steps=(step,)).steps_for_gate("stock-ready")
 
-    # SPECIFIED: each of the nine mandatory attributes is present and is
+    # SPECIFIED: each mandatory attribute is present and is
     # what was declared — the ownership attribute under its one name,
     # `discipline`.
     assert read_back.identifier == "inventory.fulfillable-units"
@@ -219,12 +221,11 @@ def test_step_definition_is_read_back_with_every_declared_attribute() -> None:
     assert read_back.discipline is discipline
     assert read_back.scope is Scope.MARKET
     assert read_back.timing_anchor == anchor
-    assert read_back.binding is Binding.FRAMEWORK
     assert read_back.blocking is True
-    assert read_back.execution is ExecutionMode.HUMAN_ATTESTED
+    assert read_back.kind is StepKind.HUMAN
+    assert read_back.status is StepStatus.ACTIVE
     assert read_back.hazard is Hazard.COMPLIANCE_OBLIGATION
-    # SPECIFIED: rule policy and provenance are present when authored.
-    assert read_back.rule_policy == "At least 60 fulfillable units checked in."
+    # SPECIFIED: provenance is present when authored.
     assert read_back.provenance == "lp.inventory.040"
     # SPECIFIED ("there SHALL be exactly one name for it"): the former
     # name does not survive on the loaded form.
@@ -241,20 +242,20 @@ def test_unauthored_optional_attributes_are_absent() -> None:
     """
     step = StepDefinition(
         identifier="strategy.undecided",
-        description="Work this step asks for",
+        name="Work this step asks for",
         gate="commit",
         discipline=_any_discipline(),
         scope=Scope.PRODUCT,
         timing_anchor=OffsetAnchor(days=-90),
-        binding=Binding.FRAMEWORK,
         blocking=True,
-        execution=ExecutionMode.HUMAN_ATTESTED,
+        kind=StepKind.HUMAN,
+        status=StepStatus.ACTIVE,
     )
 
     (read_back,) = _playbook(steps=(step,)).steps_for_gate("commit")
 
     # SPECIFIED: present only if authored.
-    assert read_back.rule_policy is None
+    assert read_back.automation_brief is None
     assert read_back.provenance is None
     # SPECIFIED (main spec, unchanged): hazard defaults to `none`.
     assert read_back.hazard is Hazard.NONE

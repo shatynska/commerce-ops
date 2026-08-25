@@ -25,17 +25,19 @@ drives them.
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from datetime import UTC, date, datetime
 from typing import Any, Protocol
 
 from commerce_ops.launch.domain.launch_playbook import (
-    ExecutionMode,
     Hazard,
     InProgress,
     LaunchPlaybook,
     Satisfied,
     StepDefinition,
+    StepKind,
+    StepStatus,
     permissible_terminal_outcomes,
 )
 from commerce_ops.launch.domain.launch_run import (
@@ -49,6 +51,8 @@ from commerce_ops.shared.domain.identity import ProductId
 # user, so the pass records itself as the recorder rather than inventing a
 # human one.
 RECONCILIATION_RECORDER = "clickup-reconciliation"
+
+_logger = logging.getLogger(__name__)
 
 _GRADUATED_GATE = "graduated"
 _CLICKUP_SOURCE = "clickup"
@@ -86,6 +90,7 @@ class MappingStore(Protocol):
         *,
         name: str | None = None,
         body: str | None = None,
+        assignees: Sequence[str] | None = None,
     ) -> None: ...
 
 
@@ -99,16 +104,113 @@ bound. Recording always goes through the public use case — this module
 never writes an outcome row itself."""
 
 
+RosterReader = Any
+"""Reads the roster's people, so a step's assignees can be resolved to
+ClickUp users. Supplied by the composition root across the module
+boundary, because `launch` may only reach `access` through its public
+application surface — the same shape `read_product` has for the catalog."""
+
+
+async def _roster_people(roster: RosterReader) -> tuple[Any, ...]:
+    if roster is None:
+        return ()
+    lister = getattr(roster, "list_people", None)
+    if lister is not None:
+        return tuple(await lister())
+    if callable(roster):
+        return tuple(await roster())
+    return tuple(roster)
+
+
+def _person_identifier(person: Any) -> str:
+    for name in ("identifier", "id", "person_id"):
+        value = getattr(person, name, None)
+        if value is not None:
+            return str(value)
+    raise ValueError(f"a roster person exposes no identifier: {person!r}")
+
+
+def _clickup_users(
+    step: StepDefinition, people: Mapping[str, Any], *, task_id: str | None
+) -> tuple[str, ...]:
+    """The step's assignees as ClickUp user ids, in the order the step
+    names them.
+
+    An assignee the roster carries without a ClickUp user id is skipped
+    and **reported**, never silently dropped: the task is still created
+    and still carries the step's remaining assignees, because a failed
+    run would hide a data gap behind a retry, and the run record only
+    says whether the pass succeeded.
+    """
+    resolved: list[str] = []
+    for identifier in step.assignees:
+        person = people.get(identifier)
+        if person is None:
+            _logger.warning(
+                "step %s names assignee %s, whom the roster does not carry; "
+                "the ClickUp task %s is left without them",
+                step.identifier,
+                identifier,
+                task_id or "(being created)",
+            )
+            continue
+        user_id = getattr(person, "clickup_user_id", None)
+        if not user_id:
+            _logger.warning(
+                "step %s names assignee %s (%s), who has no ClickUp account; "
+                "the task %s is created and assigned to the step's remaining "
+                "assignees",
+                step.identifier,
+                identifier,
+                getattr(person, "display_name", "?"),
+                task_id or "(being created)",
+            )
+            continue
+        resolved.append(str(user_id))
+    return tuple(resolved)
+
+
+def _assignee_change(
+    retained: Sequence[str] | None,
+    current_in_clickup: Sequence[str],
+    desired: Sequence[str],
+) -> Mapping[str, object] | None:
+    """The assignee edit a pass may send, or `None` for none.
+
+    A mapping holding no retained assignees — every mapping made before
+    assignees existed — is read as having last been set to nobody, so a
+    task the system left unassigned heals to its step's assignees while
+    one somebody has already assigned is treated as person-edited and
+    left alone. Assignees are the one field where that reading is right:
+    an unassigned task is the failure this projection exists to fix, so
+    silence there is the system's own doing rather than an edit worth
+    preserving.
+    """
+    last_set = tuple(retained or ())
+    current = tuple(current_in_clickup)
+    if set(current) != set(last_set):
+        return None
+    if set(current) == set(desired):
+        return None
+    add = [user for user in desired if user not in current]
+    remove = [user for user in current if user not in desired]
+    return {"assignees": {"add": add, "rem": remove}}
+
+
 def is_projectable(step: StepDefinition) -> bool:
     """Whether a step becomes a ClickUp task.
 
-    Only human-attested work does. An `automated` or `ai-assisted` step
-    resolves through its own path, and a `prohibited-tactic` step can only
-    ever be `Refused` — offering a person a task to tick would invite them
-    to complete the thing the model says is uncompletable.
+    Only `active` human work does. An `automated` step resolves through
+    its own path whether or not its result needs a person's
+    confirmation — the confirmation flag is not a way back into this
+    projection. A step that is not `active` is not part of the launch's
+    obligations at all, and a `prohibited-tactic` step can only ever be
+    `Refused` — offering a person a task to tick would invite them to
+    complete the thing the model says is uncompletable.
     """
     return (
-        step.execution is ExecutionMode.HUMAN_ATTESTED
+        step.kind is StepKind.HUMAN
+        and step.status is StepStatus.ACTIVE
         and step.hazard is not Hazard.PROHIBITED_TACTIC
     )
 
@@ -202,32 +304,39 @@ _NAME_CUT_MARK = "…"
 
 
 def _task_name(step: StepDefinition) -> str:
-    """The step's work, then its identifier — never its discipline.
+    """The step's name, then its identifier — never its discipline.
 
     The discipline is not appended because the identifier's own second
     segment already carries it (`lp.creative.008` is a `creative` step), and
     the width would be spent restating what is already there instead of on
-    the wording that makes the task readable. A description that happens to
-    name its own discipline is composed unaltered; the rule is about what is
-    appended, not about what the wording says.
+    the wording that makes the task readable. A name that happens to
+    mention its own discipline is composed unaltered; the rule is about what
+    is appended, not about what the wording says.
     """
-    composed = f"{step.description}{_NAME_SEPARATOR}{step.identifier}"
+    composed = f"{step.name}{_NAME_SEPARATOR}{step.identifier}"
     if len(composed) <= CLICKUP_TASK_NAME_LIMIT:
         return composed
 
     # Keep the identifier whole — it is what makes the task traceable — and
-    # surrender no more of the description than the limit requires. The full
-    # wording is not lost: `_task_body` carries it into the task.
+    # surrender no more of the name than the limit requires. The surrendered
+    # text is *not* moved into the body: the body belongs to the step's
+    # description, and overwriting it with a fragment of the name would
+    # displace what an author wrote.
     tail = f"{_NAME_CUT_MARK}{_NAME_SEPARATOR}{step.identifier}"
     kept = max(CLICKUP_TASK_NAME_LIMIT - len(tail), 0)
-    return f"{step.description[:kept]}{tail}"
+    return f"{step.name[:kept]}{tail}"
 
 
 def _task_body(step: StepDefinition) -> str | None:
-    """The full description, but only where the name could not carry it."""
-    composed = f"{step.description}{_NAME_SEPARATOR}{step.identifier}"
-    if len(composed) <= CLICKUP_TASK_NAME_LIMIT:
-        return None
+    """The step's description, or nothing at all where it carries none.
+
+    `None` means *compose no body*, never *compose an empty one*. A task
+    projected before the step gained two fields carries the step's full
+    former text in its body, written by the system and therefore matching
+    its retained value — so a rule composing an empty body here would be
+    licenced to rewrite it away, leaving that task stating its work
+    nowhere.
+    """
     return step.description
 
 
@@ -251,6 +360,7 @@ async def _heal_wording(
     product_id: ProductId,
     clickup: Any,
     mapping: MappingStore,
+    desired_assignees: Sequence[str],
 ) -> None:
     """Drive the task's name and body toward the step's current composition
     — each field independently, and only while it still carries the
@@ -285,19 +395,27 @@ async def _heal_wording(
 
     write_name = _wants_rewrite(retained_name, task_name, desired_name)
     write_body = _wants_rewrite(retained_body, task_body, desired_body)
-    if not write_name and not write_body:
+    assignee_change = _assignee_change(
+        getattr(mapped, "retained_assignees", None),
+        getattr(task, "assignees", ()),
+        desired_assignees,
+    )
+    if not write_name and not write_body and assignee_change is None:
         return
     fields: dict[str, object] = {}
     if write_name:
         fields["name"] = desired_name
     if write_body:
         fields["description"] = desired_body
+    if assignee_change is not None:
+        fields.update(assignee_change)
     await clickup.update_task(mapped.task_id, fields)
     await mapping.record_composition(
         product_id,
         step.identifier,
         name=desired_name if write_name else None,
         body=desired_body if write_body else None,
+        assignees=tuple(desired_assignees) if assignee_change is not None else None,
     )
 
 
@@ -309,6 +427,7 @@ async def converge_launch(
     mapping: MappingStore,
     read_product: ProductReader,
     folder_id: str | None,
+    roster: RosterReader = None,
 ) -> None:
     """Drive ClickUp toward what this launch's schedule implies.
 
@@ -321,7 +440,7 @@ async def converge_launch(
     if launch.current_gate == _GRADUATED_GATE:
         return
 
-    steps = [step for step in playbook.steps if is_projectable(step)]
+    steps = [step for step in playbook.served_steps if is_projectable(step)]
     list_id = await _ensure_list(
         launch=launch,
         mapping=mapping,
@@ -334,6 +453,9 @@ async def converge_launch(
         return
 
     present = {task.id: task for task in await clickup.list_tasks(list_id)}
+    people = {
+        _person_identifier(person): person for person in await _roster_people(roster)
+    }
 
     for step in steps:
         mapped = await mapping.task_for(launch.product_id, step.identifier)
@@ -356,23 +478,28 @@ async def converge_launch(
                 product_id=launch.product_id,
                 clickup=clickup,
                 mapping=mapping,
+                desired_assignees=_clickup_users(step, people, task_id=task_id),
             )
         else:
             composed_name = _task_name(step)
             composed_body = _task_body(step)
+            assignees = _clickup_users(step, people, task_id=None)
             created = await clickup.create_task(
                 list_id=list_id,
                 name=composed_name,
                 description=composed_body,
+                assignees=list(assignees),
             )
             await mapping.record_task(launch.product_id, step.identifier, created.id)
-            # Whenever the system writes a name or body, the retained
-            # value follows the write — creation included.
+            # Whenever the system writes a name, a body or an assignee
+            # set, the retained value follows the write — creation
+            # included.
             await mapping.record_composition(
                 launch.product_id,
                 step.identifier,
                 name=composed_name,
                 body=composed_body,
+                assignees=assignees,
             )
             task_id = str(created.id)
             current_due = None
@@ -431,7 +558,7 @@ async def reconcile_launch(
         return
 
     present = {task.id: task for task in await clickup.list_tasks(list_id)}
-    defined = {step.identifier for step in playbook.steps}
+    defined = {step.identifier for step in playbook.served_steps}
 
     for mapped in await mapping.tasks_for(launch.product_id):
         task = present.get(mapped.task_id)
@@ -440,13 +567,16 @@ async def reconcile_launch(
         outcome = transition_outcome(mapped.last_observed_closed, task.closed)
         if outcome is None:
             continue
-        # The observation always updates the retained state — retired
-        # steps included, so what happened during retirement is never
-        # replayed as a transition later.
+        # The observation always updates the retained state — steps
+        # outside the served set included, so what happened while a step
+        # was out of it is never replayed as a transition later.
         await mapping.observe(launch.product_id, mapped.step_id, task.closed)
         if mapped.step_id not in defined:
-            # A retired step's task records nothing: the step is no
-            # longer part of the launch's obligations.
+            # A step that is not `active` records nothing — retired, or
+            # moved back to `draft` or `in-development` alike: the step
+            # the recording would name is no longer part of the launch's
+            # obligations. The observation above still ran, so what
+            # happened while it was out is never replayed later.
             continue
         await record_outcome(
             product_id=launch.product_id,

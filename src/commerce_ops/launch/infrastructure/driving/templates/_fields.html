@@ -12,8 +12,23 @@
   </select>
 </label>
 {% endif %}
-<label>Description
-  <textarea name="description" rows="2">{{ values.get("description", "") }}</textarea>
+{# Two inputs, two audiences: the name is what a person scans in a list of
+   work and becomes the task's name, so it is one line; the description is
+   what they read once they have decided to do it, so it takes as many as
+   it needs. #}
+<label>Name
+  <input name="name" value="{{ values.get("name", "") }}">
+</label>
+<label>Description (optional)
+  <textarea name="description" rows="4">{{ values.get("description", "") }}</textarea>
+</label>
+<label>Assignees
+  <select name="assignees" multiple size="4">
+    {% for identifier, display_name in assignee_options %}
+    <option value="{{ identifier }}"{% if identifier in values.get("assignees", []) %} selected{% endif %}>{{ display_name }}</option>
+    {% endfor %}
+  </select>
+  <small>The roster's active people. An active human step needs at least one.</small>
 </label>
 <label>Gate
   <select name="gate">
@@ -29,23 +44,30 @@
     {% endfor %}
   </select>
 </label>
-<label>Binding
-  <select name="binding">
-    {% for option in binding_options %}
-    <option value="{{ option }}"{% if option == values.get("binding", "framework") %} selected{% endif %}>{{ option }}</option>
-    {% endfor %}
-  </select>
-</label>
 <label>Blocking
   <select name="blocking">
     <option value="false"{% if values.get("blocking", "false") not in ("true", "on", "1", "yes") %} selected{% endif %}>no</option>
     <option value="true"{% if values.get("blocking", "false") in ("true", "on", "1", "yes") %} selected{% endif %}>yes — holds its gate</option>
   </select>
 </label>
-<label>Execution
-  <select name="execution">
-    {% for option in execution_options %}
-    <option value="{{ option }}"{% if option == values.get("execution", "human-attested") %} selected{% endif %}>{{ option }}</option>
+<label>Kind
+  <select name="kind">
+    {% for option in kind_options %}
+    <option value="{{ option }}"{% if option == values.get("kind", "human") %} selected{% endif %}>{{ option }}</option>
+    {% endfor %}
+  </select>
+</label>
+<label>Needs confirmation
+  <select name="needs_confirmation">
+    <option value="false"{% if values.get("needs_confirmation", "false") not in ("true", "on", "1", "yes") %} selected{% endif %}>no</option>
+    <option value="true"{% if values.get("needs_confirmation", "false") in ("true", "on", "1", "yes") %} selected{% endif %}>yes — a person accepts the result</option>
+  </select>
+  <small>Meaningless on a human step: the person doing the work is the person attesting it.</small>
+</label>
+<label>Status
+  <select name="status">
+    {% for option, label in status_options %}
+    <option value="{{ option }}"{% if option == values.get("status", "draft") %} selected{% endif %}>{{ label }}</option>
     {% endfor %}
   </select>
 </label>
@@ -82,6 +104,19 @@
     </select>
   </label>
 </fieldset>
-<label>Rule policy (required for automated and AI-assisted steps)
-  <textarea name="rule_policy" rows="2">{{ values.get("rule_policy", "") }}</textarea>
-</label>
+{# Automation carries no meaning for a human step, so the controls render
+   disabled there rather than inviting a value the write would refuse.
+   Disabled and not removed: an author flipping the kind can see what the
+   other half of the form asks for. #}
+{% set automated = values.get("kind", "human") == "automated" %}
+<fieldset{% if not automated %} class="inapplicable"{% endif %}>
+  <legend>Automation (automated steps only)</legend>
+  <label>Automation brief
+    <textarea name="automation_brief" rows="2"{% if not automated %} disabled{% endif %}>{{ values.get("automation_brief", "") }}</textarea>
+    <small>What the code must establish. Required to leave draft.</small>
+  </label>
+  <label>Handler
+    <input name="handler" value="{{ values.get("handler", "") }}"{% if not automated %} disabled{% endif %}>
+    <small>The registered use case that resolves it. Required to become active.</small>
+  </label>
+</fieldset>

@@ -32,6 +32,7 @@ from commerce_ops.launch.infrastructure.driven.clickup_mapping import (
 )
 from commerce_ops.launch.infrastructure.driven.clickup_sync import (
     ProductReader,
+    RosterReader,
     converge_launch,
     reconcile_launch,
 )
@@ -50,6 +51,7 @@ __all__ = [
     "SYNC_SCHEDULE",
     "SYNC_TOLERANCE",
     "TASK_NAME",
+    "read_people",
     "read_product",
     "reconcile_clickup_completions",
     "record_step_outcome",
@@ -85,6 +87,12 @@ SYNC_TOLERANCE = datetime.timedelta(hours=6)
 # as a job argument. `None` in the HTTP process, which registers this module
 # but never runs the job.
 read_product: ProductReader | None = None
+
+# The roster reader, injected the same way and for the same reason: a
+# projected task is assigned to the step's assignees, resolved through the
+# roster to their ClickUp users, and the launch module may only reach
+# `access` through its public application surface.
+read_people: RosterReader = None
 
 
 def _launch_folder_id() -> str | None:
@@ -131,6 +139,7 @@ async def reconcile_clickup_completions(timestamp: int) -> None:
                 clickup=clickup,
                 mapping=mapping,
                 read_product=_read_product_or_fail,
+                roster=read_people,
                 folder_id=folder_id,
             )
             await reconcile_launch(

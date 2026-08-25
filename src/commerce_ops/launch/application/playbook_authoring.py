@@ -31,13 +31,15 @@ from datetime import UTC, datetime
 from typing import Any, Protocol
 
 from commerce_ops.launch.domain.launch_playbook import (
-    Binding,
-    ExecutionMode,
     Hazard,
+    InvalidPlaybookError,
     LaunchPlaybook,
     Scope,
     StepDefinition,
+    StepKind,
+    StepStatus,
     TimingAnchor,
+    assignee_faults,
     framework_gates,
 )
 
@@ -86,7 +88,13 @@ class StepRecord:
 
     @property
     def retired(self) -> bool:
-        return self.retired_by is not None and self.unretired_by is None
+        """Read off the *status*, not the attribution.
+
+        `redesign-step-fields` made the status the single answer to "is
+        this step in play"; the attribution columns stay, recording who
+        moved the step and when, which the status itself cannot say.
+        """
+        return self.definition.status is StepStatus.RETIRED
 
 
 class StepSetStore(Protocol):
@@ -122,13 +130,24 @@ def _as_record(row: Any) -> StepRecord:
     )
 
 
+def _is_active(row: Any) -> bool:
+    return row.definition.status is StepStatus.ACTIVE
+
+
 def _is_retired(row: Any) -> bool:
-    return row.retired_by is not None and row.unretired_by is None
+    return row.definition.status is StepStatus.RETIRED
+
+
+def authored_definitions(records: Sequence[Any]) -> tuple[StepDefinition, ...]:
+    """Every stored definition, whatever its status — what a load
+    constructs and what a write validates, since the status-dependent
+    rules can only be evaluated over the steps that carry a status."""
+    return tuple(row.definition for row in records)
 
 
 def live_definitions(records: Sequence[Any]) -> tuple[StepDefinition, ...]:
-    """The definitions the served playbook carries: everything not retired."""
-    return tuple(row.definition for row in records if not _is_retired(row))
+    """The definitions a launch is held to: the `active` ones."""
+    return tuple(row.definition for row in records if _is_active(row))
 
 
 def _validate(records: Sequence[Any], version: int) -> None:
@@ -137,8 +156,128 @@ def _validate(records: Sequence[Any], version: int) -> None:
     LaunchPlaybook(
         version=f"set-v{version}",
         gates=framework_gates(),
-        steps=live_definitions(records),
+        steps=authored_definitions(records),
     )
+
+
+async def _roster_identifiers(roster: Any) -> tuple[set[str], set[str]]:
+    """(everyone the roster carries, everyone active on it), by identifier.
+
+    The reader is a collaborator the composition root supplies across the
+    module boundary — `.importlinter` forbids `launch` reaching into
+    `access`'s internals — so it is addressed by shape rather than by
+    type, and a person's identifier is read under either spelling the
+    roster's own rows use.
+    """
+    people = await _read_people(roster)
+    known: set[str] = set()
+    active: set[str] = set()
+    for person in people:
+        identifier = person_identifier(person)
+        known.add(identifier)
+        if getattr(person, "active", True):
+            active.add(identifier)
+    return known, active
+
+
+async def _read_people(roster: Any) -> tuple[Any, ...]:
+    lister = getattr(roster, "list_people", None)
+    if lister is not None:
+        return tuple(await lister())
+    if callable(roster):
+        return tuple(await roster())
+    return tuple(roster)
+
+
+def person_identifier(person: Any) -> str:
+    """One roster person's generated identifier.
+
+    `access`'s own `Person` spells it `identifier`; a reader that answers
+    rows of its own may spell it `id`. Both are read here so the seam is
+    a shape rather than a type."""
+    for name in ("identifier", "id", "person_id"):
+        value = getattr(person, name, None)
+        if value is not None:
+            return str(value)
+    raise ValueError(f"a roster person exposes no identifier: {person!r}")
+
+
+async def _precondition_faults(
+    touched: Sequence[StepDefinition],
+    *,
+    roster: Any,
+    handlers: Any,
+) -> list[str]:
+    """The two checks a load cannot make, over the steps a write touches.
+
+    Scoped to the touched steps and never to the whole resulting set:
+    set-wide evaluation would mean the migrated step set — 95 `active`
+    steps deliberately left unowned — refuses every subsequent write
+    until all 95 are assigned, which is the backfill the migration
+    declined to invent.
+    """
+    faults: list[str] = []
+    if roster is not None:
+        known, active = await _roster_identifiers(roster)
+        faults.extend(assignee_faults(touched, known=known, active=active))
+    faults.extend(_registration_faults(touched, handlers))
+    return faults
+
+
+async def _accept(
+    candidate: Sequence[Any],
+    version: int,
+    touched: Sequence[StepDefinition],
+    *,
+    roster: Any,
+    handlers: Any,
+) -> None:
+    """Judge the write whole, and report every fault it carries at once.
+
+    The load-side rules are evaluated over the entire set the write would
+    produce; the two the roster and the registry decide are evaluated
+    over the steps the write touches. Both are gathered before either is
+    raised, so a rejection does not have to be corrected one fault at a
+    time — the shape `InvalidPlaybookError` has carried since the load
+    path.
+    """
+    faults: list[str] = []
+    try:
+        _validate(candidate, version + 1)
+    except InvalidPlaybookError as rejected:
+        faults.extend(rejected.faults)
+    faults.extend(await _precondition_faults(touched, roster=roster, handlers=handlers))
+    if faults:
+        raise InvalidPlaybookError(faults)
+
+
+def _registration_faults(touched: Sequence[StepDefinition], handlers: Any) -> list[str]:
+    """That the deployed code answers for an activated step's handler.
+
+    Checked here and never at load: the registry is a property of the
+    deployment, which changes without the step set changing, so a rename
+    must fail a deployment rather than take down every launch."""
+    if handlers is None:
+        return []
+    registered = _registered_names(handlers)
+    return [
+        (
+            f"step '{step.identifier}' names handler '{step.handler}', which "
+            f"no registered use case answers to"
+        )
+        for step in touched
+        if step.status is StepStatus.ACTIVE
+        and step.kind is StepKind.AUTOMATED
+        and step.handler is not None
+        and step.handler not in registered
+    ]
+
+
+def _registered_names(handlers: Any) -> frozenset[str]:
+    names = getattr(handlers, "names", None)
+    if callable(names):
+        return frozenset(str(name) for name in names())
+    return frozenset(str(name) for name in handlers)
 
 
 def _generate_identifier(records: Sequence[Any], discipline: Any) -> str:
@@ -179,11 +318,15 @@ def _slot_of(row: Any) -> int:
 def _last_slot_of_gate(
     records: Sequence[Any], gate: str, *, excluding: str | None = None
 ) -> int:
-    """The slot after every live step of `gate` — where a created,
-    un-retired, or gate-changed step appends."""
+    """The slot after every **active** step of `gate` — where a step
+    entering `active`, or an active step changing gate, appends.
+
+    Slots belong to the served order, so a `draft` or `in-development`
+    step holds none: there is one order, and it is the order a launch is
+    held to."""
     highest = 0
     for row in records:
-        if row.definition.gate != gate or _is_retired(row):
+        if row.definition.gate != gate or not _is_active(row):
             continue
         if row.definition.identifier == excluding:
             continue
@@ -191,46 +334,118 @@ def _last_slot_of_gate(
     return highest + 1
 
 
+def _crossing_retired(
+    before: StepDefinition, after: StepDefinition
+) -> tuple[StepDefinition, str | None]:
+    """A move into or out of `retired` **is** the retire / un-retire write.
+
+    Whatever surface asks for the change — the admin page's status
+    control included — crossing `retired` carries that write's
+    attribution, and a move out arrives at `in-development`: a step
+    retired months ago may name an assignee who has since left, so
+    restoring it straight to the served set would either fail the write
+    or serve a step nobody can resolve. Activating it is the separate
+    deliberate act it is for any other step.
+
+    Returns the definition to persist and which attribution to stamp.
+    """
+    if after.status is StepStatus.RETIRED and before.status is not StepStatus.RETIRED:
+        return after, "retired"
+    if before.status is StepStatus.RETIRED and after.status is not StepStatus.RETIRED:
+        return replace(after, status=StepStatus.IN_DEVELOPMENT), "unretired"
+    return after, None
+
+
+def _stamp(
+    record: StepRecord, crossing: str | None, principal: str, now: datetime
+) -> None:
+    if crossing == "retired":
+        record.retired_by = principal
+        record.retired_on = now
+        record.unretired_by = None
+        record.unretired_on = None
+    elif crossing == "unretired":
+        record.unretired_by = principal
+        record.unretired_on = now
+
+
+def _place(record: StepRecord, records: Sequence[Any], before: StepDefinition) -> None:
+    """Where the written step now stands in its gate's served order.
+
+    A step entering `active` takes the last slot of its gate rather than
+    reclaiming a remembered position, and an active step changing gate
+    appends to the new one. A step leaving `active` by any route — a
+    retirement or any other status change — is removed from the order
+    without disturbing the steps that remain.
+    """
+    definition = record.definition
+    if definition.status is not StepStatus.ACTIVE:
+        record.display_order = 0
+        return
+    if before.status is not StepStatus.ACTIVE or definition.gate != before.gate:
+        record.display_order = _last_slot_of_gate(
+            records, definition.gate, excluding=definition.identifier
+        )
+
+
 async def create_step(
     *,
     steps: StepSetStore,
     principal: str,
-    description: str,
+    name: str,
     gate: str,
     discipline: Any,
     scope: Scope,
     timing_anchor: TimingAnchor,
-    binding: Binding,
     blocking: bool,
-    execution: ExecutionMode,
+    kind: StepKind,
+    roster: Any = None,
+    handlers: Any = None,
+    description: str | None = None,
+    needs_confirmation: bool = False,
+    status: StepStatus = StepStatus.DRAFT,
     hazard: Hazard = Hazard.NONE,
-    rule_policy: str | None = None,
+    assignees: Sequence[str] = (),
+    automation_brief: str | None = None,
+    handler: str | None = None,
 ) -> StepRecord:
     """Create a step with a generated `mg.*` identifier, attributed to
-    `principal`. Validated as the whole playbook it would produce."""
+    `principal`. Validated as the whole playbook it would produce, plus
+    the two preconditions a load cannot check."""
     for _ in range(_WRITE_ATTEMPTS):
         records, version = await steps.load()
+        now = datetime.now(UTC)
         definition = StepDefinition(
             identifier=_generate_identifier(records, discipline),
-            description=description,
+            name=name,
             gate=gate,
             discipline=discipline,
             scope=scope,
             timing_anchor=timing_anchor,
-            binding=binding,
             blocking=blocking,
-            execution=execution,
+            kind=kind,
+            description=description,
+            needs_confirmation=needs_confirmation,
+            status=status,
             hazard=hazard,
-            rule_policy=rule_policy,
+            assignees=tuple(assignees),
+            automation_brief=automation_brief,
+            handler=handler,
         )
         record = StepRecord(
             definition=definition,
-            display_order=_last_slot_of_gate(records, gate),
+            display_order=(
+                _last_slot_of_gate(records, gate) if status is StepStatus.ACTIVE else 0
+            ),
             created_by=principal,
-            created_on=datetime.now(UTC),
+            created_on=now,
         )
+        if status is StepStatus.RETIRED:
+            _stamp(record, "retired", principal, now)
         candidate = (*records, record)
-        _validate(candidate, version + 1)
+        await _accept(
+            candidate, version, (definition,), roster=roster, handlers=handlers
+        )
         try:
             await steps.save(candidate, expected_version=version)
         except StaleStepSetError:
@@ -241,16 +456,61 @@ async def create_step(
     )
 
 
+async def _write_fields(
+    *,
+    steps: StepSetStore,
+    principal: str,
+    step_id: str,
+    roster: Any,
+    handlers: Any,
+    attribute_as_update: bool,
+    what: str,
+    fields: dict[str, Any],
+) -> StepRecord:
+    """The one write behind `update_step`, `retire_step` and
+    `unretire_step`: replace a step's authorable fields, resolve what
+    crossing `retired` means, place it in its gate's order, and judge the
+    whole set the write would produce."""
+    for _ in range(_WRITE_ATTEMPTS):
+        records, version = await steps.load()
+        index = _find(records, step_id)
+        record = _as_record(records[index])
+        before = record.definition
+        now = datetime.now(UTC)
+        definition, crossing = _crossing_retired(before, replace(before, **fields))
+        record.definition = definition
+        _stamp(record, crossing, principal, now)
+        _place(record, records, before)
+        if attribute_as_update:
+            record.updated_by = principal
+            record.updated_on = now
+        candidate = (*records[:index], record, *records[index + 1 :])
+        await _accept(
+            candidate, version, (definition,), roster=roster, handlers=handlers
+        )
+        try:
+            await steps.save(candidate, expected_version=version)
+        except StaleStepSetError:
+            continue
+        return record
+    raise StaleStepSetError(f"{what} lost the set-version race {_WRITE_ATTEMPTS} times")
+
+
 async def update_step(
     *,
     steps: StepSetStore,
     principal: str,
     step_id: str,
+    roster: Any = None,
+    handlers: Any = None,
     **fields: Any,
 ) -> StepRecord:
     """Update a step's authorable fields — never its identifier and never
     its discipline (the identifier's second segment must keep telling the
-    truth; retire and create a successor to move a step's discipline)."""
+    truth; retire and create a successor to move a step's discipline).
+
+    An update that changes the status is validated as the transition it
+    is, so the same rules apply however the status moves."""
     if "identifier" in fields:
         raise ValueError("a step's identifier is not updatable")
     if "discipline" in fields:
@@ -259,54 +519,42 @@ async def update_step(
             f"discipline because the identifier's second segment carries it; "
             f"retire the step and create its successor instead"
         )
-    for _ in range(_WRITE_ATTEMPTS):
-        records, version = await steps.load()
-        index = _find(records, step_id)
-        record = _as_record(records[index])
-        gate_before = record.definition.gate
-        record.definition = replace(record.definition, **fields)
-        if record.definition.gate != gate_before:
-            # A gate change appends to the new gate's order.
-            record.display_order = _last_slot_of_gate(
-                records, record.definition.gate, excluding=step_id
-            )
-        record.updated_by = principal
-        record.updated_on = datetime.now(UTC)
-        candidate = (*records[:index], record, *records[index + 1 :])
-        _validate(candidate, version + 1)
-        try:
-            await steps.save(candidate, expected_version=version)
-        except StaleStepSetError:
-            continue
-        return record
-    raise StaleStepSetError(
-        f"update_step lost the set-version race {_WRITE_ATTEMPTS} times"
+    if "assignees" in fields:
+        fields["assignees"] = tuple(fields["assignees"])
+    return await _write_fields(
+        steps=steps,
+        principal=principal,
+        step_id=step_id,
+        roster=roster,
+        handlers=handlers,
+        attribute_as_update=True,
+        what="update_step",
+        fields=fields,
     )
 
 
 async def retire_step(
-    *, steps: StepSetStore, principal: str, step_id: str
+    *,
+    steps: StepSetStore,
+    principal: str,
+    step_id: str,
+    roster: Any = None,
+    handlers: Any = None,
 ) -> StepRecord:
-    """Retire a step: excluded from the served set, never deleted. Rejected
-    whole when the remaining set is incoherent — retiring a gate's last
-    blocking step included."""
-    for _ in range(_WRITE_ATTEMPTS):
-        records, version = await steps.load()
-        index = _find(records, step_id)
-        record = _as_record(records[index])
-        record.retired_by = principal
-        record.retired_on = datetime.now(UTC)
-        record.unretired_by = None
-        record.unretired_on = None
-        candidate = (*records[:index], record, *records[index + 1 :])
-        _validate(candidate, version + 1)
-        try:
-            await steps.save(candidate, expected_version=version)
-        except StaleStepSetError:
-            continue
-        return record
-    raise StaleStepSetError(
-        f"retire_step lost the set-version race {_WRITE_ATTEMPTS} times"
+    """Retire a step: its status becomes `retired`, which excludes it
+    from the served set while the stored definition, the identifier and
+    every outcome recorded against it persist. Rejected whole when the
+    remaining set is incoherent — retiring a gate's last active blocking
+    step included."""
+    return await _write_fields(
+        steps=steps,
+        principal=principal,
+        step_id=step_id,
+        roster=roster,
+        handlers=handlers,
+        attribute_as_update=False,
+        what="retire_step",
+        fields={"status": StepStatus.RETIRED},
     )
 
 
@@ -318,8 +566,8 @@ async def reorder_step(
     target_index: int,
     expected_version: int | None = None,
 ) -> StepRecord:
-    """Move a live step to `target_index` (0-based) among its own gate's
-    live steps, renumbering the gate's slots as one atomic write. The
+    """Move an active step to `target_index` (0-based) among its own
+    gate's active steps, renumbering the gate's slots as one atomic write. The
     unmoved steps keep their relative order; the step's definition — its
     gate included — is untouched; the move is attributed to `principal`
     on the moved step, as an update is. Validated and serialized exactly
@@ -344,14 +592,18 @@ async def reorder_step(
                 f"{version}; the position is not recomputed"
             )
         index = _find(records, step_id)
-        if _is_retired(records[index]):
-            raise ValueError(f"step '{step_id}' is retired and holds no slot to move")
+        if not _is_active(records[index]):
+            raise ValueError(
+                f"step '{step_id}' is "
+                f"'{records[index].definition.status.value}' and holds no "
+                f"slot to move"
+            )
         gate = records[index].definition.gate
         gate_live = sorted(
             (
                 position
                 for position, row in enumerate(records)
-                if row.definition.gate == gate and not _is_retired(row)
+                if row.definition.gate == gate and _is_active(row)
             ),
             key=lambda position: (
                 _slot_of(records[position]),
@@ -361,7 +613,7 @@ async def reorder_step(
         if not 0 <= target_index < len(gate_live):
             raise ValueError(
                 f"target index {target_index} is outside gate '{gate}', "
-                f"which holds {len(gate_live)} live steps"
+                f"which holds {len(gate_live)} active steps"
             )
         sequence = [position for position in gate_live if position != index]
         sequence.insert(target_index, index)
@@ -394,27 +646,53 @@ async def reorder_step(
 
 
 async def unretire_step(
-    *, steps: StepSetStore, principal: str, step_id: str
+    *,
+    steps: StepSetStore,
+    principal: str,
+    step_id: str,
+    roster: Any = None,
+    handlers: Any = None,
 ) -> StepRecord:
-    """Restore a retired step to the served set under its original
-    identifier, attributing the reversal like the retirement was."""
-    for _ in range(_WRITE_ATTEMPTS):
-        records, version = await steps.load()
-        index = _find(records, step_id)
-        record = _as_record(records[index])
-        # Rejoin at the end of the gate's order, not the remembered slot.
-        record.display_order = _last_slot_of_gate(
-            records, record.definition.gate, excluding=step_id
-        )
-        record.unretired_by = principal
-        record.unretired_on = datetime.now(UTC)
-        candidate = (*records[:index], record, *records[index + 1 :])
-        _validate(candidate, version + 1)
-        try:
-            await steps.save(candidate, expected_version=version)
-        except StaleStepSetError:
-            continue
-        return record
-    raise StaleStepSetError(
-        f"unretire_step lost the set-version race {_WRITE_ATTEMPTS} times"
+    """Return a retired step to `in-development` under its original
+    identifier, attributing the reversal like the retirement was.
+
+    Not to `active`: retirement is no longer the inverse of
+    un-retirement, and this is the honest consequence of activation
+    being validated. Returning it to `in-development` always succeeds,
+    and activating it is the separate act it is for any other step."""
+    return await _write_fields(
+        steps=steps,
+        principal=principal,
+        step_id=step_id,
+        roster=roster,
+        handlers=handlers,
+        attribute_as_update=False,
+        what="unretire_step",
+        fields={"status": StepStatus.IN_DEVELOPMENT},
+    )
+
+
+async def change_step_status(
+    *,
+    steps: StepSetStore,
+    principal: str,
+    step_id: str,
+    status: StepStatus,
+    roster: Any = None,
+    handlers: Any = None,
+) -> StepRecord:
+    """Move a step to `status`, validated by the rules of the status it
+    moves **to** plus the whole-set rules every write obeys.
+
+    A move into or out of `retired` is the retirement or un-retirement
+    write itself, wherever it was asked for — so a status control cannot
+    become a second way out of `retired` that lands somewhere else and
+    records nobody."""
+    return await update_step(
+        steps=steps,
+        principal=principal,
+        step_id=step_id,
+        roster=roster,
+        handlers=handlers,
+        status=status,
     )

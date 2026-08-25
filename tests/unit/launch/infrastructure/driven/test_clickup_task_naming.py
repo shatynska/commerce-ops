@@ -69,8 +69,6 @@ from typing import Any, Final
 import pytest
 
 from commerce_ops.launch.domain.launch_playbook import (
-    Binding,
-    ExecutionMode,
     Gate,
     GateOpening,
     Hazard,
@@ -78,6 +76,8 @@ from commerce_ops.launch.domain.launch_playbook import (
     OffsetAnchor,
     Scope,
     StepDefinition,
+    StepKind,
+    StepStatus,
 )
 from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.launch.infrastructure.driven import clickup_sync
@@ -147,16 +147,17 @@ def _gates() -> tuple[Gate, ...]:
 def _step(**overrides: Any) -> StepDefinition:
     attributes: dict[str, Any] = {
         "identifier": STEP_ID,
-        "description": STEP_DESCRIPTION,
+        "name": STEP_DESCRIPTION,
         "gate": "listable",
         "discipline": Discipline("creative"),
         "scope": Scope.PRODUCT,
         "timing_anchor": OffsetAnchor(days=-7),
-        "binding": Binding.FRAMEWORK,
         "blocking": False,
-        "execution": ExecutionMode.HUMAN_ATTESTED,
+        "kind": StepKind.HUMAN,
+        "status": StepStatus.ACTIVE,
+        "needs_confirmation": False,
         "hazard": Hazard.NONE,
-        "rule_policy": None,
+        "automation_brief": None,
         "provenance": None,
     }
     attributes.update(overrides)
@@ -173,8 +174,10 @@ def _hold(gate: str) -> StepDefinition:
         identifier=f"hold.{gate}",
         gate=gate,
         blocking=True,
-        execution=ExecutionMode.AUTOMATED,
-        rule_policy="Held until the automated check reports green.",
+        kind=StepKind.AUTOMATED,
+        status=StepStatus.ACTIVE,
+        automation_brief="Held until the automated check reports green.",
+        handler="fixture.holding_check",
     )
 
 
@@ -330,6 +333,7 @@ class _TaskMapping:
     # compositions the conditional wording-healing keys on.
     retained_name: str | None = None
     retained_body: str | None = None
+    retained_assignees: tuple[str, ...] | None = None
 
 
 class _FakeMapping:
@@ -376,6 +380,7 @@ class _FakeMapping:
         *,
         name: str | None = None,
         body: str | None = None,
+        assignees: Any = None,
     ) -> None:
         """`move-playbook-steps-to-postgres`: a system write of a field
         updates that field's retained value; `None` leaves it untouched."""
@@ -384,6 +389,8 @@ class _FakeMapping:
             mapping.retained_name = name
         if body is not None:
             mapping.retained_body = body
+        if assignees is not None:
+            mapping.retained_assignees = tuple(str(item) for item in assignees)
 
     async def resolve_task(self, task_id: str) -> _TaskMapping | None:
         for mapping in self.tasks.values():
@@ -583,7 +590,7 @@ async def test_an_edited_task_name_is_never_restored() -> None:
     """
     edited_name = "Hero shot — my own wording"
     playbook = _playbook(
-        steps=(_step(description="A newly reworded description for this step"),)
+        steps=(_step(name="A newly reworded description for this step"),)
     )
     collaborators = _Collaborators()
     await collaborators.mapping.record_list(PRODUCT_ID, LIST_ID)
@@ -616,28 +623,34 @@ async def test_an_over_long_name_is_shortened_rather_than_failing() -> None:
     WHEN a task is projected for a step whose composed name exceeds the
     length the task system accepts
     THEN the task is created with a shortened name that still carries the
-    step's identifier
-    AND the step's full description is carried in the created task's
-    body.
+    step's identifier.
 
-    The description is built from the limit the implementation itself
+    The clause that carried the surrendered text into the body is gone:
+    `redesign-step-fields` states outright that "Shortening SHALL NOT
+    move the surrendered text into the body: the body belongs to the
+    description, and overwriting it with a fragment of the name would
+    displace what an author wrote." What replaced it is asserted in
+    `test_clickup_projection_step_fields.py::
+    test_an_over_long_name_is_shortened_and_never_spills_into_the_body`.
+
+    The name is built from the limit the implementation itself
     declares, so this holds whatever `tasks.md` 1.1 confirms that limit
     to be (`design.md` Decision 4: "the rule holds whatever the number
     turns out to be").
     """
     limit = _task_name_limit()
-    long_description = "Long row wording. " * ((limit // 18) + 4)
-    assert len(long_description) + len(STEP_ID) > limit, (
-        "the fixture description is not long enough to exceed the limit"
+    long_name = "Long row wording. " * ((limit // 18) + 4)
+    assert len(long_name) + len(STEP_ID) > limit, (
+        "the fixture name is not long enough to exceed the limit"
     )
-    playbook = _playbook(steps=(_step(description=long_description),))
+    playbook = _playbook(steps=(_step(name=long_name),))
     collaborators = _Collaborators()
 
     await _converge(_start(playbook), playbook, collaborators)
 
     created = collaborators.clickup.calls_named("create_task")
-    # SPECIFIED: "no step fails to project merely because its description
-    # is long" — the task is created, not skipped and not raised on.
+    # SPECIFIED: "no step fails to project merely because its name is
+    # long" — the task is created, not skipped and not raised on.
     assert len(created) == 1, f"the over-long step did not project: {created}"
 
     name = created[0]["name"]
@@ -649,9 +662,6 @@ async def test_an_over_long_name_is_shortened_rather_than_failing() -> None:
     # SPECIFIED: shortening preserves the step's identifier, "since that
     # is what makes the task traceable".
     assert STEP_ID in name, f"shortening dropped the step's identifier: {name!r}"
-    # SPECIFIED: the step's *full* description is carried in the created
-    # task's body.
-    assert created[0]["description"] == long_description
 
     # SPECIFIED: the association is still recorded, as for any projection.
     assert await collaborators.mapping.task_for(PRODUCT_ID, STEP_ID) is not None

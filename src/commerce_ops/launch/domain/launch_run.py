@@ -509,7 +509,7 @@ class Launch:
         outcome."""
         if self.launch_date is None:
             return None
-        blocking = {step.identifier for step in playbook.steps if step.blocking}
+        blocking = {step.identifier for step in playbook.served_steps if step.blocking}
         overdue = tuple(
             step_id
             for step_id in self.overdue_step_ids(playbook, as_of)
@@ -541,7 +541,7 @@ class Launch:
             return ()
         return tuple(
             step.identifier
-            for step in playbook.steps
+            for step in playbook.served_steps
             if self._fully_passed(step, as_of) and not self._resolved(step)
         )
 
@@ -572,7 +572,7 @@ class Launch:
     # earlier definition is evaluated against whatever set is served now.
 
     def _defined_step(self, playbook: LaunchPlaybook, step_id: str) -> StepDefinition:
-        for step in playbook.steps:
+        for step in playbook.served_steps:
             if step.identifier == step_id:
                 return step
         raise LaunchError(

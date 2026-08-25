@@ -76,8 +76,6 @@ from typing import Any, Final
 import pytest
 
 from commerce_ops.launch.domain.launch_playbook import (
-    Binding,
-    ExecutionMode,
     Gate,
     GateOpening,
     Hazard,
@@ -85,6 +83,8 @@ from commerce_ops.launch.domain.launch_playbook import (
     OffsetAnchor,
     Scope,
     StepDefinition,
+    StepKind,
+    StepStatus,
 )
 from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.launch.infrastructure.driven.clickup_sync import converge_launch
@@ -155,16 +155,17 @@ def _gates() -> tuple[Gate, ...]:
 def _step(**overrides: Any) -> StepDefinition:
     attributes: dict[str, Any] = {
         "identifier": STEP_ID,
-        "description": OLD_DESCRIPTION,
+        "name": OLD_DESCRIPTION,
         "gate": "listable",
         "discipline": Discipline("creative"),
         "scope": Scope.PRODUCT,
         "timing_anchor": OffsetAnchor(days=-7),
-        "binding": Binding.FRAMEWORK,
         "blocking": False,
-        "execution": ExecutionMode.HUMAN_ATTESTED,
+        "kind": StepKind.HUMAN,
+        "status": StepStatus.ACTIVE,
+        "needs_confirmation": False,
         "hazard": Hazard.NONE,
-        "rule_policy": None,
+        "automation_brief": None,
         "provenance": None,
     }
     attributes.update(overrides)
@@ -177,11 +178,13 @@ def _holding_steps() -> tuple[StepDefinition, ...]:
     return tuple(
         _step(
             identifier=f"hold.{gate}",
-            description=f"Blocking work holding the {gate} gate",
+            name=f"Blocking work holding the {gate} gate",
             gate=gate,
             blocking=True,
-            execution=ExecutionMode.AUTOMATED,
-            rule_policy="Held until the automated check reports green.",
+            kind=StepKind.AUTOMATED,
+            status=StepStatus.ACTIVE,
+            automation_brief="Held until the automated check reports green.",
+            handler="fixture.holding_check",
         )
         for gate in SPECIFIED_GATE_ORDER
     )
@@ -345,6 +348,7 @@ class _TaskMapping:
     # INVENTED (tasks.md 2.2): the retained last-written compositions.
     retained_name: str | None = None
     retained_body: str | None = None
+    retained_assignees: tuple[str, ...] | None = None
 
 
 class _FakeMapping:
@@ -391,6 +395,7 @@ class _FakeMapping:
         *,
         name: str | None = None,
         body: str | None = None,
+        assignees: Any = None,
     ) -> None:
         """INVENTED — see the module docstring. Updates a field's retained
         value; a `None` leaves that field's retained value untouched."""
@@ -399,6 +404,8 @@ class _FakeMapping:
             mapping.retained_name = name
         if body is not None:
             mapping.retained_body = body
+        if assignees is not None:
+            mapping.retained_assignees = tuple(str(item) for item in assignees)
 
     async def resolve_task(self, task_id: str) -> _TaskMapping | None:
         for mapping in self.tasks.values():
@@ -524,7 +531,7 @@ async def test_an_unedited_task_follows_the_steps_current_wording() -> None:
     collaborators = _mapped_collaborators(
         task_name=OLD_COMPOSITION, retained_name=OLD_COMPOSITION
     )
-    playbook = _playbook(steps=(_step(description=NEW_DESCRIPTION),))
+    playbook = _playbook(steps=(_step(name=NEW_DESCRIPTION),))
     launch = _start(playbook)
 
     await _converge(launch, playbook, collaborators)
@@ -557,7 +564,7 @@ async def test_a_persons_body_note_survives_a_wording_edit() -> None:
         retained_name=OLD_COMPOSITION,
         retained_body=None,  # the system never wrote a body for this task
     )
-    playbook = _playbook(steps=(_step(description=NEW_DESCRIPTION),))
+    playbook = _playbook(steps=(_step(name=NEW_DESCRIPTION),))
     launch = _start(playbook)
 
     await _converge(launch, playbook, collaborators)
@@ -589,7 +596,7 @@ async def test_an_unedited_legacy_task_starts_healing() -> None:
     assert mapping.retained_name == OLD_COMPOSITION
 
     # "…and the task heals thereafter": an authored edit now reaches it.
-    edited = _playbook(steps=(_step(description=NEW_DESCRIPTION),))
+    edited = _playbook(steps=(_step(name=NEW_DESCRIPTION),))
     await _converge(launch, edited, collaborators)
     assert collaborators.clickup.tasks[TASK_ID].name == NEW_COMPOSITION
 
@@ -610,7 +617,7 @@ async def test_an_ambiguous_legacy_task_is_never_rewritten() -> None:
 
     await _converge(launch, playbook, collaborators)
     # A second pass, after an authored edit, must not rewrite either.
-    edited = _playbook(steps=(_step(description=NEW_DESCRIPTION),))
+    edited = _playbook(steps=(_step(name=NEW_DESCRIPTION),))
     await _converge(launch, edited, collaborators)
 
     mapping = await collaborators.mapping.task_for(PRODUCT_ID, STEP_ID)
@@ -634,7 +641,7 @@ async def test_an_edited_task_name_is_never_restored() -> None:
     collaborators = _mapped_collaborators(
         task_name=persons_name, retained_name=OLD_COMPOSITION
     )
-    playbook = _playbook(steps=(_step(description=NEW_DESCRIPTION),))
+    playbook = _playbook(steps=(_step(name=NEW_DESCRIPTION),))
     launch = _start(playbook)
 
     await _converge(launch, playbook, collaborators)

@@ -84,13 +84,13 @@ from commerce_ops.launch.application import (
     update_step,
 )
 from commerce_ops.launch.domain.launch_playbook import (
-    Binding,
-    ExecutionMode,
     Hazard,
     LaunchPlaybook,
     OffsetAnchor,
     Scope,
     StepDefinition,
+    StepKind,
+    StepStatus,
 )
 from commerce_ops.launch.infrastructure.driven import playbook_repository
 from commerce_ops.shared.domain.discipline import Discipline
@@ -161,7 +161,13 @@ async def _served() -> LaunchPlaybook:
 
 
 def _step_named(playbook: LaunchPlaybook, identifier: str) -> StepDefinition | None:
-    for step in playbook.steps:
+    """The step the playbook **serves** under `identifier`, or `None`.
+
+    `served_steps`, not `steps`: since `redesign-step-fields` the loaded
+    playbook carries every authored status so the status-dependent
+    coherence rules can be evaluated over it, and what a launch is held
+    to is the `active` subset."""
+    for step in playbook.served_steps:
         if step.identifier == identifier:
             return step
     return None
@@ -169,16 +175,17 @@ def _step_named(playbook: LaunchPlaybook, identifier: str) -> StepDefinition | N
 
 def _authorable_fields(description: str) -> dict[str, Any]:
     return {
-        "description": description,
+        "name": description,
         "gate": "ignition",
         "discipline": A_DISCIPLINE,
         "scope": Scope.PRODUCT,
         "timing_anchor": OffsetAnchor(days=-3),
-        "binding": Binding.FRAMEWORK,
         "blocking": False,
-        "execution": ExecutionMode.HUMAN_ATTESTED,
+        "kind": StepKind.HUMAN,
+        "status": StepStatus.ACTIVE,
+        "needs_confirmation": False,
         "hazard": Hazard.NONE,
-        "rule_policy": None,
+        "automation_brief": None,
     }
 
 
@@ -201,7 +208,7 @@ async def _create(description: str) -> str:
     created = [
         step
         for step in after.steps
-        if step.identifier not in before and step.description == description
+        if step.identifier not in before and step.name == description
     ]
     assert len(created) == 1, (
         f"expected exactly the one created step for {description!r}, "
@@ -221,6 +228,24 @@ async def _unretire(step_id: str) -> None:
     async with _session() as session:
         await _maybe_await(
             unretire_step(steps=_store(session), principal=PRINCIPAL, step_id=step_id)
+        )
+
+
+async def _activate(step_id: str) -> None:
+    """The separate deliberate act un-retiring no longer performs.
+
+    `redesign-step-fields`: un-retiring returns a step to
+    `in-development` — a step retired months ago may name an assignee who
+    has since left — so it is served again only once someone activates
+    it."""
+    async with _session() as session:
+        await _maybe_await(
+            update_step(
+                steps=_store(session),
+                principal=PRINCIPAL,
+                step_id=step_id,
+                status=StepStatus.ACTIVE,
+            )
         )
 
 
@@ -248,7 +273,7 @@ async def test_a_created_step_joins_the_served_set() -> None:
     assert identifier.split(".")[1] == A_DISCIPLINE.value
     served = _step_named(await _served(), identifier)
     assert served is not None
-    assert served.description == description
+    assert served.name == description
 
     await _retire(identifier)  # residue control, not an assertion
 
@@ -275,14 +300,14 @@ async def test_an_edit_is_served_on_the_next_read() -> None:
                 steps=_store(session),
                 principal=PRINCIPAL,
                 step_id=identifier,
-                description=reworded,
+                name=reworded,
             )
         )
 
     served = _step_named(await _served(), identifier)
     assert served is not None
     # SPECIFIED: new description, unchanged identifier.
-    assert served.description == reworded
+    assert served.name == reworded
 
     await _retire(identifier)
 
@@ -298,8 +323,13 @@ async def test_a_retired_step_leaves_and_rejoins_the_served_set() -> None:
 
     WHEN a step is retired
     THEN the next read of the playbook does not serve it.
-    WHEN it is un-retired
+    WHEN it is un-retired and activated
     THEN the next read serves it again under its original identifier.
+
+    Un-retiring alone no longer serves it: `redesign-step-fields` returns
+    an un-retired step to `in-development`, because a step retired months
+    ago may no longer satisfy what activation requires, and activating it
+    is the separate deliberate act it is for any other step.
 
     The attribution halves (who retired/un-retired, when) are asserted at
     the unit tier against the stored record.
@@ -310,6 +340,10 @@ async def test_a_retired_step_leaves_and_rejoins_the_served_set() -> None:
     assert _step_named(await _served(), identifier) is None
 
     await _unretire(identifier)
+    # SPECIFIED: `in-development`, so still not served.
+    assert _step_named(await _served(), identifier) is None
+
+    await _activate(identifier)
     restored = _step_named(await _served(), identifier)
     assert restored is not None
     assert restored.identifier == identifier

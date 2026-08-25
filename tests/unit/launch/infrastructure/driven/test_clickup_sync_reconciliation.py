@@ -63,8 +63,6 @@ from typing import Any, Final
 import pytest
 
 from commerce_ops.launch.domain.launch_playbook import (
-    Binding,
-    ExecutionMode,
     Gate,
     GateOpening,
     Hazard,
@@ -74,6 +72,8 @@ from commerce_ops.launch.domain.launch_playbook import (
     Satisfied,
     Scope,
     StepDefinition,
+    StepKind,
+    StepStatus,
 )
 from commerce_ops.launch.domain.launch_run import Launch, Provenance
 from commerce_ops.launch.infrastructure.driven.clickup_sync import (
@@ -149,16 +149,17 @@ def _gates() -> tuple[Gate, ...]:
 def _step(**overrides: Any) -> StepDefinition:
     attributes: dict[str, Any] = {
         "identifier": STEP_ID,
-        "description": "Work this step asks for",
+        "name": "Work this step asks for",
         "gate": "listable",
         "discipline": _any_discipline(),
         "scope": Scope.PRODUCT,
         "timing_anchor": OffsetAnchor(days=-7),
-        "binding": Binding.FRAMEWORK,
         "blocking": False,
-        "execution": ExecutionMode.HUMAN_ATTESTED,
+        "kind": StepKind.HUMAN,
+        "status": StepStatus.ACTIVE,
+        "needs_confirmation": False,
         "hazard": Hazard.NONE,
-        "rule_policy": None,
+        "automation_brief": None,
         "provenance": None,
     }
     attributes.update(overrides)
@@ -175,8 +176,10 @@ def _hold(gate: str) -> StepDefinition:
         identifier=f"hold.{gate}",
         gate=gate,
         blocking=True,
-        execution=ExecutionMode.AUTOMATED,
-        rule_policy="Held until the automated check reports green.",
+        kind=StepKind.AUTOMATED,
+        status=StepStatus.ACTIVE,
+        automation_brief="Held until the automated check reports green.",
+        handler="fixture.holding_check",
     )
 
 
@@ -320,6 +323,7 @@ class _TaskMapping:
     # compositions the conditional wording-healing keys on.
     retained_name: str | None = None
     retained_body: str | None = None
+    retained_assignees: tuple[str, ...] | None = None
 
 
 class _FakeMapping:
@@ -362,6 +366,7 @@ class _FakeMapping:
         *,
         name: str | None = None,
         body: str | None = None,
+        assignees: Any = None,
     ) -> None:
         """`move-playbook-steps-to-postgres`: a system write of a field
         updates that field's retained value; `None` leaves it untouched."""
@@ -370,6 +375,8 @@ class _FakeMapping:
             mapping.retained_name = name
         if body is not None:
             mapping.retained_body = body
+        if assignees is not None:
+            mapping.retained_assignees = tuple(str(item) for item in assignees)
 
     async def resolve_task(self, task_id: str) -> _TaskMapping | None:
         for mapping in self.tasks.values():

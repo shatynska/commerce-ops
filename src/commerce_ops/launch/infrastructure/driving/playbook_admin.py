@@ -27,6 +27,7 @@ infrastructure.
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -37,10 +38,12 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import FileResponse, HTMLResponse
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-from commerce_ops.access.application import verify_admin_session
+from commerce_ops.access.application import list_people, verify_admin_session
 from commerce_ops.launch.application import (
+    HANDLERS,
     StaleStepSetError,
     StepSetStore,
+    change_step_status,
     create_step,
     reorder_step,
     retire_step,
@@ -49,15 +52,15 @@ from commerce_ops.launch.application import (
 )
 from commerce_ops.launch.domain.launch_playbook import (
     GATE_SEQUENCE,
-    Binding,
     Cadence,
-    ExecutionMode,
     Hazard,
     InvalidPlaybookError,
     OffsetAnchor,
     OpenEndedAnchor,
     RecurringAnchor,
     Scope,
+    StepKind,
+    StepStatus,
     TimingAnchor,
     WindowAnchor,
 )
@@ -74,6 +77,13 @@ __all__ = [
     "steps",
     "verify_admin_session",
 ]
+
+_STATUS_LABELS: Final = {
+    StepStatus.DRAFT: "draft",
+    StepStatus.IN_DEVELOPMENT: "in development",
+    StepStatus.ACTIVE: "active",
+    StepStatus.RETIRED: "retired",
+}
 
 router = APIRouter()
 
@@ -98,6 +108,11 @@ SEARCH_INERT_NOTICE: Final = (
     "an incidental set of steps, so moving one past the next match can "
     "cross any number of steps the search is hiding. Clear the search to "
     "reorder."
+)
+
+NO_SLOT_NOTICE: Final = (
+    "That move names a step that holds no position in its gate's order — "
+    "only active steps do — so nothing was saved."
 )
 
 RETIRED_INERT_NOTICE: Final = (
@@ -158,7 +173,15 @@ class _Narrowing:
             return False
         if self.discipline and definition.discipline.value != self.discipline:
             return False
-        return not self.q or self.q.lower() in definition.description.lower()
+        if not self.q:
+            return True
+        # Both fields, since they became two: an author who remembers a
+        # phrase does not remember which of the two they wrote it in.
+        needle = self.q.lower()
+        return (
+            needle in definition.name.lower()
+            or needle in (definition.description or "").lower()
+        )
 
 
 def _filters_of(request: Request) -> _Narrowing:
@@ -203,6 +226,47 @@ roster: Any = None
 admin_sessions: Any = None
 
 
+async def _roster_people() -> tuple[Any, ...]:
+    """Everyone the roster carries, however the collaborator is shaped.
+
+    In production `roster` is the roster *store* the composition root
+    injects, read through `access`'s public `list_people`; a test
+    substitutes a reader answering `list_people()` directly. Both are
+    accepted, because the seam is what the page needs of the roster and
+    not which object happens to satisfy it."""
+    if roster is None:
+        return ()
+    reader = getattr(roster, "list_people", None)
+    if reader is not None:
+        return tuple(await reader())
+    return tuple(await list_people(roster=roster))
+
+
+def _person_identifier(person: Any) -> str:
+    for name in ("identifier", "id", "person_id"):
+        value = getattr(person, name, None)
+        if value is not None:
+            return str(value)
+    raise ValueError(f"a roster person exposes no identifier: {person!r}")
+
+
+def _people_by_identifier(people: Sequence[Any]) -> dict[str, Any]:
+    return {_person_identifier(person): person for person in people}
+
+
+def _assignee_options(people: Sequence[Any]) -> list[tuple[str, str]]:
+    """Who the form offers, by display name.
+
+    Active people only: an author cannot name someone who does not exist,
+    and offering a departed colleague would invite a write the rules
+    refuse."""
+    return [
+        (_person_identifier(person), str(person.display_name))
+        for person in people
+        if getattr(person, "active", True)
+    ]
+
+
 async def _require_admin(request: Request) -> str:
     """The one guard every admin route rides. Refusal is the app's own
     404 — identical to an unregistered route, whatever actually failed."""
@@ -228,7 +292,15 @@ _ANCHOR_KINDS: Final = ("offset", "window", "open-ended", "recurring")
 
 
 def _is_retired(record: Any) -> bool:
-    return record.retired_by is not None and record.unretired_by is None
+    return record.definition.status is StepStatus.RETIRED
+
+
+def _is_active(record: Any) -> bool:
+    """Whether the step holds a slot and is served.
+
+    The one question the order, the reorder controls and the served set
+    all ask — `draft`, `in-development` and `retired` alike answer no."""
+    return record.definition.status is StepStatus.ACTIVE
 
 
 def _anchor_form_values(anchor: TimingAnchor) -> dict[str, str]:
@@ -278,7 +350,9 @@ def _truthy(value: str | None) -> bool:
     return (value or "").strip().lower() in {"true", "on", "1", "yes"}
 
 
-def _authorable_fields(form: dict[str, str]) -> dict[str, Any]:
+def _authorable_fields(
+    form: dict[str, str], assignees: tuple[str, ...] = ()
+) -> dict[str, Any]:
     """The authorable shape as one form submission carries it. Enum
     parsing faults are collected, not raised one at a time."""
     faults: list[str] = []
@@ -294,32 +368,53 @@ def _authorable_fields(form: dict[str, str]) -> dict[str, Any]:
             faults.append(f"{name}: '{raw}' is not a recognised value")
             return fallback
 
-    fields["description"] = form.get("description", "")
+    kind = _enum("kind", StepKind, StepKind.HUMAN)
+    fields["name"] = form.get("name", "")
+    # An empty box is *no description*, not an empty one: the field is
+    # optional, and the projection writes no task body where a step
+    # carries none.
+    fields["description"] = (form.get("description") or "").strip() or None
     fields["gate"] = form.get("gate", "")
     fields["scope"] = _enum("scope", Scope, Scope.PRODUCT)
-    fields["binding"] = _enum("binding", Binding, Binding.FRAMEWORK)
     fields["blocking"] = _truthy(form.get("blocking"))
-    fields["execution"] = _enum(
-        "execution", ExecutionMode, ExecutionMode.HUMAN_ATTESTED
-    )
+    fields["kind"] = kind
+    fields["needs_confirmation"] = _truthy(form.get("needs_confirmation"))
+    fields["status"] = _enum("status", StepStatus, StepStatus.DRAFT)
     fields["hazard"] = _enum("hazard", Hazard, Hazard.NONE)
-    fields["rule_policy"] = (form.get("rule_policy") or "").strip() or None
+    fields["assignees"] = assignees
+    # Submitted on a `human` step only because the control was left
+    # enabled; carried through rather than dropped, so the write reports
+    # the rule instead of the page quietly deciding for the author.
+    fields["automation_brief"] = (form.get("automation_brief") or "").strip() or None
+    fields["handler"] = (form.get("handler") or "").strip() or None
     fields["timing_anchor"] = _anchor_from_form(form)
     if faults:
         raise InvalidPlaybookError(faults)
     return fields
 
 
-def _row(record: Any) -> dict[str, Any]:
+def _row(record: Any, people: Mapping[str, Any]) -> dict[str, Any]:
     definition = record.definition
     return {
         "identifier": definition.identifier,
-        "description": definition.description,
+        "name": definition.name,
+        "description": definition.description or "",
         "discipline": definition.discipline.value,
         "gate": definition.gate,
         "blocking": definition.blocking,
-        "binding": definition.binding.value,
-        "execution": definition.execution.value,
+        "kind": definition.kind.value,
+        "needs_confirmation": definition.needs_confirmation,
+        "status": definition.status.value,
+        "status_label": _STATUS_LABELS[definition.status],
+        # By display name, since an author knows colleagues by name and
+        # not by generated identifier. An identifier the roster no longer
+        # carries is shown as itself rather than dropped — an assignee
+        # nobody can read is still an assignee the write rules see.
+        "assignees": [
+            getattr(people.get(identifier), "display_name", identifier)
+            for identifier in definition.assignees
+        ],
+        "active": _is_active(record),
         "retired": _is_retired(record),
     }
 
@@ -330,8 +425,10 @@ def _option_context() -> dict[str, Any]:
         "gate_options": GATE_SEQUENCE,
         "discipline_options": [d.value for d in Discipline],
         "scope_options": [s.value for s in Scope],
-        "binding_options": [b.value for b in Binding],
-        "execution_options": [e.value for e in ExecutionMode],
+        "kind_options": [k.value for k in StepKind],
+        "status_options": [
+            (status.value, label) for status, label in _STATUS_LABELS.items()
+        ],
         "hazard_options": [h.value for h in Hazard],
         "cadence_options": [c.value for c in Cadence],
         "anchor_kinds": _ANCHOR_KINDS,
@@ -348,12 +445,17 @@ def _slot_key(record: Any) -> tuple[int, str]:
 
 
 def _gate_live(records: tuple[Any, ...] | Any, gate: str) -> list[Any]:
-    """`G` — a gate's live steps in served order."""
+    """`G` — a gate's **active** steps in served order.
+
+    Only active steps hold a slot, so only they can be moved or be named
+    as the step another comes to rest after. A draft sits in the same
+    gate and outside this list, which is what lets the gate stay
+    reorderable while somebody is drafting in it."""
     return sorted(
         (
             record
             for record in records
-            if record.definition.gate == gate and not _is_retired(record)
+            if record.definition.gate == gate and _is_active(record)
         ),
         key=_slot_key,
     )
@@ -449,6 +551,7 @@ async def _render_page(
     faults: tuple[str, ...] = (),
 ) -> HTMLResponse:
     records, version = await steps.load()
+    people = _people_by_identifier(await _roster_people())
 
     gates = []
     for gate in GATE_SEQUENCE:
@@ -466,19 +569,31 @@ async def _render_page(
             ),
             key=_slot_key,
         )
-        visible_live = [record for record in shown if not _is_retired(record)]
+        # Only active steps stand in the orderable list; a draft or an
+        # `in-development` step renders outside it, holding no position
+        # and offering no control that would name it as a resting place.
+        visible_live = [record for record in shown if _is_active(record)]
         rows = []
+        pending = []
         for record in shown:
-            row = _row(record)
-            row["position"] = position_of.get(record.definition.identifier)
+            row = _row(record, people)
             row["live_count"] = len(live)
             row["up"] = row["down"] = None
-            if narrowing.reorderable and not _is_retired(record):
+            if not _is_active(record):
+                # Rendered outside the gate's orderable list rather than
+                # among it: a step that holds no slot must render no
+                # position among the gate's active steps, and no control
+                # that would let a move name it as a resting place.
+                row["position"] = None
+                pending.append(row)
+                continue
+            row["position"] = position_of.get(record.definition.identifier)
+            if narrowing.reorderable:
                 row["up"], row["down"] = _move_targets(
                     visible_live, visible_live.index(record)
                 )
             rows.append(row)
-        gates.append({"identifier": gate, "steps": rows})
+        gates.append({"identifier": gate, "steps": rows, "pending": pending})
 
     html = _TEMPLATES.get_template("page.html").render(
         gates=gates,
@@ -491,12 +606,13 @@ async def _render_page(
         show_retired_link=narrowing.suffix(retired="1"),
         notice=notice,
         faults=faults,
+        assignee_options=_assignee_options(list(people.values())),
         **_option_context(),
     )
     return HTMLResponse(html)
 
 
-def _render_edit(
+async def _render_edit(
     step_id: str,
     discipline: str,
     values: dict[str, Any],
@@ -512,6 +628,7 @@ def _render_edit(
         faults=faults,
         notice=notice,
         narrowing=narrowing,
+        assignee_options=_assignee_options(await _roster_people()),
         **_option_context(),
     )
     return HTMLResponse(html)
@@ -521,14 +638,18 @@ def _edit_values(record: Any) -> dict[str, Any]:
     definition = record.definition
     anchor = _anchor_form_values(definition.timing_anchor)
     return {
-        "description": definition.description,
+        "name": definition.name,
+        "description": definition.description or "",
         "gate": definition.gate,
         "scope": definition.scope.value,
-        "binding": definition.binding.value,
         "blocking": "true" if definition.blocking else "false",
-        "execution": definition.execution.value,
+        "kind": definition.kind.value,
+        "needs_confirmation": ("true" if definition.needs_confirmation else "false"),
+        "status": definition.status.value,
         "hazard": definition.hazard.value,
-        "rule_policy": definition.rule_policy or "",
+        "assignees": list(definition.assignees),
+        "automation_brief": definition.automation_brief or "",
+        "handler": definition.handler or "",
         "anchor_kind": anchor["kind"],
         "anchor_days": anchor["days"],
         "anchor_start": anchor["start"],
@@ -537,18 +658,24 @@ def _edit_values(record: Any) -> dict[str, Any]:
     }
 
 
-def _submitted_values(form: dict[str, str]) -> dict[str, Any]:
+def _submitted_values(
+    form: dict[str, str], assignees: tuple[str, ...] = ()
+) -> dict[str, Any]:
     """The submitted form, echoed back around a rejection: the spec
     requires the form to still hold what was typed."""
     return {
+        "name": form.get("name", ""),
         "description": form.get("description", ""),
         "gate": form.get("gate", ""),
         "scope": form.get("scope", ""),
-        "binding": form.get("binding", ""),
         "blocking": form.get("blocking", "false"),
-        "execution": form.get("execution", ""),
+        "kind": form.get("kind", ""),
+        "needs_confirmation": form.get("needs_confirmation", "false"),
+        "status": form.get("status", ""),
         "hazard": form.get("hazard", ""),
-        "rule_policy": form.get("rule_policy", ""),
+        "assignees": list(assignees),
+        "automation_brief": form.get("automation_brief", ""),
+        "handler": form.get("handler", ""),
         "anchor_kind": form.get("anchor_kind", "offset"),
         "anchor_days": form.get("anchor_days", ""),
         "anchor_start": form.get("anchor_start", ""),
@@ -565,9 +692,14 @@ async def _find_record(step_id: str) -> Any:
     raise HTTPException(status_code=404)
 
 
-async def _form_of(request: Request) -> dict[str, str]:
+async def _form_of(request: Request) -> tuple[dict[str, str], tuple[str, ...]]:
+    """The submitted form, plus its assignees read as the many values
+    they are — a single-valued mapping would keep only the last person a
+    step names."""
     posted = await request.form()
-    return {key: str(value) for key, value in posted.items()}
+    fields = {key: str(value) for key, value in posted.items()}
+    assignees = tuple(str(value) for value in posted.getlist("assignees") if str(value))
+    return fields, assignees
 
 
 # --------------------------------------------------------------------------
@@ -587,7 +719,7 @@ async def edit_form(
     step_id: str, request: Request, principal: str = Depends(_require_admin)
 ) -> Response:
     record = await _find_record(step_id)
-    return _render_edit(
+    return await _render_edit(
         step_id,
         record.definition.discipline.value,
         _edit_values(record),
@@ -600,25 +732,32 @@ async def save_edit(
     step_id: str, request: Request, principal: str = Depends(_require_admin)
 ) -> Response:
     narrowing = _filters_of(request)
-    form = await _form_of(request)
+    form, assignees = await _form_of(request)
     record = await _find_record(step_id)
     discipline = record.definition.discipline.value
     try:
-        fields = _authorable_fields(form)
-        await update_step(steps=steps, principal=principal, step_id=step_id, **fields)
+        fields = _authorable_fields(form, assignees)
+        await update_step(
+            steps=steps,
+            principal=principal,
+            step_id=step_id,
+            roster=roster,
+            handlers=HANDLERS,
+            **fields,
+        )
     except InvalidPlaybookError as rejected:
-        return _render_edit(
+        return await _render_edit(
             step_id,
             discipline,
-            _submitted_values(form),
+            _submitted_values(form, assignees),
             faults=rejected.faults,
             narrowing=narrowing,
         )
     except StaleStepSetError:
-        return _render_edit(
+        return await _render_edit(
             step_id,
             discipline,
-            _submitted_values(form),
+            _submitted_values(form, assignees),
             notice=STALE_NOTICE,
             narrowing=narrowing,
         )
@@ -630,12 +769,17 @@ async def create(
     request: Request, principal: str = Depends(_require_admin)
 ) -> Response:
     narrowing = _filters_of(request)
-    form = await _form_of(request)
+    form, assignees = await _form_of(request)
     try:
-        fields = _authorable_fields(form)
+        fields = _authorable_fields(form, assignees)
         discipline = Discipline(form.get("discipline") or Discipline.LISTING.value)
         await create_step(
-            steps=steps, principal=principal, discipline=discipline, **fields
+            steps=steps,
+            principal=principal,
+            discipline=discipline,
+            roster=roster,
+            handlers=HANDLERS,
+            **fields,
         )
     except (InvalidPlaybookError, ValueError) as rejected:
         faults = getattr(rejected, "faults", (str(rejected),))
@@ -651,7 +795,13 @@ async def retire(
 ) -> Response:
     narrowing = _filters_of(request)
     try:
-        await retire_step(steps=steps, principal=principal, step_id=step_id)
+        await retire_step(
+            steps=steps,
+            principal=principal,
+            step_id=step_id,
+            roster=roster,
+            handlers=HANDLERS,
+        )
     except InvalidPlaybookError as rejected:
         return await _render_page(narrowing, faults=rejected.faults)
     except StaleStepSetError:
@@ -665,11 +815,56 @@ async def unretire(
 ) -> Response:
     narrowing = _filters_of(request)
     try:
-        await unretire_step(steps=steps, principal=principal, step_id=step_id)
+        await unretire_step(
+            steps=steps,
+            principal=principal,
+            step_id=step_id,
+            roster=roster,
+            handlers=HANDLERS,
+        )
     except InvalidPlaybookError as rejected:
         return await _render_page(narrowing, faults=rejected.faults)
     except StaleStepSetError:
         return await _render_page(narrowing, notice=STALE_NOTICE)
+    return await _render_page(narrowing)
+
+
+@router.post(PAGE_PATH + "/steps/{step_id}/status")
+async def change_status(
+    step_id: str, request: Request, principal: str = Depends(_require_admin)
+) -> Response:
+    """Move a step to the status the form names.
+
+    The refusal is rendered with the write's **own** explanation, never a
+    generic one: what the step lacks is the only actionable part of it.
+    Crossing `retired` is the retirement or un-retirement write itself —
+    resolved by the authoring use case, not here, so this control cannot
+    become a second way out of `retired` that records nobody.
+    """
+    narrowing = _filters_of(request)
+    form, _assignees = await _form_of(request)
+    try:
+        status = StepStatus(form.get("status", ""))
+    except ValueError:
+        return await _render_page(
+            narrowing,
+            faults=(f"status: '{form.get('status', '')}' is not a recognised value",),
+        )
+    try:
+        await change_step_status(
+            steps=steps,
+            principal=principal,
+            step_id=step_id,
+            status=status,
+            roster=roster,
+            handlers=HANDLERS,
+        )
+    except InvalidPlaybookError as rejected:
+        return await _render_page(narrowing, faults=rejected.faults)
+    except StaleStepSetError:
+        return await _render_page(narrowing, notice=STALE_NOTICE)
+    except ValueError as rejected:
+        return await _render_page(narrowing, faults=(str(rejected),))
     return await _render_page(narrowing)
 
 
@@ -693,7 +888,7 @@ async def move(
     if not narrowing.reorderable:
         return await _render_page(narrowing, notice=_inert_notice(narrowing))
 
-    form = await _form_of(request)
+    form, _assignees = await _form_of(request)
     records, version = await steps.load()
     if form.get("version", "") != str(version):
         return await _render_page(narrowing, notice=STALE_NOTICE)
@@ -702,8 +897,12 @@ async def move(
         (record for record in records if record.definition.identifier == step_id),
         None,
     )
-    if target is None or _is_retired(target):
-        return await _render_page(narrowing, notice=STALE_NOTICE)
+    # A step that is not `active` holds no slot, so a move naming one
+    # cannot be given an honest meaning — refused here and not merely
+    # left uncontrolled, so the rule does not rest on the rendered
+    # controls alone.
+    if target is None or not _is_active(target):
+        return await _render_page(narrowing, notice=NO_SLOT_NOTICE)
 
     live = _gate_live(records, target.definition.gate)
     visible = [record for record in live if narrowing.shows(record)]

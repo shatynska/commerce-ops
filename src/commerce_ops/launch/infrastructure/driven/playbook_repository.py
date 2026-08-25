@@ -4,8 +4,7 @@
 for the *step set*; the framework — the eight gates, their opening modes,
 their metric conditions, every coherence rule — stays code-owned in
 `launch.domain.launch_playbook`, and this adapter joins the two on every
-read: the live stored definitions (retired rows excluded) over
-`framework_gates()`, constructed through `LaunchPlaybook` so nothing an
+read: every stored definition over `framework_gates()`, constructed through `LaunchPlaybook` so nothing an
 accepted write persisted can fail to load.
 
 The playbook is **live**: `get(version)` deliberately ignores the version
@@ -33,13 +32,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from commerce_ops.launch.application import (
     StaleStepSetError,
     StepRecord,
-    live_definitions,
+    authored_definitions,
 )
 from commerce_ops.launch.domain.launch_playbook import (
     GATE_SEQUENCE,
-    Binding,
     Cadence,
-    ExecutionMode,
     Hazard,
     LaunchPlaybook,
     OffsetAnchor,
@@ -47,6 +44,8 @@ from commerce_ops.launch.domain.launch_playbook import (
     RecurringAnchor,
     Scope,
     StepDefinition,
+    StepKind,
+    StepStatus,
     TimingAnchor,
     WindowAnchor,
     framework_gates,
@@ -86,16 +85,20 @@ def _anchor_from_json(raw: dict[str, Any]) -> TimingAnchor:
 def _definition_from_row(row: PlaybookStep) -> StepDefinition:
     return StepDefinition(
         identifier=row.identifier,
+        name=row.name,
         description=row.description,
         gate=row.gate,
         discipline=Discipline(row.discipline),
         scope=Scope(row.scope),
         timing_anchor=_anchor_from_json(row.timing_anchor),
-        binding=Binding(row.binding),
         blocking=row.blocking,
-        execution=ExecutionMode(row.execution),
+        kind=StepKind(row.kind),
+        needs_confirmation=row.needs_confirmation,
+        status=StepStatus(row.status),
         hazard=Hazard(row.hazard),
-        rule_policy=row.rule_policy,
+        assignees=tuple(row.assignees or ()),
+        automation_brief=row.automation_brief,
+        handler=row.handler,
         provenance=row.provenance,
     )
 
@@ -119,16 +122,20 @@ def _row_from_record(record: Any) -> PlaybookStep:
     definition: StepDefinition = record.definition
     return PlaybookStep(
         identifier=definition.identifier,
+        name=definition.name,
         description=definition.description,
         gate=definition.gate,
         discipline=definition.discipline.value,
         scope=definition.scope.value,
         timing_anchor=_anchor_to_json(definition.timing_anchor),
-        binding=definition.binding.value,
         blocking=definition.blocking,
-        execution=definition.execution.value,
+        kind=definition.kind.value,
+        needs_confirmation=definition.needs_confirmation,
+        status=definition.status.value,
         hazard=definition.hazard.value,
-        rule_policy=definition.rule_policy,
+        assignees=list(definition.assignees),
+        automation_brief=definition.automation_brief,
+        handler=definition.handler,
         provenance=definition.provenance,
         display_order=getattr(record, "display_order", 0),
         created_by=record.created_by,
@@ -177,14 +184,21 @@ class PlaybookRepository:
         return int(version)
 
     async def get(self, version: str) -> LaunchPlaybook:
-        """The live served playbook. The passed version selects nothing —
-        it is a launch's audit stamp, not a key — so a launch started
-        under an earlier definition still reads the current set."""
+        """The live playbook. The passed version selects nothing — it is
+        a launch's audit stamp, not a key — so a launch started under an
+        earlier definition still reads the current set.
+
+        Constructed over **every** stored definition, whatever its
+        status: the status-dependent coherence rules can only be
+        evaluated over steps that carry a status, and the playbook's own
+        queries answer the served (`active`) subset while
+        `authored_steps` answers the whole authored set the admin
+        surface reads."""
         records, set_version = await self.load()
         return LaunchPlaybook(
             version=f"v{set_version}",
             gates=framework_gates(),
-            steps=live_definitions(records),
+            steps=authored_definitions(records),
         )
 
     # -- the StepSetStore half ------------------------------------------

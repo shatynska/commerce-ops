@@ -79,12 +79,12 @@ from fastapi.testclient import TestClient
 
 from commerce_ops.launch.application import StaleStepSetError
 from commerce_ops.launch.domain.launch_playbook import (
-    Binding,
-    ExecutionMode,
     Hazard,
     OffsetAnchor,
     Scope,
     StepDefinition,
+    StepKind,
+    StepStatus,
 )
 from commerce_ops.launch.infrastructure.driving import (
     playbook_admin as page_module,
@@ -121,16 +121,18 @@ _FILTER_PARAMS: Final = {"gate": "gate", "discipline": "discipline", "search": "
 def _step(**overrides: Any) -> StepDefinition:
     attributes: dict[str, Any] = {
         "identifier": "listing.title-conforms",
-        "description": "Work this step asks for",
+        "name": "Work this step asks for",
         "gate": "listable",
         "discipline": A_DISCIPLINE,
         "scope": Scope.PRODUCT,
         "timing_anchor": OffsetAnchor(days=-7),
-        "binding": Binding.FRAMEWORK,
         "blocking": False,
-        "execution": ExecutionMode.HUMAN_ATTESTED,
+        "kind": StepKind.HUMAN,
+        "assignees": (ASSIGNEE,),
+        "status": StepStatus.ACTIVE,
+        "needs_confirmation": False,
         "hazard": Hazard.NONE,
-        "rule_policy": None,
+        "automation_brief": None,
         "provenance": None,
     }
     attributes.update(overrides)
@@ -173,7 +175,17 @@ class _StaleStepStore(_FakeStepStore):
 
 
 def _is_retired(record: Any) -> bool:
-    return record.retired_by is not None and record.unretired_by is None
+    """Read off the *status*, not the attribution.
+
+    `redesign-step-fields` (design.md Decision 2) made the status the one
+    answer to "is this step in play"; the attribution columns stay,
+    recording who moved the step and when."""
+    return record.definition.status is StepStatus.RETIRED
+
+
+def _is_active(record: Any) -> bool:
+    """Whether the step is served — and so whether it holds a slot."""
+    return record.definition.status is StepStatus.ACTIVE
 
 
 def _seeded_store(
@@ -188,11 +200,13 @@ def _seeded_store(
             _Record(
                 _step(
                     identifier=f"hold.{gate}",
-                    description=f"Blocking work of hold.{gate}",
+                    name=f"Blocking work of hold.{gate}",
                     gate=gate,
                     blocking=True,
-                    execution=ExecutionMode.AUTOMATED,
-                    rule_policy="Held until the automated check reports green.",
+                    kind=StepKind.AUTOMATED,
+                    status=StepStatus.ACTIVE,
+                    automation_brief="Held until the automated check reports green.",
+                    handler="fixture.holding_check",
                 ),
                 display_order=10,
             )
@@ -211,7 +225,7 @@ def _listable_extras() -> tuple[_Record, ...]:
         _Record(
             _step(
                 identifier="listing.zeta",
-                description="Work of listing.zeta",
+                name="Work of listing.zeta",
                 discipline=A_DISCIPLINE,
             ),
             display_order=20,
@@ -219,7 +233,7 @@ def _listable_extras() -> tuple[_Record, ...]:
         _Record(
             _step(
                 identifier="listing.alpha",
-                description="Work of listing.alpha",
+                name="Work of listing.alpha",
                 discipline=ANOTHER_DISCIPLINE,
             ),
             display_order=30,
@@ -377,6 +391,27 @@ def _fill(fields: dict[str, str], **by_substring: str) -> dict[str, str]:
 # ---------------------------------------------------------------------------
 
 
+# `redesign-step-fields`: the page reads the roster to offer assignees and
+# to validate them, so the fixture supplies one. `ASSIGNEE` is named on
+# every step below because an `active` `human` step the write touches must
+# name someone active — which is the rule, not a fixture convenience.
+ASSIGNEE = "prs_01HQ8Z6M4A"
+ASSIGNEE_NAME = "Alice Admin"
+
+
+class _FakePerson:
+    def __init__(self, person_id: str, display_name: str) -> None:
+        self.id = person_id
+        self.display_name = display_name
+        self.clickup_user_id: str | None = "clickup-1"
+        self.active = True
+
+
+class _FakeRoster:
+    async def list_people(self) -> tuple[_FakePerson, ...]:
+        return (_FakePerson(ASSIGNEE, ASSIGNEE_NAME),)
+
+
 async def _fake_verify(*args: Any, **kwargs: Any) -> str | None:
     """Answers the principal only for the one known session value,
     whatever the verification call shape is."""
@@ -387,6 +422,7 @@ async def _fake_verify(*args: Any, **kwargs: Any) -> str | None:
 def _app(monkeypatch: pytest.MonkeyPatch, store: _FakeStepStore) -> TestClient:
     monkeypatch.setattr(page_module, "steps", store)
     monkeypatch.setattr(page_module, "verify_admin_session", _fake_verify)
+    monkeypatch.setattr(page_module, "roster", _FakeRoster())
     app = FastAPI()
     app.include_router(page_module.router)
     return TestClient(app)
@@ -527,7 +563,7 @@ def test_the_whole_live_set_is_one_page(monkeypatch: pytest.MonkeyPatch) -> None
     # SPECIFIED: every live step is rendered.
     for record in store.records:
         assert record.definition.identifier in html or (
-            record.definition.description in html
+            record.definition.name in html
         ), f"{record.definition.identifier} is not rendered"
     # SPECIFIED: grouped by gate in gate order — every earlier gate's
     # steps precede every later gate's.
@@ -585,7 +621,7 @@ def test_search_matches_description_text(monkeypatch: pytest.MonkeyPatch) -> Non
         _Record(
             _step(
                 identifier="listing.sought",
-                description=f"Carries the {needle} in its wording",
+                name=f"Carries the {needle} in its wording",
             ),
             display_order=20,
         ),
@@ -610,7 +646,11 @@ def test_retired_steps_are_reachable_but_set_apart(
     AND they are absent from the default view.
     """
     retired = _Record(
-        _step(identifier="listing.retired-work", description="Retired work"),
+        _step(
+            identifier="listing.retired-work",
+            name="Retired work",
+            status=StepStatus.RETIRED,
+        ),
         display_order=20,
     )
     retired.retired_by = "olena"
@@ -656,14 +696,14 @@ def test_a_clean_edit_lands(monkeypatch: pytest.MonkeyPatch) -> None:
 
     reworded = "Work of listing.zeta, reworded on the page"
     response = _submit(
-        client, form["method"], form["url"], _fill(form["fields"], description=reworded)
+        client, form["method"], form["url"], _fill(form["fields"], name=reworded)
     )
 
     assert response.status_code == 200, response.text
     # SPECIFIED: re-rendered with the new values.
     assert reworded in response.text
     # SPECIFIED: saved through the authoring update write.
-    assert _record_named(store, "listing.zeta").definition.description == reworded
+    assert _record_named(store, "listing.zeta").definition.name == reworded
 
 
 def test_a_rejected_edit_shows_every_fault(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -681,8 +721,7 @@ def test_a_rejected_edit_shows_every_fault(monkeypatch: pytest.MonkeyPatch) -> N
     lesson = _Record(
         _step(
             identifier="creative.image-advice",
-            description="Advice on the hero image",
-            binding=Binding.LESSON,
+            name="Advice on the hero image",
             blocking=False,
         ),
         display_order=20,
@@ -697,7 +736,7 @@ def test_a_rejected_edit_shows_every_fault(monkeypatch: pytest.MonkeyPatch) -> N
         client,
         form["method"],
         form["url"],
-        _fill(form["fields"], description=two_line, block="on"),
+        _fill(form["fields"], name=two_line, block="on"),
     )
 
     body = response.text
@@ -732,14 +771,13 @@ def test_a_stale_edit_is_surfaced_not_silently_dropped(
         client,
         form["method"],
         form["url"],
-        _fill(form["fields"], description="A rewording that is stale"),
+        _fill(form["fields"], name="A rewording that is stale"),
     )
 
     # SPECIFIED: nothing is persisted (the conditional save refused).
     assert store.saves == []
     assert (
-        _record_named(store, "listing.zeta").definition.description
-        == "Work of listing.zeta"
+        _record_named(store, "listing.zeta").definition.name == "Work of listing.zeta"
     )
     # SPECIFIED: the page says so. DERIVED wording marker: the statement
     # mentions the set having "changed"; correcting the substring to the
@@ -786,7 +824,7 @@ def test_a_created_step_appears_in_its_gate(monkeypatch: pytest.MonkeyPatch) -> 
         client,
         method,
         url,
-        _fill(fields, description=description, gate="listable"),
+        _fill(fields, name=description, gate="listable"),
     )
     assert response.status_code == 200, response.text
 

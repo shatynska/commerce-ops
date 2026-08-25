@@ -113,7 +113,7 @@ from __future__ import annotations
 
 import asyncio
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from html.parser import HTMLParser
 from typing import Any, Final
 from urllib.parse import parse_qsl, urlencode, urljoin, urlsplit, urlunsplit
@@ -124,12 +124,12 @@ from fastapi.testclient import TestClient
 
 from commerce_ops.launch.application import reorder_step
 from commerce_ops.launch.domain.launch_playbook import (
-    Binding,
-    ExecutionMode,
     Hazard,
     OffsetAnchor,
     Scope,
     StepDefinition,
+    StepKind,
+    StepStatus,
 )
 from commerce_ops.launch.infrastructure.driving import (
     playbook_admin as page_module,
@@ -189,16 +189,18 @@ _REORDER_WORDS: Final = ("reorder", "re-order", "move", "moving", "ordering")
 def _step(**overrides: Any) -> StepDefinition:
     attributes: dict[str, Any] = {
         "identifier": "listing.title-conforms",
-        "description": "Work this step asks for",
+        "name": "Work this step asks for",
         "gate": "listable",
         "discipline": HIDDEN_DISCIPLINE,
         "scope": Scope.PRODUCT,
         "timing_anchor": OffsetAnchor(days=-7),
-        "binding": Binding.FRAMEWORK,
         "blocking": False,
-        "execution": ExecutionMode.HUMAN_ATTESTED,
+        "kind": StepKind.HUMAN,
+        "assignees": (ASSIGNEE,),
+        "status": StepStatus.ACTIVE,
+        "needs_confirmation": False,
         "hazard": Hazard.NONE,
-        "rule_policy": None,
+        "automation_brief": None,
         "provenance": None,
     }
     attributes.update(overrides)
@@ -245,7 +247,17 @@ class _FakeStepStore:
 
 
 def _is_retired(record: Any) -> bool:
-    return record.retired_by is not None and record.unretired_by is None
+    """Read off the *status*, not the attribution.
+
+    `redesign-step-fields` (design.md Decision 2) made the status the one
+    answer to "is this step in play"; the attribution columns stay,
+    recording who moved the step and when."""
+    return record.definition.status is StepStatus.RETIRED
+
+
+def _is_active(record: Any) -> bool:
+    """Whether the step is served — and so whether it holds a slot."""
+    return record.definition.status is StepStatus.ACTIVE
 
 
 def _seeded_store(
@@ -259,11 +271,13 @@ def _seeded_store(
             _Record(
                 _step(
                     identifier=f"hold.{gate}",
-                    description=f"Blocking work of hold.{gate}",
+                    name=f"Blocking work of hold.{gate}",
                     gate=gate,
                     blocking=True,
-                    execution=ExecutionMode.AUTOMATED,
-                    rule_policy="Held until the automated check reports green.",
+                    kind=StepKind.AUTOMATED,
+                    status=StepStatus.ACTIVE,
+                    automation_brief="Held until the automated check reports green.",
+                    handler="fixture.holding_check",
                 ),
                 display_order=10,
             )
@@ -286,7 +300,7 @@ def _listable_gate(*spec: tuple[str, bool]) -> tuple[_Record, ...]:
         _Record(
             _step(
                 identifier=identifier,
-                description=f"Work of {identifier}",
+                name=f"Work of {identifier}",
                 discipline=VISIBLE_DISCIPLINE if visible else HIDDEN_DISCIPLINE,
             ),
             display_order=(index + 2) * 10,
@@ -302,7 +316,7 @@ def _gate_order(store: _FakeStepStore, gate: str) -> list[str]:
     live = [
         record
         for record in store.records
-        if record.definition.gate == gate and not _is_retired(record)
+        if record.definition.gate == gate and _is_active(record)
     ]
     live.sort(key=lambda record: (record.display_order, record.definition.identifier))
     return [record.definition.identifier for record in live]
@@ -642,6 +656,27 @@ def _renaming_the_subject(control: _Control, old: str, new: str) -> _Control:
 # ---------------------------------------------------------------------------
 
 
+# `redesign-step-fields`: the page reads the roster to offer assignees and
+# to validate them, so the fixture supplies one. `ASSIGNEE` is named on
+# every step below because an `active` `human` step the write touches must
+# name someone active — which is the rule, not a fixture convenience.
+ASSIGNEE = "prs_01HQ8Z6M4A"
+ASSIGNEE_NAME = "Alice Admin"
+
+
+class _FakePerson:
+    def __init__(self, person_id: str, display_name: str) -> None:
+        self.id = person_id
+        self.display_name = display_name
+        self.clickup_user_id: str | None = "clickup-1"
+        self.active = True
+
+
+class _FakeRoster:
+    async def list_people(self) -> tuple[_FakePerson, ...]:
+        return (_FakePerson(ASSIGNEE, ASSIGNEE_NAME),)
+
+
 async def _fake_verify(*args: Any, **kwargs: Any) -> str | None:
     haystack = " ".join(str(value) for value in (*args, *kwargs.values()))
     return PRINCIPAL if _SESSION_VALUE in haystack else None
@@ -652,6 +687,7 @@ def _signed_client(
 ) -> TestClient:
     monkeypatch.setattr(page_module, "steps", store)
     monkeypatch.setattr(page_module, "verify_admin_session", _fake_verify)
+    monkeypatch.setattr(page_module, "roster", _FakeRoster())
     app = FastAPI()
     app.include_router(page_module.router)
     client = TestClient(app)
@@ -983,8 +1019,7 @@ def test_a_rejected_edit_keeps_the_narrowing_without_leaving_the_form(
     lesson = _Record(
         _step(
             identifier="creative.image-advice",
-            description="Advice on the hero image",
-            binding=Binding.LESSON,
+            name="Advice on the hero image",
             blocking=False,
         ),
         display_order=20,
@@ -1002,7 +1037,7 @@ def test_a_rejected_edit_keeps_the_narrowing_without_leaving_the_form(
     response = _issue(
         client,
         form,
-        data=_fill(form.data(), description=two_line, block="on"),
+        data=_fill(form.data(), name=two_line, block="on"),
     )
 
     rejected = response.text
@@ -1074,6 +1109,7 @@ def test_un_retiring_keeps_the_retired_steps_visible(
         ("listing.other-discipline", False),
     )
     for record in retired[:2]:
+        record.definition = replace(record.definition, status=StepStatus.RETIRED)
         record.retired_by = "olena"
         record.retired_on = "2026-08-01"
     store = _seeded_store(extra=retired)
@@ -1566,6 +1602,7 @@ def test_reordering_is_unavailable_while_retired_steps_are_shown(
         ("listing.bee", True),
         ("listing.retired-one", True),
     )
+    extras[2].definition = replace(extras[2].definition, status=StepStatus.RETIRED)
     extras[2].retired_by = "olena"
     extras[2].retired_on = "2026-08-01"
     store = _seeded_store(extra=extras)

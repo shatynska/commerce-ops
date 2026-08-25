@@ -81,12 +81,12 @@ from commerce_ops.launch.application import (
     update_step,
 )
 from commerce_ops.launch.domain.launch_playbook import (
-    Binding,
-    ExecutionMode,
     Hazard,
     OffsetAnchor,
     Scope,
     StepDefinition,
+    StepKind,
+    StepStatus,
 )
 from commerce_ops.shared.domain.discipline import Discipline
 
@@ -121,16 +121,17 @@ def anyio_backend() -> str:
 def _step(**overrides: Any) -> StepDefinition:
     attributes: dict[str, Any] = {
         "identifier": "listing.title-conforms",
-        "description": "Work this step asks for",
+        "name": "Work this step asks for",
         "gate": "listable",
         "discipline": A_DISCIPLINE,
         "scope": Scope.PRODUCT,
         "timing_anchor": OffsetAnchor(days=-7),
-        "binding": Binding.FRAMEWORK,
         "blocking": False,
-        "execution": ExecutionMode.HUMAN_ATTESTED,
+        "kind": StepKind.HUMAN,
+        "status": StepStatus.ACTIVE,
+        "needs_confirmation": False,
         "hazard": Hazard.NONE,
-        "rule_policy": None,
+        "automation_brief": None,
         "provenance": None,
     }
     attributes.update(overrides)
@@ -140,12 +141,13 @@ def _step(**overrides: Any) -> StepDefinition:
 def _holding_step(gate: str) -> StepDefinition:
     return _step(
         identifier=f"hold.{gate}",
-        description=f"Blocking work holding the {gate} gate",
+        name=f"Blocking work holding the {gate} gate",
         gate=gate,
-        binding=Binding.FRAMEWORK,
         blocking=True,
-        execution=ExecutionMode.AUTOMATED,
-        rule_policy="Held until the automated check reports green.",
+        kind=StepKind.AUTOMATED,
+        status=StepStatus.ACTIVE,
+        automation_brief="Held until the automated check reports green.",
+        handler="fixture.holding_check",
     )
 
 
@@ -210,7 +212,17 @@ class _StaleStepStore(_FakeStepStore):
 
 
 def _is_retired(record: Any) -> bool:
-    return record.retired_by is not None and record.unretired_by is None
+    """Read off the *status*, not the attribution.
+
+    `redesign-step-fields` (design.md Decision 2) made the status the one
+    answer to "is this step in play"; the attribution columns stay,
+    recording who moved the step and when."""
+    return record.definition.status is StepStatus.RETIRED
+
+
+def _is_active(record: Any) -> bool:
+    """Whether the step is served — and so whether it holds a slot."""
+    return record.definition.status is StepStatus.ACTIVE
 
 
 def _gate_order(store: _FakeStepStore, gate: str) -> list[str]:
@@ -223,7 +235,7 @@ def _gate_order(store: _FakeStepStore, gate: str) -> list[str]:
     live = [
         record
         for record in store.records
-        if record.definition.gate == gate and not _is_retired(record)
+        if record.definition.gate == gate and _is_active(record)
     ]
     live.sort(key=lambda record: (record.display_order, record.definition.identifier))
     return [record.definition.identifier for record in live]
@@ -255,7 +267,7 @@ def _store_with_listable(
             _OrderedRecord(
                 _step(
                     identifier=identifier,
-                    description=f"Work of {identifier}",
+                    name=f"Work of {identifier}",
                     gate="listable",
                 ),
                 display_order=slot * 10,
@@ -272,16 +284,17 @@ async def _reorder(store: _FakeStepStore, step_id: str, target_index: int) -> An
 
 
 _CREATE_DEFAULTS: Final[dict[str, Any]] = {
-    "description": "Newly authored listable work",
+    "name": "Newly authored listable work",
     "gate": "listable",
     "discipline": A_DISCIPLINE,
     "scope": Scope.PRODUCT,
     "timing_anchor": OffsetAnchor(days=-3),
-    "binding": Binding.FRAMEWORK,
     "blocking": False,
-    "execution": ExecutionMode.HUMAN_ATTESTED,
+    "kind": StepKind.HUMAN,
+    "status": StepStatus.ACTIVE,
+    "needs_confirmation": False,
     "hazard": Hazard.NONE,
-    "rule_policy": None,
+    "automation_brief": None,
 }
 
 
@@ -320,7 +333,7 @@ async def test_a_moved_step_is_served_in_its_new_slot() -> None:
     slots = [
         record.display_order
         for record in store.records
-        if record.definition.gate == "listable" and not _is_retired(record)
+        if record.definition.gate == "listable" and _is_active(record)
     ]
     assert len(set(slots)) == len(slots)
     # SPECIFIED: the reorder's principal and date are recorded against
@@ -408,18 +421,29 @@ async def test_a_created_step_appends_to_its_gate() -> None:
 async def test_an_unretired_step_rejoins_at_the_end() -> None:
     """Scenario: An un-retired step rejoins at the end.
 
-    WHEN a step is retired and later un-retired
+    WHEN a step is retired and later un-retired and activated
     THEN the next read serves it as the last step of its gate, whatever
     slot it held before retirement.
 
     `listing.alpha` sits in the middle before retirement, so rejoining
     last is distinguishable from reclaiming a remembered position.
+
+    Two acts, not one, since `redesign-step-fields`: un-retiring returns
+    a step to `in-development` — a step retired months ago may no longer
+    satisfy what activation requires — and activating it is the separate
+    deliberate act it is for any other step.
     """
     store = _store_with_listable("listing.alpha", "listing.beta")
     assert _gate_order(store, "listable").index("listing.alpha") == 1
 
     await retire_step(steps=store, principal=PRINCIPAL, step_id="listing.alpha")
     await unretire_step(steps=store, principal=PRINCIPAL, step_id="listing.alpha")
+    await update_step(
+        steps=store,
+        principal=PRINCIPAL,
+        step_id="listing.alpha",
+        status=StepStatus.ACTIVE,
+    )
 
     # SPECIFIED: last, not its remembered middle slot.
     assert _gate_order(store, "listable") == [

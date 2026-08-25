@@ -66,8 +66,6 @@ import pytest
 from commerce_ops.catalog.domain.product import StageTransitionError
 from commerce_ops.launch.application import GraduationStampError, advance_gate
 from commerce_ops.launch.domain.launch_playbook import (
-    Binding,
-    ExecutionMode,
     Gate,
     GateOpening,
     Hazard,
@@ -76,6 +74,8 @@ from commerce_ops.launch.domain.launch_playbook import (
     Satisfied,
     Scope,
     StepDefinition,
+    StepKind,
+    StepStatus,
 )
 from commerce_ops.launch.domain.launch_run import (
     ApprovalDecision,
@@ -130,16 +130,17 @@ def _hold(gate: str) -> StepDefinition:
     approval requirements remain."""
     return StepDefinition(
         identifier=f"hold.{gate}",
-        description=f"Blocking work holding the {gate} gate",
+        name=f"Blocking work holding the {gate} gate",
         gate=gate,
         discipline=next(iter(Discipline)),
         scope=Scope.PRODUCT,
         timing_anchor=OffsetAnchor(days=0),
-        binding=Binding.FRAMEWORK,
         blocking=True,
-        execution=ExecutionMode.AUTOMATED,
+        kind=StepKind.AUTOMATED,
+        status=StepStatus.ACTIVE,
         hazard=Hazard.NONE,
-        rule_policy="Held until the automated check reports green.",
+        automation_brief="Held until the automated check reports green.",
+        handler="fixture.holding_check",
         provenance=None,
     )
 

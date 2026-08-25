@@ -10,10 +10,12 @@ The seed half of `move-playbook-steps-to-postgres`'s Migration Plan, step
 initial content of `playbook_steps`, exactly once.
 
 The source is this migration's own vendored copy of the authored file,
-`alembic/data/playbook_v1.yaml`, parsed here and validated by
-constructing the domain's `LaunchPlaybook` over `framework_gates()` —
-the same rulebook every load and every write applies, so this migration
-cannot insert what the domain would reject. The copy is vendored (a
+`alembic/data/playbook_v1.yaml`, parsed here and checked structurally.
+It used to be validated by constructing the domain's `LaunchPlaybook`;
+`redesign-step-fields` moved that validation to the backfill revision
+that rewrites these rows into the current field set — see `_validate`
+below for why a migration must not depend on live domain code. The copy
+is vendored (a
 deliberate refinement of the change's design) because the source-tree
 YAML and its loader are removed once the database owns the steps, and a
 fresh environment must still be able to run this migration afterwards.
@@ -94,66 +96,48 @@ def _authored_rows() -> list[dict[str, object]]:
     return rows
 
 
-def _as_mapping(value: object) -> dict[str, object]:
-    assert isinstance(value, dict)
-    return value
-
-
 def _validate(rows: list[dict[str, object]]) -> None:
-    """Construct the served playbook the seed would produce; the domain's
-    `InvalidPlaybookError` — every fault at once — aborts the migration."""
-    from commerce_ops.launch.domain.launch_playbook import (
-        Binding,
-        Cadence,
-        ExecutionMode,
-        Hazard,
-        LaunchPlaybook,
-        OffsetAnchor,
-        OpenEndedAnchor,
-        RecurringAnchor,
-        Scope,
-        StepDefinition,
-        WindowAnchor,
-        framework_gates,
+    """Structural checks only, and deliberately so.
+
+    This validation used to construct the domain's `LaunchPlaybook` over
+    the seeded rows, so that "this migration cannot insert what the
+    domain would reject". A migration pinned to live domain code cannot
+    survive that code changing, and `redesign-step-fields` is where it
+    stopped surviving: the fields these rows carry — `binding`,
+    `execution`, `rule_policy` — no longer exist on `StepDefinition`, so
+    the import alone would break every fresh environment's
+    `alembic upgrade head`, seeded years of history and all.
+
+    The guarantee is not dropped, it moves: the backfill revision that
+    rewrites these rows into the current field set validates the result
+    through the domain, which is the first point at which the rows carry
+    the fields the domain actually judges. What stays here is what a
+    migration can check without reaching outside itself — that every row
+    carries the keys this insert names, and that no identifier repeats.
+    """
+    required = (
+        "identifier",
+        "description",
+        "gate",
+        "discipline",
+        "scope",
+        "timing_anchor",
+        "binding",
+        "blocking",
+        "execution",
+        "hazard",
     )
-    from commerce_ops.shared.domain.discipline import Discipline
-
-    def as_int(value: object) -> int:
-        assert isinstance(value, int)
-        return value
-
-    def anchor(raw: dict[str, object]) -> object:
-        kind = raw["kind"]
-        if kind == "offset":
-            return OffsetAnchor(days=as_int(raw["days"]))
-        if kind == "window":
-            return WindowAnchor(start=as_int(raw["start"]), end=as_int(raw["end"]))
-        if kind == "open-ended":
-            return OpenEndedAnchor(start=as_int(raw["start"]))
-        return RecurringAnchor(cadence=Cadence(raw["cadence"]))
-
-    definitions = tuple(
-        StepDefinition(
-            identifier=str(row["identifier"]),
-            description=str(row["description"]),
-            gate=str(row["gate"]),
-            discipline=Discipline(str(row["discipline"])),
-            scope=Scope(str(row["scope"])),
-            timing_anchor=anchor(_as_mapping(row["timing_anchor"])),  # type: ignore[arg-type]
-            binding=Binding(str(row["binding"])),
-            blocking=bool(row["blocking"]),
-            execution=ExecutionMode(str(row["execution"])),
-            hazard=Hazard(str(row["hazard"])),
-            rule_policy=(
-                str(row["rule_policy"]) if row["rule_policy"] is not None else None
-            ),
-            provenance=(
-                str(row["provenance"]) if row["provenance"] is not None else None
-            ),
-        )
-        for row in rows
-    )
-    LaunchPlaybook(version="seed", gates=framework_gates(), steps=definitions)
+    seen: set[str] = set()
+    for row in rows:
+        missing = [key for key in required if row.get(key) in (None, "")]
+        if missing:
+            raise ValueError(
+                f"seed row {row.get('identifier')!r} is missing: {', '.join(missing)}"
+            )
+        identifier = str(row["identifier"])
+        if identifier in seen:
+            raise ValueError(f"seed row {identifier!r} appears twice")
+        seen.add(identifier)
 
 
 def upgrade() -> None:
