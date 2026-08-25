@@ -63,6 +63,10 @@ The page SHALL offer changing a step's status, including activating it. A refuse
 - **WHEN** an author activates a `human` step naming no active assignee
 - **THEN** the page shows the refusal's explanation and the step's status is unchanged
 
+<!-- Two headings below keep the word "live": a MODIFIED requirement must
+     carry its requirement and scenario titles forward unchanged, so the
+     titles predate the word's retirement while their bodies do not use it. -->
+
 ## MODIFIED Requirements
 
 ### Requirement: The step table shows the live set whole
@@ -95,7 +99,8 @@ persisted.
 #### Scenario: The whole live set is one page
 
 - **WHEN** the admin page is opened with no filter active
-- **THEN** every live step is rendered, grouped by gate in gate order, each gate's steps in authored order
+- **THEN** every step other than the `retired` ones is rendered, grouped by gate in gate order
+- **AND** each gate's active steps stand in authored order, with its non-active steps outside that order
 
 #### Scenario: Filters narrow without altering
 
@@ -110,18 +115,18 @@ persisted.
 #### Scenario: Retired steps are reachable but set apart
 
 - **WHEN** the control that shows retired steps is used
-- **THEN** retired steps are shown marked as retired, and are not interleaved with the live set
+- **THEN** retired steps are shown marked as retired, and are not interleaved with the served set
 
 #### Scenario: A position is read against the whole gate
 
-- **WHEN** a filter narrows a gate to a subset of its live steps
-- **THEN** each visible live step renders its position among that gate's live steps and the gate's live count
+- **WHEN** a filter narrows a gate to a subset of its active steps
+- **THEN** each visible active step renders its position among that gate's active steps and the gate's active count
 - **AND** those positions are unchanged by the filter
 
 ### Requirement: A gate's steps can be reordered from the page
 
 The page SHALL let a step be moved to a different position among its
-gate's live steps, persisted through the authoring reorder write.
+gate's active steps, persisted through the authoring reorder write.
 
 A move SHALL name the visible step the moved step is to come to rest
 **after**, or name the head of the visible list. The moved step SHALL be
@@ -149,7 +154,7 @@ honest meaning:
   alike — because a text match selects an incidental set of steps in
   which a single move may cross an arbitrary number of unmatched ones;
 - while retired steps are shown, because a retired step holds no
-  position in its gate's live order and so can neither be moved nor be
+  position in its gate's active order and so can neither be moved nor be
   named as the step to come to rest after.
 
 Steps that are `draft` or `in-development` SHALL NOT make reordering
@@ -228,7 +233,7 @@ order matching the served set and say why.
 
 #### Scenario: A move submitted where reordering is unavailable is refused
 
-- **WHEN** a move is submitted while a description search is active or retired steps are shown
+- **WHEN** a move is submitted while a text search is active or retired steps are shown
 - **THEN** nothing is persisted and the page says why the move was refused
 
 #### Scenario: A move submitted from a superseded list is rejected

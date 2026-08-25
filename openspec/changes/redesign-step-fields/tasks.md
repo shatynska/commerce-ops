@@ -21,8 +21,8 @@
 
 - [ ] 2.1 Extend `create_step` / `update_step` to the new fields; a status change routes through the same validation as any other write.
 - [ ] 2.2 Implement activation as a validated transition, including refusing a de-activation that would leave a gate unheld.
-- [ ] 2.3 Check a handler's *registration* only when a step is activated, never at load (design Decision 6's principle applies to the registry as it does to the roster), and report at startup any `active` step whose handler the deployed registry no longer answers for.
-- [ ] 2.4 Add the handler registry — the names the code answers to — and check a step's handler against it at activation. Mirror `registrations.py`'s shape rather than inventing a second idiom.
+- [ ] 2.3 Add the handler registry — the names the code answers to — and check a step's handler against it at activation. Mirror `registrations.py`'s shape rather than inventing a second idiom.
+- [ ] 2.4 Check a handler's *registration* only when a step is activated, never at load (design Decision 6's principle applies to the registry as it does to the roster), and report at startup any `active` step whose handler the deployed registry no longer answers for.
 - [ ] 2.5 Replace `undecided_rule_policies.py` with a report of what blocks activation: the step, its status, and which of brief / handler / active assignee it lacks.
 - [ ] 2.6 Take a roster reader as a collaborator so assignee validation can resolve identifiers, supplied by the composition root across the module boundary (`import-linter` forbids `launch` reaching into `access`'s internals).
 - [ ] 2.7 Un-retire returns a step to `in-development`, not `active` — a step retired long ago may no longer satisfy activation, and activating is the separate deliberate act. Update the existing use case and its attribution accordingly.
@@ -50,6 +50,7 @@
 
 - [ ] 5.1 Add the new fields to the form, with the description as a multi-line input and automation fields hidden or disabled on a `human` step.
 - [ ] 5.2 Assignee selection from the roster's active people, by display name.
+- [ ] 5.6 Render non-active steps outside their gate's orderable list so the gate's active steps stay reorderable, and refuse server-side a move naming a step that holds no slot; extend the search-disables-reordering rule to a match on the name as well as the description.
 - [ ] 5.3 Show status and assignees on the table; show non-active steps set apart from the served set.
 - [ ] 5.4 Offer status changes, surfacing a refusal with the refusal's own explanation.
 - [ ] 5.5 Extend the search to match name and description alike.

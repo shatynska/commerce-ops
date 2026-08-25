@@ -8,7 +8,7 @@ Only `active` steps SHALL be served to a launch, count toward a gate's obligatio
 
 Status SHALL be declared explicitly, with `draft` the value a step carries when its author declares nothing.
 
-Any status MAY move to any other, and every move SHALL be a write validated by the rules of the status it moves **to** — so there is no transition table to consult beyond the target's own requirements, and no ordering a step must climb. What makes a move legal is that the step satisfies where it is going, plus the whole-set rules every write obeys: moving a step out of `active` is refused where it would leave its gate unheld, exactly as retiring it is.
+Any status MAY move to any other, and every move SHALL be a write validated by the rules of the status it moves **to**. A move into or out of `retired` is the one exception to that freedom: it SHALL be the retirement or un-retirement write itself — carrying the attribution `playbook-authoring` requires of it, and arriving at `in-development` on the way out — whatever surface asks for the change, so that a status control cannot become a second way out of `retired` that lands somewhere else and records nobody — so there is no transition table to consult beyond the target's own requirements, and no ordering a step must climb. What makes a move legal is that the step satisfies where it is going, plus the whole-set rules every write obeys: moving a step out of `active` is refused where it would leave its gate unheld, exactly as retiring it is.
 
 "Beyond `draft`" means `in-development` or `active`, and does not include `retired`: a step abandoned before its automation was ever specified is retired without ever owing a brief, which is the honest record of what happened to it.
 
@@ -19,8 +19,8 @@ Any status MAY move to any other, and every move SHALL be a write validated by t
 
 #### Scenario: Only active steps hold a gate
 
-- **WHEN** a gate's only blocking step is `in-development`
-- **THEN** that gate is not held, exactly as if the step were absent
+- **WHEN** a gate holds one active blocking step and one `in-development` blocking step
+- **THEN** only the active one holds the gate, and the `in-development` one contributes no obligation
 
 #### Scenario: A retired step leaves the served set without leaving the record
 
@@ -294,7 +294,7 @@ Like its sibling seed requirement, this describes the seed and only the seed: it
 
 #### Scenario: Outstanding rule-policy decisions stay visible
 
-- **WHEN** the report of what blocks activation runs over the authored set while any non-active step is missing what its status would require
+- **WHEN** the report of what blocks activation runs over the authored set while any step cannot yet be made `active`
 - **THEN** it lists exactly those steps
 
 ### Requirement: The seeded step set carries the authored v1 definitions
@@ -365,5 +365,5 @@ These guarantees describe the seed. Once seeded, the step set changes only throu
 
 ### Requirement: Undecided rule policies are reported
 
-**Reason**: The report's subject changes. "Which steps have not decided a rule policy" becomes "which steps are missing what their next status would require", which covers the brief, the handler, and an active human step's assignees rather than one field. Restated as *What blocks a step from being activated is reported*.
+**Reason**: The report's subject changes. "Which steps have not decided a rule policy" becomes "which steps cannot yet be made `active`", which covers the brief, the handler, and an active human step's assignees rather than one field. Restated as *What blocks a step from being activated is reported*.
 **Migration**: The report is still one call over the authored set, still identifying each step by identifier, gate and discipline; it now also says what each step is missing.

@@ -34,6 +34,8 @@ Moving a step *out* of `active` SHALL be validated the same way, so a step canno
 
 The system SHALL allow a step to be retired rather than deleted: retiring SHALL set the step's status to `retired`, which excludes it from the served step set, while its stored definition, its identifier, and every outcome recorded against it persist, so history stays interpretable. Retiring SHALL record the retiring principal and date. The system SHALL allow a retired step to be un-retired; un-retiring SHALL likewise record the principal and date, so a reversal of retirement is as attributed as the retirement was. No operation SHALL delete a step.
 
+A status change that moves a step into or out of `retired`, from any surface including the admin page's status control, SHALL **be** this write rather than a plain status update: it SHALL record the retiring or un-retiring principal and date, and a move out SHALL arrive at `in-development`. There is one way out of `retired` and one record of who took it.
+
 Un-retiring SHALL return the step to `in-development`, not to `active`. Retirement is no longer the inverse of un-retirement, and this is the honest consequence of activation being validated: a step retired months ago may name an assignee who has since left, or a handler nothing registers any more, and restoring it straight to the served set would either fail the write or serve a step that cannot be resolved. Returning it to `in-development` always succeeds, and activating it is the separate deliberate act it is for any other step.
 
 #### Scenario: A retired step leaves the served set
@@ -52,6 +54,11 @@ Un-retiring SHALL return the step to `in-development`, not to `active`. Retireme
 - **WHEN** a retired step is un-retired
 - **THEN** it returns to the authored set under its original identifier as `in-development`, and is served once it is activated
 - **AND** the un-retirement's principal and date are recorded
+
+#### Scenario: Activating a retired step from the status control still records the reversal
+
+- **WHEN** an author uses the status control to move a `retired` step to `active`
+- **THEN** the step arrives at `in-development`, not `active`, and the un-retirement's principal and date are recorded
 
 ### Requirement: Every write is validated as the playbook it would produce
 
