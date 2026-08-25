@@ -17,13 +17,14 @@ uncovered" list: the test-writing pass was barred from `tests/integration`
 while another session held it.
 
 Requires the compose file's `postgres` service and `alembic upgrade head`
-(including this change's roster tables); skips when `DATABASE_URL` is
-unset, exactly as the launch tier's live tests do.
+(including this change's roster tables). Gating is the tier's own: these
+tests request the `database_url` fixture, so where nothing resolves they
+skip locally and *fail* under `COMMERCE_OPS_REQUIRE_DATABASE`, rather
+than carrying a private copy of the rule (`verify-the-integration-tier`).
 """
 
 from __future__ import annotations
 
-import os
 import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -59,20 +60,9 @@ def anyio_backend() -> str:
     return "asyncio"
 
 
-def _database_url() -> str:
-    url = os.environ.get("DATABASE_URL")
-    if not url:
-        pytest.skip(
-            "DATABASE_URL is not set. Run the compose file's `postgres` "
-            "service locally, apply `alembic upgrade head` (including this "
-            "change's roster tables), and point DATABASE_URL at it."
-        )
-    return url
-
-
 @asynccontextmanager
-async def _session() -> AsyncIterator[AsyncSession]:
-    engine = create_async_engine(_database_url())
+async def _session(url: str) -> AsyncIterator[AsyncSession]:
+    engine = create_async_engine(url)
     try:
         maker = async_sessionmaker(engine, expire_on_commit=False)
         async with maker() as session:
@@ -85,27 +75,34 @@ class _SessionScopedRoster:
     """The store as the use cases hold it: a session per operation, which
     is what makes two interleaved writes genuinely concurrent here."""
 
+    def __init__(self, url: str) -> None:
+        self._url = url
+
     async def load(self) -> tuple[Any, int]:
-        async with _session() as session:
+        async with _session(self._url) as session:
             return await RosterRepository(session).load()
 
     async def save(self, records: Any, *, expected_version: int) -> None:
-        async with _session() as session:
+        async with _session(self._url) as session:
             await RosterRepository(session).save(
                 records, expected_version=expected_version
             )
 
 
 @pytest.fixture
-async def roster() -> AsyncIterator[_SessionScopedRoster]:
+async def roster(database_url: str) -> AsyncIterator[_SessionScopedRoster]:
     """An empty roster before and after, so these tests neither inherit
     nor leave behind a person. The version row is left alone: it only
-    ever moves forward, and nothing asserts an absolute value."""
-    async with _session() as session:
+    ever moves forward, and nothing asserts an absolute value.
+
+    Requesting `database_url` is how this file opts into the tier's
+    gate: no database configured means skip here, fail in CI.
+    """
+    async with _session(database_url) as session:
         await session.execute(delete(RosterPerson))
         await session.commit()
-    yield _SessionScopedRoster()
-    async with _session() as session:
+    yield _SessionScopedRoster(database_url)
+    async with _session(database_url) as session:
         await session.execute(delete(RosterPerson))
         await session.commit()
 
