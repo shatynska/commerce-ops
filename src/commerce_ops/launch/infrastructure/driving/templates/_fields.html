@@ -78,25 +78,47 @@
     {% endfor %}
   </select>
 </label>
+{# An anchor kind uses at most two of the four inputs, and the form said
+   nothing about which. The unused ones render `hidden` — *not* `disabled`
+   like the automation fields below, and the difference is the whole
+   point: a disabled input submits nothing, and these must keep their
+   values so that a kind selected and then reconsidered discards nothing.
+   `_anchor_from_form` reads only the inputs the submitted kind uses, so
+   carrying the others is already harmless.
+
+   Grouped per input rather than per kind: `anchor_start` serves both
+   `window` and `open-ended`, and rendering it once per kind would put two
+   inputs of one name in the form — `_form_of` keeps the last, which would
+   coerce an open-ended anchor's start to the hidden copy's empty value. #}
+{% set anchor_kind = values.get("anchor_kind", "offset") %}
+{% set anchor_uses = {
+     "offset": ["anchor_days"],
+     "window": ["anchor_start", "anchor_end"],
+     "open-ended": ["anchor_start"],
+     "recurring": ["anchor_cadence"],
+   } %}
+{% set offered = anchor_uses.get(anchor_kind, []) %}
 <fieldset>
   <legend>Timing anchor</legend>
+  {# The selector itself is offered under every kind: it is how the author
+     reaches the others. #}
   <label>Kind
-    <select name="anchor_kind">
+    <select name="anchor_kind" data-anchor-kind>
       {% for option in anchor_kinds %}
-      <option value="{{ option }}"{% if option == values.get("anchor_kind", "offset") %} selected{% endif %}>{{ option }}</option>
+      <option value="{{ option }}"{% if option == anchor_kind %} selected{% endif %}>{{ option }}</option>
       {% endfor %}
     </select>
   </label>
-  <label>Days (offset)
+  <label data-anchor-group="anchor_days"{% if "anchor_days" not in offered %} hidden{% endif %}>Days (offset)
     <input name="anchor_days" inputmode="numeric" value="{{ values.get("anchor_days", "-7") }}">
   </label>
-  <label>Start (window / open-ended)
+  <label data-anchor-group="anchor_start"{% if "anchor_start" not in offered %} hidden{% endif %}>Start (window / open-ended)
     <input name="anchor_start" inputmode="numeric" value="{{ values.get("anchor_start", "") }}">
   </label>
-  <label>End (window)
+  <label data-anchor-group="anchor_end"{% if "anchor_end" not in offered %} hidden{% endif %}>End (window)
     <input name="anchor_end" inputmode="numeric" value="{{ values.get("anchor_end", "") }}">
   </label>
-  <label>Cadence (recurring)
+  <label data-anchor-group="anchor_cadence"{% if "anchor_cadence" not in offered %} hidden{% endif %}>Cadence (recurring)
     <select name="anchor_cadence">
       {% for option in cadence_options %}
       <option value="{{ option }}"{% if option == values.get("anchor_cadence", "weekly") %} selected{% endif %}>{{ option }}</option>
@@ -104,6 +126,30 @@
     </select>
   </label>
 </fieldset>
+{# Inside the swapped region, with the fields it serves — not in `<head>`.
+   The edit surface is reached by a boosted swap that replaces only
+   `body`'s innerHTML, so a `<head>` script would never run there and
+   liveness would be present on one authoring surface and absent on the
+   other for no reason anyone wrote down. Without it the rendered kind's
+   inputs are still correct; the degradation is live-to-per-render. #}
+<script>
+  (function () {
+    var uses = {
+      "offset": ["anchor_days"],
+      "window": ["anchor_start", "anchor_end"],
+      "open-ended": ["anchor_start"],
+      "recurring": ["anchor_cadence"]
+    };
+    var select = document.querySelector("[data-anchor-kind]");
+    if (!select) return;
+    select.addEventListener("change", function () {
+      var offered = uses[select.value] || [];
+      document.querySelectorAll("[data-anchor-group]").forEach(function (group) {
+        group.hidden = offered.indexOf(group.dataset.anchorGroup) === -1;
+      });
+    });
+  })();
+</script>
 {# Automation carries no meaning for a human step, so the controls render
    disabled there rather than inviting a value the write would refuse.
    Disabled and not removed: an author flipping the kind can see what the

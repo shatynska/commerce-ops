@@ -790,60 +790,15 @@ def test_a_stale_edit_is_surfaced_not_silently_dropped(
 # ---------------------------------------------------------------------------
 
 
-def test_a_created_step_appears_in_its_gate(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Scenario: A created step appears in its gate.
-
-    WHEN a step is created from the page with valid fields
-    THEN the table shows it as the last step of its gate, carrying its
-    generated identifier.
-    """
-    store = _seeded_store(extra=_listable_extras())
-    client = _signed_client(monkeypatch, store)
-    page = _get_page(client)
-    before = {record.definition.identifier for record in store.records}
-
-    found = _control(page, contains=("create",)) or _control(page, contains=("new",))
-    assert found is not None, (
-        "no create control was discovered on the page — correct the control "
-        "vocabulary in this file's docstring to the implemented page"
-    )
-    method, url, fields = found
-    if not fields:  # the control fetches the create form
-        fetched = _submit(client, method, url, {})
-        assert fetched.status_code == 200, fetched.text
-        forms = [
-            form
-            for form in _parse(fetched.text).forms
-            if any("description" in name for name in form["fields"])
-        ]
-        assert forms, "the create control produced no form with a description"
-        method, url, fields = forms[0]["method"], forms[0]["url"], forms[0]["fields"]
-
-    description = "A step authored from the admin page"
-    response = _submit(
-        client,
-        method,
-        url,
-        _fill(fields, name=description, gate="listable"),
-    )
-    assert response.status_code == 200, response.text
-
-    created = [
-        record for record in store.records if record.definition.identifier not in before
-    ]
-    assert len(created) == 1, "the create flow did not go through the write"
-    identifier = created[0].definition.identifier
-    # SPECIFIED: the identifier is generated, never asked for.
-    assert identifier.startswith("mg.")
-    assert not any("identifier" in name for name in fields)
-    # SPECIFIED: the table shows it as the last step of its gate.
-    table = _get_page(client)
-    assert identifier in table
-    listable_positions = _positions(
-        table, "hold.listable", "listing.zeta", "listing.alpha", identifier
-    )
-    assert listable_positions[-1] == max(listable_positions)
-    assert table.find(identifier) < table.find("hold.stock-ready")
+# `test_a_created_step_appears_in_its_gate` was removed by `add-step-page`.
+# It submitted the create form with the default status — `draft` since
+# `redesign-step-fields` — and asserted the step rendered last in its gate.
+# It kept passing only because a draft renders in the *Not served at this
+# gate* block below the gate's table, so it was asserting text position
+# rather than gate order, while its docstring still reproduced the
+# pre-change scenario. The revised scenario, which creates an `active`
+# step and requires the list to address it, is covered by
+# `test_playbook_admin_create_page.py`.
 
 
 def test_a_blocked_retirement_explains_itself(

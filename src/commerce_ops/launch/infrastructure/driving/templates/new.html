@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Add a step</title>
+  <link rel="stylesheet" href="/admin/static/pico.min.css">
+  <script src="/admin/static/htmx.min.js" defer></script>
+</head>
+{# `hx-boost` is deliberately absent here, and putting it on this element
+   would achieve nothing either way: the Add step control on the list is
+   itself un-boosted, so this page arrives as a real navigation and this
+   body is the document's own. Were the control left boosted, htmx would
+   swap this response into `page.html`'s body and every attribute written
+   here would be discarded — which is why the boost is switched off at the
+   control, the form and Cancel rather than on this tag. #}
+<body>
+<main class="container">
+  <h1>Add a step</h1>
+  <p>
+    The identifier is generated on save — <code>mg.&lt;discipline&gt;.&lt;seq&gt;</code>,
+    never chosen.
+    <br><small>It carries the discipline as its second segment, and a step's
+    discipline cannot be changed afterwards: correcting one means retiring
+    the step and creating its successor. Choose it deliberately.</small>
+  </p>
+
+  {% if notice %}
+  <article class="notice">{{ notice }}</article>
+  {% endif %}
+  {% if faults %}
+  <article class="faults">
+    <strong>The write was rejected whole; every fault found:</strong>
+    <ul>
+      {% for fault in faults %}
+      <li>{{ fault }}</li>
+      {% endfor %}
+    </ul>
+  </article>
+  {% endif %}
+
+  <form method="post" action="{{ page_path }}/steps/create{{ narrowing.suffix() }}" hx-boost="false">
+    {% with include_discipline = true %}
+    {% include "_fields.html" %}
+    {% endwith %}
+    <button type="submit">Create</button>
+    {# Carries the narrowing back, so leaving without creating returns the
+       list exactly as it was left. #}
+    <a href="{{ page_path }}{{ narrowing.suffix() }}" hx-boost="false">Cancel</a>
+  </form>
+</main>
+</body>
+</html>

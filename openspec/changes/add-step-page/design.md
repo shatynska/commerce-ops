@@ -177,20 +177,30 @@ selection from the roster; nothing in its 39 tasks names `_form_of`,
 helper that keeps only the last value under a repeated key. So the
 defect can pass straight through that change untouched.
 
-**Task 3.2b is therefore written as the fix, with verification as the
-cheap branch** — not the other way round. If the shape is already
-correct on arrival, the task collapses to an assertion and costs
-nothing. If it is not, this change fixes it, because the create
-surface's own requirement cannot be met otherwise.
+**Task 3.2b was therefore written as the fix, with verification as the
+cheap branch** — not the other way round.
 
-That fix is not local, and the task says so rather than pretending
-otherwise: `_form_of` returns `dict[str, str]` and every write route
-consumes it — create, edit, retire, un-retire, reorder — so widening it
-to carry repeated keys touches each call site and `_authorable_fields`
-besides. mypy bounds the blast radius, but this is shared code inside a
-change whose stated non-goal is the field set. It is accepted as a
-contingency, and 6.4's boundary check is what confirms it stayed inside
-the infrastructure layer.
+**What actually happened: the cheap branch.** `redesign-step-fields`
+reshaped both helpers without ever tasking it. On `main` today
+`_form_of` returns `tuple[dict[str, str], tuple[str, ...]]`, reading
+assignees with `posted.getlist("assignees")`, and `_submitted_values`
+takes them as a second parameter and echoes them as a list. So this
+change touches neither helper's shape, and 3.2b is an assertion.
+
+The planning stands anyway, and is left here rather than rewritten into
+hindsight: reading that change's 39 tasks did not predict this, and
+planning the expensive branch was the right call against what could be
+known. What it costs, now that the branch did not fire, is nothing.
+
+**The discipline key is a different story — it did *not* arrive.**
+`_submitted_values` on `main` carries `name`, `description`, `gate`,
+`scope`, `blocking`, `kind`, `needs_confirmation`, `status`, `hazard`,
+`assignees`, `automation_brief`, `handler` and the five anchor keys.
+No `discipline`. The create route still reads
+`Discipline(form.get("discipline") or Discipline.LISTING.value)` and
+still re-renders the *list* on rejection, so the defect this change was
+written around survived the redesign exactly as predicted, and tasks
+3.1, 3.2 and 3.2a are unchanged.
 
 **What this change owns either way.** The create surface's own rejection
 path — re-rendering `new.html` rather than the list — and the
@@ -402,17 +412,16 @@ the rest of the form's values back and forth to avoid losing them.
   and rebased on `main` once it merges. Its own edit to `page.html` is a
   deletion plus one control; its edit to `_fields.html` is confined to
   the anchor group.
-- **The rejection path's correctness depends on a fix this change most
-  likely has to make.** → The multi-valued assignee round-trip *ought*
-  to belong to `redesign-step-fields`, but that change carries no task
-  for it, so plan on doing it here and treat arriving-already-fixed as
-  the lucky branch, not the expected one. The work is a signature change
-  on `_form_of`, which every write route consumes — create, edit,
-  retire, un-retire, reorder — plus `_authorable_fields`, so the blast
-  radius is the helper's call sites rather than the helper alone. mypy
-  bounds it and 6.4 confirms it stayed inside the infrastructure layer,
-  but this is shared code touched inside a change whose stated non-goal
-  is the field set. Budget it.
+- ~~**The rejection path's correctness depends on a fix this change most
+  likely has to make.**~~ → **Resolved, and against the prediction.**
+  `redesign-step-fields` reshaped both helpers itself, despite carrying
+  no task naming them: `_form_of` returns
+  `tuple[dict[str, str], tuple[str, ...]]` and reads assignees with
+  `posted.getlist`, and `_submitted_values` takes them as a parameter.
+  The contingency this bullet budgeted for did not fire, and this change
+  touches neither helper's shape. Recorded rather than deleted because
+  the reasoning was sound and the outcome was luck: a task-level reading
+  of that change genuinely did not predict it.
 - **`_fields.html` is shared with the edit page.** → Intended: the anchor
   requirement is written for the authoring surfaces, not for creating
   alone. The cost is that the edit page changes here too and must be
