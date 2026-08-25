@@ -38,8 +38,8 @@
 - [x] 4.8 Add `timeout-minutes` to the CI job, so the tier's pre-existing intermittent stall fails fast and visibly rather than wedging a runner
 - [x] 4.9 Record that stall in `docs/deferred-work.md` with its reproduction, measured rates, stack signature and the hypotheses experiment ruled out
 - [x] 4.5 Confirm the job still declares no deploy SSH credential and makes no connection to the deploy host, per `deploy-pipeline`'s preserved constraints
-- [ ] 4.6 Verify on a pull request that the tier reports run counts rather than skips, and that removing the service makes the job fail rather than pass
-- [ ] 4.7 Watch the first CI run of `test_scheduled_runs_freshness_unreachable.py`: its unanswered-database shape targets `192.0.2.1:5432`, and a runner that returns RST rather than blackholing would quietly turn it into a duplicate of the refused case — still green, no longer discriminating
+- [x] 4.6 Verify on a pull request that the tier reports run counts rather than skips, and that removing the service makes the job fail rather than pass
+- [x] 4.7 Watch the first CI run of `test_scheduled_runs_freshness_unreachable.py`: its unanswered-database shape targets `192.0.2.1:5432`, and a runner that returns RST rather than blackholing would quietly turn it into a duplicate of the refused case — still green, no longer discriminating
 
 ## 5. Record how the tier reaches its database
 
@@ -54,4 +54,4 @@
 - [x] 6.2 Run `uv run pytest tests/integration` with no `DATABASE_URL` exported, and confirm it now runs rather than skipping
 - [x] 6.3 Run it again with a `.env.test` present, and confirm the tier used that database — no new `mg.*` rows appear in the database `.env` names
 - [x] 6.4 Run `ruff check`, `ruff format --check`, `mypy`, and `lint-imports`
-- [ ] 6.5 Push the branch and confirm the CI job runs the integration tier green, with a non-zero test count
+- [x] 6.5 Push the branch and confirm the CI job runs the integration tier green, with a non-zero test count
