@@ -35,6 +35,8 @@
 - [x] 4.2 Compose `DATABASE_URL` in the workflow from the service's own credentials — no repository secret, since the database is ephemeral and reachable only from the job
 - [x] 4.3 Run `alembic upgrade head` against it before the tier, which the tests assume applied (schema plus seed)
 - [x] 4.4 Add the `pytest tests/integration` step with `COMMERCE_OPS_REQUIRE_DATABASE=1` set
+- [x] 4.8 Add `timeout-minutes` to the CI job, so the tier's pre-existing intermittent stall fails fast and visibly rather than wedging a runner
+- [x] 4.9 Record that stall in `docs/deferred-work.md` with its reproduction, measured rates, stack signature and the hypotheses experiment ruled out
 - [x] 4.5 Confirm the job still declares no deploy SSH credential and makes no connection to the deploy host, per `deploy-pipeline`'s preserved constraints
 - [ ] 4.6 Verify on a pull request that the tier reports run counts rather than skips, and that removing the service makes the job fail rather than pass
 - [ ] 4.7 Watch the first CI run of `test_scheduled_runs_freshness_unreachable.py`: its unanswered-database shape targets `192.0.2.1:5432`, and a runner that returns RST rather than blackholing would quietly turn it into a duplicate of the refused case — still green, no longer discriminating

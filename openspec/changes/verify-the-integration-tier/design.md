@@ -355,6 +355,24 @@ layer that does not depend on a laptop.
   but it will surface as an integration failure rather than a migration
   one.
 
+### The gate gets a ceiling, because the tier can hang
+
+Making the tier run surfaced a pre-existing intermittent stall — two
+files that, run together, occasionally hang forever instead of failing.
+It reproduces on `main` with none of this change present, and is
+recorded with its full reproduction in `docs/deferred-work.md`.
+
+Fixing it is a separate change: it is a test-isolation defect around a
+process-wide engine cache and a procrastinate runner, not "make the tier
+find its database", and three attempts to name its mechanism were each
+falsified by experiment. What belongs *here* is the bound:
+`timeout-minutes` on the CI job, so a stall fails fast and visibly
+instead of holding a runner until the platform's own limit.
+
+This is a mitigation, not a cure, and is stated as one. A gate that can
+hang indefinitely is not a gate — that much is this change's business
+whatever the underlying bug turns out to be.
+
 ## Migration Plan
 
 None. No schema change, no persisted-data change, no change to `src/`.
