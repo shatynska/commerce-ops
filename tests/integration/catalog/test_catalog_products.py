@@ -67,7 +67,6 @@ this change's own table-split migration.
 
 from __future__ import annotations
 
-import os
 import uuid
 from collections.abc import AsyncIterator, Callable
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
@@ -112,18 +111,6 @@ def anyio_backend() -> str:
     return "asyncio"
 
 
-def _database_url() -> str:
-    url = os.environ.get("DATABASE_URL")
-    if not url:
-        pytest.skip(
-            "DATABASE_URL is not set. Run the compose file's `postgres` "
-            "service locally, apply `alembic upgrade head` (including this "
-            "change's table-split migration), and point DATABASE_URL at it "
-            "to run tests/integration/catalog/."
-        )
-    return url
-
-
 def unique_sku() -> Sku:
     """A SKU unique to this test run — no truncate fixture exists, so
     uniqueness is what keeps runs independent (same reasoning as
@@ -132,8 +119,8 @@ def unique_sku() -> Sku:
 
 
 @pytest.fixture()
-async def engine() -> AsyncIterator[AsyncEngine]:
-    engine = create_async_engine(_database_url())
+async def engine(database_url: str) -> AsyncIterator[AsyncEngine]:
+    engine = create_async_engine(database_url)
     try:
         yield engine
     finally:

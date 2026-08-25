@@ -63,7 +63,6 @@ database `DATABASE_URL` points at, including this change's own migration
 from __future__ import annotations
 
 import datetime
-import os
 import uuid
 from collections.abc import AsyncIterator
 
@@ -98,22 +97,10 @@ def anyio_backend() -> str:
     return "asyncio"
 
 
-def _database_url() -> str:
-    url = os.environ.get("DATABASE_URL")
-    if not url:
-        pytest.skip(
-            "DATABASE_URL is not set. Run the compose file's `postgres` "
-            "service locally, apply `alembic upgrade head` (including this "
-            "change's runner-schema migration), and point DATABASE_URL at "
-            "it to run tests/integration/shared/."
-        )
-    return url
-
-
 @pytest.fixture()
-async def reader() -> AsyncIterator[AsyncEngine]:
+async def reader(database_url: str) -> AsyncIterator[AsyncEngine]:
     """A connection to the same database that is *not* the runner's own."""
-    engine = create_async_engine(_database_url())
+    engine = create_async_engine(database_url)
     try:
         yield engine
     finally:

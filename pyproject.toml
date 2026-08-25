@@ -60,6 +60,10 @@ dev = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests/unit", "tests/agents", "tests/integration"]
+# `-rs` because the default `-r fE` hides skip reasons, and this suite's
+# skips carry the instructions for acting on them -- which is how a run
+# reporting "64 skipped" was once read as a passing integration tier.
+addopts = "-rs"
 
 [tool.mypy]
 strict = true

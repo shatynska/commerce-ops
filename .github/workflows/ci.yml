@@ -7,6 +7,38 @@ jobs:
   validate:
     name: Validate
     runs-on: ubuntu-latest
+    # A gate that can hang is not a gate. The integration tier carries a
+    # pre-existing intermittent stall (docs/deferred-work.md), so a ceiling
+    # turns it into a fast, visible, re-runnable failure rather than a
+    # wedged runner. Generous against the tier's ~15s, tight against a hang.
+    timeout-minutes: 15
+
+    services:
+      # The database the integration tier runs against. Ephemeral and
+      # reachable only from this job, so it needs no repository secret
+      # and is not a connection to the deploy host. Same image the
+      # compose file runs, so the tier meets the Postgres it will meet
+      # in production.
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: commerce_ops
+          POSTGRES_PASSWORD: ci-only-not-a-secret
+          POSTGRES_DB: commerce_ops
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U commerce_ops"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql+asyncpg://commerce_ops:ci-only-not-a-secret@localhost:5432/commerce_ops
+      # No database here is a failure, not a skip: a gate must not report
+      # success for a tier it never ran.
+      COMMERCE_OPS_REQUIRE_DATABASE: "1"
+
     steps:
       - uses: actions/checkout@v4
 
@@ -31,3 +63,11 @@ jobs:
 
       - name: pytest (unit + agents)
         run: uv run pytest tests/unit tests/agents
+
+      # The tier assumes the schema and seed are already applied -- every
+      # file in it says so -- so this runs before it, not inside it.
+      - name: alembic upgrade head
+        run: uv run alembic upgrade head
+
+      - name: pytest (integration)
+        run: uv run pytest tests/integration

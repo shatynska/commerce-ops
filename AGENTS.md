@@ -68,6 +68,7 @@ Tests are split into three directory-based tiers, each mirroring the module/laye
 
 - Test command: `uv run pytest` (invoked inside the uv-managed environment, not a bare `pytest` assuming manual venv activation)
 - Test-path glob: `tests/**/test_*.py` (matches all three tiers)
+- The integration tier finds its own database — `tests/integration/conftest.py` reads `DATABASE_URL`, else `.env.test`, else `.env` — so no `export` is needed before running it. Only that one key is read from either file; the suite sets its own Slack, OpenAI and ClickUp values. An isolated test database is optional: create and migrate `commerce_ops_test` once by hand and name it in `.env.test`. Where nothing resolves, tests needing a database skip and say why; in CI, where `COMMERCE_OPS_REQUIRE_DATABASE` is set, they fail instead, so a gate cannot pass a tier it never ran.
 
 ## Development Tooling
 

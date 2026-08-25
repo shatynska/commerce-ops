@@ -44,7 +44,6 @@ against its own engine; the process-wide provider's engine belongs to the
 from __future__ import annotations
 
 import asyncio
-import os
 import sys
 from types import ModuleType
 from typing import Any
@@ -62,18 +61,6 @@ FRESHNESS_PATH = "/health/scheduled-runs"
 KNOWN_WORK_TABLE = "known_work"
 
 register_all()
-
-
-def _database_url() -> str:
-    url = os.environ.get("DATABASE_URL")
-    if not url:
-        pytest.skip(
-            "DATABASE_URL is not set. Run the compose file's `postgres` "
-            "service locally, apply `alembic upgrade head` (including this "
-            "change's known_work migration), and point DATABASE_URL at it "
-            "to run tests/integration/shared/."
-        )
-    return url
 
 
 def _app_routes(app: Any) -> list[Any]:
@@ -169,7 +156,9 @@ def _anchored_identifiers() -> set[str]:
     return asyncio.run(_work())
 
 
-def test_a_repeated_request_anchors_work_that_has_none_at_that_moment() -> None:
+def test_a_repeated_request_anchors_work_that_has_none_at_that_moment(
+    database_url: str,
+) -> None:
     """Scenario: A repeated request still anchors work that has no
     first-known time.
 
@@ -195,7 +184,7 @@ def test_a_repeated_request_anchors_work_that_has_none_at_that_moment() -> None:
     the cache's existence that is asserted in the unit tier, by counting
     reads.
     """
-    url = _database_url()
+    url = database_url
     identifiers = _registered_identifiers()
     assert identifiers, "no recurring work is registered at all"
 

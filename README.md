@@ -94,15 +94,29 @@ Both install commands are required — the first covers commit-time checks, the 
 POSTGRES_PASSWORD=local-dev docker compose up postgres -d
 ```
 
-Then point `DATABASE_URL` at it and apply migrations before running the integration tier:
+Apply the migrations once, then run the tier — no `export` needed, because `tests/integration/conftest.py` finds the database itself:
 
 ```
-export DATABASE_URL=postgresql+asyncpg://commerce_ops:local-dev@localhost:5432/commerce_ops
 uv run alembic upgrade head
 uv run pytest tests/integration
 ```
 
-Without `DATABASE_URL` set, the whole `tests/integration/` tier skips rather than failing — which is what keeps the `pre-push` hook from rejecting a push on a machine with no local Postgres.
+It looks in three places, in order: the `DATABASE_URL` environment variable, then `.env.test`, then `.env`. An explicit variable always wins, so exporting one still overrides everything below it.
+
+**Reading the tier against your own database?** It writes `mg.*` steps into whatever database it finds, and `test_playbook_seed.py` asserts a "before any authored edit" premise that a hand-edit through the admin UI would break. To keep it out of the database you work in, create a `.env.test` holding a `DATABASE_URL` and nothing else:
+
+```
+createdb commerce_ops_test          # once
+DATABASE_URL=postgresql+asyncpg://commerce_ops:local-dev@localhost:5432/commerce_ops_test \
+  uv run alembic upgrade head       # once
+echo 'DATABASE_URL=postgresql+asyncpg://commerce_ops:local-dev@localhost:5432/commerce_ops_test' > .env.test
+```
+
+`.gitignore` already covers `.env.*`. Only `DATABASE_URL` is read from either file — never the Slack, OpenAI or ClickUp values beside it, because every test that needs one sets its own, and inheriting an ambient credential would let a test that forgot pass anyway.
+
+With no database configured anywhere, tests needing one skip and say so. **With `.env` present and Postgres stopped they fail instead**, because a URL resolves and the connection does not — so `pre-push` now needs the service running, not merely configured. That is a change: this section used to promise a skip in that case. The skip survives only where nothing is configured at all.
+
+Note the pre-push hook exists only if you ran the second install command above; without it, none of this runs before a push. CI runs the tier unconditionally against its own Postgres, where an absent or unreachable database fails the job rather than skipping.
 
 ## Deferred work
 
