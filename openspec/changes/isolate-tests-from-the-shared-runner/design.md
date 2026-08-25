@@ -160,14 +160,16 @@ the quiet half.
 
 - The runner tests drive a periodic registry they own, so no sibling module's
   import can change what they execute.
+- A wedge inside `run_worker_async` produces a named failing test rather than
+  a silent stall. Not "rather than hanging the session": an uncancellable task
+  prevents its loop from closing at all, so the process's exit stays bounded by
+  CI's `timeout-minutes`. Verified by execution, not asserted — see Decision 2.
 - No test starts a worker against a registry holding production work —
   enforced for the tier, not only for the two files that exhibit the defect
   today (see Decision 1's second half). Stated as what the guard enforces
   rather than as "no test can defer a production job": a test calling
   `defer_async()` on a production task directly is still unguarded, which
   would be a deliberate act and is not scope this change proposed.
-- A future wedge inside `run_worker_async` fails a test rather than hanging
-  the session.
 
 **Non-Goals:**
 
@@ -345,6 +347,26 @@ The `except ... : pass` is the load-bearing half — it is what reproduces
 side task dies at once, so the gather returns and the ceiling is never reached.
 "A side task that ignores cancellation" is easy to implement as one that merely
 runs a long time, and the two behave oppositely here.
+
+**What running this actually established, and how it narrows the claim.**
+Executed against a wedged `Worker._periodic_deferrer` (2026-08-25), the ceiling
+fires exactly as designed: the test is marked failed within its bound, with the
+message naming the abandoned pass. What does *not* follow — and what an earlier
+draft of this decision asserted — is that the session then ends. An
+uncancellable task poisons the loop it runs on: `asyncio.runners`' shutdown
+cancels every remaining task and gathers them, so the orphan the ceiling
+deliberately abandoned blocks the loop from closing. With a session-scoped
+`anyio_backend`, that teardown happens after the last test, outside any test
+protocol, so pytest's own per-test `faulthandler_timeout` does not cover it
+either — verified, with `faulthandler_exit_on_timeout` set.
+
+So the honest claim is narrower than "a wedge fails a test rather than hanging
+the session": **the ceiling converts a silent hang into a named failing test
+that points at the right place, and the process's exit stays bounded
+externally** — by CI's `timeout-minutes`, which `verify-the-integration-tier`
+added for exactly this reason. That is still worth having, and it is the whole
+of what Goal 3 can promise while the swallow exists upstream. Nothing inside a
+poisoned loop can promise more.
 
 It also never *re-raises*, which the shape must compensate for: a task that
 raised lands in `done` with its exception unretrieved. Today `_drain()` is a
