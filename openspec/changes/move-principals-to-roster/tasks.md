@@ -1,5 +1,11 @@
 # Tasks — move-principals-to-roster
 
+> **Read `test-manifest.md` in this directory before starting.** The tests
+> were derived from the delta specs and committed before implementation, so
+> they already state the call shapes the code must satisfy. The manifest is
+> not an OpenSpec artifact and is not loaded into the apply phase's context
+> automatically; tasks 5.5–5.8 below depend on it.
+
 ## 1. Domain: the roster model
 
 - [ ] 1.1 Rewrite `access/domain/principals.py` around `Person` (generated UUID id, display name, Slack identity, optional ClickUp user id, `admin`, `active`) with per-entry coherence faults, and a roster-level validation enforcing Slack-identity uniqueness (deactivated entries included) and the last-active-admin floor, all faults reported together via `InvalidRosterError` (same shape as `InvalidPrincipalsError` / `InvalidPlaybookError`).
@@ -28,11 +34,14 @@
 
 ## 5. Tests
 
-- [ ] 5.1 Unit tests for the domain roster rules (delta scenarios: generated id, duplicate Slack identity, faults-together, last-admin refusals, deactivate/reactivate semantics).
-- [ ] 5.2 Unit tests for the write use cases (attribution, rejected-write-persists-nothing, identity-not-updatable) and resolution (active → unrestricted, deactivated/unknown → nothing, unreadable store → nothing/not-admin without an error, admin fail-closed) over a fake store.
-- [ ] 5.3 Unit tests for the bootstrap (seed on empty with identity-as-name, promote-not-duplicate, inert once an admin beyond the lone seed exists, mis-seed corrected by a changed variable without deactivating anything, refuse startup when readable-admin-less-variable-less, start-and-defer when the store is unreadable).
-- [ ] 5.4 Unit tests for the roster page (list whole, set-apart, fault re-presentation, blocked deactivation explains itself), following the playbook-admin test idiom.
-- [ ] 5.5 Update/remove tests that exercised YAML grants, `SkuResolver`, and the sync `resolve_admin_capability`; integration-tier test for the Postgres store if the step store has one to mirror.
+- [x] 5.1 Unit tests for the domain roster rules — written from the delta specs ahead of implementation (`tests/unit/access/application/test_roster_writes.py`).
+- [x] 5.2 Unit tests for the write use cases and resolution (`test_roster_writes.py`, `test_roster_scope_resolution.py`, `test_roster_admin_capability.py`).
+- [x] 5.3 Unit tests for the bootstrap (`test_roster_bootstrap.py`).
+- [x] 5.4 Unit tests for the roster page and `admin-session` over the roster (`tests/unit/access/infrastructure/driving/test_roster_admin_page.py`, `test_admin_session_over_roster.py`).
+- [ ] 5.5 **Delete the four superseded test files** — their requirements are REMOVED by this change and every one of them imports the loader task 3.3 deletes, so they stop importing the moment it goes: `tests/unit/access/infrastructure/test_principals_loader.py`, `tests/unit/access/application/test_resolve_scope.py`, `tests/unit/access/application/test_admin_capability.py`, `tests/unit/test_main_principals_validation.py`. Do this in the same commit as 3.3, never before it.
+- [ ] 5.6 **Adapt, do not delete** the tests that only borrow the deleted loader for their fixtures — they cover `admin-session` requirements this change does *not* modify (single-use tokens, bounded sessions, the link-exchange route) and are the only coverage those requirements have: rebuild the `_directory_with_admin` helper in `tests/unit/access/application/test_admin_session_use_cases.py` on the roster and keep its four token/session tests; do the same for the `load_principals` call in `tests/unit/access/infrastructure/test_admin_link_exchange_route.py` and keep all six. The four *revocation and minting* tests in `test_admin_session_use_cases.py` are separately superseded (replacements live in `test_admin_session_over_roster.py`) and may go with 5.5.
+- [ ] 5.7 Reconcile the 15 assumptions the manifest records (call shapes, row attribute spellings, page control vocabulary, the bootstrap step's name) against the implementation as it lands — each is a fixture correction with one named correction point. What a test *asserts* — what was persisted, what was not, who is recorded as having done it — must survive unweakened; only the fixture may move.
+- [ ] 5.8 Integration-tier coverage the unit tier cannot observe: the Postgres roster store including the stale-version race (mirroring `tests/integration/launch/test_playbook_authoring_live.py`), and the lifespan actually calling the bootstrap step. Write these under `tests/integration/access/`.
 
 ## 6. Documentation and verification
 
