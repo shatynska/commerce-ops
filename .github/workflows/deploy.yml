@@ -138,14 +138,17 @@ jobs:
             # optional in settings.py -- absent, the command refuses every
             # caller (fail-closed), which is why it must be rendered here.
             echo "ADMIN_BASE_URL=${{ secrets.ADMIN_BASE_URL }}"
-            # The Slack identity the startup seed makes the first admin
-            # (move-principals-to-roster). A repository/Environment
-            # variable rather than a secret: a Slack user id is not
-            # sensitive, and it is inert once the roster holds an admin of
-            # its own. It must be rendered here because the one case where
-            # its absence matters -- a readable, admin-less roster -- stops
-            # startup rather than degrading.
-            echo "BOOTSTRAP_ADMIN_IDENTITY=${{ vars.BOOTSTRAP_ADMIN_IDENTITY }}"
+            # The Slack identity the seeding step makes the first admin
+            # (move-principals-to-roster). Read from `secrets`, not `vars`:
+            # a Slack user id is not especially sensitive, but every other
+            # value this file renders is an Environment secret, and a lone
+            # `vars` reference is a trap -- setting it the way every
+            # neighbour is set renders an empty line, which the seeding
+            # step reads as "no identity" and refuses to start on. It must
+            # be rendered here because that refusal is the one case where
+            # its absence stops the container rather than degrading one
+            # capability.
+            echo "BOOTSTRAP_ADMIN_IDENTITY=${{ secrets.BOOTSTRAP_ADMIN_IDENTITY }}"
             # A repository/Environment variable, not a secret: the
             # threshold is not sensitive, and masking it in logs would
             # serve nothing. No LOG_LEVEL variable exists yet, so this
