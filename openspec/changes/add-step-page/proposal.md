@@ -34,13 +34,17 @@ successor step as the only recovery.
   gain the one key it lacks.
 - **Cancel** returns to the list carrying the filter that was active
   when **Add step** was pressed.
-- A create that lands returns to the list under that same filter with
-  the new step in view. Where the filter would hide the created step,
-  the list says so and offers to clear it, so a create never looks lost.
+- A create that lands returns to the list under that same filter, which
+  names the step just created and addresses it directly so a browser
+  lands on it. Where the filter would hide the created step, the list
+  says so and offers to clear it, so a create never looks lost. The
+  redirect carries the created step's identity as a query parameter —
+  a fragment alone is never sent to the server, so the list could not
+  otherwise know a create had happened.
 - The timing-anchor fieldset offers only the inputs the anchor kind it
-  was rendered with actually uses. It currently renders all five — kind,
-  days, start, end, cadence — of which at most two apply, with nothing
-  saying which.
+  was rendered with actually uses. It currently renders the kind
+  selector plus all four value inputs — days, start, end, cadence — of
+  which at most two apply to any kind, with nothing saying which.
 
 **Deliberately deferred to their own changes**, on review findings that
 this change bundled five concerns into one unreviewable unit:
@@ -79,6 +83,10 @@ alters where it lives and how it answers a rejection.
   introduced by `reorder-steps-under-filters` is extended to cover
   moving between the list and the create surface. A new requirement
   states that an anchor's unused inputs are not offered.
+
+The capability's Purpose is corrected on archive: it still describes the
+set being changed "in place" through "inline edit, create", and creating
+no longer happens in the list.
 
 `playbook-authoring` and `launch-playbook` are deliberately **not**
 modified.

@@ -22,10 +22,22 @@ so, and likewise keep what was typed.
 Leaving the create surface without creating SHALL return to the step
 list narrowed as it was when the create surface was opened. A create
 that lands SHALL likewise return to the step list under that same
-narrowing, with the created step in view. Where the active narrowing
-would hide the created step, the list SHALL render under that narrowing
-and SHALL state that the created step falls outside it, offering to
-clear it — a create SHALL NOT appear to have been lost.
+narrowing, and the list SHALL identify which step was just created —
+addressing it directly, so that a browser can bring it into view.
+
+Where the active narrowing would hide the created step, the list SHALL
+render under that narrowing and SHALL state that the created step falls
+outside it, naming it and offering to clear the narrowing. That offer
+SHALL keep addressing the created step, so that clearing the narrowing
+brings it into view rather than landing at the top of the whole set. A
+create SHALL NOT appear to have been lost.
+
+The notice SHALL be rendered only where clearing the narrowing it offers
+to clear would reveal the named step. Where the named step is not among
+the served records, or where clearing that narrowing would not reveal it
+— a step retired since it was created, say — the list SHALL render as it
+would without the name. An offer the admin cannot act on is worse than
+saying nothing.
 
 #### Scenario: Creating is reachable regardless of how large the set is
 
@@ -37,18 +49,40 @@ clear it — a create SHALL NOT appear to have been lost.
 #### Scenario: A created step appears in its gate
 
 - **WHEN** a step is created from the create surface with valid fields,
-  under a narrowing the created step matches
-- **THEN** the step list is shown again under that narrowing, with the
-  created step in view, as the last step of its gate, carrying its
-  generated identifier
+  with no narrowing active
+- **THEN** the step list is shown again with the created step rendered
+  as the last step of its gate, carrying its generated identifier
+- **AND** the list addresses that step directly, so a browser lands on
+  it rather than at the top
+
+#### Scenario: A created step the narrowing keeps visible is still identified
+
+- **WHEN** a step is created under a narrowing the created step matches
+- **THEN** the step list is shown under that narrowing with the created
+  step rendered
+- **AND** the list addresses that step directly
 
 #### Scenario: A create the narrowing would hide is not left looking lost
 
 - **WHEN** a step is created while a description search is active that
   the created step's description does not match
 - **THEN** the step list is shown under that search
-- **AND** states that the created step falls outside the active
-  narrowing, offering to clear it
+- **AND** names the created step and states that it falls outside the
+  active narrowing, offering to clear the narrowing
+
+#### Scenario: A step named as created but not there is ignored
+
+- **WHEN** the list is requested naming a created step that is not among
+  the served records
+- **THEN** the list renders as it would without that name
+- **AND** states nothing about a step falling outside the narrowing
+
+#### Scenario: A named step the offer could not reveal is ignored
+
+- **WHEN** the list is requested naming a created step that has since
+  been retired, from a view that does not reveal retired steps
+- **THEN** the list renders as it would without that name
+- **AND** does not offer to clear a narrowing that would not reveal it
 
 #### Scenario: A rejected create keeps every submitted value
 
@@ -75,13 +109,6 @@ clear it — a create SHALL NOT appear to have been lost.
 - **THEN** nothing is persisted and the surface states the set changed
   underneath the create
 - **AND** the submitted values are still in the form
-
-#### Scenario: Leaving the create surface returns to the narrowed list
-
-- **WHEN** the create surface is opened from a list narrowed by a gate
-  filter, a discipline filter or a search term, and is left without
-  creating
-- **THEN** the step list is shown narrowed exactly as it was
 
 #### Scenario: A blocked retirement explains itself
 
@@ -150,12 +177,14 @@ beyond the effect of the write itself.
 
 ## ADDED Requirements
 
-### Requirement: The timing anchor offers only the inputs its selected kind uses
+### Requirement: The timing anchor offers only the inputs the kind it was rendered with uses
 
 A step's timing anchor takes different inputs depending on its kind. An
 authoring surface SHALL render, as offered, only the inputs the anchor
-kind it was rendered with actually uses; the inputs belonging to the
-other kinds SHALL be rendered as not offered. Which kind a surface is
+kind it was rendered with actually uses; the inputs belonging **only**
+to the other kinds SHALL be rendered as not offered. An input more than
+one kind uses SHALL stay offered for every kind that uses it, and the
+control that selects the kind SHALL always be offered. Which kind a surface is
 rendered with is the step's own on a fresh edit, the submitted one
 around a rejection, and the default on a fresh create.
 
