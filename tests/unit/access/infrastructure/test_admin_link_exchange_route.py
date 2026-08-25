@@ -64,10 +64,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from commerce_ops.access.application import mint_admin_link
-from commerce_ops.access.infrastructure.driven.principals_loader import (
-    load_principals,
-)
+from commerce_ops.access.application import Person, PersonRecord, mint_admin_link
 from commerce_ops.access.infrastructure.driving import admin_link as admin_link_module
 
 ADMIN_IDENTITY: Final = "U01ALICE"
@@ -123,13 +120,35 @@ class _FakeAdminSessions:
 # ---------------------------------------------------------------------------
 
 
-def _directory(tmp_path: Path) -> Any:
-    path = tmp_path / "principals.yaml"
-    path.write_text(
-        f"principals:\n  - identity: {ADMIN_IDENTITY}\n    skus: []\n    admin: true\n",
-        encoding="utf-8",
-    )
-    return load_principals(path)
+class _FakeRosterStore:
+    """The roster the link is minted against.
+
+    Adapted from a YAML directory by `move-principals-to-roster`; the
+    link-exchange requirements these tests cover are untouched by that
+    change, only the collaborator admin capability resolves from.
+    """
+
+    def __init__(self) -> None:
+        self.rows = (
+            PersonRecord(
+                person=Person(
+                    identifier="person-admin",
+                    display_name="Alice Admin",
+                    slack_identity=ADMIN_IDENTITY,
+                    admin=True,
+                )
+            ),
+        )
+
+    async def load(self) -> tuple[tuple[Any, ...], int]:
+        return self.rows, 1
+
+    async def save(self, rows: Any, *, expected_version: int) -> None:
+        raise AssertionError("these tests never write to the roster")
+
+
+def _roster(tmp_path: Path) -> Any:
+    return _FakeRosterStore()
 
 
 def _mint_link_path(
@@ -143,7 +162,7 @@ def _mint_link_path(
     """
     link = asyncio.run(
         mint_admin_link(
-            _directory(tmp_path),
+            _roster(tmp_path),
             tokens,
             identity=ADMIN_IDENTITY,
             base_url=BASE_URL,

@@ -1,0 +1,132 @@
+{#
+  The roster page. Active people first, deactivated people in their own
+  region below — set apart rather than interleaved, which is what the
+  `roster-admin` delta forbids.
+
+  Every write is a plain form post, so the page works without scripting.
+#}
+<!doctype html>
+<title>Roster</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 2rem; }
+  table { border-collapse: collapse; width: 100%; margin-bottom: 2rem; }
+  th, td { border: 1px solid #ddd; padding: .4rem .6rem; text-align: left;
+           vertical-align: top; font-size: .9rem; }
+  .faults { background: #fdd; border: 1px solid #900; padding: .6rem 1rem; }
+  .notice { background: #ffd; border: 1px solid #990; padding: .6rem 1rem; }
+  .deactivated { opacity: .75; }
+  .attribution { color: #555; font-size: .8rem; }
+  form.inline { display: inline; }
+</style>
+
+<h1>Roster</h1>
+
+{% if faults %}
+  <div class="faults">
+    <p>The write was rejected and nothing was saved:</p>
+    <ul>{% for fault in faults %}<li>{{ fault }}</li>{% endfor %}</ul>
+  </div>
+{% endif %}
+
+{% if notice %}
+  <div class="notice"><p>{{ notice }}</p></div>
+{% endif %}
+
+<h2>Add a person</h2>
+<form method="post" action="{{ page_path }}/people">
+  <label>Display name
+    <input name="display_name" value="{{ submitted.get('display_name', '') }}">
+  </label>
+  <label>Slack identity
+    <input name="slack_identity" value="{{ submitted.get('slack_identity', '') }}">
+  </label>
+  <label>ClickUp user id
+    <input name="clickup_user_id" value="{{ submitted.get('clickup_user_id', '') }}">
+  </label>
+  <label>Admin
+    <input type="checkbox" name="admin" value="true"
+           {% if submitted.get('admin') %}checked{% endif %}>
+  </label>
+  <button type="submit">Add person</button>
+</form>
+
+<h2>Active roster</h2>
+<table>
+  <tr>
+    <th>Name</th><th>Slack identity</th><th>ClickUp</th><th>Admin</th>
+    <th>History</th><th>Actions</th>
+  </tr>
+  {% for record in active %}
+    <tr>
+      <td>{{ record.person.display_name }}</td>
+      <td>{{ record.person.slack_identity }}</td>
+      <td>{{ record.person.clickup_user_id or '—' }}</td>
+      <td>{{ 'admin' if record.person.admin else 'member' }}</td>
+      <td class="attribution">
+        {% if record.created_by %}
+          Created by {{ record.created_by }}
+          {% if record.created_on %} on {{ record.created_on }}{% endif %}.
+        {% endif %}
+        {% if record.reactivated_by %}
+          Reactivated by {{ record.reactivated_by }}
+          {% if record.reactivated_on %} on {{ record.reactivated_on }}{% endif %}.
+        {% elif record.updated_by %}
+          Updated by {{ record.updated_by }}
+          {% if record.updated_on %} on {{ record.updated_on }}{% endif %}.
+        {% endif %}
+      </td>
+      <td>
+        {# The Slack identity is not a field here: it is immutable, so the
+           form offers no way to type into it. #}
+        <form class="inline" method="post"
+              action="{{ page_path }}/{{ record.person.identifier }}/edit">
+          <input name="display_name" value="{{ record.person.display_name }}">
+          <input name="clickup_user_id"
+                 value="{{ record.person.clickup_user_id or '' }}">
+          <label>Admin
+            <input type="checkbox" name="admin" value="true"
+                   {% if record.person.admin %}checked{% endif %}>
+          </label>
+          <button type="submit">Save edit</button>
+        </form>
+        <form class="inline" method="post"
+              action="{{ page_path }}/{{ record.person.identifier }}/deactivate">
+          <button type="submit">Deactivate</button>
+        </form>
+      </td>
+    </tr>
+  {% endfor %}
+</table>
+
+<h2>Deactivated</h2>
+{% if deactivated %}
+  <table class="deactivated">
+    <tr>
+      <th>Name</th><th>Slack identity</th><th>History</th><th>Actions</th>
+    </tr>
+    {% for record in deactivated %}
+      <tr>
+        <td>{{ record.person.display_name }}</td>
+        <td>{{ record.person.slack_identity }}</td>
+        <td class="attribution">
+          {% if record.created_by %}
+            Created by {{ record.created_by }}
+            {% if record.created_on %} on {{ record.created_on }}{% endif %}.
+          {% endif %}
+          {% if record.deactivated_by %}
+            Deactivated by {{ record.deactivated_by }}
+            {% if record.deactivated_on %} on {{ record.deactivated_on }}{% endif %}.
+          {% endif %}
+        </td>
+        <td>
+          <form class="inline" method="post"
+                action="{{ page_path }}/{{ record.person.identifier }}/reactivate">
+            <button type="submit">Reactivate</button>
+          </form>
+        </td>
+      </tr>
+    {% endfor %}
+  </table>
+{% else %}
+  <p>Nobody has been deactivated.</p>
+{% endif %}

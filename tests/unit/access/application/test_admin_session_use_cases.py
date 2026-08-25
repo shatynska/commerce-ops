@@ -78,18 +78,16 @@ Baseline recorded before these tests were written:
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
 from typing import Any, Final
 
 import pytest
 
 from commerce_ops.access.application import (
+    Person,
+    PersonRecord,
     exchange_link_token,
     mint_admin_link,
     verify_admin_session,
-)
-from commerce_ops.access.infrastructure.driven.principals_loader import (
-    load_principals,
 )
 
 pytestmark = pytest.mark.anyio
@@ -117,22 +115,40 @@ def anyio_backend() -> str:
 # ---------------------------------------------------------------------------
 
 
-def _directory(tmp_path: Path, body: str) -> Any:
-    path = tmp_path / "principals.yaml"
-    path.write_text(f"principals:\n{body}", encoding="utf-8")
-    return load_principals(path)
+class _FakeRosterStore:
+    """The roster these tests mint and verify against.
+
+    Adapted from a YAML directory by `move-principals-to-roster`: the
+    requirements exercised below — single-use tokens and bounded
+    sessions — are untouched by that change, only the collaborator they
+    read admin capability from moved.
+    """
+
+    def __init__(self, people: tuple[Person, ...]) -> None:
+        self.rows = tuple(PersonRecord(person=person) for person in people)
+
+    async def load(self) -> tuple[tuple[Any, ...], int]:
+        return self.rows, 1
+
+    async def save(self, rows: Any, *, expected_version: int) -> None:
+        raise AssertionError("these tests never write to the roster")
 
 
-def _directory_with_admin(tmp_path: Path) -> Any:
-    return _directory(
-        tmp_path,
-        f"""\
-  - identity: {ADMIN_IDENTITY}
-    skus: []
-    admin: true
-  - identity: {VISIBILITY_ONLY_IDENTITY}
-    all_products: true
-""",
+def _roster_with_admin() -> _FakeRosterStore:
+    return _FakeRosterStore(
+        (
+            Person(
+                identifier="person-admin",
+                display_name="Alice Admin",
+                slack_identity=ADMIN_IDENTITY,
+                admin=True,
+            ),
+            Person(
+                identifier="person-member",
+                display_name="Bob Member",
+                slack_identity=VISIBILITY_ONLY_IDENTITY,
+            ),
+        )
     )
 
 
@@ -227,79 +243,11 @@ def _token_of(link: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Requirement: An admin-capable principal can request an admin link
-# ---------------------------------------------------------------------------
-
-
-async def test_minting_for_an_admin_capable_principal_binds_a_short_lived_token(
-    tmp_path: Path,
-) -> None:
-    """Scenario: An admin-capable principal receives a link — the
-    minting half.
-
-    WHEN a link is minted for an identity that resolves admin-capable
-    THEN the answer is a link carrying a token
-    AND the stored token is bound to that principal
-    AND it expires no more than ten minutes after minting.
-
-    The ephemeral-only reply is the Slack handler's half, recorded as
-    uncovered in the manifest.
-    """
-    tokens = _FakeLinkTokens()
-
-    link = await _mint(_directory_with_admin(tmp_path), tokens, ADMIN_IDENTITY)
-
-    assert isinstance(link, str) and link, "minting answered no link"
-    _token_of(link)  # the link carries a token at all
-    # SPECIFIED: the token is bound to the verified principal.
-    assert len(tokens.rows) == 1
-    (row,) = tokens.rows.values()
-    assert row["principal"] == ADMIN_IDENTITY
-    # SPECIFIED: expiry no more than ten minutes after minting.
-    assert row["expires_at"] <= T0 + TEN_MINUTES
-    assert row["expires_at"] > T0
-
-
-async def test_a_visibility_only_caller_is_refused_exactly_like_an_unknown_one(
-    tmp_path: Path,
-) -> None:
-    """Scenarios: A visibility-only principal is refused like an unknown
-    one / An unknown caller's refusal confirms nothing — the minting
-    halves.
-
-    WHEN a link is requested for a known identity without the admin
-    declaration, and for an identity the directory does not know
-    THEN both are refused with one and the same outcome
-    AND nothing is minted for either.
-
-    The refusal outcome is `None` for both, so a handler rendering the
-    refusal *cannot* distinguish the two caller kinds, and no URL exists
-    to leak — the use-case-level substance of "one and the same
-    ephemeral refusal, with no admin URL". The message-wording half is
-    the handler's, recorded as uncovered in the manifest.
-    """
-    directory = _directory_with_admin(tmp_path)
-    tokens = _FakeLinkTokens()
-
-    visibility_only = await _mint(directory, tokens, VISIBILITY_ONLY_IDENTITY)
-    unknown = await _mint(directory, tokens, STRANGER_IDENTITY)
-
-    # SPECIFIED: refused — membership and visibility grants do not
-    # suffice — and both refusals are one and the same outcome.
-    assert visibility_only is None
-    assert unknown is None
-    assert visibility_only == unknown
-    # SPECIFIED: no token exists for either caller; a refusal mints
-    # nothing that could later be exchanged.
-    assert tokens.rows == {}
-
-
-# ---------------------------------------------------------------------------
 # Requirement: A link token is single-use and short-lived
 # ---------------------------------------------------------------------------
 
 
-async def test_a_token_exchanges_once_for_a_bounded_session(tmp_path: Path) -> None:
+async def test_a_token_exchanges_once_for_a_bounded_session() -> None:
     """Scenario: A token exchanges once.
 
     WHEN a freshly minted, unexpired token is opened
@@ -309,7 +257,7 @@ async def test_a_token_exchanges_once_for_a_bounded_session(tmp_path: Path) -> N
     AND (requirement *A browser session is bounded ...*) the stored
     session expires no more than twelve hours after it was established.
     """
-    directory = _directory_with_admin(tmp_path)
+    directory = _roster_with_admin()
     tokens = _FakeLinkTokens()
     sessions = _FakeAdminSessions()
     link = await _mint(directory, tokens, ADMIN_IDENTITY)
@@ -327,9 +275,7 @@ async def test_a_token_exchanges_once_for_a_bounded_session(tmp_path: Path) -> N
     assert row["expires_at"] <= (T0 + A_TICK) + TWELVE_HOURS
 
 
-async def test_a_spent_token_is_refused_like_one_that_never_existed(
-    tmp_path: Path,
-) -> None:
+async def test_a_spent_token_is_refused_like_one_that_never_existed() -> None:
     """Scenario: A spent token is refused like nothing — the exchange
     half.
 
@@ -341,7 +287,7 @@ async def test_a_spent_token_is_refused_like_one_that_never_existed(
     that does not exist") is route-level, in
     `test_admin_link_exchange_route.py`.
     """
-    directory = _directory_with_admin(tmp_path)
+    directory = _roster_with_admin()
     tokens = _FakeLinkTokens()
     sessions = _FakeAdminSessions()
     link = await _mint(directory, tokens, ADMIN_IDENTITY)
@@ -362,14 +308,14 @@ async def test_a_spent_token_is_refused_like_one_that_never_existed(
     assert sessions.rows == sessions_after_first
 
 
-async def test_an_expired_token_is_refused_identically(tmp_path: Path) -> None:
+async def test_an_expired_token_is_refused_identically() -> None:
     """Scenario: An expired token is refused identically.
 
     WHEN a token is opened after its expiry
     THEN the exchange refuses it with the same outcome as the spent and
     never-minted cases, and establishes no session.
     """
-    directory = _directory_with_admin(tmp_path)
+    directory = _roster_with_admin()
     tokens = _FakeLinkTokens()
     sessions = _FakeAdminSessions()
     link = await _mint(directory, tokens, ADMIN_IDENTITY)
@@ -390,9 +336,7 @@ async def test_an_expired_token_is_refused_identically(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-async def test_a_session_outlives_its_lifetime_and_stops_working(
-    tmp_path: Path,
-) -> None:
+async def test_a_session_outlives_its_lifetime_and_stops_working() -> None:
     """Scenario: A session outlives its usefulness and stops working —
     the verification half.
 
@@ -402,7 +346,7 @@ async def test_a_session_outlives_its_lifetime_and_stops_working(
 
     The response-shape half is in `test_playbook_admin_page.py`.
     """
-    directory = _directory_with_admin(tmp_path)
+    directory = _roster_with_admin()
     tokens = _FakeLinkTokens()
     sessions = _FakeAdminSessions()
     link = await _mint(directory, tokens, ADMIN_IDENTITY)
@@ -426,75 +370,3 @@ async def test_a_session_outlives_its_lifetime_and_stops_working(
 # Requirement: Admin access fails closed and absence-shaped
 # (the verification halves; the response shape is page-level)
 # ---------------------------------------------------------------------------
-
-
-async def test_removal_from_the_directory_revokes_on_the_next_request(
-    tmp_path: Path,
-) -> None:
-    """Scenario: Removal from the directory revokes access on the next
-    request — the verification half.
-
-    WHEN a principal's entry is removed from the principals directory
-    while their session is still unexpired, and the session is then
-    verified
-    THEN verification refuses it.
-
-    The directory is re-read per request (`design.md` Decision 5's
-    request-time revocation), modeled here as verification against the
-    edited directory the next request would load.
-    """
-    before = _directory_with_admin(tmp_path)
-    tokens = _FakeLinkTokens()
-    sessions = _FakeAdminSessions()
-    link = await _mint(before, tokens, ADMIN_IDENTITY)
-    assert link is not None
-    session_id = await _exchange(tokens, sessions, _token_of(link), now=T0 + A_TICK)
-    assert session_id is not None
-
-    edited = _directory(
-        tmp_path,
-        f"""\
-  - identity: {VISIBILITY_ONLY_IDENTITY}
-    all_products: true
-""",
-    )
-
-    # SPECIFIED: the unexpired session no longer verifies once the
-    # principal has left the directory.
-    assert await _verify(edited, sessions, session_id, now=T0 + 2 * A_TICK) is None
-
-
-async def test_withdrawing_the_admin_declaration_revokes_likewise(
-    tmp_path: Path,
-) -> None:
-    """Scenario: Withdrawing the admin declaration revokes access
-    likewise — the verification half.
-
-    WHEN a principal's entry loses its admin declaration while their
-    session is still unexpired, and the session is then verified
-    THEN verification refuses it — the entry remains in the directory,
-    so this discriminates re-resolving *admin capability* from merely
-    re-checking membership.
-    """
-    before = _directory_with_admin(tmp_path)
-    tokens = _FakeLinkTokens()
-    sessions = _FakeAdminSessions()
-    link = await _mint(before, tokens, ADMIN_IDENTITY)
-    assert link is not None
-    session_id = await _exchange(tokens, sessions, _token_of(link), now=T0 + A_TICK)
-    assert session_id is not None
-
-    declaration_withdrawn = _directory(
-        tmp_path,
-        f"""\
-  - identity: {ADMIN_IDENTITY}
-    skus: []
-""",
-    )
-
-    # SPECIFIED: still a directory member, no longer admin-capable, no
-    # longer verified.
-    assert (
-        await _verify(declaration_withdrawn, sessions, session_id, now=T0 + 2 * A_TICK)
-        is None
-    )

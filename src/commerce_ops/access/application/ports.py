@@ -15,8 +15,6 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Protocol
 
-from commerce_ops.shared.domain.identity import ProductId, Sku
-
 
 class LinkTokenStore(Protocol):
     """Persistence for the single-use admin link tokens (`admin-session`).
@@ -48,14 +46,3 @@ class AdminSessionStore(Protocol):
     ) -> None: ...
 
     async def find(self, session_hash: str, *, now: datetime) -> str | None: ...
-
-
-class SkuResolver(Protocol):
-    """Resolves a granted SKU to the product it names.
-
-    Absence is `None`, never an exception: a grant naming a SKU no product
-    has is a stale line in a reviewed file, and it must cost the asker
-    nothing but that one grant.
-    """
-
-    async def __call__(self, sku: Sku) -> ProductId | None: ...
