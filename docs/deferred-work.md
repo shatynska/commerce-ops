@@ -199,8 +199,11 @@ database on 2026-08-25:
 | `shared.scheduled_runs.overdue_check` | succeeded | 16 |
 | `products.monitoring.daily` | succeeded | 1 |
 
-None was deferred by a worker. `products.monitoring.daily` is a task name no
-longer registered anywhere, so those rows outlived their own definition.
+`products.monitoring.daily` is a task name no longer registered anywhere, so
+those rows outlived their own definition. Which process deferred any given row
+is not recorded by procrastinate's schema, so the case against them rests on
+what they do — distort a developer-local `last_successful_run` — not on who
+wrote them.
 
 They fail fast today only because no `CLICKUP_*`, Slack or OpenAI variable is
 set in a test process. The moment the ClickUp variables become required — as

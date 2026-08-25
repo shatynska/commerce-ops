@@ -137,8 +137,8 @@ do, and two of them sort *before* it, which is why the full tier hangs too.
 
 ### The second defect, same root
 
-The tests do not merely arm a deferrer; they run the jobs. The development
-database currently holds, deferred by `pytest` rather than by a worker:
+The tests do not merely arm a deferrer; they run the jobs — that much follows
+from the verified mechanism above. The development database currently holds:
 
 ```
 briefing.daily                        failed      3
@@ -160,9 +160,12 @@ the quiet half.
 
 - The runner tests drive a periodic registry they own, so no sibling module's
   import can change what they execute.
-- No test can defer or run a production job — enforced for the tier, not
-  only for the two files that exhibit the defect today (see Decision 1's
-  second half).
+- No test starts a worker against a registry holding production work —
+  enforced for the tier, not only for the two files that exhibit the defect
+  today (see Decision 1's second half). Stated as what the guard enforces
+  rather than as "no test can defer a production job": a test calling
+  `defer_async()` on a production task directly is still unguarded, which
+  would be a deliberate act and is not scope this change proposed.
 - A future wedge inside `run_worker_async` fails a test rather than hanging
   the session.
 
@@ -203,9 +206,39 @@ and the tier stays armed either way. Goal 2 says *no test* can defer a
 production job, and neither shape delivers that.
 
 **So Decision 1 is not sufficient on its own, and gains a second half.**
-`tests/integration/conftest.py` gets a session-scoped autouse guard that fails
-loudly if `runner_app.periodic_registry` is non-empty when a worker is started
-against it. The two compose rather than compete: the private App is what these
+`tests/integration/conftest.py` gets a guard that fails loudly when a worker is
+started against a registry holding production work.
+
+**What it interrogates — the App whose worker is starting, not `runner_app`.**
+An earlier draft named `runner_app.periodic_registry` as the condition, which
+is wrong in a way that would have broken this change at its own verification
+step. `runner_app`'s registry is armed at collection in any session containing
+an arming sibling, so a guard reading that fixed object fires on the private
+Apps' `_drain()` — failing precisely the tests Decision 1's first half exists
+to fix. The condition is the `periodic_registry` of the App on which
+`run_worker_async` was invoked. That is what the English sentence already
+meant, and it is strictly stronger: the private Apps pass however armed
+`runner_app` is, a future file calling `runner_app.run_worker_async()` fails,
+and so does a future App nobody has written yet that carries production
+registrations of its own — which the `runner_app`-only condition would miss.
+
+**How it observes a worker start — an interception, not a read.** This also
+needs saying, because "a session-scoped fixture that reads the registry" cannot
+do the job: such a fixture runs once, at first-test setup, when collection has
+already armed `runner_app`, so its only available verdict is to fail the whole
+session — including the four arming modules, which task 3.2 forbids. The
+mechanism is a session-scoped autouse fixture that installs a wrapper around
+`procrastinate.App.run_worker_async` with `pytest.MonkeyPatch`, undone at
+session end; the wrapper applies the condition above to `self` and delegates.
+The fixture is session-scoped; the *check* runs per worker start. Class level
+rather than an instance attribute on `runner_app`, because that is what makes
+the guarantee hold for an App that does not exist yet.
+
+The wrapper must be installed from the fixture *body*, never at conftest
+import: `tests/unit/test_integration_tier_database_resolution.py` loads
+`tests/integration/conftest.py` by path and `exec_module`s it inside the
+commit-time tier, so anything done at import time would patch `procrastinate`
+from within `tests/unit`. The two compose rather than compete: the private App is what these
 tests drive, and the guard is what makes the goal true for tests nobody has
 written yet — it asks nothing of a future author, which is the property the
 rejected fixture lacked and the private App does not supply either.
@@ -247,7 +280,15 @@ delivered. A wedge-detector that cannot detect this wedge is not worth
 shipping.
 
 `asyncio.wait` never awaits what it timed out on, so it fails deterministically
-whatever the worker does with its cancellation. The trade-off it accepts, and
+whatever the worker does with its cancellation.
+
+It also never *re-raises*, which the shape must compensate for: a task that
+raised lands in `done` with its exception unretrieved. Today `_drain()` is a
+bare `await`, so a worker error surfaces as a test failure; under a naive
+`if pending: fail()` it would degrade to an "exception was never retrieved"
+warning on stderr while six tests failed on their row assertions instead. The
+non-timeout path therefore awaits the completed task, so the timeout is
+bounded and every other outcome behaves exactly as it does now. The trade-off it accepts, and
 the failure message must say so: the orphaned worker task survives the failing
 test and the loop teardown will complain about it. A noisy failure is strictly
 better than a session that never ends.
@@ -275,10 +316,13 @@ last-success reads, and no deployment state depends on them. Whoever runs the
 deletion should state whether a worker has ever been run against that database,
 so the next reader knows what was actually established.
 
-Scoped to the developer database named by `.env` / `.env.test`. **Not** the
-deployment: production rows there are genuine runs and must not be touched.
-`products.monitoring.daily` is a task name no longer registered anywhere, so
-it is dead by a second route.
+Scoped to the one database the tier actually resolves — `DATABASE_URL`, else
+`.env.test`, else `.env`, the order `tests/integration/conftest.py` applies —
+named explicitly before anything is deleted. **Not** the deployment: production
+rows there are genuine runs and must not be touched.
+`products.monitoring.daily` is a task name no longer registered anywhere, so it
+is dead by a second route. Which process deferred any given row is not recorded
+by procrastinate's schema, which is why nothing above rests on it.
 
 ## Risks / Trade-offs
 
@@ -321,7 +365,7 @@ it is dead by a second route.
 No schema change, no deployed behaviour, and `src/` untouched — the code half
 is revertible as a code change alone.
 
-Section 4 is not. Deleting rows from a developer's `procrastinate_jobs` is a
+Section 5 is not. Deleting rows from a developer's `procrastinate_jobs` is a
 one-off, irreversible data operation, outside the revert path and outside CI.
 It is included because the rows distort a live read, not because the code
 change needs it; a revert of the code leaves the deletion standing, which is

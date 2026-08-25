@@ -29,8 +29,10 @@ the A/B result.
 - The junk this defect has already written is removed: the rows in
   `procrastinate_jobs` for `briefing.daily`,
   `launch.clickup.completion_pass`, `shared.scheduled_runs.overdue_check` and
-  `products.monitoring.daily` that were deferred by test runs rather than by
-  a worker.
+  `products.monitoring.daily`, which distort a developer-local
+  `last_successful_run`. Procrastinate's schema records no deferring process,
+  so the justification is what these rows do, not who wrote them — see
+  `design.md` Decision 3.
 - `docs/deferred-work.md`'s entry on the hang is rewritten with the confirmed
   mechanism (already done, in this change's first commit, under the heading
   "The integration tier hangs intermittently — cause identified 2026-08-25"),
@@ -46,7 +48,8 @@ None.
 
 ### Modified Capabilities
 
-None. This change edits `tests/` and `docs/` only. No requirement in
+None. This change edits `tests/` and `docs/`, and performs a one-off deletion
+in a developer's database; it changes nothing in `src/`. No requirement in
 `scheduled-jobs`, `deploy-pipeline` or any other capability describes
 behaviour that changes here: the application's own deferring, running,
 recording and retrying of recurring work is correct and stays as specified.
