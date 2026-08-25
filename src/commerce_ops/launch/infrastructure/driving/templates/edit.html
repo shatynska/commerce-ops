@@ -31,12 +31,12 @@
   </article>
   {% endif %}
 
-  <form method="post" action="{{ page_path }}/steps/{{ step_id }}/edit">
+  <form method="post" action="{{ page_path }}/steps/{{ step_id }}/edit{{ narrowing.suffix() }}">
     {% with include_discipline = false %}
     {% include "_fields.html" %}
     {% endwith %}
     <button type="submit">Save</button>
-    <a href="{{ page_path }}">Back to the table</a>
+    <a href="{{ page_path }}{{ narrowing.suffix() }}">Back to the table</a>
   </form>
 </main>
 </body>

@@ -118,6 +118,19 @@ The local branch holding that proposal (`0b9b85c`) was deleted on 2026-08-24, on
 
 **Recorded in**: `start-launch-from-slack`'s `proposal.md` (Why).
 
+### `playbook_admin`'s guard does not fail closed when its collaborators are un-injected
+
+`playbook_admin.py` takes `directory` and `admin_sessions` as module-level globals that `main.py` assigns after the app is built. The comment above them states that "absent injection refuses every request, which is the failing-closed direction". **That is not what happens.**
+
+Observed rather than theorised, against the module as it stands: with both globals at their `None` default, a request bearing *no* cookie returns `404` — correct, because `_require_admin` short-circuits before touching them. A request bearing *any* cookie reaches `verify_admin_session`, which calls `sessions.find(...)` on `None` and raises `AttributeError`, producing **`500 Internal Server Error`**.
+
+That breaks `admin-session`'s requirement *"Admin access fails closed and absence-shaped"* twice over: a `500` is not a refusal, and it is trivially distinguishable from the `404` an unregistered route returns — so an un-injected deployment advertises that the admin surface exists to anyone who sends a cookie.
+
+**Latent, not live.** `main.py` assigns both globals at import, so a normally started application never reaches this state. The exposure is to a future composition root that adds a route, reorders startup, or mounts this router in a second app without repeating the assignment — exactly the kind of drift the "one guard, produced in one place" design exists to prevent. `admin_link.py` does not share the hole: it builds its `admin_sessions` at import time rather than receiving it.
+
+Not fixed in `reorder-steps-under-filters`, which added a route riding the same guard and verified that route's *refusal* shape, but did not change the guard. A fix is small — refuse when either global is absent, before the cookie is read — and belongs with a test at the `admin-session` tier rather than folded into an unrelated change.
+
+**Recorded in**: `reorder-steps-under-filters`'s implementation notes; the false claim is the comment above `directory`/`admin_sessions` in `playbook_admin.py`.
 ### The integration tier hangs intermittently when two files run together
 
 `tests/integration/shared/test_scheduled_runs_freshness_unreachable.py` followed by `tests/integration/shared/test_scheduled_run_history.py` intermittently **hangs forever** rather than failing. The run stops; nothing times out on its own.

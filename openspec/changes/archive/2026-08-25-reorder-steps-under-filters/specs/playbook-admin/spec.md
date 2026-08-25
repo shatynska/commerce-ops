@@ -1,9 +1,52 @@
-# playbook-admin Specification
+## ADDED Requirements
 
-## Purpose
-The steps management page: lets a signed-in admin see the live step set whole — grouped by gate, filterable and searchable — and change it in place through the validated authoring writes: inline edit, create, retire and un-retire, and reordering a gate's steps, with every rejected write rendering its full fault list.
+### Requirement: The narrowed view survives every write and every move between views
 
-## Requirements
+Every write made from the page — an edit, a creation, a retirement, an
+un-retirement, a reorder — SHALL carry forward the narrowing that was
+active when it was made: the gate filter, the discipline filter, the
+description search, and whether retired steps are shown. Navigation
+between the list and a step's edit form SHALL carry that narrowing too,
+in both directions, and so SHALL the control that reveals or hides
+retired steps.
+
+Where a write re-renders the list, it SHALL render it under that
+narrowing. Where a write re-renders some other view — a rejected edit
+re-renders the edit form, as the editing requirement demands — the
+narrowing SHALL be preserved so that the next render of the list applies
+it. A write SHALL NOT widen, clear, or otherwise alter what the page
+shows beyond the effect of the write itself.
+
+#### Scenario: An accepted write keeps the narrowing
+
+- **WHEN** a step is retired while a gate filter and a discipline filter are active
+- **THEN** the re-rendered list still applies both filters
+- **AND** shows the same gate and discipline selections as before the write
+
+#### Scenario: A rejected list-level write keeps the narrowing
+
+- **WHEN** a retirement is rejected while a description search is active
+- **THEN** the re-rendered list reports the faults
+- **AND** still applies the search term
+
+#### Scenario: A rejected edit keeps the narrowing without leaving the form
+
+- **WHEN** an edit is rejected while a gate filter is active
+- **THEN** the edit form re-renders with its faults and the submitted values, as the editing requirement requires
+- **AND** returning to the list from that form applies the gate filter
+
+#### Scenario: Opening and leaving an edit form preserves the narrowing
+
+- **WHEN** a step's edit form is opened from a narrowed list and left without saving
+- **THEN** the list re-renders under the same narrowing
+
+#### Scenario: Un-retiring keeps the retired steps visible
+
+- **WHEN** a step is un-retired from the view that reveals retired steps
+- **THEN** the re-rendered list still reveals retired steps
+- **AND** still applies whatever gate and discipline filters were active
+
+## MODIFIED Requirements
 
 ### Requirement: The step table shows the live set whole
 
@@ -49,41 +92,6 @@ persisted.
 - **WHEN** a filter narrows a gate to a subset of its live steps
 - **THEN** each visible live step renders its position among that gate's live steps and the gate's live count
 - **AND** those positions are unchanged by the filter
-
-### Requirement: A step can be edited in place
-
-The page SHALL let a step's authorable fields be edited inline and saved through the authoring update write. A saved edit SHALL re-render the step with its new values. A rejected write SHALL re-render the form still holding the submitted values, carrying **every** fault the write's validation reported. A write rejected because the step set changed underneath the form SHALL persist nothing and SHALL say so, so the admin re-reads before retrying.
-
-#### Scenario: A clean edit lands
-
-- **WHEN** an edit with valid values is saved
-- **THEN** the step re-renders with the new values
-
-#### Scenario: A rejected edit shows every fault
-
-- **WHEN** a submitted edit violates two coherence rules at once
-- **THEN** the re-rendered form reports both faults
-- **AND** the submitted values are still in the form
-- **AND** the served step set is unchanged
-
-#### Scenario: A stale edit is surfaced, not silently dropped
-
-- **WHEN** an edit is submitted after another write has changed the step set
-- **THEN** nothing is persisted and the page states the set changed underneath the edit
-
-### Requirement: Steps can be created, retired and un-retired from the page
-
-The page SHALL offer creating a step with the full authorable shape — the identifier is generated, never asked for — and retiring or un-retiring a step. Each flow SHALL go through the corresponding authoring write, and a rejection SHALL render its full fault list the same way a rejected edit does.
-
-#### Scenario: A created step appears in its gate
-
-- **WHEN** a step is created from the page with valid fields
-- **THEN** the table shows it as the last step of its gate, carrying its generated identifier
-
-#### Scenario: A blocked retirement explains itself
-
-- **WHEN** retiring a step is rejected because its gate would be left with no blocking step
-- **THEN** the page renders the fault naming that gate and the step remains live
 
 ### Requirement: A gate's steps can be reordered from the page
 
@@ -196,58 +204,3 @@ order matching the served set and say why.
 
 - **WHEN** a reorder is rejected because the step set changed underneath it
 - **THEN** the page re-renders the served order and states why the move did not land
-
-### Requirement: What authoring refuses to update renders read-only
-
-Fields the authoring capability does not accept updates to — a step's identifier and its discipline — and framework-owned facts such as a step's provenance SHALL render as read-only on the page, never as editable inputs whose submission would be refused.
-
-#### Scenario: The identifier cannot be typed into
-
-- **WHEN** a step's inline edit form is opened
-- **THEN** the identifier and discipline render as text, not as inputs
-
-### Requirement: The narrowed view survives every write and every move between views
-
-Every write made from the page — an edit, a creation, a retirement, an
-un-retirement, a reorder — SHALL carry forward the narrowing that was
-active when it was made: the gate filter, the discipline filter, the
-description search, and whether retired steps are shown. Navigation
-between the list and a step's edit form SHALL carry that narrowing too,
-in both directions, and so SHALL the control that reveals or hides
-retired steps.
-
-Where a write re-renders the list, it SHALL render it under that
-narrowing. Where a write re-renders some other view — a rejected edit
-re-renders the edit form, as the editing requirement demands — the
-narrowing SHALL be preserved so that the next render of the list applies
-it. A write SHALL NOT widen, clear, or otherwise alter what the page
-shows beyond the effect of the write itself.
-
-#### Scenario: An accepted write keeps the narrowing
-
-- **WHEN** a step is retired while a gate filter and a discipline filter are active
-- **THEN** the re-rendered list still applies both filters
-- **AND** shows the same gate and discipline selections as before the write
-
-#### Scenario: A rejected list-level write keeps the narrowing
-
-- **WHEN** a retirement is rejected while a description search is active
-- **THEN** the re-rendered list reports the faults
-- **AND** still applies the search term
-
-#### Scenario: A rejected edit keeps the narrowing without leaving the form
-
-- **WHEN** an edit is rejected while a gate filter is active
-- **THEN** the edit form re-renders with its faults and the submitted values, as the editing requirement requires
-- **AND** returning to the list from that form applies the gate filter
-
-#### Scenario: Opening and leaving an edit form preserves the narrowing
-
-- **WHEN** a step's edit form is opened from a narrowed list and left without saving
-- **THEN** the list re-renders under the same narrowing
-
-#### Scenario: Un-retiring keeps the retired steps visible
-
-- **WHEN** a step is un-retired from the view that reveals retired steps
-- **THEN** the re-rendered list still reveals retired steps
-- **AND** still applies whatever gate and discipline filters were active
