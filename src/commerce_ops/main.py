@@ -6,9 +6,9 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from commerce_ops.access.application import PrincipalsDirectory
-from commerce_ops.access.infrastructure.driven.principals_loader import (
-    load_shipped_principals,
+from commerce_ops.access.application import seed_bootstrap_admin
+from commerce_ops.access.infrastructure.driven.roster_repository import (
+    PostgresRoster,
 )
 from commerce_ops.access.infrastructure.driving import admin_link as access_admin_link
 from commerce_ops.catalog.application import register_product
@@ -40,6 +40,15 @@ configure_logging()
 
 @asynccontextmanager
 async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    # The startup seed: with a readable roster holding no active admin, the
+    # identity `BOOTSTRAP_ADMIN_IDENTITY` names becomes one, so a fresh
+    # deployment is administrable without an out-of-band grant. An
+    # unconfigured or unreachable store defers it to the next start rather
+    # than stopping startup, which is what keeps `runtime-configuration`'s
+    # empty-environment guarantee and `database-session`'s lazy-connection
+    # rule intact. It refuses to start only when the roster is readable,
+    # holds no admin, and the variable is unset.
+    await seed_bootstrap_admin(roster=roster)
     yield
     # Disposes the engine if one was created, tolerating one that never
     # was -- see `centralize-database-session`'s design.md, "Disposal
@@ -53,19 +62,13 @@ async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
 # only report on what it knows about (tasks.md 1.3).
 register_all()
 
-# Eagerly, before this process serves anything: `access-scope` requires a
-# malformed principals directory to stop the process from starting to serve
-# rather than surface on an individual asker's resolution, and this is the
-# process that will serve scope resolution.
-#
-# Not in `preflight.py`, though that is where a deploy-time check would
-# otherwise belong: `runtime-configuration` requires the configuration check
-# to read only the process environment and its outcome to depend only on the
-# declared variables, which a repo-owned file's faults would break. The file
-# needs no configuration to read, so loading it here leaves
-# `runtime-configuration`'s "importing and starting require no configuration"
-# guarantee intact.
-principals: PrincipalsDirectory = load_shipped_principals()
+# The roster replaced the repo-owned principals file
+# (`move-principals-to-roster`), so there is no longer a document to
+# validate at import: the store only ever holds what the roster's own
+# validated writes produced. Constructing the collaborator touches no
+# database — the connection is opened per operation, no earlier than the
+# first one — so importing this module still requires no configuration.
+roster = PostgresRoster()
 
 app = FastAPI(lifespan=_lifespan)
 app.include_router(health.router)
@@ -118,5 +121,5 @@ launch_slack_entry.register_catalog_product = _register_catalog_product
 # module may not import the access module's infrastructure, so the
 # composition root hands it the startup-validated directory and the same
 # session store the exchange route writes into.
-launch_playbook_admin.directory = principals
+launch_playbook_admin.roster = roster
 launch_playbook_admin.admin_sessions = access_admin_link.admin_sessions

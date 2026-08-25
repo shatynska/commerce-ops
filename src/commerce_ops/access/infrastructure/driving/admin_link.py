@@ -51,8 +51,8 @@ from commerce_ops.access.infrastructure.driven.admin_session_store import (
     PostgresAdminSessions,
     PostgresLinkTokens,
 )
-from commerce_ops.access.infrastructure.driven.principals_loader import (
-    load_shipped_principals,
+from commerce_ops.access.infrastructure.driven.roster_repository import (
+    PostgresRoster,
 )
 from commerce_ops.shared.infrastructure.driving.slack_app import (
     SlackAppSpec,
@@ -66,6 +66,7 @@ __all__ = [
     "deployed",
     "link_tokens",
     "reset_handler_cache",
+    "roster",
     "router",
 ]
 
@@ -94,6 +95,7 @@ the admin declaration."""
 
 # The stores, referenced as bare globals so tests can substitute fakes.
 link_tokens = PostgresLinkTokens()
+roster = PostgresRoster()
 admin_sessions = PostgresAdminSessions()
 
 
@@ -158,10 +160,10 @@ def _get_handler() -> AsyncSlackRequestHandler:
         base_url = _base_url()
         link: str | None = None
         if base_url:
-            # The directory is read per invocation, not cached at import:
-            # an edit to the repo-owned file is the whole of revocation.
+            # The roster is read per invocation, not cached at import:
+            # deactivating a person is the whole of revocation.
             link = await mint_admin_link(
-                load_shipped_principals(),
+                roster,
                 link_tokens,
                 identity=identity,
                 base_url=base_url.rstrip("/"),

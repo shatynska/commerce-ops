@@ -8,7 +8,17 @@ from commerce_ops.access.application.admin_session import (
 from commerce_ops.access.application.ports import (
     AdminSessionStore,
     LinkTokenStore,
-    SkuResolver,
+)
+from commerce_ops.access.application.roster import (
+    BOOTSTRAP_ADMIN_VARIABLE,
+    PersonRecord,
+    RosterStore,
+    StaleRosterError,
+    create_person,
+    deactivate_person,
+    reactivate_person,
+    seed_bootstrap_admin,
+    update_person,
 )
 from commerce_ops.access.application.use_cases import (
     resolve_admin_capability,
@@ -20,19 +30,29 @@ from commerce_ops.access.application.use_cases import (
 # malformed one must be catchable at startup without reaching into
 # `access.domain`.
 from commerce_ops.access.domain.principals import (
-    InvalidPrincipalsError,
-    PrincipalsDirectory,
+    InvalidRosterError,
+    Person,
+    Roster,
 )
 
 __all__ = [
+    "BOOTSTRAP_ADMIN_VARIABLE",
     "AdminSessionStore",
-    "InvalidPrincipalsError",
+    "InvalidRosterError",
     "LinkTokenStore",
-    "PrincipalsDirectory",
-    "SkuResolver",
+    "Person",
+    "PersonRecord",
+    "Roster",
+    "RosterStore",
+    "StaleRosterError",
+    "create_person",
+    "deactivate_person",
     "exchange_link_token",
     "mint_admin_link",
+    "reactivate_person",
     "resolve_admin_capability",
     "resolve_scope",
+    "seed_bootstrap_admin",
+    "update_person",
     "verify_admin_session",
 ]

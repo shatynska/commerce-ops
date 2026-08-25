@@ -143,6 +143,12 @@ class Settings(BaseSettings):
     # any one caller" has a scenario "Credential absent until first use", so
     # treating its absence as a fault would contradict a specification
     # already recorded in `openspec/specs/`.
+    # Added by move-principals-to-roster (tasks 3.4): the Slack identity
+    # the startup seed makes the first admin. Optional because it confers
+    # nothing once the roster holds an admin of its own -- only a roster
+    # that is readable, admin-less and unseeded needs it, and that is the
+    # one case where its absence refuses startup.
+    bootstrap_admin_identity: NonEmpty | None = None
     clickup_api_token: NonEmpty | None = None
 
     # Optional for the same reason `CLICKUP_API_TOKEN` is: each degrades
