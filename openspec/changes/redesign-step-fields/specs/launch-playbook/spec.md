@@ -4,7 +4,7 @@
 
 Each step definition SHALL declare a status: `draft`, `in-development`, `active` or `retired`. The status says how far the step has been carried, not what it asks for, and it decides what the rest of the system may do with it.
 
-Only `active` steps SHALL be served to a launch, count toward a gate's obligations, or be projected to a task tracker. `draft`, `in-development` and `retired` steps SHALL remain readable to whoever authors the step set and SHALL be excluded from every served view. A step that has not been made active is therefore free to be incomplete: this is what lets an author write down work whose automation does not exist yet, rather than inventing a description of code nobody has written.
+Only `active` steps SHALL be served to a launch, count toward a gate's obligations, or be projected to a task tracker. The playbook's own step queries — by gate, by scope — SHALL answer the **served** set, so nothing that advances a launch can be handed a draft by accident; the authored set is reached by a separate read, which is the read the admin surface already uses to reveal retired steps. `draft`, `in-development` and `retired` steps SHALL remain readable to whoever authors the step set and SHALL be excluded from every served view. A step that has not been made active is therefore free to be incomplete: this is what lets an author write down work whose automation does not exist yet, rather than inventing a description of code nobody has written.
 
 Status SHALL be declared explicitly, with `draft` the value a step carries when its author declares nothing.
 
@@ -54,7 +54,7 @@ A `human` step's confirmation flag SHALL carry no meaning — the person doing t
 
 An `automated` step SHALL be able to declare an automation brief — what the code must establish, in prose — and a handler naming the use case that resolves it.
 
-Neither SHALL be required of a `draft` step. The brief SHALL be required to leave `draft`, because a step nobody can state the acceptance criterion for is not ready to be built. The handler SHALL be required to become `active`, and SHALL name a handler the running code registers: a step declaring a handler that does not exist would be served to launches and never resolve.
+Neither SHALL be required of a `draft` step. The brief SHALL be required to leave `draft`, because a step nobody can state the acceptance criterion for is not ready to be built. The handler SHALL be required to become `active`. That a handler is *present* is a property of the step set, and is checked whenever the playbook is loaded. That the running code actually **registers** it is not — it is a property of the deployed code, which changes without the step set changing — so it SHALL be checked when a step is activated and SHALL NOT be re-checked at load, for the same reason assignees are not: a rename in the registry would otherwise make every stored playbook unloadable, taking down launches to report a deployment fault. A deployment whose registry no longer answers for an `active` step's handler SHALL instead be reported at startup, where a deployment fault belongs.
 
 A `human` step SHALL carry neither, and declaring either on one SHALL be rejected.
 
@@ -121,7 +121,7 @@ A playbook SHALL be rejected when any of the following holds:
 - a step definition's name is empty, consists only of whitespace, or is not declared at all
 - a step definition's name spans more than one line — a name is composed into a task's name, and a name is a single line
 - a step definition is `automated` and beyond `draft` while its automation brief is absent
-- a step definition is `automated` and `active` while its handler is absent or names a handler the code does not register
+- a step definition is `automated` and `active` while its handler is absent
 - a step definition is `human` while carrying an automation brief or a handler
 - a step definition is classified `prohibited-tactic` and is also marked as blocking its gate
 - a gate has no **active** blocking step attached to it — the gate-holding floor its own requirement states, so no sequence of writes can leave a gate that opens for free
@@ -303,8 +303,6 @@ The stored step set SHALL be seeded, exactly once, with the authored `v1` step d
 A seeded step's name SHALL be the text of its reference row transcribed unaltered, except that trailing whitespace SHALL be removed, and then any trailing character in the closed set `;` `:` `,` `.` — repeating until neither whitespace nor one of those four characters remains at the end. No other character SHALL be stripped, and nothing else SHALL be changed — not the wording, the casing, or the order of clauses.
 
 The set is closed deliberately, and is not "trailing punctuation": reference rows end variously in a closing quote, a closing parenthesis, or a `+` (as in "A+"), and each of those is part of what the row says rather than a fragment's terminal mark. A rule broad enough to remove them would silently corrupt the text it exists to preserve.
-
-The scenario below still carries its historical name — a MODIFIED requirement keeps its scenario titles — while what it compares is now the step's `name`, which is the field the reference row's text was moved into.
 
 Transcribing this way is what makes every seeded name re-derivable from the reference document and comparable against it, so that a divergence between the two is detectable rather than silent. The reference document's wording belongs to the team that wrote it; the seed moves it, and does not improve it.
 

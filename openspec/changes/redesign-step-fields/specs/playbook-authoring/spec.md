@@ -57,7 +57,9 @@ Un-retiring SHALL return the step to `in-development`, not to `active`. Retireme
 
 A create, update, status change, retire or un-retire SHALL be validated by evaluating the **entire step set as it would stand after the write** against the launch playbook's coherence rules, and SHALL be rejected whole when that resulting set is incoherent — nothing of a rejected write is persisted. The rejection SHALL report **every** fault found, each naming the offending step or gate, exactly as loading an incoherent playbook does. This includes rejecting a write that would leave any gate without an active blocking step.
 
-Write-side validation SHALL apply the load-side rules **and, in addition, the preconditions a load cannot check**: that a step's assignees name people the roster carries, and that an `active` `human` step names at least one who is active. Those two are functions of the roster rather than of the step set, so a load does not evaluate them (see `launch-playbook`). The guarantee this requirement carries is therefore one-directional and SHALL be read as such: what a write cannot persist, a load cannot see — but a set a load accepts is not necessarily one a write would accept today, because the roster may have moved underneath it.
+Write-side validation SHALL apply the load-side rules **and, in addition, the preconditions a load cannot check**: that a step's assignees name people the roster carries, and that an `active` `human` step names at least one who is active. Those two are functions of the roster rather than of the step set, so a load does not evaluate them (see `launch-playbook`).
+
+Those two preconditions SHALL be evaluated over **the steps the write creates or modifies**, and never over the whole resulting set. This is not a softening: evaluating them set-wide would mean that the migrated step set — 95 active steps deliberately left unowned — refuses every subsequent create, update, retirement and status change until all 95 are assigned, which is the backfill the migration declined to invent. Scoped to the touched steps, an author who edits a migrated step must give it an owner before it saves, and every other step is left as it is until someone gets to it. The load-side rules keep their whole-set evaluation, which is what makes the set coherent by construction. The guarantee this requirement carries is therefore one-directional and SHALL be read as such: what a write cannot persist, a load cannot see — but a set a load accepts is not necessarily one a write would accept today, because the roster may have moved underneath it.
 
 #### Scenario: A rejected write reports all faults and persists nothing
 
@@ -74,6 +76,16 @@ Write-side validation SHALL apply the load-side rules **and, in addition, the pr
 
 - **WHEN** any sequence of accepted writes has been applied
 - **THEN** loading the playbook succeeds — the served set is coherent by construction
+
+#### Scenario: An untouched unowned step does not block an unrelated write
+
+- **WHEN** a step is edited in a set that also holds `active` `human` steps naming no assignee
+- **THEN** the write is judged on the step it touches, and the unowned steps elsewhere do not refuse it
+
+#### Scenario: Editing an unowned step requires giving it an owner
+
+- **WHEN** an `active` `human` step naming no assignee is itself updated
+- **THEN** the write is refused until it names an assignee who is active
 
 #### Scenario: A roster change does not break an accepted set
 
