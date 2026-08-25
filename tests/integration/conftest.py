@@ -29,7 +29,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Final
+from typing import Any, Final
 
 import pytest
 
@@ -177,3 +177,63 @@ def database_url() -> str:
             "tier is required here and may not be skipped."
         )
     pytest.skip(unconfigured)
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _no_worker_against_production_schedules() -> object:
+    """Fail any test that starts a worker against production schedules.
+
+    Test infrastructure, not a subject of any requirement.
+
+    Four modules in this tier call `registrations.register_all()` at import,
+    and pytest imports every selected module at collection -- so the shared
+    `job_runner.app` carries this application's real recurring work before
+    the first test runs. A worker started against it defers and *executes*
+    that work: the developer's database has held `briefing.daily`,
+    `launch.clickup.completion_pass` and `shared.scheduled_runs.overdue_check`
+    rows written by pytest rather than by a worker. Its shutdown also hangs
+    forever at a measurable rate, because procrastinate cancels each side
+    task once and then gathers with no deadline while psycopg_pool treats
+    `CancelledError` as a retryable client exception.
+
+    The two runner files own private `App`s so this cannot happen to them.
+    This guard is what makes the rule hold for tests nobody has written yet,
+    since it asks nothing of a future author.
+
+    **The condition is the registry of the App the worker is starting on**,
+    not the shared one. Reading the fixed `job_runner.app` would fire on the
+    private Apps too -- the shared registry is armed at collection whenever
+    an arming sibling is in the run -- and so would fail the very tests the
+    private Apps exist to fix.
+
+    Patched from this fixture's body, never at import: this module is loaded
+    and executed by `tests/unit/test_integration_tier_database_resolution.py`
+    inside the commit-time tier, where patching `procrastinate` would be
+    reaching into `tests/unit`.
+
+    What it does not cover, deliberately: a directly constructed
+    `procrastinate.worker.Worker`, a `PeriodicDeferrer` driven over a
+    standalone registry, and a bare `defer_async()` on a production task.
+    Each is a deliberate act rather than something a test falls into.
+    """
+    import procrastinate
+
+    original = procrastinate.App.run_worker_async
+
+    async def guarded(self: procrastinate.App, *args: Any, **kwargs: Any) -> Any:
+        scheduled = sorted(self.periodic_registry.periodic_tasks)
+        if scheduled:
+            pytest.fail(
+                "this test started a worker against an application carrying "
+                f"periodic work: {scheduled}. The worker would defer and run "
+                "it -- production jobs, if this is the shared application -- "
+                "and its shutdown can hang forever. Give the test its own "
+                "`procrastinate.App`, as tests/integration/shared/"
+                "test_scheduled_run_history.py does."
+            )
+        return await original(self, *args, **kwargs)
+
+    patch = pytest.MonkeyPatch()
+    patch.setattr(procrastinate.App, "run_worker_async", guarded)
+    yield patch
+    patch.undo()

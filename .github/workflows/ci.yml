@@ -7,10 +7,14 @@ jobs:
   validate:
     name: Validate
     runs-on: ubuntu-latest
-    # A gate that can hang is not a gate. The integration tier carries a
-    # pre-existing intermittent stall (docs/deferred-work.md), so a ceiling
-    # turns it into a fast, visible, re-runnable failure rather than a
-    # wedged runner. Generous against the tier's ~15s, tight against a hang.
+    # A gate that can hang is not a gate. The stall this ceiling was added
+    # for is fixed (`isolate-tests-from-the-shared-runner`, 2026-08-25), but
+    # the ceiling stays: the library behaviours behind it are unfixed --
+    # a cancelled task touching the connection pool can survive its own
+    # cancellation, and an uncancellable task stops its event loop closing at
+    # all, so nothing inside the process can bound it. See the surviving
+    # entry in docs/deferred-work.md. Generous against the tier's ~15s,
+    # tight against a hang.
     timeout-minutes: 15
 
     services:

@@ -57,7 +57,7 @@ database `DATABASE_URL` points at, including this change's own migration
   inherits. Using a test-owned schedule keeps
   `test_job_runner_schedules.py`'s "exactly one piece of recurring work
   is scheduled" true -- the periodic registration below goes into a
-  registry of this file's own, never into `runner_app.periodic_registry`.
+  registry of this file's own, never into any App's `periodic_registry`.
 """
 
 from __future__ import annotations
@@ -66,14 +66,29 @@ import datetime
 import uuid
 from collections.abc import AsyncIterator
 
+import procrastinate
 import pytest
 from procrastinate import periodic
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
-from commerce_ops.shared.infrastructure.driven.job_runner import app as runner_app
+from commerce_ops.shared.infrastructure.driven.job_runner import (
+    PERIODIC_DEFAULTS,
+    _queue_pool,
+)
 
 pytestmark = pytest.mark.anyio
+
+#: This file's own runner application, deliberately **not**
+#: `job_runner.app`. The schedule below already went into a registry of this
+#: file's own; what remained was the *worker*, which reads the registry of
+#: whichever App it is started on. Started on the shared one it inherits
+#: whatever `register_all()` armed and runs production jobs, with a shutdown
+#: that can hang forever. See `isolate-tests-from-the-shared-runner`.
+APP = procrastinate.App(
+    connector=procrastinate.PsycopgConnector(pool_factory=_queue_pool),
+    periodic_defaults=PERIODIC_DEFAULTS,
+)
 
 # The same shape of schedule the daily digest declares (tasks.md 2.4):
 # once a day at 06:00, interpreted in UTC.
@@ -119,7 +134,7 @@ async def reader(database_url: str) -> AsyncIterator[AsyncEngine]:
 _RAN: list[int] = []
 
 
-@runner_app.task(name=f"tests.periodic_dedup.tick-{uuid.uuid4()}")
+@APP.task(name=f"tests.periodic_dedup.tick-{uuid.uuid4()}")
 async def _tick(timestamp: int) -> None:
     """Stands in for any scheduled piece of work; records that it ran."""
     _RAN.append(timestamp)
@@ -155,9 +170,7 @@ async def _a_worker_starts_at(
     the second start really did re-offer the same tick rather than
     silently offering nothing.
     """
-    deferrer = periodic.PeriodicDeferrer(
-        registry=registry, **runner_app.periodic_defaults
-    )
+    deferrer = periodic.PeriodicDeferrer(registry=registry, **APP.periodic_defaults)
     offered = list(deferrer.get_previous_tasks(at=moment))
     await deferrer.defer_jobs(jobs_to_defer=offered)
     return [timestamp for _, timestamp in offered]
@@ -165,7 +178,7 @@ async def _a_worker_starts_at(
 
 async def _drain() -> None:
     """Runs the worker until the queue is empty."""
-    await runner_app.run_worker_async(
+    await APP.run_worker_async(
         wait=False,
         install_signal_handlers=False,
         listen_notify=False,
@@ -209,7 +222,7 @@ async def test_a_tick_that_already_ran_is_not_run_again_after_a_restart(
     """
     registry, _ = _schedule()
 
-    async with runner_app.open_async():
+    async with APP.open_async():
         first_offer = await _a_worker_starts_at(registry, _FIRST_START)
         await _drain()
 
