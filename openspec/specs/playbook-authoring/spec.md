@@ -1,7 +1,7 @@
 # playbook-authoring Specification
 
 ## Purpose
-Lets the step set of the launch playbook be authored at runtime — steps created, updated, retired and un-retired through validated write operations — while the framework the steps hang on (the gates, their opening modes, their metric conditions, the coherence rules) stays owned by the repository.
+Lets the step set of the launch playbook be authored at runtime — steps created, updated, and moved through their lifecycle status (activated, de-activated, retired and un-retired) by validated write operations — while the framework the steps hang on (the gates, their opening modes, their metric conditions, the coherence rules) stays owned by the repository. Only an `active` step is served to a launch, so activation is a deliberate act validated against what the step's kind requires of it.
 
 ## Requirements
 

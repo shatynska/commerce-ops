@@ -1,7 +1,7 @@
 # playbook-admin Specification
 
 ## Purpose
-The steps management page: lets a signed-in admin see the live step set whole — grouped by gate, filterable and searchable — and change it in place through the validated authoring writes: inline edit, create, retire and un-retire, and reordering a gate's steps, with every rejected write rendering its full fault list.
+The steps management page: lets a signed-in admin see the authored step set whole — every status other than `retired`, grouped by gate, filterable and searchable, with the served steps set apart from the ones that are not — and change it in place through the validated authoring writes: inline edit, create, status change, retire and un-retire, and reordering a gate's active steps, with every rejected write rendering its full fault list.
 
 ## Requirements
 

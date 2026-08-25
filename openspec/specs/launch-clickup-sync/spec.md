@@ -1,7 +1,7 @@
 # launch-clickup-sync Specification
 
 ## Purpose
-The launch-clickup-sync capability keeps a launch's human work and ClickUp in agreement in both directions: the system projects each launch's human-attested steps into a dedicated ClickUp list with due dates derived from the launch schedule, and completion recorded in ClickUp flows back as recorded step outcomes — through webhook deliveries when they arrive, and through a periodic reconciliation pass when they do not.
+The launch-clickup-sync capability keeps a launch's human work and ClickUp in agreement in both directions: the system projects each launch's active `human` steps into a dedicated ClickUp list — each task carrying the step's name, its description and the people responsible for it, with a due date derived from the launch schedule — and completion recorded in ClickUp flows back as recorded step outcomes, through webhook deliveries when they arrive and through a periodic reconciliation pass when they do not.
 
 ## Requirements
 
