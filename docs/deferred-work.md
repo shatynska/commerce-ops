@@ -173,6 +173,34 @@ filed as something new.
 
 Neither has been reported upstream.
 
+### The create surface has no signed-out panel
+
+Every other admin surface answers an expired session with a rendered panel — "Signed out … nothing was saved" — swapped in by `page.html`'s `htmx:responseError` handler. The create surface (`new.html`) shows FastAPI's raw `{"detail":"Not Found"}` instead.
+
+**Two causes, and fixing either alone does nothing.** The handler fires only on an XHR (`event.detail.xhr`), and `add-step-page` deliberately un-boosts the transitions to and from the create surface so the success redirect's fragment is honoured — which removes the XHR. It also lives in `page.html`'s own inline script, which `new.html` does not carry, so re-boosting would not restore it either.
+
+**No requirement is broken.** `admin-session`'s *Admin access fails closed and absence-shaped* asks only that the refusal be shaped like a missing route, and a raw 404 body satisfies that. What is lost is the explanation, on the one surface where an admin may have typed a screenful of fields before the session expired.
+
+The fix is not just moving the script: the un-boosted create `POST` is a real form submission, so the browser navigates to the 404 rather than handing it to a JS handler at all. Whoever takes it up should decide whether the refusal is server-rendered for this surface instead.
+
+**Recorded in**: `add-step-page`'s `design.md` (Risks / Trade-offs).
+
+### Refresh-resubmit is fixed for creating and for nothing else
+
+`add-step-page` made a successful create redirect (`303`) rather than render, so refreshing after a create no longer resubmits it. Editing, retiring, un-retiring, reordering and status changes all still render the list from their own `POST`, so a refresh on any of them re-submits the write.
+
+Stated as an accepted asymmetry rather than an oversight: creating had to redirect regardless, because it is the one write that lands the admin on a *different* page from the one they posted to. `reorder-steps-under-filters` had already rejected Post/Redirect/Get for the others on a real constraint — a rejected write carries faults and submitted values, which a redirect cannot carry without a flash cookie. Making the rest symmetric means solving that, not copying the create route.
+
+**Recorded in**: `add-step-page`'s `design.md` (Success redirects; rejection renders).
+
+### Whether creating should offer a status at all
+
+The create surface offers `draft`, `in-development` and `active` (never `retired`). It is not settled that it should: an author might always create a `draft` and reach `active` through the status control `redesign-step-fields` added, which is the validated transition with its own rules.
+
+Nothing is broken either way — the creation requirement is written to hold for whichever status a step is created with, and carries a scenario for an `active` create and for a `draft` one. This is a question about what the form offers, not about what the page guarantees.
+
+**Recorded in**: `add-step-page`'s `design.md` (Open Questions).
+
 ### Small cleanups, not worth a change each
 
 Verified present at the time of writing; suitable for one chore commit.
