@@ -25,7 +25,7 @@ shows beyond the effect of the write itself.
 
 #### Scenario: A rejected list-level write keeps the narrowing
 
-- **WHEN** a creation is rejected while a description search is active
+- **WHEN** a retirement is rejected while a description search is active
 - **THEN** the re-rendered list reports the faults
 - **AND** still applies the search term
 

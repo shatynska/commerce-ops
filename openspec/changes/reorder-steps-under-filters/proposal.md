@@ -86,6 +86,21 @@ validation rules and the meaning of a step's order are untouched.
   move placement, the inert views, and the pinned-version rejection.
 - No migration, no schema change, no change to the domain layer.
 
+## Sequencing against `add-step-page`
+
+`add-step-page`, in flight alongside this change, moves creation onto its
+own surface and MODIFIES this change's added requirement — *"The narrowed
+view survives every write and every move between views"* — to cover the
+list⇄create-surface transition. That requirement does not exist in
+`openspec/specs/playbook-admin/spec.md` until this change is archived, so
+**this change SHALL be archived first**; archiving `add-step-page` before
+it would leave that MODIFIED block with no requirement to modify.
+
+The scenario "A rejected list-level write keeps the narrowing" is written
+against a **retirement** rather than a creation for the same reason: once
+creation re-renders its own surface, a rejected creation stops being an
+example of a write that re-renders the list.
+
 ## Deferred to a follow-on change
 
 Reordering by **dragging** is deliberately out of scope here, and is
