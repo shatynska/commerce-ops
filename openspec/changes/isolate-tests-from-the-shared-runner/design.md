@@ -202,8 +202,8 @@ The *other* reason an earlier draft gave — that it "depends on every future
 runner test remembering to request the fixture" — does not survive scrutiny,
 because it applies verbatim to the private App: that too depends on every
 future runner test remembering to build one. Two files are fixed either way,
-and the tier stays armed either way. Goal 2 says *no test* can defer a
-production job, and neither shape delivers that.
+and the tier stays armed either way. Goal 2 says no test starts a worker
+against a registry holding production work, and neither shape delivers that.
 
 **So Decision 1 is not sufficient on its own, and gains a second half.**
 `tests/integration/conftest.py` gets a guard that fails loudly when a worker is
@@ -226,7 +226,7 @@ registrations of its own — which the `runner_app`-only condition would miss.
 needs saying, because "a session-scoped fixture that reads the registry" cannot
 do the job: such a fixture runs once, at first-test setup, when collection has
 already armed `runner_app`, so its only available verdict is to fail the whole
-session — including the four arming modules, which task 3.2 forbids. The
+session — including the four arming modules, which task 3.3 forbids. The
 mechanism is a session-scoped autouse fixture that installs a wrapper around
 `procrastinate.App.run_worker_async` with `pytest.MonkeyPatch`, undone at
 session end; the wrapper applies the condition above to `self` and delegates.
@@ -238,7 +238,26 @@ The wrapper must be installed from the fixture *body*, never at conftest
 import: `tests/unit/test_integration_tier_database_resolution.py` loads
 `tests/integration/conftest.py` by path and `exec_module`s it inside the
 commit-time tier, so anything done at import time would patch `procrastinate`
-from within `tests/unit`. The two compose rather than compete: the private App is what these
+from within `tests/unit`.
+
+"Undone at session end" is narrower than it sounds, and the difference is worth
+stating. Because the fixture is session-scoped, in a whole-tree `uv run pytest`
+the class patch goes in the first time an integration test runs and stays live
+for every later test in *any* tier until the session ends. That is safe today —
+the only other in-process worker start is
+`tests/unit/shared/infrastructure/test_logging_process_boundary.py`, whose
+worker runs in a subprocess and never touches this interpreter — but it is safe
+by circumstance rather than by construction, so the next reader should not have
+to rediscover it.
+
+**What the guard does not cover**, alongside the `defer_async()` gap Goal 2
+already names: a directly constructed `procrastinate.worker.Worker`, and a
+`PeriodicDeferrer` driven over a standalone registry — which
+`test_periodic_defer_dedup.py` does today, so it is a live pattern in this tier
+rather than a hypothesis. Both are deliberate acts, both are out of scope, and
+naming them is what stops the guard being read as total. What the class-level
+wrapper *does* cover beyond `run_worker_async` is the synchronous
+`App.run_worker`, which delegates to it (`procrastinate/app.py:350-361`). The two compose rather than compete: the private App is what these
 tests drive, and the guard is what makes the goal true for tests nobody has
 written yet — it asks nothing of a future author, which is the property the
 rejected fixture lacked and the private App does not supply either.
@@ -281,6 +300,18 @@ shipping.
 
 `asyncio.wait` never awaits what it timed out on, so it fails deterministically
 whatever the worker does with its cancellation.
+
+**Verifying it collides with the guard, and the wedge has to change.** The
+obvious way to exercise the ceiling is to register a `* * * * *` task on the
+private App so its deferrer really loops — and that is exactly the state
+Decision 1's guard rejects and task 2.6 asserts against, so the guard fires at
+`_drain()` and the ceiling is never reached. Two fixes, each right alone,
+excluding each other. The wedge is therefore built from what the ceiling
+actually defends against: not a non-empty registry, but *a side task that
+ignores cancellation*. Temporarily patching `PeriodicDeferrer.wait` to swallow
+`CancelledError` (or installing any equivalent uncancellable side task)
+reproduces the same `utils.py:232` path, trips neither the guard nor 2.6, and
+is a closer reproduction of the defect than the registry entry was.
 
 It also never *re-raises*, which the shape must compensate for: a task that
 raised lands in `done` with its exception unretrieved. Today `_drain()` is a
@@ -328,10 +359,9 @@ by procrastinate's schema, which is why nothing above rests on it.
 
 - **The tier-level guard widens this change into shared test infrastructure.**
   → Accepted deliberately; without it Goal 2 covers two files rather than the
-  tier. The guard only reads `runner_app.periodic_registry` and fails — it
-  mutates nothing, so a file that legitimately wants the shared registry
-  armed (the four that call `register_all()`) is unaffected unless it also
-  starts a worker.
+  tier. The guard reads the `periodic_registry` of the App whose worker is
+  starting and fails — it mutates nothing, so the four modules that call
+  `register_all()` are unaffected, since none of them starts a worker.
 - **A private App means the runner tests no longer exercise the shared one.**
   → `test_job_runner_schedules.py` and `test_known_work_anchor.py` already
   assert what the shared registry contains, and they keep doing so. The

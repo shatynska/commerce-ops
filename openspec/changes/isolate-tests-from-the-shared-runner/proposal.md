@@ -20,9 +20,9 @@ the A/B result.
   periodic deferrer sees an empty registry, as they did before any sibling
   module called `register_all()`.
 - `tests/integration/conftest.py` gains a guard that fails loudly if any test
-  starts a worker against a non-empty shared registry — so the rule holds for
-  tests nobody has written yet, not only for the two files that exhibit the
-  defect today.
+  starts a worker against a registry holding production work — so the rule
+  holds for tests nobody has written yet, not only for the two files that
+  exhibit the defect today.
 - `_drain()` gains a ceiling, so a future wedge in the runner fails the test
   that caused it instead of hanging the session. A bound, not a cure — kept
   because a suite that can hang indefinitely is not a suite.
