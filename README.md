@@ -104,6 +104,14 @@ uv run pytest tests/integration
 
 Without `DATABASE_URL` set, the whole `tests/integration/` tier skips rather than failing — which is what keeps the `pre-push` hook from rejecting a push on a machine with no local Postgres.
 
+Once the database *is* reachable, the application also needs a first admin. Starting it against a readable roster that holds no active admin, with no `BOOTSTRAP_ADMIN_IDENTITY` set, refuses to start rather than serving a deployment nobody can administer (`move-principals-to-roster`). Export your own Slack user id alongside `DATABASE_URL`:
+
+```
+export BOOTSTRAP_ADMIN_IDENTITY=U078TC45LHM
+```
+
+It is inert once the roster holds an admin of its own, so it matters on a fresh database and after one is dropped. The integration tier needs it for the same reason: several tests boot the application, and startup runs the seed.
+
 ## Deferred work
 
 `docs/deferred-work.md` records what this project has deliberately not done, and why — decisions awaiting a team call, items belonging to the `/infrastructure` repository, and technical work postponed with its reasoning.
