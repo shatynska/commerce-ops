@@ -80,36 +80,40 @@ The roster SHALL offer no deletion. Deactivation SHALL retain the entry — iden
 - **WHEN** a deactivated person is reactivated
 - **THEN** the same identifier resolves again, and the entry records who reactivated it and when
 
-### Requirement: The first admin is seeded from declared configuration
+### Requirement: The first admin is seeded before the application serves
 
-At startup, when the roster store is readable and holds no active admin entry, the system SHALL ensure the Slack identity named by a declared environment variable exists on the roster as an active admin — creating the entry when the identity is unknown (its display name seeded as the Slack identity itself, editable afterwards like any other entry's), and marking the existing entry active and admin when it is already present. The seed SHALL also run when the readable roster's only active admin is a single entry whose admin status the seed itself conferred — the stored signal being that the entry's most recent admin-conferring write (the creation or promotion that made it an active admin) is attributed to the reserved system principal, unaffected by later writes that confer nothing — and the variable names a different Slack identity — so a mis-typed first seed is corrected by fixing the variable and redeploying, the wrongly seeded entry then deactivated through ordinary writes once the corrected admin exists; the seed SHALL NOT itself deactivate anything. In every other case where the readable roster holds an active admin, startup SHALL NOT alter the roster and the variable SHALL confer nothing. When the roster store is readable, holds no active admin, and the variable is absent, startup SHALL fail with an error naming the variable rather than serve a roster no one can administer. When the roster store is unconfigured or unreachable, startup SHALL succeed without altering or requiring anything — preserving the guarantees that starting requires no configuration and that no database connection is made before it is first needed — reporting the deferred bootstrap as a logged fault, so the seed runs on the next start against a readable store.
+The system SHALL provide a seeding step that runs after database migrations and before the HTTP server begins serving, as a step of its own rather than as part of the serving process's own startup — so that starting the application still opens no database connection before one is first needed, and a deployment that cannot be administered fails at a named preparation step instead of crash-looping the server.
+
+When the roster holds no active admin entry, the step SHALL ensure the Slack identity named by a declared environment variable exists on the roster as an active admin — creating the entry when the identity is unknown (its display name seeded as the Slack identity itself, editable afterwards like any other entry's), and marking the existing entry active and admin when it is already present. The step SHALL also run when the roster's only active admin is a single entry whose admin status the seed itself conferred — the stored signal being that the entry's most recent admin-conferring write (the creation or promotion that made it an active admin) is attributed to the reserved system principal, unaffected by later writes that confer nothing — and the variable names a different Slack identity, so a mis-typed first seed is corrected by fixing the variable and redeploying, the wrongly seeded entry then deactivated through ordinary writes once the corrected admin exists; the step SHALL NOT itself deactivate anything. In every other case where the roster holds an active admin, the step SHALL alter nothing and the variable SHALL confer nothing.
+
+When the roster holds no active admin and the variable is absent, the step SHALL fail, naming the variable, and the application SHALL NOT begin serving. When the roster store cannot be read, the step SHALL likewise fail rather than pass silently: it runs after the migrations that just wrote to that same store, so an unreadable one is a deployment fault, not a state to tolerate.
 
 #### Scenario: An empty roster is seeded
 
-- **WHEN** the process starts with a readable, empty roster and the bootstrap variable naming a Slack identity
+- **WHEN** the step runs against an empty roster with the bootstrap variable naming a Slack identity
 - **THEN** the roster afterward holds that identity as an active admin entry whose display name is the Slack identity itself
 
 #### Scenario: An existing entry is promoted rather than duplicated
 
-- **WHEN** the process starts with no active admin on the readable roster and the bootstrap variable naming a Slack identity an existing deactivated entry carries
+- **WHEN** the step runs against a roster with no active admin, the bootstrap variable naming a Slack identity an existing deactivated entry carries
 - **THEN** that entry becomes active and admin, and no second entry with that identity exists
 
 #### Scenario: A rostered admin makes the variable inert
 
-- **WHEN** the process starts with the readable roster holding an active admin beyond a lone seed-attributed entry
+- **WHEN** the step runs against a roster holding an active admin beyond a lone seed-attributed entry
 - **THEN** the roster is not altered, whatever the bootstrap variable names
 
 #### Scenario: A mis-seeded first admin is corrected by redeploying
 
-- **WHEN** the process starts with the readable roster's only active admin being the single seed-attributed entry, and the variable now names a different Slack identity
-- **THEN** the newly named identity becomes an active admin alongside it, and nothing is deactivated by the seed
+- **WHEN** the step runs against a roster whose only active admin is the single seed-attributed entry, and the variable now names a different Slack identity
+- **THEN** the newly named identity becomes an active admin alongside it, and nothing is deactivated by the step
 
-#### Scenario: No admin and no variable stops startup
+#### Scenario: No admin and no variable fails the step
 
-- **WHEN** the process starts with a readable roster holding no active admin and no bootstrap variable
-- **THEN** startup fails with an error naming the missing variable
+- **WHEN** the step runs against a roster holding no active admin with no bootstrap variable set
+- **THEN** the step fails with an error naming the missing variable, and the application does not begin serving
 
-#### Scenario: An unconfigured or unreachable store defers the bootstrap
+#### Scenario: Starting the server opens no connection of its own
 
-- **WHEN** the process starts with the roster store unconfigured or unreachable
-- **THEN** startup succeeds without touching the roster, and the deferred bootstrap is reported as a logged fault
+- **WHEN** the serving process starts
+- **THEN** it performs no seeding and reads no connection setting, so an application started with no database configured still starts

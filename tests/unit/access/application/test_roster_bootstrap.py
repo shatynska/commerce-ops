@@ -1,25 +1,34 @@
-"""Seeding the first admin at startup (`roster`).
+"""Seeding the first admin before the application serves (`roster`).
 
 Derived strictly from the delta spec:
 `openspec/changes/move-principals-to-roster/specs/roster/spec.md`, the
-ADDED requirement *The first admin is seeded from declared
-configuration* — all six scenarios.
+ADDED requirement *The first admin is seeded before the application
+serves*.
+
+REVISED after implementation: the requirement originally placed the seed
+in `main.py`'s lifespan. Verification found that reading the roster there
+made the serving process open a database connection before its first
+request — which `database-session` forbids, and which broke two
+`scheduled-runs` freshness tests. The seed now runs as its own step
+between the migration and the server, so the deferral scenario became a
+failure scenario (an unreadable store is a deployment fault for a step
+that runs right after the migrations wrote to it).
 
 ## Why this level, and what it does not reach
 
 Each scenario is stated about "the process starts", but what the
 scenarios *assert* is what the roster holds afterwards and whether
-startup continued — and both are decided by the bootstrap step itself,
-which `design.md` Decision 4 places in `main.py`'s lifespan. The
-bootstrap step over a store double is therefore the smallest unit that
-can observe every stated outcome.
+the step continued — and both are decided by the seeding step itself,
+which `design.md` Decision 4 places in its own process between
+`alembic upgrade head` and the server. The step over a store double is
+therefore the smallest unit that can observe every stated outcome.
 
-DELIBERATELY UNTESTED here, recorded in `test-manifest.md` with its
-reason: that the lifespan actually *calls* the bootstrap step. No
-artifact fixes the call site's shape beyond "in the lifespan"
-(`tasks.md` 3.4), and a lifespan test needs the composition root plus a
-configured database, which is integration-tier. The manifest records a
-recommendation for that tier.
+DELIBERATELY UNTESTED here: that the container's start chain actually
+runs the step. That is a Dockerfile `CMD`, observable only by running
+the image. Its converse *is* covered —
+`tests/unit/test_startup_without_configuration.py` asserts that starting
+the server builds no engine, which is what fails if the seed ever
+returns to the lifespan.
 
 Two guarantees this change explicitly preserves already have tests that
 must stay green: `tests/unit/test_startup_without_configuration.py`
@@ -74,7 +83,6 @@ Baseline recorded before these tests were written:
 
 from __future__ import annotations
 
-import logging
 from collections.abc import Callable
 from typing import Any, Final
 
@@ -548,40 +556,45 @@ async def test_no_admin_and_no_variable_stops_startup(
 
 
 # ---------------------------------------------------------------------------
-# Scenario: An unconfigured or unreachable store defers the bootstrap
+# An unreadable store fails the step
+#
+# REWRITTEN, not weakened. The requirement this was derived from moved the
+# seed out of the serving process's startup and into a step of its own
+# after the migrations (`roster` spec, "The first admin is seeded before
+# the application serves"), because seeding in the lifespan made the
+# server open a database connection before its first request — which
+# `database-session` forbids, and which broke two `scheduled-runs`
+# freshness tests that simulate an unreachable database.
+#
+# Deferring made sense only while the seed rode startup: it was what kept
+# an application with no database configured able to start. A step that
+# runs immediately after the migrations that wrote to that same store has
+# no such case to protect, so an unreadable store is now a deployment
+# fault. The assertion is correspondingly *stronger* — the failure must
+# propagate rather than be swallowed.
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize("failure", _UNREADABLE_FAILURES)
-async def test_an_unconfigured_or_unreachable_store_defers_the_bootstrap(
+async def test_an_unreadable_store_fails_the_step(
     monkeypatch: pytest.MonkeyPatch,
-    caplog: pytest.LogCaptureFixture,
     failure: Exception,
 ) -> None:
-    """Scenario: An unconfigured or unreachable store defers the
-    bootstrap.
+    """Scenario: an unreadable store fails the step.
 
-    WHEN the process starts with the roster store unconfigured or
-    unreachable
-    THEN startup succeeds without touching the roster, and the deferred
-    bootstrap is reported as a logged fault.
+    WHEN the step runs against a store that cannot be read
+    THEN it fails rather than passing silently, and writes nothing.
 
-    The variable *is* set here: deferral must not depend on the variable
-    being absent, or the unreachable case would collapse into the
-    refusal above. "Startup succeeds" reads as the step returning
-    normally — a raised error is what would stop the lifespan.
+    The variable *is* set here, so the failure cannot be the missing-
+    variable refusal wearing another error's clothes.
     """
     store = _UnreadableRosterStore(failure)
 
-    with caplog.at_level(logging.WARNING):
-        # SPECIFIED: startup succeeds — the store failure does not
-        # propagate.
+    with pytest.raises(Exception) as excinfo:
         await _seed(monkeypatch, store, SEEDED_IDENTITY)
 
-    # SPECIFIED: without touching the roster.
+    # SPECIFIED: the store's own failure reaches the caller, so the
+    # container's start chain stops on it.
+    assert excinfo.value is failure or failure.__class__ is excinfo.type
+    # SPECIFIED: nothing was written.
     assert store.saves == []
-    # SPECIFIED: the deferred bootstrap is reported as a logged fault.
-    assert any(record.levelno >= logging.WARNING for record in caplog.records), (
-        "the deferred bootstrap was neither raised nor logged at WARNING "
-        f"or above; captured: {[r.getMessage() for r in caplog.records]}"
-    )

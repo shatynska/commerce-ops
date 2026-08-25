@@ -323,14 +323,18 @@ def _seed_conferred(record: PersonRecord) -> bool:
 async def seed_bootstrap_admin(
     *, roster: RosterStore, identity: str | None = None
 ) -> PersonRecord | None:
-    """Ensure the roster has an admin at startup, or explain why it cannot.
+    """Ensure the roster has an admin, or explain why it cannot.
 
-    Five outcomes, exactly as the `roster` capability states them:
+    Runs as a preparation step of its own — after the migrations that
+    create the roster tables, before the server starts — never inside the
+    serving process's startup, so that starting the application still
+    opens no database connection before one is first needed
+    (`database-session`). A store that cannot be read is a deployment
+    fault here rather than a state to tolerate: the migrations just wrote
+    to it.
 
-    - the store is unconfigured or unreachable — the bootstrap is
-      deferred with a logged fault and startup proceeds, so that
-      "importing and starting require no configuration" and "no database
-      connection before first need" both keep holding;
+    Four outcomes, exactly as the `roster` capability states them:
+
     - the roster already holds an active admin beyond a lone
       seed-attributed entry — nothing is touched and the variable confers
       nothing;
@@ -341,8 +345,8 @@ async def seed_bootstrap_admin(
     - the roster holds no active admin and the variable names an identity
       — that identity is created, or promoted if already present, as one
       atomic write;
-    - the roster holds no active admin and no variable is set — startup
-      is refused, naming the variable.
+    - the roster holds no active admin and no variable is set — the step
+      fails, naming the variable, and the server never starts.
 
     The seed is a single create-or-promote save rather than a
     reactivate-then-update pair: every intermediate roster in such a pair
@@ -352,16 +356,10 @@ async def seed_bootstrap_admin(
     # detects that the declared variable is actually consumed.
     wanted = identity or os.environ.get("BOOTSTRAP_ADMIN_IDENTITY") or None
 
-    try:
-        rows, version = await roster.load()
-    except Exception:
-        _logger.warning(
-            "the roster store could not be read at startup, so the admin "
-            "bootstrap is deferred to the next start; the process continues "
-            "and access resolves closed until then",
-            exc_info=True,
-        )
-        return None
+    # No tolerance for an unreadable store: this step runs after the
+    # migrations that just wrote to it, so a failure here is a deployment
+    # fault and must stop the deployment rather than pass quietly.
+    rows, version = await roster.load()
 
     records = [_as_record(row) for row in rows]
     active_admins = [
@@ -382,7 +380,8 @@ async def seed_bootstrap_admin(
         raise RuntimeError(
             f"the roster holds no active admin and {BOOTSTRAP_ADMIN_VARIABLE} "
             f"is not set, so nobody could administer this deployment; set "
-            f"{BOOTSTRAP_ADMIN_VARIABLE} to the Slack user id of the first admin"
+            f"{BOOTSTRAP_ADMIN_VARIABLE} to the Slack user id of the first "
+            f"admin and deploy again"
         )
 
     now = datetime.now(UTC)
@@ -421,7 +420,7 @@ async def seed_bootstrap_admin(
 
     _validate(candidate)
     await roster.save(candidate, expected_version=version)
-    _logger.warning(
+    _logger.info(
         "seeded '%s' as the bootstrap admin from %s; correct the display "
         "name from the roster page",
         wanted,

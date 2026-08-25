@@ -104,13 +104,16 @@ uv run pytest tests/integration
 
 Without `DATABASE_URL` set, the whole `tests/integration/` tier skips rather than failing — which is what keeps the `pre-push` hook from rejecting a push on a machine with no local Postgres.
 
-Once the database *is* reachable, the application also needs a first admin. Starting it against a readable roster that holds no active admin, with no `BOOTSTRAP_ADMIN_IDENTITY` set, refuses to start rather than serving a deployment nobody can administer (`move-principals-to-roster`). Export your own Slack user id alongside `DATABASE_URL`:
+Once the database *is* reachable, the roster needs a first admin. In a deployed container this happens on its own: the start chain runs `preflight`, then `alembic upgrade head`, then the seeding step, then the server, and the step makes the Slack identity `BOOTSTRAP_ADMIN_IDENTITY` names an active admin. If the roster has no admin and the variable is unset, that step fails and the server never starts — a deployment nobody can administer stops at a named step rather than crash-looping.
+
+Running `uvicorn` directly skips that chain, so a fresh local database has no admin until you run the step yourself — the same shape as needing `alembic upgrade head`:
 
 ```
 export BOOTSTRAP_ADMIN_IDENTITY=U078TC45LHM
+uv run python -m commerce_ops.seed_admin
 ```
 
-It is inert once the roster holds an admin of its own, so it matters on a fresh database and after one is dropped. The integration tier needs it for the same reason: several tests boot the application, and startup runs the seed.
+It is inert once the roster holds an admin of its own. The integration tier needs the variable for the same reason a deployment does.
 
 ## Deferred work
 

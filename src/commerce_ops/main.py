@@ -6,7 +6,6 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from commerce_ops.access.application import seed_bootstrap_admin
 from commerce_ops.access.infrastructure.driven.roster_repository import (
     PostgresRoster,
 )
@@ -43,15 +42,11 @@ configure_logging()
 
 @asynccontextmanager
 async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
-    # The startup seed: with a readable roster holding no active admin, the
-    # identity `BOOTSTRAP_ADMIN_IDENTITY` names becomes one, so a fresh
-    # deployment is administrable without an out-of-band grant. An
-    # unconfigured or unreachable store defers it to the next start rather
-    # than stopping startup, which is what keeps `runtime-configuration`'s
-    # empty-environment guarantee and `database-session`'s lazy-connection
-    # rule intact. It refuses to start only when the roster is readable,
-    # holds no admin, and the variable is unset.
-    await seed_bootstrap_admin(roster=roster)
+    # Nothing here reads the database. The first admin is seeded by
+    # `commerce_ops.seed_admin`, a step of its own between the migration
+    # and the server in the container's start chain: seeding here would
+    # make the serving process open a connection before its first request,
+    # which `database-session` requires not to happen.
     yield
     # Disposes the engine if one was created, tolerating one that never
     # was -- see `centralize-database-session`'s design.md, "Disposal

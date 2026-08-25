@@ -40,6 +40,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from commerce_ops.main import app
+from commerce_ops.shared.infrastructure.driven import database
 
 # Every variable the declaration declares (tasks 4.1), plus the one
 # deployment-only variable the change names explicitly. "Every declared
@@ -135,3 +136,45 @@ def test_http_application_starts_and_serves_with_an_empty_environment(
 
     # Specified: an endpoint requiring no configuration serves normally.
     assert response.status_code == 200
+
+
+def test_starting_the_server_opens_no_connection_of_its_own(
+    empty_configuration_environment: None,
+) -> None:
+    """Scenario: Starting the server opens no connection of its own
+    (`roster`, "The first admin is seeded before the application serves").
+
+    WHEN the serving process starts
+    THEN it performs no seeding and reads no connection setting, so an
+    application started with no database configured still starts.
+
+    A regression guard with a history: the roster's admin seed was first
+    placed in the lifespan, which built and cached an engine before the
+    first request. The connection setting is read once per process and
+    cached, so that engine outlived every later attempt to point the
+    application elsewhere -- which is how it was caught, by two
+    `scheduled-runs` freshness tests that simulate an unreachable
+    database by repointing `DATABASE_URL`.
+
+    Asserted through the cache rather than the environment: an empty
+    cache after a completed startup is what "no connection setting was
+    read" means in this process, and it stays true whatever a future
+    startup hook is tempted to read.
+
+    Started from a cleared cache rather than the shared `client` fixture,
+    so that an engine some earlier test in this process built cannot be
+    mistaken for one this startup built.
+    """
+    database._get_engine_and_session_factory.cache_clear()
+    try:
+        with TestClient(app):
+            # Startup has completed; no request has been made.
+            built = database._get_engine_and_session_factory.cache_info().currsize
+    finally:
+        database._get_engine_and_session_factory.cache_clear()
+
+    assert built == 0, (
+        "starting the application built a database engine; the connection "
+        "setting must be read no earlier than the first session request "
+        "(database-session), so no startup hook may touch the database"
+    )
