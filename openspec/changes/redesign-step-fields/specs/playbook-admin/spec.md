@@ -221,7 +221,7 @@ order matching the served set and say why.
 
 #### Scenario: Reordering is unavailable under a description search
 
-- **WHEN** the list is narrowed by a description search
+- **WHEN** the list is narrowed by a text search over the name or the description
 - **THEN** the reorder controls are inert
 - **AND** the page states that reordering is unavailable while a search is active and offers to clear it in one action
 

@@ -208,7 +208,7 @@ The capability SHALL report which of the authored step set's definitions cannot 
 
 #### Scenario: A set of ready steps reports nothing
 
-- **WHEN** the report is requested against a set in which every step carries what its next status requires
+- **WHEN** the report is requested against a set in which every step can be made `active`
 - **THEN** the report is empty
 
 ## MODIFIED Requirements

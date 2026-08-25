@@ -50,10 +50,10 @@
 
 - [ ] 5.1 Add the new fields to the form, with the description as a multi-line input and automation fields hidden or disabled on a `human` step.
 - [ ] 5.2 Assignee selection from the roster's active people, by display name.
-- [ ] 5.6 Render non-active steps outside their gate's orderable list so the gate's active steps stay reorderable, and refuse server-side a move naming a step that holds no slot; extend the search-disables-reordering rule to a match on the name as well as the description.
-- [ ] 5.3 Show status and assignees on the table; show non-active steps set apart from the served set.
-- [ ] 5.4 Offer status changes, surfacing a refusal with the refusal's own explanation.
-- [ ] 5.5 Extend the search to match name and description alike.
+- [ ] 5.3 Render non-active steps outside their gate's orderable list so the gate's active steps stay reorderable, and refuse server-side a move naming a step that holds no slot; extend the search-disables-reordering rule to a match on the name as well as the description.
+- [ ] 5.4 Show status and assignees on the table; show non-active steps set apart from the served set.
+- [ ] 5.5 Offer status changes, surfacing a refusal with the refusal's own explanation.
+- [ ] 5.6 Extend the search to match name and description alike.
 
 ## 6. Tests
 
