@@ -55,18 +55,45 @@ tests exists to check.
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 from collections.abc import AsyncIterator
 
+import procrastinate
 import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 from commerce_ops.shared.infrastructure.driven.database import dispose_engine
 from commerce_ops.shared.infrastructure.driven.job_history import last_successful_run
-from commerce_ops.shared.infrastructure.driven.job_runner import app as runner_app
+from commerce_ops.shared.infrastructure.driven.job_runner import (
+    PERIODIC_DEFAULTS,
+    _queue_pool,
+)
 
 pytestmark = pytest.mark.anyio
+
+#: This file's own runner application, deliberately **not**
+#: `job_runner.app`.
+#:
+#: The shared `App` is a process-wide object whose `periodic_registry` any
+#: module can arm by importing `registrations.register_all()` -- four
+#: integration modules do, and pytest imports every selected module at
+#: collection. A worker started against an armed registry defers and runs
+#: this application's real production jobs, and its shutdown intermittently
+#: hangs forever. See `isolate-tests-from-the-shared-runner`.
+#:
+#: What is still exercised here is what these tests actually assert: the
+#: runner's schema migration, `last_successful_run`, and the connection
+#: derivation and periodic defaults -- reused by name below rather than
+#: re-derived, so only the shared registry and the shared `App` object are
+#: given up. What is registered on the shared App is asserted by
+#: `test_job_runner_schedules.py` and `test_known_work_anchor.py`, which
+#: keep reading it directly.
+APP = procrastinate.App(
+    connector=procrastinate.PsycopgConnector(pool_factory=_queue_pool),
+    periodic_defaults=PERIODIC_DEFAULTS,
+)
 
 # How many worker passes a job that retries is given before the test
 # gives up on it reaching a final status. A retried run is scheduled for
@@ -143,17 +170,17 @@ async def _shared_engine_disposed_between_tests(
 _FAILURES_BEFORE_SUCCESS: dict[str, int] = {}
 
 
-@runner_app.task(name="tests.run_history.succeeds")
+@APP.task(name="tests.run_history.succeeds")
 async def _succeeding_work(marker: str) -> str:
     return marker
 
 
-@runner_app.task(name="tests.run_history.always_fails")
+@APP.task(name="tests.run_history.always_fails")
 async def _failing_work(marker: str) -> None:
     raise RuntimeError(f"deliberate failure for {marker}")
 
 
-@runner_app.task(
+@APP.task(
     name="tests.run_history.fails_then_succeeds",
     retry=1,
 )
@@ -165,15 +192,65 @@ async def _flaky_work(marker: str) -> str:
     return marker
 
 
+#: The ceiling on one worker pass. A wedge detector, not a latency budget:
+#: the file runs in about a second, so this is three orders of magnitude of
+#: headroom and can only be reached by a run that has stopped making
+#: progress. It exists because procrastinate's `cancel_and_capture_errors`
+#: cancels each side task once and then gathers them with no deadline, so a
+#: side task that swallows its cancellation stalls the shutdown forever.
+_DRAIN_CEILING_SECONDS = 60.0
+
+
 async def _drain(passes: int = 1) -> None:
-    """Runs the worker until the queue is empty, `passes` times."""
+    """Runs the worker until the queue is empty, `passes` times.
+
+    Bounded with `asyncio.wait` rather than `asyncio.wait_for`, which awaits
+    the coroutine it cancelled and so cannot bound one that ignores
+    cancellation -- the defect class this ceiling exists for. `asyncio.wait`
+    never awaits what it timed out on, so it fails whatever the worker does.
+
+    It also never re-raises, so the completed task is awaited on the normal
+    path: without that a worker error would be left unretrieved and surface
+    only as a stderr warning, and so would the tier guard's own `fail`.
+    """
     for _ in range(passes):
-        await runner_app.run_worker_async(
-            wait=False,
-            install_signal_handlers=False,
-            listen_notify=False,
-            delete_jobs="never",
+        run = asyncio.create_task(
+            APP.run_worker_async(
+                wait=False,
+                install_signal_handlers=False,
+                listen_notify=False,
+                delete_jobs="never",
+            )
         )
+        _, pending = await asyncio.wait({run}, timeout=_DRAIN_CEILING_SECONDS)
+        if pending:
+            pytest.fail(
+                f"a worker pass had not finished after "
+                f"{_DRAIN_CEILING_SECONDS:.0f}s. The run is abandoned rather "
+                "than awaited, so the orphaned task survives this failure and "
+                "the loop teardown will report it -- that warning is expected "
+                "here, not a second defect."
+            )
+        await run
+
+
+async def test_this_files_runner_carries_no_production_schedules() -> None:
+    """Test infrastructure, not a subject of any requirement.
+
+    `async` because this module's autouse engine fixture is async, and pytest
+    will not hand an async fixture to a sync test.
+
+    Reads `APP` -- the same name `_drain()` runs -- so an edit that points
+    the drain back at the shared application fails here rather than
+    reintroducing an intermittent hang. Asserting against a separately
+    named object would stay green through exactly that edit.
+    """
+    assert not APP.periodic_registry.periodic_tasks, (
+        "the runner these tests drive carries periodic work: "
+        f"{sorted(APP.periodic_registry.periodic_tasks)}. A worker started "
+        "against it would defer and run that work -- production jobs, if this "
+        "is the shared application -- and its shutdown can hang forever."
+    )
 
 
 async def _job_row(engine: AsyncEngine, job_id: int) -> dict[str, object]:
@@ -226,7 +303,7 @@ async def test_a_completed_run_is_recorded(outcome: str, reader: AsyncEngine) ->
     marker = f"marker-{uuid.uuid4()}"
     work = _succeeding_work if outcome == "succeeded" else _failing_work
 
-    async with runner_app.open_async():
+    async with APP.open_async():
         job_id = await work.defer_async(marker=marker)
         await _drain()
 
@@ -267,7 +344,7 @@ async def test_a_runs_record_outlives_the_process(reader: AsyncEngine) -> None:
     """
     marker = f"marker-{uuid.uuid4()}"
 
-    async with runner_app.open_async():
+    async with APP.open_async():
         job_id = await _succeeding_work.defer_async(marker=marker)
         await _drain()
     # The runner's connector is closed here; whatever it held is gone.
@@ -293,7 +370,7 @@ async def test_the_most_recent_successful_run_can_be_identified() -> None:
     """
     marker = f"marker-{uuid.uuid4()}"
 
-    async with runner_app.open_async():
+    async with APP.open_async():
         before = await last_successful_run(_succeeding_work.name)
         await _succeeding_work.defer_async(marker=marker)
         await _drain()
@@ -321,7 +398,7 @@ async def test_work_that_has_never_succeeded_is_reported_as_such() -> None:
     """
     never_run = f"tests.run_history.never-{uuid.uuid4()}"
 
-    async with runner_app.open_async():
+    async with APP.open_async():
         reported = await last_successful_run(never_run)
 
     assert reported is None, (
@@ -342,7 +419,7 @@ async def test_a_failed_run_does_not_count_as_a_success(
     """
     marker = f"marker-{uuid.uuid4()}"
 
-    async with runner_app.open_async():
+    async with APP.open_async():
         job_id = await _failing_work.defer_async(marker=marker)
         await _drain()
         reported = await last_successful_run(_failing_work.name)
@@ -367,7 +444,7 @@ async def test_a_retried_run_that_succeeds_is_recorded_as_succeeded(
     marker = f"marker-{uuid.uuid4()}"
     _FAILURES_BEFORE_SUCCESS[marker] = 1
 
-    async with runner_app.open_async():
+    async with APP.open_async():
         job_id = await _flaky_work.defer_async(marker=marker)
         await _drain(passes=_MAX_WORKER_PASSES)
 
@@ -445,7 +522,7 @@ async def test_a_retried_run_is_one_record_spanning_its_attempts(
     marker = f"marker-{uuid.uuid4()}"
     _FAILURES_BEFORE_SUCCESS[marker] = 1
 
-    async with runner_app.open_async():
+    async with APP.open_async():
         job_id = await _flaky_work.defer_async(marker=marker)
         await _drain(passes=_MAX_WORKER_PASSES)
 
