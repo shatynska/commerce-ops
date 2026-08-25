@@ -257,7 +257,8 @@ already names: a directly constructed `procrastinate.worker.Worker`, and a
 rather than a hypothesis. Both are deliberate acts, both are out of scope, and
 naming them is what stops the guard being read as total. What the class-level
 wrapper *does* cover beyond `run_worker_async` is the synchronous
-`App.run_worker`, which delegates to it (`procrastinate/app.py:350-361`). The two compose rather than compete: the private App is what these
+`App.run_worker`, which delegates to it (`procrastinate/app.py:350-361`).
+ The two compose rather than compete: the private App is what these
 tests drive, and the guard is what makes the goal true for tests nobody has
 written yet — it asks nothing of a future author, which is the property the
 rejected fixture lacked and the private App does not supply either.
@@ -308,10 +309,41 @@ Decision 1's guard rejects and task 2.6 asserts against, so the guard fires at
 `_drain()` and the ceiling is never reached. Two fixes, each right alone,
 excluding each other. The wedge is therefore built from what the ceiling
 actually defends against: not a non-empty registry, but *a side task that
-ignores cancellation*. Temporarily patching `PeriodicDeferrer.wait` to swallow
-`CancelledError` (or installing any equivalent uncancellable side task)
-reproduces the same `utils.py:232` path, trips neither the guard nor 2.6, and
-is a closer reproduction of the defect than the registry entry was.
+ignores cancellation*.
+
+**Two properties decide where it goes, and an earlier draft got the first one
+wrong.** It named `PeriodicDeferrer.wait` as the patch site, which cannot fire:
+`PeriodicDeferrer.worker` returns at `periodic.py:132` when the registry is
+empty, and `wait()` is reached only from `periodic.py:137`, inside the loop
+that early return skips. The App under test has an empty registry *by
+construction* — task 2.6 asserts it and the guard requires it — so the patched
+method would never execute and the check would pass in a second or two without
+approaching the ceiling. That is the same worthless green the registry wedge
+was rejected for, arrived at by a quieter route.
+
+So the wedge goes **above** the early return, at
+`procrastinate.worker.Worker._periodic_deferrer` (`worker.py:126`): a
+two-statement adapter whose signature is `self` alone, which depends on nothing
+inside `periodic.py`. Note that this is the second time that empty-registry
+early return has decided a question here, which is itself the argument for
+wedging above `periodic.py` rather than inside it — this change has now twice
+been caught resting on an upstream internal.
+
+And the body must **swallow**, not merely sleep:
+
+```python
+while True:
+    try:
+        await asyncio.sleep(3600)
+    except asyncio.CancelledError:
+        pass
+```
+
+The `except ... : pass` is the load-bearing half — it is what reproduces
+`pool_async.py:266`. A bare long sleep honours the first `cancel()` and the
+side task dies at once, so the gather returns and the ceiling is never reached.
+"A side task that ignores cancellation" is easy to implement as one that merely
+runs a long time, and the two behave oppositely here.
 
 It also never *re-raises*, which the shape must compensate for: a task that
 raised lands in `done` with its exception unretrieved. Today `_drain()` is a

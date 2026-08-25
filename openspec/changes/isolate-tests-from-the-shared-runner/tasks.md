@@ -28,8 +28,20 @@
 - [ ] 4.2 On the non-timeout path, `await` the completed task. `asyncio.wait` does not re-raise, so without this a worker that raised leaves its exception unretrieved and the six tests in the file fail on their row assertions instead, with the real cause appearing only as a stderr warning. Today's bare `await` propagates; the bound must not lose that. Note this is also what makes the **guard's** own `pytest.fail` visible — raised inside the wrapper it travels the identical path — so an edit that drops this step disables the guard's reporting as well as the worker's.
 - [ ] 4.3 State in the failure message that the orphaned worker task survives the failing test, so the loop-teardown warning that follows is expected rather than a second defect.
 - [ ] 4.4 Give the ceiling a named constant and a comment saying what it is for — a wedge detector, not a latency budget — following `BOUNDED_SECONDS` in `test_scheduled_runs_freshness_unreachable.py`, and choose it against the 1.1/1.2 baseline with an order of magnitude of headroom.
-- [ ] 4.5 Confirm the bound fires against the App actually under test, by wedging it the way the ceiling actually defends against: temporarily patch `procrastinate.periodic.PeriodicDeferrer.wait` to swallow `CancelledError` (or install an equivalent side task that ignores cancellation), and check the test fails at the ceiling rather than hanging. Revert afterwards.
-  - **Do not wedge it by registering a periodic task on the private App.** That was this task's earlier form and it cannot run: a non-empty `periodic_registry` is exactly what task 3.1's guard rejects and what 2.6 asserts against, so the guard fires at `_drain()` and the ceiling is never reached — with a failure message that reads at a glance like the bound working. Two fixes that were each right alone exclude each other here; see design.md Decision 2.
+- [ ] 4.5 Confirm the bound fires against the App actually under test, by wedging it the way the ceiling actually defends against — a side task that *ignores cancellation*. Temporarily replace `procrastinate.worker.Worker._periodic_deferrer` with a body that swallows:
+
+      ```python
+      while True:
+          try:
+              await asyncio.sleep(3600)
+          except asyncio.CancelledError:
+              pass
+      ```
+
+  Check the test fails **at** `CEILING` rather than hanging, then revert and confirm the same test passes quickly again. Both halves of that are the check: a failure at the ceiling shows the bound fired, and a fast pass after reverting shows the wedge was what caused it.
+  - **The `except ... : pass` is the load-bearing half, not the long sleep.** A bare `await asyncio.sleep(3600)` honours the first `cancel()`, so the side task dies at once, the gather returns, and the ceiling is never reached. "Ignores cancellation" is easy to implement as "takes a long time"; they behave oppositely here.
+  - **Wedge `Worker._periodic_deferrer`, not `PeriodicDeferrer.wait`.** An earlier form of this task named the latter and it cannot fire: `PeriodicDeferrer.worker` returns at `periodic.py:132` on an empty registry, and `wait()` is reached only from `periodic.py:137` inside the loop that return skips. The App under test has an empty registry by construction (2.6, 3.1), so the patch would never execute and the check would pass in a second or two having exercised nothing.
+  - **Do not wedge it by registering a periodic task on the private App** either. That was this task's first form: a non-empty `periodic_registry` is exactly what task 3.1's guard rejects and what 2.6 asserts against, so the guard fires at `_drain()` and the ceiling is never reached — with a failure message that reads at a glance like the bound working. Two fixes that were each right alone exclude each other here; see design.md Decision 2.
   - Arming `runner_app.periodic_registry` proves nothing either, once task 2 has landed: it no longer reaches the App the test drives, so the run passes quickly and a green result is indistinguishable from never having exercised the bound.
 
 ## 5. Clear what the defect wrote
