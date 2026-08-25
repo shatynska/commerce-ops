@@ -555,6 +555,36 @@ async def test_no_admin_and_no_variable_stops_startup(
     assert store.saves == []
 
 
+@pytest.mark.parametrize(
+    "blank", ["", "   ", "\t\n"], ids=["empty", "spaces", "whitespace"]
+)
+async def test_a_blank_variable_is_treated_as_absent(
+    monkeypatch: pytest.MonkeyPatch, blank: str
+) -> None:
+    """Scenario: An empty variable is treated as absent.
+
+    WHEN the step runs against a roster holding no active admin with the
+    bootstrap variable set to an empty or whitespace-only value
+    THEN it fails naming the variable, exactly as when unset, rather than
+    attempting to seed an entry with no identity.
+
+    Discriminating: an implementation that only checks falsiness passes
+    the empty case and seeds a whitespace identity in the others, which
+    would fail with a fault about the *entry* — telling a deployer their
+    roster is malformed when what is wrong is their configuration.
+    """
+    store = _FakeRosterStore()
+    monkeypatch.setenv(BOOTSTRAP_VARIABLE, blank)
+
+    with pytest.raises(Exception) as excinfo:
+        await _bootstrap_use_case()(roster=store, identity=blank)
+
+    # SPECIFIED: the error names the variable, as the absent case does.
+    assert BOOTSTRAP_VARIABLE in str(excinfo.value)
+    # SPECIFIED: nothing was seeded.
+    assert store.saves == []
+
+
 # ---------------------------------------------------------------------------
 # An unreadable store fails the step
 #

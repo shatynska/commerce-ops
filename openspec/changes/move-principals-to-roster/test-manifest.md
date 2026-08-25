@@ -10,6 +10,31 @@ deleted or disabled nothing. Every existing test still stands, including
 the ones listed under *Obsolete-test candidates* below — those are
 candidates for a human decision, not actions taken.
 
+## SUPERSEDED after implementation — the bootstrap requirement moved
+
+Verification found that seeding in the FastAPI lifespan made the serving
+process open a database connection before its first request, which
+`database-session` forbids. The requirement was rewritten (`roster`, *The
+first admin is seeded before the application serves*) and the seed moved
+to its own process between the migration and the server. Three entries
+below no longer describe the change:
+
+- `test_an_unconfigured_or_unreachable_store_defers_the_bootstrap` was
+  rewritten as `test_an_unreadable_store_fails_the_step`. Deferral
+  existed only to protect startup with no database configured; a step
+  running right after the migrations has no such case, so the assertion
+  is now stronger — the failure must propagate.
+- The *Deferred-bootstrap logging* assumption is void: nothing is
+  deferred, so nothing is logged instead of raised.
+- The *Uncovered* entry "the lifespan calls the bootstrap step" is void.
+  Its converse is covered: `tests/unit/test_startup_without_configuration.py`
+  asserts that starting the server builds no engine, verified to fail
+  when the lifespan seed is reintroduced. What remains uncovered is that
+  the container's `CMD` runs the step, observable only by running the
+  image.
+- Added: `test_a_blank_variable_is_treated_as_absent`, for the
+  empty-or-whitespace variable the revised requirement now names.
+
 ## Baseline
 
 | What | Command | Result |

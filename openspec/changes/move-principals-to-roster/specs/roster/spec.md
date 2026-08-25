@@ -25,7 +25,7 @@ The system SHALL represent each known person as one roster entry carrying: a gen
 
 ### Requirement: Every roster write is validated whole and attributed
 
-The roster SHALL change only through its write use cases — create, update, deactivate, reactivate — each validating the roster the write would produce before persisting anything: a rejected write SHALL persist nothing, and a landed write SHALL record which principal made it and when. The startup seed SHALL land through this same validated, attributed path as one additional atomic write — create-or-promote in a single validated save, never composed from the enumerated verbs (whose intermediate rosters the last-admin floor would reject) and never written directly to the store — attributed to a reserved system principal. The fields `update` may change are exactly the display name, the ClickUp user id and the admin flag: a generated identifier and a Slack identity SHALL NOT be updatable, and active status SHALL change only through deactivate and reactivate, so those transitions always carry their own attribution. Updates SHALL apply to deactivated entries as well as active ones — correcting a deactivated person's data does not require reactivating them.
+The roster SHALL change only through its write use cases — create, update, deactivate, reactivate — each validating the roster the write would produce before persisting anything: a rejected write SHALL persist nothing, and a landed write SHALL record which principal made it and when. The seeding step SHALL land through this same validated, attributed path as one additional atomic write — create-or-promote in a single validated save, never composed from the enumerated verbs (whose intermediate rosters the last-admin floor would reject) and never written directly to the store — attributed to a reserved system principal. The fields `update` may change are exactly the display name, the ClickUp user id and the admin flag: a generated identifier and a Slack identity SHALL NOT be updatable, and active status SHALL change only through deactivate and reactivate, so those transitions always carry their own attribution. Updates SHALL apply to deactivated entries as well as active ones — correcting a deactivated person's data does not require reactivating them.
 
 #### Scenario: A landed write is attributed
 
@@ -86,7 +86,7 @@ The system SHALL provide a seeding step that runs after database migrations and 
 
 When the roster holds no active admin entry, the step SHALL ensure the Slack identity named by a declared environment variable exists on the roster as an active admin — creating the entry when the identity is unknown (its display name seeded as the Slack identity itself, editable afterwards like any other entry's), and marking the existing entry active and admin when it is already present. The step SHALL also run when the roster's only active admin is a single entry whose admin status the seed itself conferred — the stored signal being that the entry's most recent admin-conferring write (the creation or promotion that made it an active admin) is attributed to the reserved system principal, unaffected by later writes that confer nothing — and the variable names a different Slack identity, so a mis-typed first seed is corrected by fixing the variable and redeploying, the wrongly seeded entry then deactivated through ordinary writes once the corrected admin exists; the step SHALL NOT itself deactivate anything. In every other case where the roster holds an active admin, the step SHALL alter nothing and the variable SHALL confer nothing.
 
-When the roster holds no active admin and the variable is absent, the step SHALL fail, naming the variable, and the application SHALL NOT begin serving. When the roster store cannot be read, the step SHALL likewise fail rather than pass silently: it runs after the migrations that just wrote to that same store, so an unreadable one is a deployment fault, not a state to tolerate.
+When the roster holds no active admin and the variable is absent — or present but empty or whitespace-only, which SHALL be treated as absent rather than as an identity — the step SHALL fail, naming the variable, and the application SHALL NOT begin serving. When the roster store cannot be read, the step SHALL likewise fail rather than pass silently: it runs after the migrations that just wrote to that same store, so an unreadable one is a deployment fault, not a state to tolerate.
 
 #### Scenario: An empty roster is seeded
 
@@ -113,7 +113,17 @@ When the roster holds no active admin and the variable is absent, the step SHALL
 - **WHEN** the step runs against a roster holding no active admin with no bootstrap variable set
 - **THEN** the step fails with an error naming the missing variable, and the application does not begin serving
 
-#### Scenario: Starting the server opens no connection of its own
+#### Scenario: An empty variable is treated as absent
+
+- **WHEN** the step runs against a roster holding no active admin with the bootstrap variable set to an empty or whitespace-only value
+- **THEN** the step fails naming the variable, exactly as it does when the variable is unset, rather than attempting to seed an entry with no identity
+
+#### Scenario: An unreadable store fails the step
+
+- **WHEN** the step runs against a roster store that cannot be read
+- **THEN** the step fails rather than passing silently, and writes nothing
+
+#### Scenario: Starting the server performs no seeding
 
 - **WHEN** the serving process starts
-- **THEN** it performs no seeding and reads no connection setting, so an application started with no database configured still starts
+- **THEN** it performs no seeding of its own, leaving the connection-timing guarantee `database-session` states to that specification

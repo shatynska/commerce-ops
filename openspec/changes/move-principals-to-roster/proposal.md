@@ -31,6 +31,6 @@ Deliberately out of scope: roles / information-kind access (a later change adds 
 
 - **`access` module**: `domain/principals.py` rewritten around the person/roster model; `infrastructure/driven/principals_loader.py` and `principals.yaml` deleted; new Postgres model, migration and store; new application use cases exported via `application/__init__.py`; new driving adapter for the roster page. `admin_link` keeps its contract, resolving admin capability against the roster.
 - **`catalog` / `launch` read use cases**: no change — `AccessScope` remains their filter parameter; only the resolutions it can carry narrow to unrestricted/nothing.
-- **`main.py` startup**: the eager YAML load-and-validate is replaced by the bootstrap-admin check; directory faults can no longer exist as load faults because the store only ever holds what validated writes produced.
-- **Deploy / configuration**: one new declared environment variable for the bootstrap admin identity; a new table and migration.
+- **`main.py` startup**: the eager YAML load-and-validate is removed and nothing replaces it — the lifespan reads no database, and directory faults can no longer exist as load faults because the store only ever holds what validated writes produced. The first admin is seeded by `commerce_ops.seed_admin`, a step of its own.
+- **Deploy / configuration**: one new declared environment variable for the bootstrap admin identity; a new table and migration; and the container's start chain gains the seeding step between the migration and the server (`deploy-pipeline` delta).
 - **Follow-up dependency**: the step-entity redesign (assignees, execution kinds, lifecycle) builds on roster ids and is proposed separately.

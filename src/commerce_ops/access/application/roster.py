@@ -353,8 +353,14 @@ async def seed_bootstrap_admin(
     still holds zero active admins, which the last-admin floor rejects.
     """
     # Read by its literal name, which is how the settings drift check
-    # detects that the declared variable is actually consumed.
-    wanted = identity or os.environ.get("BOOTSTRAP_ADMIN_IDENTITY") or None
+    # detects that the declared variable is actually consumed. A value that
+    # is empty or only whitespace counts as absent rather than as an
+    # identity: a rendered `.env` line with nothing after the `=` is a
+    # variable nobody set, and seeding an entry from it would fail later
+    # with a fault about the entry instead of one naming the variable.
+    wanted = (
+        identity or os.environ.get("BOOTSTRAP_ADMIN_IDENTITY") or ""
+    ).strip() or None
 
     # No tolerance for an unreadable store: this step runs after the
     # migrations that just wrote to it, so a failure here is a deployment
