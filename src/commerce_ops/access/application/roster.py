@@ -145,6 +145,21 @@ def people_of(rows: Sequence[Any]) -> tuple[Person, ...]:
     return tuple(row.person for row in rows)
 
 
+async def list_people(*, roster: RosterStore) -> tuple[Person, ...]:
+    """Everyone the roster carries, deactivated included.
+
+    The read half of this capability's public surface, added by
+    `redesign-step-fields`: a step's assignees reference roster people by
+    identifier, so `launch` has to resolve them — and it may only reach
+    this module through the surface this function is part of. Deactivated
+    entries are answered too, because "is this person still active" is a
+    question the caller has to be able to ask rather than have decided
+    for it.
+    """
+    rows, _version = await roster.load()
+    return people_of(rows)
+
+
 def _validate(rows: Sequence[Any]) -> None:
     """Construct the roster the write would produce; `InvalidRosterError`
     propagates with every fault."""

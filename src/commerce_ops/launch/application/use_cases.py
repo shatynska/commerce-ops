@@ -162,9 +162,14 @@ async def move_launch_date(
 
 
 @dataclass(frozen=True, slots=True)
-class StepStatus:
-    """One step's runtime status: what was recorded, when it is due, and
-    the two judgements only the launch context can make.
+class ReportedStep:
+    """One step as a launch report carries it: what was recorded, when it
+    is due, and the two judgements only the launch context can make.
+
+    Named for the report rather than for "status" since
+    `redesign-step-fields`: a step's `status` is now its lifecycle
+    (`StepStatus` in the domain), and two things called the same on one
+    module's surface is one more than the word can carry.
 
     `discipline` and `blocking` come from the playbook; `overdue` folds
     "the due period has fully passed" together with "the step has not
@@ -190,7 +195,7 @@ class LaunchReport:
     playbook_version: str
     current_gate: str
     launch_date: date | None
-    steps: tuple[StepStatus, ...]
+    steps: tuple[ReportedStep, ...]
     at_risk: LaunchDateAtRisk | None
     awaiting_confirmation: bool
 
@@ -205,7 +210,7 @@ def _report_for(launch: Launch, playbook: LaunchPlaybook, as_of: date) -> Launch
         current_gate=launch.current_gate,
         launch_date=launch.launch_date,
         steps=tuple(
-            StepStatus(
+            ReportedStep(
                 step_id=step.identifier,
                 discipline=step.discipline,
                 due_period=launch.due_period_for(playbook, step.identifier),
@@ -213,7 +218,7 @@ def _report_for(launch: Launch, playbook: LaunchPlaybook, as_of: date) -> Launch
                 blocking=step.blocking,
                 overdue=step.identifier in overdue,
             )
-            for step in playbook.steps
+            for step in playbook.served_steps
         ),
         at_risk=launch.date_at_risk(playbook, as_of),
         awaiting_confirmation=launch.awaiting_confirmation(playbook),

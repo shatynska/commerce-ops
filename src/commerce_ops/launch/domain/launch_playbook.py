@@ -29,7 +29,7 @@ the launch day; only the one-based forward count needs the -1.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from enum import Enum
@@ -57,19 +57,48 @@ class Scope(Enum):
     MARKET = "market"
 
 
-class Binding(Enum):
-    """Whether a step is a rule the launch is held to, or advice."""
+class StepKind(Enum):
+    """Who does a step's work: a person, or code.
 
-    FRAMEWORK = "framework"
-    LESSON = "lesson"
+    Deliberately not a record of *how* the code works. Whether the
+    resolving code calls a language model is an implementation detail of
+    that code and no rule in this system reacts to it; what the launch
+    reacts to is whether a person must accept the result, which
+    `StepDefinition.needs_confirmation` carries as a separate fact.
+    """
 
-
-class ExecutionMode(Enum):
-    """How a step is resolved."""
-
+    HUMAN = "human"
     AUTOMATED = "automated"
-    AI_ASSISTED = "ai-assisted"
-    HUMAN_ATTESTED = "human-attested"
+
+
+class StepStatus(Enum):
+    """How far a step has been carried, and therefore what may be done
+    with it.
+
+    Only `ACTIVE` steps are served to a launch, hold a gate, or reach a
+    task tracker; the rest are visible to whoever authors the step set
+    and to nobody else. This is what lets an author write work down
+    before its automation exists, rather than inventing a description of
+    code nobody has written.
+
+    Any status may move to any other: each move is a write validated by
+    the rules of the status it moves *to*, so there is no transition
+    table and no ordering a step must climb.
+    """
+
+    DRAFT = "draft"
+    IN_DEVELOPMENT = "in-development"
+    ACTIVE = "active"
+    RETIRED = "retired"
+
+
+BEYOND_DRAFT: frozenset[StepStatus] = frozenset(
+    {StepStatus.IN_DEVELOPMENT, StepStatus.ACTIVE}
+)
+"""What "beyond `draft`" means, and deliberately not "any status other
+than `draft`": a step abandoned before its automation was ever specified
+is retired without ever owing a brief. Reading the phrase the other way
+would make such a step unretirable and its playbook unloadable."""
 
 
 class Hazard(Enum):
@@ -273,22 +302,43 @@ class Gate:
 
 @dataclass(frozen=True, slots=True)
 class StepDefinition:
-    """A single unit of launch work, resolved before a gate opens."""
+    """A single unit of launch work, resolved before a gate opens.
+
+    `name` and `description` answer to two audiences and are two fields
+    for that reason: the name is what a person scans in a list of work
+    and is composed into a task's name, so it is required and occupies a
+    single line; the description is what they read once they have
+    decided to do it, so it is optional and may span lines.
+
+    `assignees` reference roster people by the roster's own generated
+    identifier, never by name or Slack identity, so that correcting a
+    person's details never rewrites the steps pointing at them. That an
+    assignee exists and is active is a *write-time* precondition and
+    never a load-time rule — see `assignee_faults`.
+    """
 
     identifier: str
-    description: str
+    name: str
     gate: str
     discipline: Discipline
     scope: Scope
     timing_anchor: TimingAnchor
-    binding: Binding
     blocking: bool
-    execution: ExecutionMode
+    kind: StepKind
+    description: str | None = None
+    needs_confirmation: bool = False
+    status: StepStatus = StepStatus.DRAFT
     hazard: Hazard = Hazard.NONE
-    rule_policy: str | None = None
+    assignees: tuple[str, ...] = ()
+    automation_brief: str | None = None
+    handler: str | None = None
     provenance: str | None = None
 
     def __post_init__(self) -> None:
+        # Normalised so a caller handing a list gets value semantics: the
+        # definition is frozen and compared by value, and a mutable
+        # member would defeat both.
+        object.__setattr__(self, "assignees", tuple(self.assignees))
         if not isinstance(self.discipline, Discipline):
             raise InvalidPlaybookError(
                 [
@@ -412,54 +462,82 @@ def _step_faults(
             faults.append(
                 f"step '{step.identifier}' declares unknown gate '{step.gate}'"
             )
-        if (
-            step.execution in (ExecutionMode.AUTOMATED, ExecutionMode.AI_ASSISTED)
-            and step.rule_policy is None
-        ):
+        if not step.name or not step.name.strip():
             faults.append(
-                f"step '{step.identifier}' has execution mode "
-                f"'{step.execution.value}' but no rule policy"
-            )
-        if not step.description.strip():
-            faults.append(
-                f"step '{step.identifier}' has an empty description — a step "
-                f"whose work cannot be read from the step itself is "
+                f"step '{step.identifier}' has an empty name — a step whose "
+                f"work cannot be read from the step itself is "
                 f"indistinguishable from one nobody wrote down"
             )
-        elif "\n" in step.description or "\r" in step.description:
+        elif "\n" in step.name or "\r" in step.name:
             faults.append(
-                f"step '{step.identifier}' has a description spanning more "
-                f"than one line — a description is composed into a task's "
-                f"name, and a name is a single line"
+                f"step '{step.identifier}' has a name spanning more than one "
+                f"line — a name is composed into a task's name, and a name "
+                f"is a single line"
             )
+        faults.extend(_automation_faults(step))
         if step.hazard is Hazard.PROHIBITED_TACTIC and step.blocking:
             faults.append(
                 f"step '{step.identifier}' is classified 'prohibited-tactic' "
                 f"and cannot block its gate"
             )
-        if step.binding is Binding.LESSON and step.blocking:
+    return faults
+
+
+def _automation_faults(step: StepDefinition) -> list[str]:
+    """What a step's kind and status oblige it to carry, or to leave off.
+
+    The brief is owed on leaving `draft` — a step nobody can state the
+    acceptance criterion for is not ready to be built — and the handler
+    on becoming `active`. That a handler is *present* is a property of
+    the step set and belongs here; that the deployed code **registers**
+    it is a property of the deployment, checked at activation and never
+    at load, so a rename in the registry reports a deployment fault
+    rather than making every stored playbook unloadable.
+    """
+    faults: list[str] = []
+    if step.kind is StepKind.AUTOMATED:
+        if step.status in BEYOND_DRAFT and step.automation_brief is None:
             faults.append(
-                f"step '{step.identifier}' has binding 'lesson' and cannot "
-                f"block its gate — advice that blocks a gate the way a "
-                f"framework rule does is a category error"
+                f"step '{step.identifier}' is automated and beyond draft "
+                f"(status '{step.status.value}') but carries no automation "
+                f"brief"
             )
+        if step.status is StepStatus.ACTIVE and step.handler is None:
+            faults.append(
+                f"step '{step.identifier}' is automated and active but names "
+                f"no handler — nothing would resolve it"
+            )
+        return faults
+    if step.automation_brief is not None:
+        faults.append(
+            f"step '{step.identifier}' is a human step and cannot carry an "
+            f"automation brief"
+        )
+    if step.handler is not None:
+        faults.append(
+            f"step '{step.identifier}' is a human step and cannot name a handler"
+        )
     return faults
 
 
 def _gate_holding_faults(
     gates: tuple[Gate, ...], steps: tuple[StepDefinition, ...]
 ) -> list[str]:
-    """The gate-holding floor: every gate needs at least one blocking step.
+    """The gate-holding floor: every gate needs an active blocking step.
 
     Promoted from a shipped-set test to a construction rule by
     `move-playbook-steps-to-postgres`: with an editable step set the floor
     must hold after every write, and construction is where every other
     coherence rule already lives — one rulebook for load and write alike.
     """
-    held = {step.gate for step in steps if step.blocking}
+    held = {
+        step.gate
+        for step in steps
+        if step.blocking and step.status is StepStatus.ACTIVE
+    }
     return [
-        f"gate '{gate.identifier}' has no blocking step attached — a gate "
-        f"whose step obligations are an empty set opens for free"
+        f"gate '{gate.identifier}' has no active blocking step attached — a "
+        f"gate whose step obligations are an empty set opens for free"
         for gate in gates
         if gate.identifier not in held
     ]
@@ -505,8 +583,23 @@ class LaunchPlaybook:
             self, "gates", tuple(sorted(self.gates, key=lambda gate: gate.position))
         )
 
+    @property
+    def authored_steps(self) -> tuple[StepDefinition, ...]:
+        """Every step the set holds, whatever its status — the read an
+        authoring surface uses. Named rather than left to `steps` so a
+        caller has to say which set it means."""
+        return self.steps
+
+    @property
+    def served_steps(self) -> tuple[StepDefinition, ...]:
+        """The steps a launch is actually held to: the `active` ones.
+
+        Every query below answers this set, so nothing that advances a
+        launch can be handed a draft by accident."""
+        return tuple(step for step in self.steps if step.status is StepStatus.ACTIVE)
+
     def steps_for_gate(self, gate_identifier: str) -> tuple[StepDefinition, ...]:
-        return tuple(step for step in self.steps if step.gate == gate_identifier)
+        return tuple(step for step in self.served_steps if step.gate == gate_identifier)
 
     def conditions_for_gate(self, gate_identifier: str) -> tuple[GateCondition, ...]:
         """Everything the gate waits on, as one collection of two kinds.
@@ -517,7 +610,7 @@ class LaunchPlaybook:
         """
         obligations = tuple(
             StepObligation(step_id=step.identifier)
-            for step in self.steps
+            for step in self.served_steps
             if step.gate == gate_identifier and step.blocking
         )
         authored = tuple(
@@ -529,4 +622,47 @@ class LaunchPlaybook:
         return obligations + authored
 
     def steps_with_scope(self, scope: Scope) -> tuple[StepDefinition, ...]:
-        return tuple(step for step in self.steps if step.scope is scope)
+        return tuple(step for step in self.served_steps if step.scope is scope)
+
+
+def assignee_faults(
+    steps: Sequence[StepDefinition],
+    *,
+    known: Collection[str],
+    active: Collection[str],
+) -> tuple[str, ...]:
+    """The two assignee rules, over the steps a write touches.
+
+    Kept out of `LaunchPlaybook`'s construction deliberately. Every
+    load-time coherence rule is a function of the step set alone, which
+    is what lets one predicate guard a load and a write alike; whether an
+    assignee exists and is active is a function of the *roster*, which
+    changes without the step set changing. Were these load-time rules,
+    deactivating a person would retroactively make a stored playbook
+    unloadable — a write in another module breaking a capability that
+    accepted no write.
+
+    The domain cannot read the roster, so the caller supplies the two
+    identifier sets and the application layer is what fetches them.
+    """
+    faults: list[str] = []
+    known_ids = set(known)
+    active_ids = set(active)
+    for step in steps:
+        for identifier in step.assignees:
+            if identifier not in known_ids:
+                faults.append(
+                    f"step '{step.identifier}' names assignee '{identifier}', "
+                    f"whom the roster does not carry"
+                )
+        if (
+            step.kind is StepKind.HUMAN
+            and step.status is StepStatus.ACTIVE
+            and not any(identifier in active_ids for identifier in step.assignees)
+        ):
+            faults.append(
+                f"step '{step.identifier}' is an active human step and names "
+                f"no assignee who is active on the roster — human work "
+                f"nobody is responsible for is work that will not happen"
+            )
+    return tuple(faults)
