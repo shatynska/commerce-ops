@@ -28,9 +28,9 @@
 
 ## 4. Roster admin page
 
-- [ ] 4.1 Implement `access/infrastructure/driving/roster_admin.py` + templates: the whole active roster on one page, deactivated people set apart, each entry's attribution (created by/on, most recent change by/on) readable from the page, gated by the existing admin-session dependency; mount the router in `main.py`.
-- [ ] 4.2 Create and edit forms: clean writes land through the use cases; a rejected write re-presents the form with every fault and the submitted values; Slack identity renders read-only on edit.
-- [ ] 4.3 Deactivate/reactivate actions, with a refused last-admin deactivation surfaced on the page with its explanation.
+- [x] 4.1 Implement `access/infrastructure/driving/roster_admin.py` + templates: the whole active roster on one page, deactivated people set apart, each entry's attribution (created by/on, most recent change by/on) readable from the page, gated by the existing admin-session dependency; mount the router in `main.py`.
+- [x] 4.2 Create and edit forms: clean writes land through the use cases; a rejected write re-presents the form with every fault and the submitted values; Slack identity renders read-only on edit.
+- [x] 4.3 Deactivate/reactivate actions, with a refused last-admin deactivation surfaced on the page with its explanation.
 
 ## 5. Tests
 
@@ -40,11 +40,11 @@
 - [x] 5.4 Unit tests for the roster page and `admin-session` over the roster (`tests/unit/access/infrastructure/driving/test_roster_admin_page.py`, `test_admin_session_over_roster.py`).
 - [x] 5.5 **Delete the four superseded test files** — their requirements are REMOVED by this change and every one of them imports the loader task 3.3 deletes, so they stop importing the moment it goes: `tests/unit/access/infrastructure/test_principals_loader.py`, `tests/unit/access/application/test_resolve_scope.py`, `tests/unit/access/application/test_admin_capability.py`, `tests/unit/test_main_principals_validation.py`. Do this in the same commit as 3.3, never before it.
 - [x] 5.6 **Adapt, do not delete** the tests that only borrow the deleted loader for their fixtures — they cover `admin-session` requirements this change does *not* modify (single-use tokens, bounded sessions, the link-exchange route) and are the only coverage those requirements have: rebuild the `_directory_with_admin` helper in `tests/unit/access/application/test_admin_session_use_cases.py` on the roster and keep its four token/session tests; do the same for the `load_principals` call in `tests/unit/access/infrastructure/test_admin_link_exchange_route.py` and keep all six. The four *revocation and minting* tests in `test_admin_session_use_cases.py` are separately superseded (replacements live in `test_admin_session_over_roster.py`) and may go with 5.5.
-- [ ] 5.7 Reconcile the 15 assumptions the manifest records (call shapes, row attribute spellings, page control vocabulary, the bootstrap step's name) against the implementation as it lands — each is a fixture correction with one named correction point. What a test *asserts* — what was persisted, what was not, who is recorded as having done it — must survive unweakened; only the fixture may move.
+- [x] 5.7 Reconcile the 15 assumptions the manifest records (call shapes, row attribute spellings, page control vocabulary, the bootstrap step's name) against the implementation as it lands — each is a fixture correction with one named correction point. What a test *asserts* — what was persisted, what was not, who is recorded as having done it — must survive unweakened; only the fixture may move. **Outcome:** every assumed shape matched the implementation, so no test file was edited to make it pass — the call shapes, row attribute spellings, page control vocabulary and the bootstrap step's name (`seed_bootstrap_admin`) were all implemented as the manifest assumed.
 - [ ] 5.8 Integration-tier coverage the unit tier cannot observe: the Postgres roster store including the stale-version race (mirroring `tests/integration/launch/test_playbook_authoring_live.py`), and the lifespan actually calling the bootstrap step. Write these under `tests/integration/access/`.
 
 ## 6. Documentation and verification
 
-- [ ] 6.1 Update `AGENTS.md`'s architecture summary and any README access notes: the principals directory is Postgres-owned roster data, edited only through validated `roster` use cases; note the bootstrap variable in the deploy docs alongside `ADMIN_BASE_URL`.
-- [ ] 6.2 Update the `Purpose` paragraphs of `openspec/specs/access-scope/spec.md` and `openspec/specs/admin-session/spec.md` to roster wording (a delta's Purpose is ignored for existing capabilities, so these are edited directly at implementation time).
+- [x] 6.1 Update `AGENTS.md`'s architecture summary and any README access notes: the principals directory is Postgres-owned roster data, edited only through validated `roster` use cases; note the bootstrap variable in the deploy docs alongside `ADMIN_BASE_URL`.
+- [x] 6.2 Update the `Purpose` paragraphs of `openspec/specs/access-scope/spec.md` and `openspec/specs/admin-session/spec.md` to roster wording (a delta's Purpose is ignored for existing capabilities, so these are edited directly at implementation time).
 - [ ] 6.3 Run the full verification (`uv run pytest`, `ruff check`, `ruff format --check`, `mypy`, import-linter) and the alembic migration against a local database.

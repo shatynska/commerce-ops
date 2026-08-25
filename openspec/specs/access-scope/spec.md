@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Answers "which products may this caller see" — and, since `add-playbook-admin-ui`, "does this caller hold the admin write capability": owns the repo-owned principals directory and derives from it, fail-closed, the access scope every read use case filters by and the orthogonal per-entry admin declaration the admin surface is gated on. It never authenticates — adapters establish who is asking; this capability only says what that identity may see and whether it may hold the admin surface.
+Answers "which products may this caller see" — and, since `add-playbook-admin-ui`, "does this caller hold the admin write capability": resolves both, fail-closed, from the roster (`move-principals-to-roster`, which replaced the repo-owned principals directory), yielding the access scope every read use case filters by and the orthogonal per-entry admin declaration the admin surface is gated on. Product-level differentiation is deliberately absent — an active member sees every product, and what a person may see will be differentiated by information kind in a later change. It never authenticates — adapters establish who is asking; this capability only says what that identity may see and whether it may hold the admin surface.
 
 ## Requirements
 

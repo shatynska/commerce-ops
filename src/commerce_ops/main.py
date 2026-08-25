@@ -11,6 +11,9 @@ from commerce_ops.access.infrastructure.driven.roster_repository import (
     PostgresRoster,
 )
 from commerce_ops.access.infrastructure.driving import admin_link as access_admin_link
+from commerce_ops.access.infrastructure.driving import (
+    roster_admin as access_roster_admin,
+)
 from commerce_ops.catalog.application import register_product
 from commerce_ops.catalog.infrastructure.driven.product_repository import (
     CatalogProductRepository,
@@ -80,6 +83,7 @@ app.include_router(launch_clickup_webhook.router)
 app.include_router(launch_slack_entry.router)
 app.include_router(access_admin_link.router)
 app.include_router(launch_playbook_admin.router)
+app.include_router(access_roster_admin.router)
 
 
 async def _register_catalog_product(
@@ -123,3 +127,5 @@ launch_slack_entry.register_catalog_product = _register_catalog_product
 # session store the exchange route writes into.
 launch_playbook_admin.roster = roster
 launch_playbook_admin.admin_sessions = access_admin_link.admin_sessions
+access_roster_admin.roster = roster
+access_roster_admin.admin_sessions = access_admin_link.admin_sessions
