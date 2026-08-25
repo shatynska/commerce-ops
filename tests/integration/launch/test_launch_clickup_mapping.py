@@ -59,7 +59,6 @@ mapping tables) assumed applied, and a skip when `DATABASE_URL` is unset.
 
 from __future__ import annotations
 
-import os
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
@@ -124,18 +123,6 @@ APPROVED_AT: Final = datetime(2027, 1, 6, 9, 30, tzinfo=UTC)
 @pytest.fixture(scope="module")
 def anyio_backend() -> str:
     return "asyncio"
-
-
-def _database_url() -> str:
-    url = os.environ.get("DATABASE_URL")
-    if not url:
-        pytest.skip(
-            "DATABASE_URL is not set. Run the compose file's `postgres` "
-            "service locally, apply `alembic upgrade head` (including this "
-            "change's two new mapping tables), and point DATABASE_URL at it "
-            "to run these tests."
-        )
-    return url
 
 
 def _unique_sku() -> Sku:
@@ -236,8 +223,8 @@ def _walk_to_graduated(launch: Launch, playbook: LaunchPlaybook) -> Launch:
 
 
 @pytest.fixture()
-async def engine() -> AsyncIterator[AsyncEngine]:
-    engine = create_async_engine(_database_url())
+async def engine(database_url: str) -> AsyncIterator[AsyncEngine]:
+    engine = create_async_engine(database_url)
     try:
         yield engine
     finally:

@@ -41,7 +41,6 @@ touched here.
 from __future__ import annotations
 
 import asyncio
-import os
 import sys
 import uuid
 from collections.abc import Awaitable, Callable
@@ -59,21 +58,9 @@ OVERDUE_CHECK_PACKAGE = "commerce_ops.shared.infrastructure.driving"
 register_all()
 
 
-def _database_url() -> str:
-    url = os.environ.get("DATABASE_URL")
-    if not url:
-        pytest.skip(
-            "DATABASE_URL is not set. Run the compose file's `postgres` "
-            "service locally, apply `alembic upgrade head` (including this "
-            "change's suppression migration), and point DATABASE_URL at it "
-            "to run tests/integration/shared/."
-        )
-    return url
-
-
 @pytest.fixture(autouse=True)
-def _database_available() -> None:
-    _database_url()
+def _database_available(database_url: str) -> None:
+    """Requesting `database_url` is this file's opt-in to the gate."""
 
 
 def _run[T](work: Callable[[], Awaitable[T]]) -> T:

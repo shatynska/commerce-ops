@@ -107,20 +107,21 @@ def anyio_backend() -> str:
     return "asyncio"
 
 
-def _database_url() -> str:
-    url = os.environ.get("DATABASE_URL")
-    if not url:
-        pytest.skip(
-            "DATABASE_URL is not set. Run the compose file's `postgres` "
-            "service locally, apply `alembic upgrade head` (including this "
-            "change's step tables and seed), and point DATABASE_URL at it."
-        )
-    return url
+@pytest.fixture(autouse=True)
+def _requires_database(database_url: str) -> None:
+    """This file's opt-in to the tier's database gate.
+
+    `_session()` below is reached from test bodies rather than from a
+    fixture, so it cannot request `database_url` itself; the conftest's
+    autouse publisher has already put the resolved value in the
+    environment for it. This fixture is how the file still skips — or
+    fails where the tier is required — when nothing is configured.
+    """
 
 
 @asynccontextmanager
 async def _session() -> AsyncIterator[AsyncSession]:
-    engine = create_async_engine(_database_url())
+    engine = create_async_engine(os.environ["DATABASE_URL"])
     try:
         maker = async_sessionmaker(engine, expire_on_commit=False)
         async with maker() as session:

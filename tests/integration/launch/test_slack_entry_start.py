@@ -92,7 +92,6 @@ import asyncio
 import importlib
 import inspect
 import json
-import os
 import time
 import urllib.parse
 import uuid
@@ -149,24 +148,13 @@ def anyio_backend() -> str:
 # --------------------------------------------------------------------------
 
 
-def _database_url() -> str:
-    url = os.environ.get("DATABASE_URL")
-    if not url:
-        pytest.skip(
-            "DATABASE_URL is not set. Run the compose file's `postgres` "
-            "service locally, apply `alembic upgrade head`, and point "
-            "DATABASE_URL at it to run tests/integration/launch/."
-        )
-    return url
-
-
 def unique_sku() -> Sku:
     return Sku(f"ENTRY-{uuid.uuid4().hex[:12].upper()}")
 
 
 @pytest.fixture()
-async def engine() -> AsyncIterator[AsyncEngine]:
-    engine = create_async_engine(_database_url())
+async def engine(database_url: str) -> AsyncIterator[AsyncEngine]:
+    engine = create_async_engine(database_url)
     try:
         yield engine
     finally:

@@ -55,7 +55,6 @@ tests exists to check.
 
 from __future__ import annotations
 
-import os
 import uuid
 from collections.abc import AsyncIterator
 
@@ -81,27 +80,15 @@ def anyio_backend() -> str:
     return "asyncio"
 
 
-def _database_url() -> str:
-    url = os.environ.get("DATABASE_URL")
-    if not url:
-        pytest.skip(
-            "DATABASE_URL is not set. Run the compose file's `postgres` "
-            "service locally, apply `alembic upgrade head` (including this "
-            "change's runner-schema migration), and point DATABASE_URL at "
-            "it to run tests/integration/shared/."
-        )
-    return url
-
-
 @pytest.fixture()
-async def reader() -> AsyncIterator[AsyncEngine]:
+async def reader(database_url: str) -> AsyncIterator[AsyncEngine]:
     """A connection to the same database that is *not* the runner's own.
 
     Used for every read below, so that "the record survives the process
     that produced it" is observed across a real connection boundary
     rather than inside the writer's own session.
     """
-    engine = create_async_engine(_database_url())
+    engine = create_async_engine(database_url)
     try:
         yield engine
     finally:
@@ -109,7 +96,9 @@ async def reader() -> AsyncIterator[AsyncEngine]:
 
 
 @pytest.fixture(autouse=True)
-async def _shared_engine_disposed_between_tests() -> AsyncIterator[None]:
+async def _shared_engine_disposed_between_tests(
+    database_url: str,
+) -> AsyncIterator[None]:
     """Test infrastructure, not a subject of any requirement.
 
     `last_successful_run` reads through the application's own session
@@ -129,14 +118,13 @@ async def _shared_engine_disposed_between_tests() -> AsyncIterator[None]:
     fresh engine on the loop that asks for it.
 
     It also carries this file's database guard, because being autouse is
-    what makes it cover every test. `_database_url()` skips when
-    `DATABASE_URL` is unset, but only the tests taking the `reader`
-    fixture used to reach it -- the ones that open the runner directly hit
+    what makes it cover every test. Requesting `database_url` skips when
+    nothing is configured, but only the tests taking the `reader`
+    fixture would reach it -- the ones that open the runner directly hit
     `queue_conninfo()` instead and raised, so the tier reported failures
     rather than skips and `git push` looked like a broken suite to anyone
     without a local Postgres. README promises the opposite.
     """
-    _database_url()
     await dispose_engine()
     yield
     await dispose_engine()

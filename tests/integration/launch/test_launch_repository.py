@@ -67,7 +67,6 @@ unset.
 
 from __future__ import annotations
 
-import os
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
@@ -155,18 +154,6 @@ REJECTED: Final = (LaunchRepositoryError, LaunchError, ValueError)
 @pytest.fixture(scope="module")
 def anyio_backend() -> str:
     return "asyncio"
-
-
-def _database_url() -> str:
-    url = os.environ.get("DATABASE_URL")
-    if not url:
-        pytest.skip(
-            "DATABASE_URL is not set. Run the compose file's `postgres` "
-            "service locally, apply `alembic upgrade head` (including this "
-            "change's three new child tables), and point DATABASE_URL at "
-            "it to run these tests."
-        )
-    return url
 
 
 def _unique_sku() -> Sku:
@@ -261,8 +248,8 @@ def _provenance(**overrides: Any) -> Provenance:
 
 
 @pytest.fixture()
-async def engine() -> AsyncIterator[AsyncEngine]:
-    engine = create_async_engine(_database_url())
+async def engine(database_url: str) -> AsyncIterator[AsyncEngine]:
+    engine = create_async_engine(database_url)
     try:
         yield engine
     finally:
