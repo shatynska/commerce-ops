@@ -16,6 +16,8 @@ import asyncio
 import logging
 from datetime import date
 
+from commerce_ops.access.application import Person, list_people
+from commerce_ops.access.infrastructure.driven.roster_repository import PostgresRoster
 from commerce_ops.catalog.domain.product import Product
 from commerce_ops.launch.application import LaunchReport
 from commerce_ops.shared.domain.access_scope import AccessScope
@@ -87,6 +89,25 @@ async def _read_catalog_product(product_id: ProductId) -> Product | None:
 
 
 clickup_sync_job.read_product = _read_catalog_product
+
+
+class _RosterReader:
+    """Reads the roster for the ClickUp pass, on its own session.
+
+    Injected here for the same reason the catalog reader is: `launch` may
+    only reach `access` through its public application surface, and only
+    this module — outside `.importlinter`'s containers — may name both
+    sides. A projected task is assigned to the step's assignees, which is
+    what needs resolving.
+    """
+
+    async def list_people(self) -> tuple[Person, ...]:
+        # `PostgresRoster` opens its own session per operation, so this
+        # read is not part of any launch's transaction.
+        return await list_people(roster=PostgresRoster())
+
+
+clickup_sync_job.read_people = _RosterReader()
 
 
 async def _read_launch_reports(*, as_of: date) -> tuple[LaunchReport, ...]:

@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import functools
 import os
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from datetime import UTC, date, datetime
 
 import httpx
@@ -39,11 +39,19 @@ def _task_from_response(response: httpx.Response) -> ClickUpTask:
 
 
 async def create_task(
-    list_id: str, name: str, description: str | None = None
+    list_id: str,
+    name: str,
+    description: str | None = None,
+    assignees: Sequence[str] | None = None,
 ) -> ClickUpTask:
     body: dict[str, object] = {"name": name}
     if description is not None:
         body["description"] = description
+    # Omitted rather than sent empty: a create carrying `"assignees": []`
+    # is a claim about who owns the work, and a step naming nobody makes
+    # no such claim.
+    if assignees:
+        body["assignees"] = list(assignees)
 
     response = await get_client().post(
         f"{_BASE_URL}/api/v2/list/{list_id}/task", json=body
@@ -90,6 +98,8 @@ def _task_state(raw: Mapping[str, object]) -> ClickUpTaskState:
     status = raw.get("status") or {}
     assert isinstance(status, Mapping)
     description = raw.get("description")
+    assignees = raw.get("assignees") or ()
+    assert isinstance(assignees, Sequence)
     return ClickUpTaskState(
         id=str(raw["id"]),
         status=str(status.get("status", "")),
@@ -97,6 +107,13 @@ def _task_state(raw: Mapping[str, object]) -> ClickUpTaskState:
         due_date=_due_date_from(raw.get("due_date")),
         name=str(raw.get("name", "")),
         description=str(description) if description else None,
+        # ClickUp reports an assignee as an object carrying the user's
+        # own id; the loop compares ids, never display names.
+        assignees=tuple(
+            str(person["id"])
+            for person in assignees
+            if isinstance(person, Mapping) and "id" in person
+        ),
     )
 
 
