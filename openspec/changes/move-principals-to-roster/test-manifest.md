@@ -86,10 +86,16 @@ be corrected together.**
 
 ## Scenario coverage
 
-Every `#### Scenario:` block in the change's four delta specs is accounted
-for exactly once. **40 scenarios in the deltas; 40 accounted for here.**
+Every `#### Scenario:` block in the change's five delta specs is accounted
+for exactly once. **46 scenarios in the deltas; 46 accounted for here** —
+roster 20, roster-admin 7, access-scope 9, admin-session 6,
+deploy-pipeline 4.
 
-### `roster` (NEW capability) — 18 scenarios
+Recounted after the bootstrap requirement moved out of the lifespan (see
+SUPERSEDED above): the `roster` delta gained three scenarios, and the
+`deploy-pipeline` delta is new.
+
+### `roster` (NEW capability) — 20 scenarios
 
 | Scenario | Test |
 | --- | --- |
@@ -109,8 +115,24 @@ for exactly once. **40 scenarios in the deltas; 40 accounted for here.**
 | An existing entry is promoted rather than duplicated | `test_roster_bootstrap.py::test_an_existing_entry_is_promoted_rather_than_duplicated` |
 | A rostered admin makes the variable inert | `test_roster_bootstrap.py::test_a_rostered_admin_makes_the_variable_inert` |
 | A mis-seeded first admin is corrected by redeploying | `test_roster_bootstrap.py::test_a_mis_seeded_first_admin_is_corrected_by_redeploying` |
-| No admin and no variable stops startup | `test_roster_bootstrap.py::test_no_admin_and_no_variable_stops_startup` (partial — see *Uncovered*) |
-| An unconfigured or unreachable store defers the bootstrap | `test_roster_bootstrap.py::test_an_unconfigured_or_unreachable_store_defers_the_bootstrap` (parametrized `unconfigured`, `unreachable`; partial — see *Uncovered*) |
+| No admin and no variable fails the step | `test_roster_bootstrap.py::test_no_admin_and_no_variable_stops_startup` |
+| An empty variable is treated as absent | `test_roster_bootstrap.py::test_a_blank_variable_is_treated_as_absent` (parametrized `empty`, `spaces`, `whitespace`) |
+| An unreadable store fails the step | `test_roster_bootstrap.py::test_an_unreadable_store_fails_the_step` (parametrized `unconfigured`, `unreachable`) |
+| Starting the server performs no seeding | `tests/unit/test_startup_without_configuration.py::test_starting_the_server_opens_no_connection_of_its_own` — verified non-vacuous by reintroducing the lifespan seed and observing it fail |
+
+### `deploy-pipeline` (MODIFIED) — 4 scenarios
+
+| Scenario | Test |
+| --- | --- |
+| App does not start before Postgres is healthy | *uncovered* — pre-existing scenario, unchanged by this change |
+| App serves no traffic until migrations complete | *uncovered* — pre-existing scenario, unchanged by this change |
+| App serves no traffic until the first admin is seeded | *uncovered* — the container's `CMD`, observable only by running the image |
+| The seeding step is bound as a session-obtaining process | *uncovered* — `database-session` owns the obligation; asserting it needs a real process boundary |
+
+All four are recorded in *Uncovered* below rather than left implicit: the
+two pre-existing ones because this change does not alter them, the two new
+ones because the start chain is a Dockerfile `CMD` and no tier this project
+runs starts a container.
 
 Requirement sentences with no scenario of their own, also asserted:
 
