@@ -28,26 +28,38 @@
   <form method="get" action="{{ page_path }}">
     <fieldset role="group">
       <select name="gate">
-        <option value=""{% if not gate_filter %} selected{% endif %}>every gate</option>
+        <option value=""{% if not narrowing.gate %} selected{% endif %}>every gate</option>
         {% for option in gate_options %}
-        <option value="{{ option }}"{% if option == gate_filter %} selected{% endif %}>{{ option }}</option>
+        <option value="{{ option }}"{% if option == narrowing.gate %} selected{% endif %}>{{ option }}</option>
         {% endfor %}
       </select>
       <select name="discipline">
-        <option value=""{% if not discipline_filter %} selected{% endif %}>every discipline</option>
+        <option value=""{% if not narrowing.discipline %} selected{% endif %}>every discipline</option>
         {% for option in discipline_options %}
-        <option value="{{ option }}"{% if option == discipline_filter %} selected{% endif %}>{{ option }}</option>
+        <option value="{{ option }}"{% if option == narrowing.discipline %} selected{% endif %}>{{ option }}</option>
         {% endfor %}
       </select>
-      <input type="search" name="q" placeholder="search descriptions" value="{{ q }}">
+      <input type="search" name="q" placeholder="search descriptions" value="{{ narrowing.q }}">
+      {% if narrowing.retired %}<input type="hidden" name="retired" value="1">{% endif %}
       <button type="submit">Narrow</button>
     </fieldset>
   </form>
 
-  {% if show_retired %}
-  <p><a href="{{ page_path }}">Hide retired steps</a></p>
+  {% if narrowing.retired %}
+  <p><a href="{{ page_path }}{{ hide_retired }}">Hide retired steps</a></p>
   {% else %}
-  <p><a href="{{ page_path }}?retired=1">Show retired steps</a></p>
+  <p><a href="{{ page_path }}{{ show_retired_link }}">Show retired steps</a></p>
+  {% endif %}
+
+  {% if inert_reason %}
+  <article class="notice inert-reorder">
+    {{ inert_reason }}
+    {% if narrowing.q %}
+    <a href="{{ page_path }}{{ clear_search }}">Clear the search</a>
+    {% else %}
+    <a href="{{ page_path }}{{ hide_retired }}">Hide retired steps</a>
+    {% endif %}
+  </article>
   {% endif %}
 
   {% for gate in gates %}
@@ -56,23 +68,45 @@
     {% if gate.steps %}
     <table>
       <thead>
-        <tr><th>step</th><th>description</th><th>discipline</th><th>facts</th><th>actions</th></tr>
+        <tr><th>at</th><th>step</th><th>description</th><th>discipline</th><th>facts</th><th>actions</th></tr>
       </thead>
       <tbody>
         {% for step in gate.steps %}
         <tr>
+          {# The position is read against the whole gate, so a move that crosses
+             steps the filter hides is visible as a change in this number. #}
+          <td>{% if step.position %}{{ step.position }} / {{ step.live_count }}{% endif %}</td>
           <td><code>{{ step.identifier }}</code>{% if step.retired %} <mark>retired</mark>{% endif %}</td>
           <td>{{ step.description }}</td>
           <td>{{ step.discipline }}</td>
           <td>{{ step.binding }} · {{ step.execution }}{% if step.blocking %} · blocks its gate{% endif %}</td>
           <td>
             {% if not step.retired %}
-            <form method="post" action="{{ page_path }}/steps/{{ step.identifier }}/up"><button type="submit" title="move up">↑</button></form>
-            <form method="post" action="{{ page_path }}/steps/{{ step.identifier }}/down"><button type="submit" title="move down">↓</button></form>
-            <a href="{{ page_path }}/steps/{{ step.identifier }}/edit">edit</a>
-            <form method="post" action="{{ page_path }}/steps/{{ step.identifier }}/retire"><button type="submit">retire</button></form>
+            {% if reorderable %}
+            {# Both controls speak one vocabulary — the visible step to come to
+               rest after — so the placement rule has a single code path. An end
+               of the visible list names nothing, and renders inert.
+
+               `direction` identifies which of the two controls was pressed, in
+               the markup and in the submitted body; placement comes from
+               `after`, which the server resolves against the set it reads. #}
+            <form method="post" action="{{ page_path }}/steps/{{ step.identifier }}/move{{ narrowing.suffix() }}">
+              <input type="hidden" name="direction" value="up">
+              <input type="hidden" name="after" value="{{ step.up if step.up is not none else '' }}">
+              <input type="hidden" name="version" value="{{ version }}">
+              <button type="submit" title="move up"{% if step.up is none %} disabled{% endif %}>↑</button>
+            </form>
+            <form method="post" action="{{ page_path }}/steps/{{ step.identifier }}/move{{ narrowing.suffix() }}">
+              <input type="hidden" name="direction" value="down">
+              <input type="hidden" name="after" value="{{ step.down if step.down is not none else '' }}">
+              <input type="hidden" name="version" value="{{ version }}">
+              <button type="submit" title="move down"{% if step.down is none %} disabled{% endif %}>↓</button>
+            </form>
+            {% endif %}
+            <a href="{{ page_path }}/steps/{{ step.identifier }}/edit{{ narrowing.suffix() }}">edit</a>
+            <form method="post" action="{{ page_path }}/steps/{{ step.identifier }}/retire{{ narrowing.suffix() }}"><button type="submit">retire</button></form>
             {% else %}
-            <form method="post" action="{{ page_path }}/steps/{{ step.identifier }}/unretire"><button type="submit">unretire</button></form>
+            <form method="post" action="{{ page_path }}/steps/{{ step.identifier }}/unretire{{ narrowing.suffix() }}"><button type="submit">unretire</button></form>
             {% endif %}
           </td>
         </tr>
@@ -88,7 +122,7 @@
   <section>
     <h2>Create a step</h2>
     <p>The identifier is generated on save — <code>mg.&lt;discipline&gt;.&lt;seq&gt;</code>, never chosen.</p>
-    <form method="post" action="{{ page_path }}/steps/create">
+    <form method="post" action="{{ page_path }}/steps/create{{ narrowing.suffix() }}">
       {% with values = {}, include_discipline = true %}
       {% include "_fields.html" %}
       {% endwith %}

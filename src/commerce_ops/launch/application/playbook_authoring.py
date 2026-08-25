@@ -50,7 +50,13 @@ _WRITE_ATTEMPTS = 3
 
 class StaleStepSetError(RuntimeError):
     """A conditional persist lost the race: the step set changed between
-    load and save. The write path retries against the fresh set."""
+    load and save.
+
+    A write that computed its own change from the set it just read
+    retries against the fresh set. A write given a caller's view of the
+    set — `reorder_step`'s `expected_version` — does not: its change was
+    computed against a view the caller has since lost, and reapplying it
+    to a newer set would move a step somewhere nobody asked for."""
 
 
 @dataclass(slots=True)
@@ -305,16 +311,38 @@ async def retire_step(
 
 
 async def reorder_step(
-    *, steps: StepSetStore, principal: str, step_id: str, target_index: int
+    *,
+    steps: StepSetStore,
+    principal: str,
+    step_id: str,
+    target_index: int,
+    expected_version: int | None = None,
 ) -> StepRecord:
     """Move a live step to `target_index` (0-based) among its own gate's
     live steps, renumbering the gate's slots as one atomic write. The
     unmoved steps keep their relative order; the step's definition — its
     gate included — is untouched; the move is attributed to `principal`
     on the moved step, as an update is. Validated and serialized exactly
-    like every other write."""
+    like every other write.
+
+    `expected_version` is the caller's view of the set: the version
+    `target_index` was computed against. Supplied, the write is refused
+    with `StaleStepSetError` unless it is the version the write itself
+    reads — refused whichever way it differs, so a version the caller
+    cannot hold a view of is not taken for one — and it is never retried
+    past, because retrying would reapply a position computed against a
+    view that no longer describes the set. Absent, the position is
+    understood to be computed against whatever the write reads, and a
+    concurrent write is resolved by re-reading and recomputing.
+    """
     for _ in range(_WRITE_ATTEMPTS):
         records, version = await steps.load()
+        if expected_version is not None and version != expected_version:
+            raise StaleStepSetError(
+                f"reorder_step was given version {expected_version} as the view "
+                f"its position was computed against, but the set reads "
+                f"{version}; the position is not recomputed"
+            )
         index = _find(records, step_id)
         if _is_retired(records[index]):
             raise ValueError(f"step '{step_id}' is retired and holds no slot to move")
@@ -355,6 +383,8 @@ async def reorder_step(
         try:
             await steps.save(candidate, expected_version=version)
         except StaleStepSetError:
+            if expected_version is not None:
+                raise
             continue
         assert moved is not None
         return moved
