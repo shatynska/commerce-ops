@@ -132,6 +132,12 @@ jobs:
             echo "CLICKUP_API_TOKEN=${{ secrets.CLICKUP_API_TOKEN }}"
             echo "CLICKUP_LAUNCH_FOLDER_ID=${{ secrets.CLICKUP_LAUNCH_FOLDER_ID }}"
             echo "CLICKUP_WEBHOOK_SECRET=${{ secrets.CLICKUP_WEBHOOK_SECRET }}"
+            # The admin surface's public URL (add-playbook-admin-ui):
+            # composes the /playbook-admin magic links, and its https
+            # scheme turns on the session cookie's Secure flag. Declared
+            # optional in settings.py -- absent, the command refuses every
+            # caller (fail-closed), which is why it must be rendered here.
+            echo "ADMIN_BASE_URL=${{ secrets.ADMIN_BASE_URL }}"
             # A repository/Environment variable, not a secret: the
             # threshold is not sensitive, and masking it in logs would
             # serve nothing. No LOG_LEVEL variable exists yet, so this
