@@ -40,8 +40,6 @@ from typing import Any, Final
 import pytest
 
 from commerce_ops.launch.domain.launch_playbook import (
-    Binding,
-    ExecutionMode,
     Gate,
     GateOpening,
     Hazard,
@@ -51,6 +49,8 @@ from commerce_ops.launch.domain.launch_playbook import (
     OffsetAnchor,
     Scope,
     StepDefinition,
+    StepKind,
+    StepStatus,
 )
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import MetricId
@@ -111,16 +111,17 @@ def specified_gates(
 def _step(**overrides: Any) -> StepDefinition:
     attributes: dict[str, Any] = {
         "identifier": "listing.title-conforms",
-        "description": "Work this step asks for",
+        "name": "Work this step asks for",
         "gate": "listable",
         "discipline": _any_discipline(),
         "scope": Scope.PRODUCT,
         "timing_anchor": OffsetAnchor(days=-7),
-        "binding": Binding.FRAMEWORK,
         "blocking": False,
-        "execution": ExecutionMode.HUMAN_ATTESTED,
+        "kind": StepKind.HUMAN,
+        "status": StepStatus.ACTIVE,
+        "needs_confirmation": False,
         "hazard": Hazard.NONE,
-        "rule_policy": None,
+        "automation_brief": None,
         "provenance": None,
     }
     attributes.update(overrides)
@@ -137,8 +138,10 @@ def _hold(gate: str) -> StepDefinition:
         identifier=f"hold.{gate}",
         gate=gate,
         blocking=True,
-        execution=ExecutionMode.AUTOMATED,
-        rule_policy="Held until the automated check reports green.",
+        kind=StepKind.AUTOMATED,
+        status=StepStatus.ACTIVE,
+        automation_brief="Held until the automated check reports green.",
+        handler="fixture.holding_check",
     )
 
 
@@ -170,53 +173,6 @@ def _playbook(
 # ---------------------------------------------------------------------------
 # New rule: a lesson cannot block a gate
 # ---------------------------------------------------------------------------
-
-
-def test_a_lesson_step_marked_blocking_is_rejected() -> None:
-    """Scenario: A lesson cannot block a gate.
-
-    WHEN a step definition's binding is `lesson` and it is marked as
-    blocking its gate
-    THEN loading fails with an error naming that step.
-    """
-    step = _step(
-        identifier="ppc.consider-exact-match-first",
-        binding=Binding.LESSON,
-        blocking=True,
-    )
-
-    with pytest.raises(InvalidPlaybookError) as caught:
-        _playbook(steps=(step,))
-
-    # SPECIFIED: the error names that step.
-    assert "ppc.consider-exact-match-first" in str(caught.value)
-
-
-def test_a_non_blocking_lesson_step_is_accepted() -> None:
-    """Scenario: A lesson cannot block a gate (permitted side).
-
-    The rule forbids the *combination* — advice that blocks a gate. A
-    lesson that does not block must load, or the rule would outlaw advice
-    itself; without this, an implementation rejecting every lesson step
-    would pass the rejection test alone. Same permitted-side pattern the
-    earlier pass applied to the prohibited-tactic rule.
-    """
-    step = _step(
-        identifier="ppc.consider-exact-match-first",
-        binding=Binding.LESSON,
-        blocking=False,
-    )
-
-    # A lesson can never block, so `listable` also carries its holding
-    # filler; the read-back targets the step under test.
-    read_back = next(
-        candidate
-        for candidate in _playbook(steps=(step,)).steps_for_gate("listable")
-        if candidate.identifier == "ppc.consider-exact-match-first"
-    )
-
-    assert read_back.binding is Binding.LESSON
-    assert read_back.blocking is False
 
 
 # ---------------------------------------------------------------------------
@@ -253,15 +209,19 @@ def test_the_two_new_faults_are_reported_together() -> None:
     WHEN a playbook contains two distinct coherence violations
     THEN loading fails once, and the failure names both.
 
-    Exercised with the two violations this change adds — a blocking
-    lesson step and an empty metric-condition threshold — so that the new
-    rules are established as participants in the aggregation, not
-    early-exit checks; the earlier pass already covers aggregation of the
-    pre-existing rules.
+    Exercised with an empty metric-condition threshold and a second,
+    independent step fault, so that the metric rule is established as a
+    participant in the aggregation rather than an early-exit check.
+
+    The step fault was a blocking `lesson` step until
+    `redesign-step-fields` removed `binding` and the rule with it; it is
+    re-derived here from a surviving rule — a `prohibited-tactic` step
+    marked as blocking — rather than dropped, because what this test is
+    about is the aggregation, not either fault.
     """
-    lesson_blocking = _step(
+    prohibited_blocking = _step(
         identifier="ppc.consider-exact-match-first",
-        binding=Binding.LESSON,
+        hazard=Hazard.PROHIBITED_TACTIC,
         blocking=True,
     )
     empty_threshold = MetricCondition(MetricId("units-fulfillable"), "")
@@ -270,7 +230,7 @@ def test_the_two_new_faults_are_reported_together() -> None:
     # SPECIFIED: it fails *once* — a single raised error carrying both
     # faults, not one error per fault.
     with pytest.raises(InvalidPlaybookError) as caught:
-        _playbook(gates=gates, steps=(lesson_blocking,))
+        _playbook(gates=gates, steps=(prohibited_blocking,))
 
     message = str(caught.value)
     # SPECIFIED: the failure names both — the offending step and the
@@ -303,13 +263,11 @@ def test_a_coherent_playbook_with_the_completed_surface_loads() -> None:
         _step(
             identifier="inventory.stock-checked-in",
             gate="stock-ready",
-            binding=Binding.FRAMEWORK,
             blocking=True,
         ),
         _step(
             identifier="ppc.consider-exact-match-first",
             gate="ignition",
-            binding=Binding.LESSON,
             blocking=False,
         ),
     )

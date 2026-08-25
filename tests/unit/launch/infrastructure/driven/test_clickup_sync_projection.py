@@ -83,9 +83,7 @@ from typing import Any, Final
 import pytest
 
 from commerce_ops.launch.domain.launch_playbook import (
-    Binding,
     Cadence,
-    ExecutionMode,
     Gate,
     GateOpening,
     Hazard,
@@ -96,6 +94,8 @@ from commerce_ops.launch.domain.launch_playbook import (
     Satisfied,
     Scope,
     StepDefinition,
+    StepKind,
+    StepStatus,
     WindowAnchor,
 )
 from commerce_ops.launch.domain.launch_run import Launch, Provenance
@@ -165,16 +165,17 @@ def _gates() -> tuple[Gate, ...]:
 def _step(**overrides: Any) -> StepDefinition:
     attributes: dict[str, Any] = {
         "identifier": "listing.title-conforms",
-        "description": "Work this step asks for",
+        "name": "Work this step asks for",
         "gate": "listable",
         "discipline": _any_discipline(),
         "scope": Scope.PRODUCT,
         "timing_anchor": OffsetAnchor(days=-7),
-        "binding": Binding.FRAMEWORK,
         "blocking": False,
-        "execution": ExecutionMode.HUMAN_ATTESTED,
+        "kind": StepKind.HUMAN,
+        "status": StepStatus.ACTIVE,
+        "needs_confirmation": False,
         "hazard": Hazard.NONE,
-        "rule_policy": None,
+        "automation_brief": None,
         "provenance": None,
     }
     attributes.update(overrides)
@@ -191,8 +192,10 @@ def _hold(gate: str) -> StepDefinition:
         identifier=f"hold.{gate}",
         gate=gate,
         blocking=True,
-        execution=ExecutionMode.AUTOMATED,
-        rule_policy="Held until the automated check reports green.",
+        kind=StepKind.AUTOMATED,
+        status=StepStatus.ACTIVE,
+        automation_brief="Held until the automated check reports green.",
+        handler="fixture.holding_check",
     )
 
 
@@ -404,6 +407,7 @@ class _TaskMapping:
     # compositions the conditional wording-healing keys on.
     retained_name: str | None = None
     retained_body: str | None = None
+    retained_assignees: tuple[str, ...] | None = None
 
 
 class _FakeMapping:
@@ -454,6 +458,7 @@ class _FakeMapping:
         *,
         name: str | None = None,
         body: str | None = None,
+        assignees: Any = None,
     ) -> None:
         """`move-playbook-steps-to-postgres`: a system write of a field
         updates that field's retained value; `None` leaves it untouched."""
@@ -462,6 +467,8 @@ class _FakeMapping:
             mapping.retained_name = name
         if body is not None:
             mapping.retained_body = body
+        if assignees is not None:
+            mapping.retained_assignees = tuple(str(item) for item in assignees)
 
     async def resolve_task(self, task_id: str) -> _TaskMapping | None:
         for mapping in self.tasks.values():
@@ -663,14 +670,12 @@ async def test_missing_folder_configuration_fails_the_run() -> None:
 async def test_a_human_attested_step_gets_a_task() -> None:
     """Scenario: A human-attested step gets a task.
 
-    WHEN the reconciliation pass runs and a `human-attested` step of an
+    WHEN the reconciliation pass runs and an `active` `human` step of an
     active launch has no recorded task
     THEN a task named for the step is created in the launch's list
     AND the association between the step and the created task is recorded.
     """
-    step = _step(
-        identifier="listing.title-conforms", execution=ExecutionMode.HUMAN_ATTESTED
-    )
+    step = _step(identifier="listing.title-conforms", kind=StepKind.HUMAN)
     playbook = _playbook(steps=(step,))
     collaborators = _Collaborators()
 
@@ -725,27 +730,25 @@ async def test_a_prohibited_tactic_step_is_never_projected() -> None:
 
     WHEN the reconciliation pass runs and a step carries the
     `prohibited-tactic` hazard
-    THEN no task is created for it, whatever its execution mode.
+    THEN no task is created for it, whatever its kind.
 
-    Parametrised over the execution modes inline rather than with
-    `pytest.mark.parametrize`, because "whatever its execution mode" is a
-    single specified fact: the hazard decides on its own.
+    Parametrised over the kinds inline rather than with
+    `pytest.mark.parametrize`, because "whatever its kind" is a single
+    specified fact: the hazard decides on its own.
     """
     steps = tuple(
         _step(
-            identifier=f"reviews.purchase-ring-{mode.name.lower()}",
+            identifier=f"reviews.purchase-ring-{kind.value}",
             hazard=Hazard.PROHIBITED_TACTIC,
             blocking=False,
-            execution=mode,
-            # `automated`/`ai-assisted` steps must carry a rule policy for
-            # the playbook to be coherent (launch-playbook spec).
-            rule_policy=None if mode is ExecutionMode.HUMAN_ATTESTED else "decided",
+            kind=kind,
+            # An `automated` step beyond draft owes a brief, and an
+            # `active` one owes a handler, for the playbook to be
+            # coherent (launch-playbook spec).
+            automation_brief=None if kind is StepKind.HUMAN else "decided",
+            handler=None if kind is StepKind.HUMAN else "fixture.tactic_check",
         )
-        for mode in (
-            ExecutionMode.HUMAN_ATTESTED,
-            ExecutionMode.AUTOMATED,
-            ExecutionMode.AI_ASSISTED,
-        )
+        for kind in (StepKind.HUMAN, StepKind.AUTOMATED)
     )
     playbook = _playbook(steps=steps)
     collaborators = _Collaborators()
@@ -755,55 +758,6 @@ async def test_a_prohibited_tactic_step_is_never_projected() -> None:
     # SPECIFIED: no task is created for it, whatever its execution mode.
     assert collaborators.clickup.calls_named("create_task") == []
     assert collaborators.mapping.tasks == {}
-
-
-async def test_automated_and_ai_assisted_steps_are_never_projected() -> None:
-    """Scenario: Automated and ai-assisted steps are never projected.
-
-    WHEN the reconciliation pass runs and a step's execution mode is
-    `automated` or `ai-assisted`
-    THEN no task is created for it.
-
-    A `human-attested` step sits alongside them so the test cannot pass by
-    the pass creating nothing at all.
-    """
-    playbook = _playbook(
-        steps=(
-            _step(
-                identifier="pricing.repricer-configured",
-                execution=ExecutionMode.AUTOMATED,
-                rule_policy="decided",
-            ),
-            _step(
-                identifier="listing.copy-drafted",
-                execution=ExecutionMode.AI_ASSISTED,
-                rule_policy="decided",
-            ),
-            _step(
-                identifier="listing.title-conforms",
-                execution=ExecutionMode.HUMAN_ATTESTED,
-            ),
-        )
-    )
-    collaborators = _Collaborators()
-
-    await _converge(_start(playbook), playbook, collaborators)
-
-    # SPECIFIED: neither non-human step is projected.
-    assert (
-        await collaborators.mapping.task_for(PRODUCT_ID, "pricing.repricer-configured")
-        is None
-    )
-    assert (
-        await collaborators.mapping.task_for(PRODUCT_ID, "listing.copy-drafted") is None
-    )
-    # Guard: the pass did project the one step it should have, so the
-    # assertions above are not passing because nothing ran.
-    assert (
-        await collaborators.mapping.task_for(PRODUCT_ID, "listing.title-conforms")
-        is not None
-    )
-    assert len(collaborators.clickup.calls_named("create_task")) == 1
 
 
 async def test_a_deleted_task_for_unfinished_work_is_re_projected() -> None:

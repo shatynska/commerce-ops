@@ -77,12 +77,12 @@ from commerce_ops.launch.application import (
     reorder_step,
 )
 from commerce_ops.launch.domain.launch_playbook import (
-    Binding,
-    ExecutionMode,
     Hazard,
     OffsetAnchor,
     Scope,
     StepDefinition,
+    StepKind,
+    StepStatus,
 )
 from commerce_ops.shared.domain.discipline import Discipline
 
@@ -120,16 +120,17 @@ def anyio_backend() -> str:
 def _step(**overrides: Any) -> StepDefinition:
     attributes: dict[str, Any] = {
         "identifier": "listing.title-conforms",
-        "description": "Work this step asks for",
+        "name": "Work this step asks for",
         "gate": "listable",
         "discipline": A_DISCIPLINE,
         "scope": Scope.PRODUCT,
         "timing_anchor": OffsetAnchor(days=-7),
-        "binding": Binding.FRAMEWORK,
         "blocking": False,
-        "execution": ExecutionMode.HUMAN_ATTESTED,
+        "kind": StepKind.HUMAN,
+        "status": StepStatus.ACTIVE,
+        "needs_confirmation": False,
         "hazard": Hazard.NONE,
-        "rule_policy": None,
+        "automation_brief": None,
         "provenance": None,
     }
     attributes.update(overrides)
@@ -139,12 +140,13 @@ def _step(**overrides: Any) -> StepDefinition:
 def _holding_step(gate: str) -> StepDefinition:
     return _step(
         identifier=f"hold.{gate}",
-        description=f"Blocking work holding the {gate} gate",
+        name=f"Blocking work holding the {gate} gate",
         gate=gate,
-        binding=Binding.FRAMEWORK,
         blocking=True,
-        execution=ExecutionMode.AUTOMATED,
-        rule_policy="Held until the automated check reports green.",
+        kind=StepKind.AUTOMATED,
+        status=StepStatus.ACTIVE,
+        automation_brief="Held until the automated check reports green.",
+        handler="fixture.holding_check",
     )
 
 
@@ -213,14 +215,24 @@ class _ConcurrentThenSettledStore(_FakeStepStore):
 
 
 def _is_retired(record: Any) -> bool:
-    return record.retired_by is not None and record.unretired_by is None
+    """Read off the *status*, not the attribution.
+
+    `redesign-step-fields` (design.md Decision 2) made the status the one
+    answer to "is this step in play"; the attribution columns stay,
+    recording who moved the step and when."""
+    return record.definition.status is StepStatus.RETIRED
+
+
+def _is_active(record: Any) -> bool:
+    """Whether the step is served — and so whether it holds a slot."""
+    return record.definition.status is StepStatus.ACTIVE
 
 
 def _gate_order(store: _FakeStepStore, gate: str) -> list[str]:
     live = [
         record
         for record in store.records
-        if record.definition.gate == gate and not _is_retired(record)
+        if record.definition.gate == gate and _is_active(record)
     ]
     live.sort(key=lambda record: (record.display_order, record.definition.identifier))
     return [record.definition.identifier for record in live]
@@ -238,7 +250,7 @@ def _store_with_listable(
             _OrderedRecord(
                 _step(
                     identifier=identifier,
-                    description=f"Work of {identifier}",
+                    name=f"Work of {identifier}",
                     gate="listable",
                 ),
                 display_order=slot * 10,

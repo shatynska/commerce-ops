@@ -49,8 +49,6 @@ from typing import Any, Final
 import pytest
 
 from commerce_ops.launch.domain.launch_playbook import (
-    Binding,
-    ExecutionMode,
     Gate,
     GateOpening,
     Hazard,
@@ -59,6 +57,8 @@ from commerce_ops.launch.domain.launch_playbook import (
     OffsetAnchor,
     Scope,
     StepDefinition,
+    StepKind,
+    StepStatus,
 )
 from commerce_ops.shared.domain.discipline import Discipline
 
@@ -123,16 +123,17 @@ def _step(**overrides: Any) -> StepDefinition:
     """
     attributes: dict[str, Any] = {
         "identifier": "listing.title-conforms",
-        "description": "Work this step asks for",
+        "name": "Work this step asks for",
         "gate": "listable",
         "discipline": _any_discipline(),
         "scope": Scope.PRODUCT,
         "timing_anchor": OffsetAnchor(days=-7),
-        "binding": Binding.FRAMEWORK,
         "blocking": False,
-        "execution": ExecutionMode.HUMAN_ATTESTED,
+        "kind": StepKind.HUMAN,
+        "status": StepStatus.ACTIVE,
+        "needs_confirmation": False,
         "hazard": Hazard.NONE,
-        "rule_policy": None,
+        "automation_brief": None,
         "provenance": None,
     }
     attributes.update(overrides)
@@ -153,8 +154,10 @@ def _hold(gate: str) -> StepDefinition:
         identifier=f"hold.{gate}",
         gate=gate,
         blocking=True,
-        execution=ExecutionMode.AUTOMATED,
-        rule_policy="Held until the automated check reports green.",
+        kind=StepKind.AUTOMATED,
+        status=StepStatus.ACTIVE,
+        automation_brief="Held until the automated check reports green.",
+        handler="fixture.holding_check",
     )
 
 
@@ -302,20 +305,20 @@ def test_unauthored_optional_attributes_are_absent() -> None:
     # exercises the defaults rather than restating them.
     step = StepDefinition(
         identifier="strategy.undecided",
-        description="Work this step asks for",
+        name="Work this step asks for",
         gate="commit",
         discipline=_any_discipline(),
         scope=Scope.PRODUCT,
         timing_anchor=OffsetAnchor(days=-90),
-        binding=Binding.FRAMEWORK,
         blocking=True,
-        execution=ExecutionMode.HUMAN_ATTESTED,
+        kind=StepKind.HUMAN,
+        status=StepStatus.ACTIVE,
     )
 
     (read_back,) = _playbook(steps=(step,)).steps_for_gate("commit")
 
     # SPECIFIED: present only if authored.
-    assert read_back.rule_policy is None
+    assert read_back.automation_brief is None
     assert read_back.provenance is None
     # SPECIFIED: hazard classification defaults to `none` when the author
     # declared nothing, and is one of the three classifications.
@@ -637,71 +640,6 @@ def test_step_referencing_an_unknown_gate_is_rejected() -> None:
     assert "pre-launch" in message
 
 
-def test_automated_step_without_a_rule_policy_is_rejected() -> None:
-    """Scenario: Automation without a decided rule (automated).
-
-    WHEN a step definition declares an automated execution mode and has no
-    rule policy
-    THEN loading fails with an error naming that step.
-    """
-    step = _step(
-        identifier="price.buy-box-check",
-        execution=ExecutionMode.AUTOMATED,
-        rule_policy=None,
-    )
-
-    with pytest.raises(InvalidPlaybookError) as caught:
-        _playbook(steps=(step,))
-
-    # SPECIFIED: the error names that step.
-    assert "price.buy-box-check" in str(caught.value)
-
-
-def test_ai_assisted_step_without_a_rule_policy_is_rejected() -> None:
-    """Scenario: Automation without a decided rule (AI-assisted).
-
-    WHEN a step definition declares an AI-assisted execution mode and has
-    no rule policy
-    THEN loading fails with an error naming that step.
-
-    Covered separately from the automated case because the spec names both
-    modes, and an implementation that checked only one would pass a test
-    covering only the other.
-    """
-    step = _step(
-        identifier="creative.image-brief",
-        execution=ExecutionMode.AI_ASSISTED,
-        rule_policy=None,
-    )
-
-    with pytest.raises(InvalidPlaybookError) as caught:
-        _playbook(steps=(step,))
-
-    # SPECIFIED: the error names that step.
-    assert "creative.image-brief" in str(caught.value)
-
-
-def test_automated_step_with_a_rule_policy_is_accepted() -> None:
-    """Scenario: Automation without a decided rule (the permitted side).
-
-    The rule rejects an automated step *whose rule policy is absent*. This
-    checks the rule is conditioned on the absent policy rather than on the
-    execution mode alone — without it, an implementation that rejected
-    every automated step would pass the two tests above.
-    """
-    step = _step(
-        identifier="price.buy-box-check",
-        execution=ExecutionMode.AUTOMATED,
-        rule_policy="Buy Box share is at or above 90% over a rolling week.",
-        blocking=True,
-    )
-
-    (read_back,) = _playbook(steps=(step,)).steps_for_gate("listable")
-
-    assert read_back.execution is ExecutionMode.AUTOMATED
-    assert read_back.rule_policy is not None
-
-
 def test_prohibited_tactic_marked_blocking_is_rejected() -> None:
     """Scenario: A prohibited tactic cannot block a gate.
 
@@ -810,31 +748,6 @@ def test_a_coherent_playbook_loads() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_human_attested_step_with_no_rule_policy_loads() -> None:
-    """Scenario: Human-attested step with no rule policy.
-
-    WHEN a step definition declares human attestation as its execution mode
-    and has no rule policy
-    THEN the playbook loads successfully and the step reports its rule
-    policy as absent.
-
-    This is the case bulk authoring depends on: a step whose rule is still
-    undecided must load, not block the playbook.
-    """
-    step = _step(
-        identifier="strategy.phase-one-criteria",
-        execution=ExecutionMode.HUMAN_ATTESTED,
-        rule_policy=None,
-        blocking=True,
-    )
-
-    (read_back,) = _playbook(steps=(step,)).steps_for_gate("listable")
-
-    # SPECIFIED: loads successfully, and reports its rule policy as absent.
-    assert read_back.execution is ExecutionMode.HUMAN_ATTESTED
-    assert read_back.rule_policy is None
-
-
 # DELIBERATELY UNTESTED, recorded rather than omitted:
 #
 # - That the domain objects are immutable (`tasks.md` 3.1-3.3). Immutability
@@ -849,7 +762,7 @@ def test_human_attested_step_with_no_rule_policy_loads() -> None:
 #   identifier" is asserted above through the `steps` collection so that no
 #   lookup API is invented here; if the implementation adds one, that is a
 #   free choice, not a constraint from this spec.
-# - The member sets of `Scope`, `Binding`, `ExecutionMode` and `Cadence`
+# - The member sets of `Scope`, `StepKind` and `Cadence`
 #   beyond the members these tests use. Only `Hazard`'s set (three) is
 #   closed by this spec and asserted here; the discipline set (twelve) is
 #   closed by `shared-vocabulary` and asserted in

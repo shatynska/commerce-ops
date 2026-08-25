@@ -402,7 +402,8 @@ class _FakeClickUp:
         return list_id
 
     def seed_task(self, list_id: str, task_id: str, **overrides: Any) -> _FakeTask:
-        task = _FakeTask(id=task_id, name=task_id, list_id=list_id, **overrides)
+        attributes = {"name": task_id, **overrides}
+        task = _FakeTask(id=task_id, list_id=list_id, **attributes)
         self.tasks[task_id] = task
         return task
 
@@ -571,7 +572,8 @@ def _created_named(collaborators: _Collaborators, fragment: str) -> dict[str, An
         f"expected exactly one task created for {fragment!r}, got "
         f"{[payload['name'] for payload in collaborators.clickup.calls_named('create_task')]}"
     )
-    return created[0]
+    payload: dict[str, Any] = created[0]
+    return payload
 
 
 def _task_id_named(collaborators: _Collaborators, fragment: str) -> str:
@@ -1046,7 +1048,9 @@ async def test_an_over_long_name_is_shortened_and_never_spills_into_the_body() -
     displace what an author wrote." The step below carries a description,
     so a shortening rule that still spilled would overwrite it.
     """
-    long_name = "Conform the title to the style guide " + ("and check it " * 40)
+    # Long enough to exceed `CLICKUP_TASK_NAME_LIMIT` (2048, measured
+    # against the live API), which is what the scenario is about.
+    long_name = "Conform the title to the style guide " + ("and check it " * 400)
     authored_body = "The description the author wrote."
     step = _step(
         identifier="listing.title-conforms",

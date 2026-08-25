@@ -56,8 +56,6 @@ from typing import Any, Final
 import pytest
 
 from commerce_ops.launch.domain.launch_playbook import (
-    Binding,
-    ExecutionMode,
     Gate,
     GateOpening,
     Hazard,
@@ -66,6 +64,8 @@ from commerce_ops.launch.domain.launch_playbook import (
     OffsetAnchor,
     Scope,
     StepDefinition,
+    StepKind,
+    StepStatus,
 )
 from commerce_ops.shared.domain.discipline import Discipline
 
@@ -102,16 +102,17 @@ def _gates() -> tuple[Gate, ...]:
 def _step(**overrides: Any) -> StepDefinition:
     attributes: dict[str, Any] = {
         "identifier": "listing.title-conforms",
-        "description": "Work this step asks for",
+        "name": "Work this step asks for",
         "gate": "listable",
         "discipline": next(iter(Discipline)),
         "scope": Scope.PRODUCT,
         "timing_anchor": OffsetAnchor(days=-7),
-        "binding": Binding.FRAMEWORK,
         "blocking": False,
-        "execution": ExecutionMode.HUMAN_ATTESTED,
+        "kind": StepKind.HUMAN,
+        "status": StepStatus.ACTIVE,
+        "needs_confirmation": False,
         "hazard": Hazard.NONE,
-        "rule_policy": None,
+        "automation_brief": None,
         "provenance": None,
     }
     attributes.update(overrides)
@@ -126,16 +127,17 @@ def _holding_step(gate: str) -> StepDefinition:
     """
     return StepDefinition(
         identifier=f"hold.{gate}",
-        description=f"Blocking work holding the {gate} gate",
+        name=f"Blocking work holding the {gate} gate",
         gate=gate,
         discipline=next(iter(Discipline)),
         scope=Scope.PRODUCT,
         timing_anchor=OffsetAnchor(days=0),
-        binding=Binding.FRAMEWORK,
         blocking=True,
-        execution=ExecutionMode.AUTOMATED,
+        kind=StepKind.AUTOMATED,
+        status=StepStatus.ACTIVE,
         hazard=Hazard.NONE,
-        rule_policy="Held until the automated check reports green.",
+        automation_brief="Held until the automated check reports green.",
+        handler="fixture.holding_check",
         provenance=None,
     )
 
@@ -203,24 +205,28 @@ def test_the_floor_fault_is_reported_alongside_another_fault() -> None:
     """Scenario: Multiple violations are reported together — applied to
     the new rule.
 
-    WHEN a playbook leaves a gate unheld and also carries a lesson-bound
-    blocking step
+    WHEN a playbook leaves a gate unheld and also carries a step whose
+    name is empty
     THEN loading fails once, and the failure names both the gate and the
     step.
 
     The delta states the floor is "reported in the same aggregated
     `InvalidPlaybookError` as every other" fault (`tasks.md` 1.1); a rule
     raised eagerly on its own would fail this.
+
+    The second fault was a `lesson`-bound blocking step until
+    `redesign-step-fields` removed `binding` and its one rule; it is
+    re-derived here from a surviving rule rather than dropped, because
+    what this test is about is the aggregation, not either fault.
     """
-    lesson_blocking = _step(
+    nameless = _step(
         identifier="creative.image-advice",
         gate="listable",
-        binding=Binding.LESSON,
-        blocking=True,
+        name="   ",
     )
     steps = (
         *_holding_steps(except_gates=frozenset({"order"})),
-        lesson_blocking,
+        nameless,
     )
 
     # A single raised error is what establishes "fails once".

@@ -216,8 +216,6 @@ class _FakePlaybookRepository:
 
     async def get(self, version: str) -> Any:
         from commerce_ops.launch.domain.launch_playbook import (
-            Binding,
-            ExecutionMode,
             Gate,
             GateOpening,
             Hazard,
@@ -225,6 +223,8 @@ class _FakePlaybookRepository:
             OffsetAnchor,
             Scope,
             StepDefinition,
+            StepKind,
+            StepStatus,
         )
         from commerce_ops.shared.domain.discipline import Discipline
 
@@ -254,16 +254,17 @@ class _FakePlaybookRepository:
         steps = tuple(
             StepDefinition(
                 identifier=f"hold.{gate}",
-                description=f"Blocking work holding the {gate} gate",
+                name=f"Blocking work holding the {gate} gate",
                 gate=gate,
                 discipline=next(iter(Discipline)),
                 scope=Scope.PRODUCT,
                 timing_anchor=OffsetAnchor(days=0),
-                binding=Binding.FRAMEWORK,
                 blocking=True,
-                execution=ExecutionMode.AUTOMATED,
+                kind=StepKind.AUTOMATED,
+                status=StepStatus.ACTIVE,
                 hazard=Hazard.NONE,
-                rule_policy="Held until the automated check reports green.",
+                automation_brief="Held until the automated check reports green.",
+                handler="fixture.holding_check",
                 provenance=None,
             )
             for gate in gate_order

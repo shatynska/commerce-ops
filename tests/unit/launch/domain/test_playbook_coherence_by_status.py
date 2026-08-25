@@ -214,7 +214,7 @@ def test_the_name_is_required_rather_than_defaulted() -> None:
     accepted; what is not accepted is a playbook that loads.
     """
     with pytest.raises((TypeError, InvalidPlaybookError, ValueError)):
-        nameless = StepDefinition(
+        nameless = StepDefinition(  # type: ignore[call-arg]
             identifier="listing.nameless",
             gate="listable",
             discipline=_any_discipline(),

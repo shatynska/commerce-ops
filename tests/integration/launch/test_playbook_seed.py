@@ -91,9 +91,7 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
-from commerce_ops.launch.application import report_undecided_rule_policies
 from commerce_ops.launch.domain.launch_playbook import (
-    ExecutionMode,
     Hazard,
     LaunchPlaybook,
     OffsetAnchor,
@@ -149,11 +147,6 @@ METRIC_RESTATEMENT_ROW_IDS: Final = (
     "lp.finance.036",
 )
 
-MODES_REQUIRING_A_RULE_POLICY: Final = (
-    ExecutionMode.AUTOMATED,
-    ExecutionMode.AI_ASSISTED,
-)
-
 
 @pytest.fixture(scope="module")
 def anyio_backend() -> str:
@@ -200,11 +193,19 @@ async def _served() -> LaunchPlaybook:
 
 
 def _seeded(playbook: LaunchPlaybook) -> tuple[StepDefinition, ...]:
-    """The served seeded steps, guarded against a vacuous pass."""
+    """The **authored** seeded steps, guarded against a vacuous pass.
+
+    Authored rather than served, since `redesign-step-fields`: what the
+    coverage requirements below describe is a property of the seed, and
+    the two seeded `automated` steps land at `in-development` — no
+    runtime registers a handler for them yet — so reading the served set
+    would ask a different question and answer it wrongly."""
     steps = tuple(
-        step for step in playbook.steps if step.identifier.startswith(SEEDED_PREFIX)
+        step
+        for step in playbook.authored_steps
+        if step.identifier.startswith(SEEDED_PREFIX)
     )
-    assert steps, "the served playbook carries no seeded (lp.*) steps"
+    assert steps, "the playbook carries no seeded (lp.*) steps"
     return steps
 
 
@@ -275,8 +276,8 @@ async def test_the_playbook_loads_with_steps_after_seeding() -> None:
     """
     playbook = await _served()
 
-    assert len(tuple(playbook.steps)) > 0
-    gates_with_steps = {step.gate for step in playbook.steps}
+    assert len(tuple(playbook.served_steps)) > 0
+    gates_with_steps = {step.gate for step in playbook.served_steps}
     assert set(SPECIFIED_GATE_ORDER) <= gates_with_steps
 
 
@@ -320,42 +321,6 @@ async def test_every_seeded_step_traces_to_its_source_row() -> None:
     assert mis_segmented == []
 
 
-async def test_every_seeded_step_states_its_work() -> None:
-    """Scenario: A step states its work without the source document.
-
-    WHEN any seeded step is read
-    THEN its description is non-empty.
-    """
-    undescribed = [
-        step.identifier for step in _seeded(await _served()) if not step.description
-    ]
-
-    assert undescribed == []
-
-
-async def test_every_description_re_derives_from_its_reference_row() -> None:
-    """Scenario: Every description re-derives from its reference row.
-
-    WHEN every seeded step's description, before any authored edit to it,
-    is compared against the text of the reference row its identifier
-    names, reduced by the trimming rule
-    THEN each description equals that row's trimmed text exactly.
-
-    Equality, not containment — the delta's transcription is "unaltered".
-    """
-    mismatched: list[tuple[str, str, str]] = []
-    for step in _seeded(await _served()):
-        row = REFERENCE_ROWS.get(step.identifier)
-        if row is None:
-            continue  # reported by the traceability test, not twice
-        _, _, text = row
-        expected = _trimmed(text)
-        if step.description != expected:
-            mismatched.append((step.identifier, step.description, expected))
-
-    assert mismatched == []
-
-
 async def test_gate_authored_conditions_are_not_duplicated_as_steps() -> None:
     """Scenario: A gate-authored condition is not duplicated as a step.
 
@@ -385,7 +350,9 @@ async def test_no_gate_opens_for_free_in_the_served_set() -> None:
     unheld = [
         gate
         for gate in SPECIFIED_GATE_ORDER
-        if not any(step.blocking and step.gate == gate for step in playbook.steps)
+        if not any(
+            step.blocking and step.gate == gate for step in playbook.served_steps
+        )
     ]
     assert unheld == []
 
@@ -426,43 +393,6 @@ async def test_every_discipline_is_represented() -> None:
     )
 
 
-async def test_execution_modes_and_the_compliance_hazard_are_represented() -> None:
-    """Scenario: Execution modes and the compliance hazard are represented.
-
-    WHEN the seeded step set is grouped by execution mode and filtered by
-    hazard
-    THEN each of automated, AI-assisted, and human-attested is represented
-    AND every seeded step whose execution mode requires a rule policy
-    carries one
-    AND at least one `compliance-obligation` step exists.
-    """
-    steps = _seeded(await _served())
-
-    modes = {step.execution for step in steps}
-    missing = [
-        mode.name
-        for mode in (
-            ExecutionMode.AUTOMATED,
-            ExecutionMode.AI_ASSISTED,
-            ExecutionMode.HUMAN_ATTESTED,
-        )
-        if mode not in modes
-    ]
-    assert missing == []
-
-    without_policy = [
-        step.identifier
-        for step in steps
-        if step.execution in MODES_REQUIRING_A_RULE_POLICY and step.rule_policy is None
-    ]
-    assert without_policy == []
-
-    obligations = [
-        step.identifier for step in steps if step.hazard is Hazard.COMPLIANCE_OBLIGATION
-    ]
-    assert obligations != []
-
-
 async def test_prohibited_tactics_are_present_and_never_block() -> None:
     """Scenario: Prohibited tactics are present and never block.
 
@@ -478,21 +408,6 @@ async def test_prohibited_tactics_are_present_and_never_block() -> None:
 
     assert tactics != []
     assert [step.identifier for step in tactics if step.blocking] == []
-
-
-async def test_outstanding_rule_policy_decisions_stay_visible() -> None:
-    """Scenario: Outstanding rule-policy decisions stay visible.
-
-    WHEN the undecided-rule-policies report runs over the served playbook
-    while any human-attested step lacks a decided rule policy
-    THEN it lists exactly those steps.
-    """
-    playbook = await _served()
-    expected = {step.identifier for step in playbook.steps if step.rule_policy is None}
-
-    reported = {row.identifier for row in report_undecided_rule_policies(playbook)}
-
-    assert reported == expected
 
 
 # ---------------------------------------------------------------------------

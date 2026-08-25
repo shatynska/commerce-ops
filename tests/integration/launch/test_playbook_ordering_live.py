@@ -57,14 +57,15 @@ from commerce_ops.launch.application import (
     reorder_step,
     retire_step,
     unretire_step,
+    update_step,
 )
 from commerce_ops.launch.domain.launch_playbook import (
-    Binding,
-    ExecutionMode,
     Hazard,
     LaunchPlaybook,
     OffsetAnchor,
     Scope,
+    StepKind,
+    StepStatus,
 )
 from commerce_ops.launch.infrastructure.driven import playbook_repository
 from commerce_ops.shared.domain.discipline import Discipline
@@ -134,16 +135,17 @@ async def _gate_order() -> list[str]:
 
 def _authorable_fields(description: str) -> dict[str, Any]:
     return {
-        "description": description,
+        "name": description,
         "gate": GATE,
         "discipline": A_DISCIPLINE,
         "scope": Scope.PRODUCT,
         "timing_anchor": OffsetAnchor(days=-3),
-        "binding": Binding.FRAMEWORK,
         "blocking": False,
-        "execution": ExecutionMode.HUMAN_ATTESTED,
+        "kind": StepKind.HUMAN,
+        "status": StepStatus.ACTIVE,
+        "needs_confirmation": False,
         "hazard": Hazard.NONE,
-        "rule_policy": None,
+        "automation_brief": None,
     }
 
 
@@ -164,7 +166,7 @@ async def _create(description: str) -> str:
     created = [
         step.identifier
         for step in (await _served()).steps
-        if step.identifier not in before and step.description == description
+        if step.identifier not in before and step.name == description
     ]
     assert len(created) == 1
     return created[0]
@@ -193,6 +195,24 @@ async def _unretire(step_id: str) -> None:
     async with _session() as session:
         await _maybe_await(
             unretire_step(steps=_store(session), principal=PRINCIPAL, step_id=step_id)
+        )
+
+
+async def _activate(step_id: str) -> None:
+    """The separate deliberate act un-retiring no longer performs.
+
+    `redesign-step-fields`: un-retiring returns a step to
+    `in-development` — a step retired months ago may name an assignee who
+    has since left — so it is served again only once someone activates
+    it."""
+    async with _session() as session:
+        await _maybe_await(
+            update_step(
+                steps=_store(session),
+                principal=PRINCIPAL,
+                step_id=step_id,
+                status=StepStatus.ACTIVE,
+            )
         )
 
 
@@ -274,10 +294,15 @@ async def test_an_unretired_step_is_served_last_whatever_slot_it_held() -> None:
     """Scenarios: An un-retired step rejoins at the end / Retirement
     closes the gap — the serving halves.
 
-    WHEN a step holding the gate's first slot is retired and later
-    un-retired
-    THEN while retired, the remaining steps keep their relative order,
-    and on rejoining it is served as the gate's last step.
+    WHEN a step holding the gate's first slot is retired, later
+    un-retired, and activated
+    THEN while it is out of the served set, the remaining steps keep
+    their relative order, and on rejoining it is served as the gate's
+    last step.
+
+    Three acts, not two, since `redesign-step-fields`: un-retiring lands
+    the step at `in-development`, where it holds no slot, and activating
+    it is what returns it to the order.
     """
     identifier = await _create(_unique_description("Roundtrip work"))
     try:
@@ -290,6 +315,10 @@ async def test_an_unretired_step_is_served_last_whatever_slot_it_held() -> None:
         assert await _gate_order() == others_before
 
         await _unretire(identifier)
+        # SPECIFIED: still out of the served order until it is activated.
+        assert await _gate_order() == others_before
+
+        await _activate(identifier)
         # SPECIFIED: rejoins last, not in its remembered first slot.
         assert await _gate_order() == [*others_before, identifier]
     finally:
