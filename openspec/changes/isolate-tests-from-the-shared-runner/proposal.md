@@ -19,6 +19,10 @@ the A/B result.
   `tests/integration/shared/test_periodic_defer_dedup.py` run a worker whose
   periodic deferrer sees an empty registry, as they did before any sibling
   module called `register_all()`.
+- `tests/integration/conftest.py` gains a guard that fails loudly if any test
+  starts a worker against a non-empty shared registry — so the rule holds for
+  tests nobody has written yet, not only for the two files that exhibit the
+  defect today.
 - `_drain()` gains a ceiling, so a future wedge in the runner fails the test
   that caused it instead of hanging the session. A bound, not a cure — kept
   because a suite that can hang indefinitely is not a suite.
@@ -27,9 +31,12 @@ the A/B result.
   `launch.clickup.completion_pass`, `shared.scheduled_runs.overdue_check` and
   `products.monitoring.daily` that were deferred by test runs rather than by
   a worker.
-- `docs/deferred-work.md`'s entry "The integration tier hangs intermittently
-  when two files run together" is replaced by the confirmed mechanism, or
-  deleted if this change closes it outright.
+- `docs/deferred-work.md`'s entry on the hang is rewritten with the confirmed
+  mechanism (already done, in this change's first commit, under the heading
+  "The integration tier hangs intermittently — cause identified 2026-08-25"),
+  and is deleted on merge along with "Tests defer and run production jobs",
+  since both stop being true when this ships. "The upstream properties this
+  depends on" survives them.
 
 ## Capabilities
 
@@ -58,6 +65,7 @@ describe a defect that does not exist in the system being specified.
   stall lands in.
 - `tests/integration/shared/test_periodic_defer_dedup.py` — same exposure
   through `runner_app.run_worker_async()`, not yet observed to stall.
+- `tests/integration/conftest.py` — gains the tier-level guard.
 - The four integration modules whose import arms the registry
   (`test_known_work_anchor.py`, `test_overdue_report_suppression_store.py`,
   `test_scheduled_runs_freshness_cache.py`,
@@ -65,6 +73,13 @@ describe a defect that does not exist in the system being specified.
   `register_all()` call is correct for what each of them tests; the defect is
   that a *different* file inherits its effect.
 - `docs/deferred-work.md`.
+- **The developer's database**, one-off and irreversible: the
+  `procrastinate_jobs` rows for the four production task names, and their
+  `procrastinate_events` / `procrastinate_periodic_defers` children, are
+  deleted. The database is the one the tier resolves — `DATABASE_URL`, else
+  `.env.test`, else `.env` — named explicitly before anything is deleted.
+  **Not** the deployment's database, whose rows for those names are genuine
+  runs.
 - No change to `src/`, to the schema, or to any deployed behaviour.
 - CI: the `timeout-minutes: 15` ceiling `verify-the-integration-tier` added
   stays. It was a mitigation for this defect and remains worth having.

@@ -160,7 +160,9 @@ the quiet half.
 
 - The runner tests drive a periodic registry they own, so no sibling module's
   import can change what they execute.
-- No test can defer or run a production job.
+- No test can defer or run a production job — enforced for the tier, not
+  only for the two files that exhibit the defect today (see Decision 1's
+  second half).
 - A future wedge inside `run_worker_async` fails a test rather than hanging
   the session.
 
@@ -191,10 +193,28 @@ tests.
 
 **Rejected: a fixture that saves, empties and restores
 `runner_app.periodic_registry`.** Smaller, and it would work. It is rejected
-because it leaves the coupling in place and depends on every future runner
-test remembering to request the fixture — the same "one shared global, many
-uncoordinated users" shape that produced the defect. It also keeps the tests
-mutating an object the application owns.
+because it keeps the tests mutating an object the application owns.
+
+The *other* reason an earlier draft gave — that it "depends on every future
+runner test remembering to request the fixture" — does not survive scrutiny,
+because it applies verbatim to the private App: that too depends on every
+future runner test remembering to build one. Two files are fixed either way,
+and the tier stays armed either way. Goal 2 says *no test* can defer a
+production job, and neither shape delivers that.
+
+**So Decision 1 is not sufficient on its own, and gains a second half.**
+`tests/integration/conftest.py` gets a session-scoped autouse guard that fails
+loudly if `runner_app.periodic_registry` is non-empty when a worker is started
+against it. The two compose rather than compete: the private App is what these
+tests drive, and the guard is what makes the goal true for tests nobody has
+written yet — it asks nothing of a future author, which is the property the
+rejected fixture lacked and the private App does not supply either.
+
+The guard belongs in the tier's own conftest rather than in either test file,
+for the same reason the database rule was moved there: a rule living in every
+file is owned by none. It is a small widening of this change's footprint into
+shared test infrastructure, and it is deliberate — without it, the change's
+second Goal is a sentence rather than a property.
 
 The cost of the chosen shape is real and should be stated: these tests then
 exercise *a* procrastinate App rather than *this application's* App, which
@@ -202,13 +222,35 @@ exercise *a* procrastinate App rather than *this application's* App, which
 the shared one ("what is exercised is this application's runner, its schema
 migration and its accessor"). That reason survives: the schema migration and
 `last_successful_run` are unchanged, and both are what those tests actually
-assert. What is lost is only the shared *registry*, which those tests never
-meant to exercise.
+assert. What is lost is the shared *registry*, which those tests never meant to
+exercise, and the shared `App` object itself — its connector wiring and its
+periodic defaults. The loss stops there only because the tasks require reusing
+`_queue_pool`, `queue_conninfo` and `PERIODIC_DEFAULTS` by name rather than
+re-deriving them, and because `test_job_runner_schedules.py` still reads
+`runner_app.periodic_registry` and `runner_app.periodic_defaults` directly.
 
-### Decision 2 — Bound `_drain()`, and keep the bound after the fix
+### Decision 2 — Bound `_drain()` without awaiting what it gave up on
 
-`asyncio.wait_for` around `run_worker_async`, with a ceiling generous enough
-that it can only be reached by a wedge, never by slow I/O.
+`asyncio.wait({task}, timeout=CEILING)` over the worker run started as its own
+task, failing the test when the task is still pending — **not**
+`asyncio.wait_for`, with a ceiling generous enough that it can only be reached
+by a wedge, never by slow I/O.
+
+The distinction is the whole point, and an earlier draft got it wrong.
+`asyncio.wait_for` cancels the awaiting task and then *waits for the cancelled
+coroutine to finish*. Against a coroutine that ignores cancellation — which is
+the defect class this document exists to describe — it hangs instead of
+failing: the cancellation lands on `utils.py:232`'s `_GatheringFuture`, which
+re-cancels the deferrer and keeps waiting, and if that second cancellation is
+swallowed at `pool_async.py:266` exactly as the first was, nothing is ever
+delivered. A wedge-detector that cannot detect this wedge is not worth
+shipping.
+
+`asyncio.wait` never awaits what it timed out on, so it fails deterministically
+whatever the worker does with its cancellation. The trade-off it accepts, and
+the failure message must say so: the orphaned worker task survives the failing
+test and the loop teardown will complain about it. A noisy failure is strictly
+better than a session that never ends.
 
 Kept rather than removed once Decision 1 lands, on the same reasoning
 `verify-the-integration-tier` used for `timeout-minutes`: this defect was
@@ -220,9 +262,18 @@ in a shape nobody has thought of — into a named failing test.
 
 `briefing.daily`, `launch.clickup.completion_pass`,
 `shared.scheduled_runs.overdue_check` and `products.monitoring.daily` rows in
-the development database's `procrastinate_jobs` were written by test runs.
-They are not evidence of anything and they distort
-`last_successful_run`, which the overdue reporter reads.
+the development database's `procrastinate_jobs` distort `last_successful_run`,
+which the overdue reporter reads to decide what is overdue.
+
+**The justification is that, not provenance.** It is tempting to say these rows
+"were written by tests rather than by a worker", and this document said so in
+an earlier draft — but procrastinate's schema records no deferring process, so
+nothing distinguishes a test-deferred row from one a locally run
+`python -m commerce_ops.worker` produced. The weaker ground is sufficient:
+these are rows in a *developer's* database feeding a *developer's*
+last-success reads, and no deployment state depends on them. Whoever runs the
+deletion should state whether a worker has ever been run against that database,
+so the next reader knows what was actually established.
 
 Scoped to the developer database named by `.env` / `.env.test`. **Not** the
 deployment: production rows there are genuine runs and must not be touched.
@@ -231,6 +282,12 @@ it is dead by a second route.
 
 ## Risks / Trade-offs
 
+- **The tier-level guard widens this change into shared test infrastructure.**
+  → Accepted deliberately; without it Goal 2 covers two files rather than the
+  tier. The guard only reads `runner_app.periodic_registry` and fails — it
+  mutates nothing, so a file that legitimately wants the shared registry
+  armed (the four that call `register_all()`) is unaffected unless it also
+  starts a worker.
 - **A private App means the runner tests no longer exercise the shared one.**
   → `test_job_runner_schedules.py` and `test_known_work_anchor.py` already
   assert what the shared registry contains, and they keep doing so. The
@@ -245,15 +302,30 @@ it is dead by a second route.
 - **Deleting rows in a database this project does not own the state of.** →
   Development database only, named explicitly, and every affected task name
   listed before anything is deleted.
-- **The upstream behaviours remain.** → Any future code that cancels a task
-  which touches psycopg_pool inherits the same trap. `src/` has no such
-  caller today. Worth recording in `docs/deferred-work.md` as a known
-  property of the dependency rather than treating it as closed.
+- **The upstream behaviours remain, and `src/` already has a caller.** →
+  `worker.py:56` calls `register_all()` and `worker.py:141` calls
+  `app.run_worker_async()` with `install_signal_handlers` defaulting to
+  `True`, so the deployed worker runs procrastinate's cancel-and-gather path
+  over a periodic deferrer touching `psycopg_pool` on **every** SIGTERM, with
+  all three real jobs registered — the identical window, in production, on
+  every redeploy. What bounds it there is not absence but Docker's stop grace
+  period: a shutdown that wedges is ended by SIGKILL rather than hanging
+  forever. Benign in effect, and worth recording as a known property of the
+  dependency rather than treating it as closed. An earlier draft of this
+  document claimed `src/` had no such caller; it is wrong and the correction
+  matters, because it is what connects a worker killed on stop to this
+  mechanism.
 
 ## Migration Plan
 
-None. Tests and documentation only; no schema change, no deployed behaviour,
-revertible as a code change alone.
+No schema change, no deployed behaviour, and `src/` untouched — the code half
+is revertible as a code change alone.
+
+Section 4 is not. Deleting rows from a developer's `procrastinate_jobs` is a
+one-off, irreversible data operation, outside the revert path and outside CI.
+It is included because the rows distort a live read, not because the code
+change needs it; a revert of the code leaves the deletion standing, which is
+harmless and worth stating rather than discovering.
 
 ## Open Questions
 

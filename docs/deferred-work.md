@@ -214,9 +214,17 @@ carries the captured await chain and the experiment.
 
 ### The upstream properties this depends on
 
-Both remain true whatever this project does about its tests, and the next
-caller that cancels a task touching the connection pool inherits them.
-`src/` has no such caller today.
+Both remain true whatever this project does about its tests, and any caller
+that cancels a task touching the connection pool inherits them.
+
+**`src/` already has one.** `worker.py:56` calls `register_all()` and
+`worker.py:141` calls `app.run_worker_async()` with `install_signal_handlers`
+defaulting to `True`, so the deployed worker runs this same cancel-and-gather
+path over a periodic deferrer on **every** SIGTERM, with all three real jobs
+registered. What bounds it there is not absence but Docker's stop grace
+period: a wedged shutdown is ended by SIGKILL rather than hanging forever.
+Benign in effect — but if a worker is ever seen being killed on stop rather
+than exiting cleanly, this is the mechanism to look at first.
 
 - `procrastinate`'s `cancel_and_capture_errors` (`utils.py:232`) gathers side
   tasks with no timeout after a single `cancel()`.
