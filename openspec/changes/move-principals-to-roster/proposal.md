@@ -19,7 +19,7 @@ Deliberately out of scope: roles / information-kind access (a later change adds 
 
 ### New Capabilities
 
-- `roster`: the people directory — the person entity and its coherence rules, the validated write use cases with attribution, last-admin refusal, deactivation-not-deletion, and the startup bootstrap of the first admin.
+- `roster`: the people directory — the person entity and its coherence rules, the validated write use cases with attribution, last-admin refusal, deactivation-not-deletion, and the pre-serving bootstrap of the first admin.
 - `roster-admin`: the admin surface's roster page — listing, creating, editing, deactivating and reactivating people from the browser.
 
 ### Modified Capabilities

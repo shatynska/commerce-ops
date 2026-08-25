@@ -22,4 +22,4 @@ The `app` service SHALL wait until the Postgres service reports healthy before s
 #### Scenario: The seeding step is bound as a session-obtaining process
 
 - **WHEN** the seeding step has obtained a database session and then exits, whether it succeeded or failed
-- **THEN** `database-session`'s obligation on every process that obtains a session governs it, exactly as it governs the process serving HTTP
+- **THEN** it releases its connections rather than leaving them for the database to reclaim on its own timeouts, which `database-session` requires of every process that obtains a session

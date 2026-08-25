@@ -72,7 +72,7 @@ expected pre-implementation state, not a defect in the tests.
 | File | Covers |
 | --- | --- |
 | `tests/unit/access/application/test_roster_writes.py` | `roster` — requirements 1–4 (12 scenarios) |
-| `tests/unit/access/application/test_roster_bootstrap.py` | `roster` — requirement 5, the startup seed (6 scenarios) |
+| `tests/unit/access/application/test_roster_bootstrap.py` | `roster` — requirement 5, the pre-serving seed (7 scenarios) |
 | `tests/unit/access/application/test_roster_scope_resolution.py` | `access-scope` — ADDED scope resolution (3) + MODIFIED unknown asker (1) |
 | `tests/unit/access/application/test_roster_admin_capability.py` | `access-scope` — ADDED admin capability (5 scenarios) |
 | `tests/unit/access/application/test_admin_session_over_roster.py` | `admin-session` — MODIFIED, the roster-side scenarios (5) |
@@ -129,10 +129,11 @@ SUPERSEDED above): the `roster` delta gained three scenarios, and the
 | App serves no traffic until the first admin is seeded | *uncovered* — the container's `CMD`, observable only by running the image |
 | The seeding step is bound as a session-obtaining process | *uncovered* — `database-session` owns the obligation; asserting it needs a real process boundary |
 
-All four are recorded in *Uncovered* below rather than left implicit: the
-two pre-existing ones because this change does not alter them, the two new
-ones because the start chain is a Dockerfile `CMD` and no tier this project
-runs starts a container.
+All four carry their reason in the table above rather than in *Uncovered*
+below: the two pre-existing ones because this change does not alter them,
+the two new ones because the start chain is a Dockerfile `CMD` and no tier
+this project runs starts a container. They are counted in the totals, not
+omitted from them.
 
 Requirement sentences with no scenario of their own, also asserted:
 
@@ -223,7 +224,7 @@ the thought.
    has no test.
    **Recommendation:** an integration-tier test mirroring whatever
    `tests/integration/launch/test_playbook_authoring_live.py` does for the
-   step store, including the stale-version race (`tasks.md` 5.5 already
+   step store, including the stale-version race (`tasks.md` 5.8 already
    asks for this).
 4. **The optimistic-versioning retry on a lost race** (`tasks.md` 2.1). No
    delta scenario states it — `design.md` Decision 5 explicitly declines
@@ -257,7 +258,7 @@ Summary:
   - discrimination guards ("the same call answers `True` for the other
     identity"), which exist so a constant-answer implementation cannot
     pass a `False`-only test.
-- **DELIBERATELY UNTESTED** — the five items in *Uncovered, and why*.
+- **DELIBERATELY UNTESTED** — the five items in *Uncovered, and why*, plus the four `deploy-pipeline` scenarios whose reasons sit in that delta's coverage block above.
 
 ## Unresolved project questions
 
