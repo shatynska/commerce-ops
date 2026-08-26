@@ -24,16 +24,40 @@
   </ul>
 {%- endif %}
 {%- endmacro %}
-{% if include_discipline %}
-<label>Discipline
-  <select name="discipline">
-    {% for option in discipline_options %}
-    <option value="{{ option }}"{% if option == values.get("discipline", discipline_options[0]) %} selected{% endif %}>{{ option }}</option>
+{# The controls are grouped into sections purely to be read: eleven of them
+   in one column above the two fieldsets that already existed is a form an
+   author scrolls rather than scans. The grouping is presentation and
+   implements no requirement, so it is bounded — see `design.md`, *Field
+   grouping is presentation, and carries three hard bounds*:
+
+   1. No field is added, removed or renamed. Every control below is the
+      same control under the same name, submitting the same values; the
+      wrapping and the sequence changed, and nothing else.
+   2. No mark is separated from the control it concerns. Each `marked()`
+      call stays inside its own control's `<label>`, exactly where it was.
+   3. The anchor and automation fieldsets keep their existing semantics —
+      `hidden` on the anchor inputs, `disabled` on the automation controls.
+      Grouping wraps; it does not re-decide which controls are offered.
+
+   The sequence runs from what an author decides first to what they decide
+   last: the step's lifecycle and what it is, then where it sits, then what
+   it covers, then when it comes due, and only then how it gets resolved.
+   Automation is last because it is the one section most steps never
+   touch. #}
+<fieldset class="field-group">
+  <legend>The work</legend>
+{# First because it is the decision that governs every other: a `draft`
+   is a sketch nobody is held to, and an `active` step is work a launch
+   waits on. An author who fills eleven fields before discovering which
+   one they were writing has filled them under the wrong assumption. #}
+<label>Status
+  <select name="status">
+    {% for option, label in status_options %}
+    <option value="{{ option }}"{% if option == values.get("status", "draft") %} selected{% endif %}>{{ label }}</option>
     {% endfor %}
   </select>
-  {{ marked(marks, "discipline") }}
+  {{ marked(marks, "status") }}
 </label>
-{% endif %}
 {# Two inputs, two audiences: the name is what a person scans in a list of
    work and becomes the task's name, so it is one line; the description is
    what they read once they have decided to do it, so it takes as many as
@@ -46,15 +70,9 @@
   <textarea name="description" rows="4">{{ values.get("description", "") }}</textarea>
   {{ marked(marks, "description") }}
 </label>
-<label>Assignees
-  <select name="assignees" multiple size="4">
-    {% for identifier, display_name in assignee_options %}
-    <option value="{{ identifier }}"{% if identifier in values.get("assignees", []) %} selected{% endif %}>{{ display_name }}</option>
-    {% endfor %}
-  </select>
-  <small>The roster's active people. An active human step needs at least one.</small>
-  {{ marked(marks, "assignees") }}
-</label>
+</fieldset>
+<fieldset class="field-group">
+  <legend>Where it sits</legend>
 <label>Gate
   <select name="gate">
     {% for option in gate_options %}
@@ -63,6 +81,19 @@
   </select>
   {{ marked(marks, "gate") }}
 </label>
+{% if include_discipline %}
+<label>Discipline
+  <select name="discipline">
+    {% for option in discipline_options %}
+    <option value="{{ option }}"{% if option == values.get("discipline", discipline_options[0]) %} selected{% endif %}>{{ option }}</option>
+    {% endfor %}
+  </select>
+  {{ marked(marks, "discipline") }}
+</label>
+{% endif %}
+</fieldset>
+<fieldset class="field-group">
+  <legend>What it covers</legend>
 <label>Scope
   <select name="scope">
     {% for option in scope_options %}
@@ -78,30 +109,6 @@
   </select>
   {{ marked(marks, "blocking") }}
 </label>
-<label>Kind
-  <select name="kind">
-    {% for option in kind_options %}
-    <option value="{{ option }}"{% if option == values.get("kind", "human") %} selected{% endif %}>{{ option }}</option>
-    {% endfor %}
-  </select>
-  {{ marked(marks, "kind") }}
-</label>
-<label>Needs confirmation
-  <select name="needs_confirmation">
-    <option value="false"{% if values.get("needs_confirmation", "false") not in ("true", "on", "1", "yes") %} selected{% endif %}>no</option>
-    <option value="true"{% if values.get("needs_confirmation", "false") in ("true", "on", "1", "yes") %} selected{% endif %}>yes — a person accepts the result</option>
-  </select>
-  <small>Meaningless on a human step: the person doing the work is the person attesting it.</small>
-  {{ marked(marks, "needs_confirmation") }}
-</label>
-<label>Status
-  <select name="status">
-    {% for option, label in status_options %}
-    <option value="{{ option }}"{% if option == values.get("status", "draft") %} selected{% endif %}>{{ label }}</option>
-    {% endfor %}
-  </select>
-  {{ marked(marks, "status") }}
-</label>
 <label>Hazard
   <select name="hazard">
     {% for option in hazard_options %}
@@ -110,6 +117,7 @@
   </select>
   {{ marked(marks, "hazard") }}
 </label>
+</fieldset>
 {# An anchor kind uses at most two of the four inputs, and the form said
    nothing about which. The unused ones render `hidden` — *not* `disabled`
    like the automation fields below, and the difference is the whole
@@ -191,6 +199,55 @@
     });
   })();
 </script>
+<fieldset class="field-group">
+  <legend>How it is resolved</legend>
+<label>Needs confirmation
+  <select name="needs_confirmation">
+    <option value="false"{% if values.get("needs_confirmation", "false") not in ("true", "on", "1", "yes") %} selected{% endif %}>no</option>
+    <option value="true"{% if values.get("needs_confirmation", "false") in ("true", "on", "1", "yes") %} selected{% endif %}>yes — a person accepts the result</option>
+  </select>
+  <small>Meaningless on a human step: the person doing the work is the person attesting it.</small>
+  {{ marked(marks, "needs_confirmation") }}
+</label>
+{# Offered when a person is involved at all — either they do the work
+   (`kind` is `human`) or they accept its result (`needs_confirmation`).
+   An automated step nobody has to sign off names nobody, and asking who
+   owns it invites an answer the step has no use for.
+
+   The condition is deliberately the *disjunction*. Gating on
+   `needs_confirmation` alone would hide the picker for an ordinary human
+   step — the great majority of the set — and those are exactly the steps
+   the write refuses without an assignee, so an author would be told to
+   name one with no field to name it in.
+
+   `hidden` on the LABEL, never on the `<select>`: a hidden field still
+   submits, so an assignee already chosen survives an author reconsidering
+   the kind. This is the same rule the anchor groups follow, and
+   `design.md` records why moving it to the control would break it. And
+   pinned open when marked, for the reason the automation section is —
+   "an active human step names no active assignee" marks this control. #}
+{% set assignees_marked = marks.get("assignees") %}
+{% set person_involved = values.get("kind", "human") == "human"
+     or values.get("needs_confirmation", "false") in ("true", "on", "1", "yes") %}
+<label data-assignees-group="{{ 'pinned' if assignees_marked else 'toggles' }}"
+       {%- if not person_involved and not assignees_marked %} hidden{% endif %}>Assignees
+  <select name="assignees" multiple size="4">
+    {% for identifier, display_name in assignee_options %}
+    <option value="{{ identifier }}"{% if identifier in values.get("assignees", []) %} selected{% endif %}>{{ display_name }}</option>
+    {% endfor %}
+  </select>
+  <small>The roster's active people. An active human step needs at least one.</small>
+  {{ marked(marks, "assignees") }}
+</label>
+<label>Kind
+  <select name="kind">
+    {% for option in kind_options %}
+    <option value="{{ option }}"{% if option == values.get("kind", "human") %} selected{% endif %}>{{ option }}</option>
+    {% endfor %}
+  </select>
+  {{ marked(marks, "kind") }}
+</label>
+</fieldset>
 {# Automation carries no meaning for a human step, so the controls render
    disabled there rather than inviting a value the write would refuse.
    Disabled and not removed: an author flipping the kind can see what the
@@ -199,7 +256,27 @@
    a brief or a handler — and telling the admin which pair was refused is
    the point, so it renders exactly as any other mark does. #}
 {% set automated = values.get("kind", "human") == "automated" %}
-<fieldset{% if not automated %} class="inapplicable"{% endif %}>
+{# The section is hidden for a kind that cannot use it, the way the anchor
+   groups are — an author writing a human step is not asked to read past
+   two fields that carry no meaning for it.
+
+   **Except when it carries a mark.** A `human` step submitted with a brief
+   is refused for the pair and marks BOTH halves, so this is the one
+   not-offered control a fault can actually land on. Hiding it then would
+   put a fault in the response and nowhere on the page, which is exactly
+   what `attribute-faults-to-fields` guarantees against and what this
+   change's own *The vocabulary never suppresses a marked control's fault*
+   forbids. So a marked section is pinned open, and the script below
+   leaves a pinned section alone.
+
+   This is why the anchor groups need no such exception and this does: a
+   mark can never land on a not-offered anchor input, because the parse
+   reads only the inputs the submitted kind uses. Automation is the
+   opposite case, and it is the reason the two are not symmetrical. #}
+{% set automation_marked = marks.get("automation_brief") or marks.get("handler") %}
+<fieldset data-automation-group="{{ 'pinned' if automation_marked else 'toggles' }}"
+          {%- if not automated %} class="inapplicable"{% endif %}
+          {%- if not automated and not automation_marked %} hidden{% endif %}>
   <legend>Automation (automated steps only)</legend>
   <label>Automation brief
     <textarea name="automation_brief" rows="2"{% if not automated %} disabled{% endif %}>{{ values.get("automation_brief", "") }}</textarea>
@@ -212,3 +289,51 @@
     {{ marked(marks, "handler") }}
   </label>
 </fieldset>
+{# Inside the swapped region with the fields it serves, for the reason the
+   anchor script above records: the edit surface arrives by a boosted swap
+   that replaces only `body`'s innerHTML, so a `<head>` script never runs
+   there.
+
+   It moves `disabled` as well as `hidden`, which the anchor script does
+   not need to. The server disables these controls for a kind that cannot
+   use them so their values never reach the write; revealing them still
+   disabled would offer an author a box they cannot type in. Flipping the
+   kind back disables them again, so what submits still matches the kind
+   that is selected. Without the script the rendered kind is still
+   correct — the degradation is live-to-per-render, as with the anchor. #}
+{# One block, and placed here rather than beside each group it serves,
+   because it reads `kind` — which is rendered *after* the assignees group
+   it also governs. A script beside that group would run during parsing,
+   find no `kind` select yet, and bind nothing. #}
+<script>
+  (function () {
+    var kind = document.querySelector('select[name="kind"]');
+    var confirmation = document.querySelector('select[name="needs_confirmation"]');
+    var automation = document.querySelector("[data-automation-group]");
+    var assignees = document.querySelector("[data-assignees-group]");
+    if (!kind) return;
+
+    var truthy = { "true": 1, on: 1, "1": 1, yes: 1 };
+
+    function apply() {
+      var automated = kind.value === "automated";
+      if (automation) {
+        if (automation.dataset.automationGroup !== "pinned") {
+          automation.hidden = !automated;
+        }
+        automation.classList.toggle("inapplicable", !automated);
+        automation.querySelectorAll("textarea, input").forEach(function (control) {
+          control.disabled = !automated;
+        });
+      }
+      if (assignees && assignees.dataset.assigneesGroup !== "pinned") {
+        // A person does the work, or a person accepts its result.
+        var confirmed = confirmation && truthy[confirmation.value] === 1;
+        assignees.hidden = !(!automated || confirmed);
+      }
+    }
+
+    kind.addEventListener("change", apply);
+    if (confirmation) confirmation.addEventListener("change", apply);
+  })();
+</script>

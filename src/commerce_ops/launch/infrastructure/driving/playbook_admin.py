@@ -37,7 +37,7 @@ from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
-from jinja2 import Environment, FileSystemLoader, select_autoescape
+from jinja2 import ChoiceLoader, Environment, FileSystemLoader, select_autoescape
 
 from commerce_ops.access.application import list_people, verify_admin_session
 from commerce_ops.launch.application import (
@@ -70,6 +70,7 @@ from commerce_ops.launch.infrastructure.driven.playbook_repository import (
 )
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.infrastructure.driven.database import session
+from commerce_ops.shared.infrastructure.driving.admin_assets import TEMPLATES_DIR
 
 __all__ = [
     "admin_sessions",
@@ -110,8 +111,15 @@ PAGE_PATH: Final = "/admin/playbook"
 
 _STATIC_DIR: Final = Path(__file__).parent / "static"
 
+# Own templates first, then the shared ones: the admin header is one
+# partial both surfaces include, so neither module owns a copy of it.
 _TEMPLATES: Final = Environment(
-    loader=FileSystemLoader(Path(__file__).parent / "templates"),
+    loader=ChoiceLoader(
+        [
+            FileSystemLoader(Path(__file__).parent / "templates"),
+            FileSystemLoader(TEMPLATES_DIR),
+        ]
+    ),
     autoescape=select_autoescape(default=True, default_for_string=True),
 )
 

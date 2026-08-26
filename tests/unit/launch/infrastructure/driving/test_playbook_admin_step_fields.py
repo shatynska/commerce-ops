@@ -508,20 +508,36 @@ def _status_value(status: StepStatus) -> str:
     return str(value) if isinstance(value, str) else status.name.lower()
 
 
+def _row_of(html: str, step_id: str) -> str:
+    """The step's own table row.
+
+    Anchored on the addressing `id` the list renders for each step, rather
+    than on the first occurrence of the identifier anywhere in the page. A
+    reorder control names the *neighbour* it would come to rest after —
+    `<input name="after" value="listing.shared">` sits in the row above —
+    so a bare `find` can land in a different step's row and read a window
+    that never reaches this one's cells.
+    """
+    at = html.find(f'id="step-{step_id}"')
+    if at < 0:
+        return ""
+    opened = html.rfind("<tr", 0, at)
+    closed = html.find("</tr>", at)
+    return html[opened if opened >= 0 else at : closed if closed >= 0 else len(html)]
+
+
 def _row_marks_status(html: str, step_id: str, status: StepStatus) -> bool:
     """Whether the step's row makes its status legible.
 
     DERIVED reading of "SHALL make each step's status legible": the
-    status's own word appears within the rendered region following the
-    step's identifier and before the next step's. Correction point for
-    the marker.
+    status's own word appears within the step's own row. Correction point
+    for the marker.
     """
-    at = html.find(step_id)
-    if at < 0:
+    row = _row_of(html, step_id).lower()
+    if not row:
         return False
-    window = html[at : at + 2000]
     word = _status_value(status).replace("_", "-")
-    return word in window.lower() or word.replace("-", " ") in window.lower()
+    return word in row or word.replace("-", " ") in row
 
 
 def _listable_extras() -> tuple[_Record, ...]:
@@ -839,12 +855,11 @@ def test_assignees_are_visible_on_the_table(
 
     html = _get_page(client)
 
-    at = html.find("listing.shared")
-    assert at >= 0
-    window = html[at : at + 2000]
+    row = _row_of(html, "listing.shared")
+    assert row, "the list renders no row for listing.shared"
     # SPECIFIED: both, by display name — not by generated identifier.
-    assert ALICE_NAME in window
-    assert BOHDAN_NAME in window
+    assert ALICE_NAME in row
+    assert BOHDAN_NAME in row
 
 
 # ---------------------------------------------------------------------------

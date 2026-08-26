@@ -1,0 +1,724 @@
+/*
+ * The admin surfaces' shared presentation vocabulary.
+ *
+ * A token and density layer *over* Pico v2, which stays as the form-control
+ * substrate. Both admin surfaces — the playbook page and the roster page —
+ * load this file from one URL, so a presentation fix reaches both rather
+ * than one.
+ *
+ * Served exactly as committed: no build, compile, bundle or subsetting step
+ * stands between this file and what a browser receives. That is why the type
+ * layer is a system stack and nothing binary is committed.
+ */
+
+/* ---------------------------------------------------------------------------
+ * Tokens
+ * ------------------------------------------------------------------------ */
+
+:root {
+  --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
+    Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+    "Liberation Mono", monospace;
+
+  --space-hair: 0.15rem;
+  --space-tight: 0.3rem;
+  --space-snug: 0.5rem;
+  --space-loose: 1rem;
+
+  --size-fine: 0.75rem;
+  --size-small: 0.85rem;
+  --size-body: 0.95rem;
+
+  /* One action's box, top to bottom: the small type's line box plus its
+     vertical padding and both borders. Named so the square reorder arrows
+     can take it as a width and stay square if the scale is retuned. */
+  --control-height: calc(
+    (var(--size-small) * 1.2) + (var(--space-tight) * 2) + 2px
+  );
+
+  /*
+   * Every colour below is defined here, in the light palette, and
+   * redefined wholesale in the dark block at the end of this section.
+   * Pico v2 follows `prefers-color-scheme` on its own, so a layer over it
+   * that names only light values does not merely look wrong in dark mode —
+   * it paints light slabs and near-black text onto Pico's dark ground.
+   * Nothing in this file may hardcode a colour outside these tokens.
+   */
+  --ink: #16202c;
+  --ink-quiet: #5b6875;
+  --ink-faint: #8b96a2;
+  --rule: #d6dce3;
+  --field: #f4f6f8;
+  --surface: #ffffff;
+
+  --danger-ink: #8c1d1d;
+  --danger-rule: #d99a9a;
+  --danger-wash: #fdf3f3;
+
+  --fault-ink: #7a1717;
+  --fault-rule: #cf8a8a;
+  --fault-wash: #fdeeee;
+
+  --fresh-wash: #fdf6dd;
+  --fresh-rule: #d9c76a;
+
+  /* Facts, not controls: a solid chip — dark ground, light text — in the
+     same slate family as the identifier column, carried to the other side
+     of the contrast so a fact reads at a glance. Solid rather than
+     outlined is what keeps it from reading as a button: every control on
+     this page is a light box with a border, and a filled chip is visibly
+     not one of them. */
+  --mark-ink: #eef1f5;
+  --mark-wash: #47566b;
+
+  /* The one fact worth catching the eye — a step that holds its gate.
+     Amber rather than the destructive red: a fact is not an action, and
+     borrowing `retire`'s colour for it would make a label look like a
+     button that ends something. */
+  --mark-flag-ink: #fdf6e6;
+  --mark-flag-wash: #8a6a1f;
+
+  /* Pico's own scale, tightened: the admin surfaces are dense tables an
+     admin scans, not prose. */
+  --pico-font-family: var(--font-ui);
+  --pico-font-size: 100%;
+  --pico-line-height: 1.4;
+  --pico-spacing: var(--space-snug);
+  --pico-form-element-spacing-vertical: var(--space-tight);
+  --pico-form-element-spacing-horizontal: var(--space-snug);
+  --pico-border-radius: 0.25rem;
+}
+
+/*
+ * The dark palette. Only the colour tokens are redefined — every scale,
+ * space and font above is shared, so the two themes cannot drift in
+ * anything but colour.
+ *
+ * Guarded with `:not([data-theme="light"])` and repeated under
+ * `[data-theme="dark"]`, which is the pair Pico's own theme switch uses:
+ * the media query serves the OS default, the attribute wins in both
+ * directions when a theme is chosen explicitly.
+ */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ink: #e6ebf1;
+    --ink-quiet: #9aa7b6;
+    --ink-faint: #6d7b8b;
+    --rule: #3a4552;
+    --field: #212a35;
+    --surface: #18202a;
+
+    --danger-ink: #f5a9a9;
+    --danger-rule: #7d3a3a;
+    --danger-wash: #2e1f21;
+
+    --fault-ink: #f7b3b3;
+    --fault-rule: #8c4141;
+    --fault-wash: #322124;
+
+    --fresh-wash: #33301d;
+    --fresh-rule: #7d7134;
+
+    --mark-ink: #cdd8e6;
+    --mark-wash: #38465a;
+
+    --mark-flag-ink: #f2dfae;
+    --mark-flag-wash: #5c4715;
+  }
+}
+
+:root[data-theme="dark"] {
+  --ink: #e6ebf1;
+  --ink-quiet: #9aa7b6;
+  --ink-faint: #6d7b8b;
+  --rule: #3a4552;
+  --field: #212a35;
+  --surface: #18202a;
+
+  --danger-ink: #f5a9a9;
+  --danger-rule: #7d3a3a;
+  --danger-wash: #2e1f21;
+
+  --fault-ink: #f7b3b3;
+  --fault-rule: #8c4141;
+  --fault-wash: #322124;
+
+  --fresh-wash: #33301d;
+  --fresh-rule: #7d7134;
+
+  --mark-ink: #cdd8e6;
+  --mark-wash: #38465a;
+
+  --mark-flag-ink: #f2dfae;
+  --mark-flag-wash: #5c4715;
+}
+
+body {
+  font-family: var(--font-ui);
+  font-size: var(--size-body);
+  color: var(--ink);
+}
+
+/* Identifiers, gates and anchor values are things an admin compares
+   character by character, so they take the mono face. */
+code,
+kbd,
+samp,
+.identifier,
+.mark {
+  font-family: var(--font-mono);
+}
+
+/* ---------------------------------------------------------------------------
+ * The action vocabulary
+ *
+ * Every action a row offers renders as a control of the same weight: same
+ * font, same size, same padding, same border width. The destructive one is
+ * distinguished by colour and border alone — never by a larger size or a
+ * heavier weight, because the requirement is that retiring stops being the
+ * loudest control in the row, and a *differently* loud control would fail it
+ * just as squarely.
+ * ------------------------------------------------------------------------ */
+
+/*
+ * The class is doubled deliberately, and this is load-bearing rather than a
+ * typo. Pico styles these controls through selectors like
+ * `button[type=submit], … { width: 100% }` and
+ * `[role=button], [type=submit], button { … }` — specificity (0,1,1). A
+ * plain `.row-action` is (0,1,0), so Pico wins on every property they both
+ * set, no matter that this file is linked second: specificity is decided
+ * before source order. `.row-action.row-action` is (0,2,0) and wins.
+ *
+ * Left single, the symptom is specific and was observed: every action
+ * stretches to its cell's full width and stacks one per line, while the
+ * `edit` link alone sits inline — because `a[role="button"]` is not matched
+ * by the `button[type=submit]` width rule.
+ */
+.row-action.row-action {
+  --pico-font-size: var(--size-small);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-hair);
+  width: auto;
+  margin: 0;
+  padding: var(--space-tight) var(--space-snug);
+  border: 1px solid var(--rule);
+  border-radius: var(--pico-border-radius);
+  background: var(--field);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: var(--size-small);
+  font-weight: 400;
+  line-height: 1.2;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.row-action:hover:not(:disabled) {
+  border-color: var(--ink-quiet);
+  background: var(--surface);
+}
+
+.row-action:disabled,
+.row-action[aria-disabled="true"] {
+  color: var(--ink-faint);
+  border-color: var(--rule);
+  background: var(--field);
+  cursor: not-allowed;
+}
+
+/* A control that changes what is *shown* rather than what is stored: the
+   page's own ground rather than the vocabulary's raised grey, and never
+   Pico's link blue. It sits above a table it does not belong to and should
+   not pull the eye. */
+.row-action.quiet {
+  background: var(--surface);
+  color: var(--ink-quiet);
+  text-decoration: none;
+}
+
+.row-action.quiet:hover {
+  border-color: var(--ink-quiet);
+  color: var(--ink);
+}
+
+/* Colour and border only. Deliberately the same font-size, font-weight,
+   padding and border-width as every sibling above. */
+.row-action.danger {
+  color: var(--danger-ink);
+  border-color: var(--danger-rule);
+  background: var(--danger-wash);
+}
+
+.row-action.danger:hover:not(:disabled) {
+  border-color: var(--danger-ink);
+  background: var(--surface);
+}
+
+/* ---------------------------------------------------------------------------
+ * Density: one row per step, actions side by side
+ *
+ * Each action is its own `<form>` posting to its own endpoint — five forms,
+ * five endpoints, hidden inputs intact — and a block-level form per action
+ * is what stacked a step's controls into five lines. The forms go inline so
+ * their buttons become the inline items, changing no markup and no
+ * submitted body.
+ * ------------------------------------------------------------------------ */
+
+/*
+ * The action cell keeps its controls on one line.
+ *
+ * `display: contents` on the forms was the first approach — it collapses
+ * each single-action form so its button becomes a direct flex item of a
+ * flex cell. It is not taken, and `design.md` — Risks names this fallback
+ * for when it has to go: the forms go inline and their buttons are the
+ * inline items. The markup is identical either way.
+ *
+ * The reason it had to go is that `display: flex` on a `<td>` replaces
+ * `display: table-cell`. The cell leaves the table's column model, so it
+ * no longer sizes with its column — and any attempt to give it a width
+ * back is a guess the table used to make correctly. Inline layout keeps
+ * the cell a cell.
+ */
+td.actions form {
+  display: inline;
+  margin: 0;
+}
+
+/* One floor width for every worded action, so `edit` and `retire` are the
+   same size rather than sized by how long their words happen to be. A
+   floor and not a fixed width: `unretire` and `set status` are longer and
+   keep their own. */
+td.actions .row-action,
+td.actions select {
+  vertical-align: middle;
+  margin: 0 var(--space-tight) 0 0;
+}
+
+td.actions .row-action {
+  min-width: 4.75rem;
+}
+
+/*
+ * The reorder column: up above down, one pair per row, forming a single
+ * vertical rail down the table. The forms go block here rather than inline
+ * — the same trick as the actions cell, in the other direction.
+ *
+ * Each arrow is half a row tall so the stacked pair costs no more height
+ * than one line of the row beside it. Sized in both axes so the target is
+ * a square to aim at rather than a sliver.
+ */
+td.reorder,
+th.reorder {
+  width: 1.9rem;
+  white-space: nowrap;
+}
+
+th.reorder {
+  color: var(--ink-faint);
+  font-size: var(--size-fine);
+  font-weight: 400;
+}
+
+td.reorder form {
+  display: block;
+  margin: 0;
+}
+
+td.reorder .row-action[title^="move"] {
+  display: flex;
+  width: 1.6rem;
+  min-width: 0;
+  height: 1.35rem;
+  margin: 0;
+  padding: 0;
+  font-size: var(--size-small);
+  line-height: 1;
+}
+
+td.reorder form + form .row-action {
+  margin-top: 1px;
+}
+
+/* The position and the identifier are things an admin compares down a
+   column, so both take the mono face and neither wraps. */
+td.position {
+  color: var(--ink-quiet);
+  font-family: var(--font-mono);
+  font-size: var(--size-fine);
+  white-space: nowrap;
+  text-align: right;
+}
+
+td.identity {
+  white-space: nowrap;
+}
+
+td.actions select {
+  --pico-font-size: var(--size-small);
+  width: auto;
+  margin: 0;
+  padding: var(--space-tight) var(--space-snug);
+  font-size: var(--size-small);
+  line-height: 1.2;
+  background-position: right var(--space-tight) center;
+  padding-right: calc(var(--space-loose) + var(--space-snug));
+}
+
+table {
+  font-size: var(--size-small);
+}
+
+th,
+td {
+  padding: var(--space-tight) var(--space-snug);
+  vertical-align: middle;
+}
+
+td small {
+  color: var(--ink-quiet);
+  font-size: var(--size-fine);
+}
+
+/*
+ * The facts a step carries, as compact marks rather than as a sentence.
+ *
+ * Deliberately NOT button-shaped: a mark states something, a control does
+ * something, and a bordered pill beside a bordered button reads as a
+ * second button an admin can press. So no border and a flat wash — the
+ * treatment the identifier column already uses for `<code>`, carried up to
+ * a darker ink so a fact still reads at a glance.
+ */
+.mark {
+  display: inline-block;
+  margin-right: var(--space-hair);
+  padding: 0 var(--space-tight);
+  border: 0;
+  border-radius: var(--pico-border-radius);
+  background: var(--mark-wash);
+  color: var(--mark-ink);
+  font-size: var(--size-fine);
+  line-height: 1.6;
+  white-space: nowrap;
+}
+
+/* One fact is not like the others: a step that holds its gate is the thing
+   an admin is looking for. Still flat, still not a button, and not in the
+   destructive action's colour. */
+.mark.emphatic {
+  background: var(--mark-flag-wash);
+  color: var(--mark-flag-ink);
+}
+
+/* ---------------------------------------------------------------------------
+ * The page head, and the narrowing beside it
+ * ------------------------------------------------------------------------ */
+
+/* The title and the create control share a line: the control keeps its
+   place ahead of every gate table, and stops costing a band of its own. */
+.page-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-snug);
+  margin-bottom: var(--space-loose);
+}
+
+.page-head h1 {
+  margin: 0;
+}
+
+/* The page's own affirmative control keeps Pico's primary treatment — it
+   is not one of a step row's peer actions, and the vocabulary's grey would
+   bury the one thing an admin comes here to do. */
+.page-head-action {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/*
+ * The narrowing bar: the filter and the retired toggle on one line, right
+ * aligned, at the smallest scale on the page. Both narrow the same set.
+ */
+.narrowing-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-tight);
+  margin-bottom: var(--space-loose);
+}
+
+/*
+ * Pico gives a `role="group"` fieldset the full width of its container and
+ * the form-control scale; both are turned down here so the steps are what
+ * the page reads as.
+ */
+form.narrowing {
+  display: flex;
+  margin: 0;
+}
+
+form.narrowing fieldset {
+  width: auto;
+  max-width: 100%;
+  margin: 0;
+}
+
+/*
+ * The table's own type scale, not the page's smallest. This is the control
+ * an admin reaches for most often on a set this size, so it is sized to be
+ * read and aimed at; what makes it recede is its position and its width,
+ * not type too small to use.
+ */
+.narrowing-bar select,
+.narrowing-bar option,
+.narrowing-bar input,
+.narrowing-bar .row-action {
+  --pico-font-size: var(--size-small);
+  width: auto;
+  height: auto;
+  padding: var(--space-tight) var(--space-snug);
+  font-size: var(--size-small);
+  line-height: 1.3;
+}
+
+/* Pico sizes the form controls through bare `select` / `input` rules and
+   through `--pico-font-size`; both are answered above. The arrow well it
+   reserves is sized for the full scale, so it is brought in to match —
+   otherwise a select at this size is mostly empty space on its right. */
+.narrowing-bar select {
+  background-position: right var(--space-tight) center;
+  background-size: 0.7rem auto;
+  padding-right: calc(var(--space-loose) + var(--space-tight));
+}
+
+.narrowing-bar .row-action {
+  min-width: 0;
+}
+
+/* ---------------------------------------------------------------------------
+ * The admin header
+ * ------------------------------------------------------------------------ */
+
+.admin-header {
+  margin-bottom: var(--space-loose);
+  border-bottom: 1px solid var(--rule);
+}
+
+.admin-header nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-snug);
+  padding: var(--space-snug) 0;
+}
+
+.admin-surface {
+  padding: var(--space-tight) var(--space-snug);
+  border-radius: var(--pico-border-radius);
+  font-size: var(--size-small);
+}
+
+.admin-surface.current {
+  background: var(--field);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* ---------------------------------------------------------------------------
+ * The authoring form
+ *
+ * A capped measure, not the container's full width. Pico gives every form
+ * control 100% of its container, which on a wide screen draws a text box a
+ * foot long for a value that is never more than a few words — and makes
+ * the label above it hard to associate with the field below.
+ * ------------------------------------------------------------------------ */
+
+/* A section heading, not a caption: the groups are how an eleven-field
+   form becomes four short ones, so they have to be findable at a glance. */
+form.authoring legend {
+  margin-bottom: var(--space-snug);
+  padding: 0;
+  color: var(--ink);
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+form.authoring fieldset {
+  margin-bottom: var(--space-loose);
+  padding: 0;
+  border: 0;
+}
+
+/* Every label sits above its control, never beside it. The control is
+   nested inside the label, so both are made block-level and the control
+   is given its own line — a field whose name is to its left makes the eye
+   travel sideways on every one of eleven fields. */
+form.authoring label {
+  display: block;
+  margin-bottom: var(--space-snug);
+  color: var(--ink);
+  font-size: var(--size-small);
+  font-weight: 600;
+}
+
+form.authoring label > input,
+form.authoring label > select,
+form.authoring label > textarea {
+  display: block;
+  margin-top: var(--space-hair);
+  font-weight: 400;
+}
+
+form.authoring label > small {
+  display: block;
+  margin-top: var(--space-hair);
+  color: var(--ink-quiet);
+  font-size: var(--size-fine);
+  font-weight: 400;
+}
+
+form.authoring input,
+form.authoring select,
+form.authoring textarea {
+  max-width: 34rem;
+}
+
+/* The numeric anchor inputs hold a small integer and should look it. */
+form.authoring input[inputmode="numeric"] {
+  max-width: 9rem;
+}
+
+form.authoring textarea {
+  max-width: 44rem;
+}
+
+/* `Save` / `Create` sized to its word, not to the form. Pico's
+   `button[type=submit] { width: 100% }` (0,1,1) is answered by a selector
+   that outranks it rather than by repeating the class-doubling trick. */
+form.authoring > button[type="submit"] {
+  width: auto;
+  min-width: 9rem;
+  font-weight: 600;
+}
+
+/* ---------------------------------------------------------------------------
+ * Faults, and the rule that presentation never suppresses one
+ *
+ * A fault marked on a control is rendered *inside* that control's `<label>`,
+ * so anything applied to the label reaches the mark. Nothing here renders a
+ * mark — or a container holding one — as not displayed, and nothing renders
+ * it less legible than the surface's ordinary text: it is darker and larger
+ * than the `<small>` beside it, never quieter.
+ * ------------------------------------------------------------------------ */
+
+.field-faults {
+  margin: var(--space-tight) 0 0;
+  padding: var(--space-tight) var(--space-snug);
+  border-left: 3px solid var(--fault-rule);
+  border-radius: 0 var(--pico-border-radius) var(--pico-border-radius) 0;
+  background: var(--fault-wash);
+  color: var(--fault-ink);
+  font-size: var(--size-body);
+  list-style-position: inside;
+}
+
+.field-faults li {
+  margin: 0;
+  color: var(--fault-ink);
+}
+
+.faults {
+  border-left: 3px solid var(--fault-rule);
+  background: var(--fault-wash);
+  color: var(--fault-ink);
+}
+
+/*
+ * A fieldset the step's kind cannot use is DIMMED, never hidden — hiding it
+ * would remove a fault the surface is required to render, turning a styling
+ * decision into a silent breach of an existing guarantee.
+ *
+ * Dimmed by COLOUR on the control elements themselves, never by `opacity`,
+ * and never on the fieldset or on a `<label>`. Two reasons, and both matter:
+ * `opacity` on an ancestor reaches `.field-faults` inside the label, and it
+ * establishes a stacking context, so `.inapplicable .field-faults {opacity:1}`
+ * could not undo it. See `design.md` — *The fault-visibility defect does not
+ * exist, and the treatment is negative*.
+ */
+/*
+ * The automation section carries NO dim of its own. Three treatments were
+ * tried — a pale fill, a bordered grey box, transparent controls with a
+ * dashed edge — and each read as a region demanding attention rather than
+ * one that can be ignored, which is the opposite of what it means.
+ *
+ * So it renders as ordinary fields. The controls stay `disabled` for a
+ * kind that cannot use them, which is the served guarantee and is not a
+ * style decision; the browser's own rendering of a disabled control is
+ * enough to say so, and it is the rendering people already know.
+ *
+ * This makes *The vocabulary never suppresses a marked control's fault*
+ * trivially satisfied rather than carefully satisfied: with no dim, there
+ * is nothing that could reach the fault marked on a disabled control. The
+ * rule below is kept anyway, as the guard for whoever reintroduces one.
+ *
+ * If a dim is ever added back: NOT `opacity`, and not on the fieldset or
+ * on a `<label>`. The mark renders inside the label, so an ancestor's
+ * opacity reaches it — and opacity establishes a stacking context, so
+ * `.field-faults { opacity: 1 }` cannot undo it. Dim by colour, on the
+ * control elements themselves.
+ */
+.inapplicable .field-faults,
+.inapplicable .field-faults li {
+  color: var(--fault-ink);
+  font-size: var(--size-body);
+}
+
+/* ---------------------------------------------------------------------------
+ * A just-created step
+ *
+ * A background tint that does not fade on a timer. A timed fade would be
+ * unassertable from a response and would punish an admin who looked away.
+ * ------------------------------------------------------------------------ */
+
+tr.just-created > td {
+  background: var(--fresh-wash);
+  box-shadow: inset 0 -1px 0 var(--fresh-rule);
+}
+
+tr.just-created > td:first-child {
+  box-shadow: inset 3px 0 0 var(--fresh-rule), inset 0 -1px 0 var(--fresh-rule);
+}
+
+/* ---------------------------------------------------------------------------
+ * The roster page's own regions, replacing the inline style block it shipped
+ * ------------------------------------------------------------------------ */
+
+.attribution {
+  color: var(--ink-quiet);
+  font-size: var(--size-fine);
+}
+
+/* Deactivated people stay visibly set apart — a standing `roster-admin`
+   requirement, not a style choice. Set apart by colour and a rule, not by
+   `opacity`: this region carries action controls and, on a rejected write,
+   the page's own faults. */
+.deactivated {
+  border-left: 3px solid var(--rule);
+  background: var(--field);
+  color: var(--ink-quiet);
+}
+
+.deactivated td {
+  color: var(--ink-quiet);
+}
+
+.notice {
+  border-left: 3px solid var(--fresh-rule);
+  background: var(--fresh-wash);
+}
