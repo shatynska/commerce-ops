@@ -3,6 +3,27 @@
    around a rejection. Identifier and discipline are deliberately not
    fields here: authoring refuses updates to them, so the edit surface
    renders them as text (the create form passes include_discipline). #}
+{# `marks` carries, per control name, the faults a rejected write said
+   concern that control. A third axis, distinct from the two ways this
+   partial already says "not offered": `disabled` on the automation
+   controls (the value must not reach the write) and `hidden` on the
+   anchor groups (the value must survive and still submit). Marking says
+   only that a *submitted* value was refused, so it never changes whether
+   a control is offered — a `human` step carrying an automation brief
+   marks both `kind` and `automation_brief`, and the brief stays disabled
+   while carrying its fault. The full fault list still renders at page
+   level on both surfaces; this is additional to it, never a filter.
+   Passed to the macro rather than read from the context, so an include
+   that forgets it fails loudly instead of silently marking nothing. #}
+{% macro marked(marks, name) %}
+{%- if marks.get(name) %}
+  <ul class="field-faults" data-field="{{ name }}">
+    {%- for fault in marks[name] %}
+    <li>{{ fault }}</li>
+    {%- endfor %}
+  </ul>
+{%- endif %}
+{%- endmacro %}
 {% if include_discipline %}
 <label>Discipline
   <select name="discipline">
@@ -10,6 +31,7 @@
     <option value="{{ option }}"{% if option == values.get("discipline", discipline_options[0]) %} selected{% endif %}>{{ option }}</option>
     {% endfor %}
   </select>
+  {{ marked(marks, "discipline") }}
 </label>
 {% endif %}
 {# Two inputs, two audiences: the name is what a person scans in a list of
@@ -18,9 +40,11 @@
    it needs. #}
 <label>Name
   <input name="name" value="{{ values.get("name", "") }}">
+  {{ marked(marks, "name") }}
 </label>
 <label>Description (optional)
   <textarea name="description" rows="4">{{ values.get("description", "") }}</textarea>
+  {{ marked(marks, "description") }}
 </label>
 <label>Assignees
   <select name="assignees" multiple size="4">
@@ -29,6 +53,7 @@
     {% endfor %}
   </select>
   <small>The roster's active people. An active human step needs at least one.</small>
+  {{ marked(marks, "assignees") }}
 </label>
 <label>Gate
   <select name="gate">
@@ -36,6 +61,7 @@
     <option value="{{ option }}"{% if option == values.get("gate", gate_options[0]) %} selected{% endif %}>{{ option }}</option>
     {% endfor %}
   </select>
+  {{ marked(marks, "gate") }}
 </label>
 <label>Scope
   <select name="scope">
@@ -43,12 +69,14 @@
     <option value="{{ option }}"{% if option == values.get("scope", "product") %} selected{% endif %}>{{ option }}</option>
     {% endfor %}
   </select>
+  {{ marked(marks, "scope") }}
 </label>
 <label>Blocking
   <select name="blocking">
     <option value="false"{% if values.get("blocking", "false") not in ("true", "on", "1", "yes") %} selected{% endif %}>no</option>
     <option value="true"{% if values.get("blocking", "false") in ("true", "on", "1", "yes") %} selected{% endif %}>yes — holds its gate</option>
   </select>
+  {{ marked(marks, "blocking") }}
 </label>
 <label>Kind
   <select name="kind">
@@ -56,6 +84,7 @@
     <option value="{{ option }}"{% if option == values.get("kind", "human") %} selected{% endif %}>{{ option }}</option>
     {% endfor %}
   </select>
+  {{ marked(marks, "kind") }}
 </label>
 <label>Needs confirmation
   <select name="needs_confirmation">
@@ -63,6 +92,7 @@
     <option value="true"{% if values.get("needs_confirmation", "false") in ("true", "on", "1", "yes") %} selected{% endif %}>yes — a person accepts the result</option>
   </select>
   <small>Meaningless on a human step: the person doing the work is the person attesting it.</small>
+  {{ marked(marks, "needs_confirmation") }}
 </label>
 <label>Status
   <select name="status">
@@ -70,6 +100,7 @@
     <option value="{{ option }}"{% if option == values.get("status", "draft") %} selected{% endif %}>{{ label }}</option>
     {% endfor %}
   </select>
+  {{ marked(marks, "status") }}
 </label>
 <label>Hazard
   <select name="hazard">
@@ -77,6 +108,7 @@
     <option value="{{ option }}"{% if option == values.get("hazard", "none") %} selected{% endif %}>{{ option }}</option>
     {% endfor %}
   </select>
+  {{ marked(marks, "hazard") }}
 </label>
 {# An anchor kind uses at most two of the four inputs, and the form said
    nothing about which. The unused ones render `hidden` — *not* `disabled`
@@ -108,15 +140,23 @@
       <option value="{{ option }}"{% if option == anchor_kind %} selected{% endif %}>{{ option }}</option>
       {% endfor %}
     </select>
+    {{ marked(marks, "anchor_kind") }}
   </label>
+  {# Each numeric input carries its own fault, which is what the
+     restructured parse bought: a value that is not a number now says
+     which box it came from. Marked inside the group even where the group
+     is hidden — the fault belongs to that input either way. #}
   <label data-anchor-group="anchor_days"{% if "anchor_days" not in offered %} hidden{% endif %}>Days (offset)
     <input name="anchor_days" inputmode="numeric" value="{{ values.get("anchor_days", "-7") }}">
+    {{ marked(marks, "anchor_days") }}
   </label>
   <label data-anchor-group="anchor_start"{% if "anchor_start" not in offered %} hidden{% endif %}>Start (window / open-ended)
     <input name="anchor_start" inputmode="numeric" value="{{ values.get("anchor_start", "") }}">
+    {{ marked(marks, "anchor_start") }}
   </label>
   <label data-anchor-group="anchor_end"{% if "anchor_end" not in offered %} hidden{% endif %}>End (window)
     <input name="anchor_end" inputmode="numeric" value="{{ values.get("anchor_end", "") }}">
+    {{ marked(marks, "anchor_end") }}
   </label>
   <label data-anchor-group="anchor_cadence"{% if "anchor_cadence" not in offered %} hidden{% endif %}>Cadence (recurring)
     <select name="anchor_cadence">
@@ -124,6 +164,7 @@
       <option value="{{ option }}"{% if option == values.get("anchor_cadence", "weekly") %} selected{% endif %}>{{ option }}</option>
       {% endfor %}
     </select>
+    {{ marked(marks, "anchor_cadence") }}
   </label>
 </fieldset>
 {# Inside the swapped region, with the fields it serves — not in `<head>`.
@@ -153,16 +194,21 @@
 {# Automation carries no meaning for a human step, so the controls render
    disabled there rather than inviting a value the write would refuse.
    Disabled and not removed: an author flipping the kind can see what the
-   other half of the form asks for. #}
+   other half of the form asks for. A refused pair marks both halves, so
+   a mark lands on a disabled control here whenever a human step carried
+   a brief or a handler — and telling the admin which pair was refused is
+   the point, so it renders exactly as any other mark does. #}
 {% set automated = values.get("kind", "human") == "automated" %}
 <fieldset{% if not automated %} class="inapplicable"{% endif %}>
   <legend>Automation (automated steps only)</legend>
   <label>Automation brief
     <textarea name="automation_brief" rows="2"{% if not automated %} disabled{% endif %}>{{ values.get("automation_brief", "") }}</textarea>
     <small>What the code must establish. Required to leave draft.</small>
+    {{ marked(marks, "automation_brief") }}
   </label>
   <label>Handler
     <input name="handler" value="{{ values.get("handler", "") }}"{% if not automated %} disabled{% endif %}>
     <small>The registered use case that resolves it. Required to become active.</small>
+    {{ marked(marks, "handler") }}
   </label>
 </fieldset>

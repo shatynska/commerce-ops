@@ -27,8 +27,9 @@ infrastructure.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Final
@@ -341,25 +342,101 @@ def _anchor_form_values(anchor: TimingAnchor) -> dict[str, str]:
     }
 
 
-def _anchor_from_form(form: dict[str, str]) -> TimingAnchor:
-    kind = form.get("anchor_kind", "offset")
+@dataclass(frozen=True, slots=True)
+class _AttributedFault:
+    """One fault and the form fields it concerns.
+
+    `fields` is required and never defaults: an adapter fault raised
+    without deciding what it concerns would reintroduce exactly the
+    silent gap two-tier attribution exists to close — and unlike the
+    faults keyed on message text, nothing else would catch it. mypy is
+    what enforces the decision.
+    """
+
+    text: str
+    fields: tuple[str, ...]
+
+
+class _AdapterRejection(InvalidPlaybookError):
+    """The faults this adapter raises itself, each carrying its field.
+
+    An `InvalidPlaybookError` because that is the only type the write
+    routes catch — a type of its own would turn a rendered fault into a
+    500. The fields ride alongside rather than in the message, so no
+    string is ever matched to recover them.
+    """
+
+    def __init__(self, attributed: Sequence[_AttributedFault]) -> None:
+        self.attributed: tuple[_AttributedFault, ...] = tuple(attributed)
+        super().__init__([fault.text for fault in self.attributed])
+
+
+def _anchor_int(form: dict[str, str], name: str, faults: list[_AttributedFault]) -> int:
+    """One of the anchor's numeric inputs, parsed where its name is
+    known — which is the whole point: read inside a single `try` around
+    all three, a bad integer said only `timing anchor: invalid literal
+    for int()` and which box it came from was unrecoverable."""
+    raw = form.get(name) or ""
+    if not raw:
+        return 0
     try:
-        if kind == "offset":
-            return OffsetAnchor(days=int(form.get("anchor_days") or 0))
-        if kind == "window":
-            return WindowAnchor(
-                start=int(form.get("anchor_start") or 0),
-                end=int(form.get("anchor_end") or 0),
-            )
-        if kind == "open-ended":
-            return OpenEndedAnchor(start=int(form.get("anchor_start") or 0))
-        if kind == "recurring":
-            return RecurringAnchor(
-                cadence=Cadence(form.get("anchor_cadence") or Cadence.WEEKLY.value)
-            )
+        return int(raw)
     except ValueError as exc:
-        raise InvalidPlaybookError([f"timing anchor: {exc}"]) from exc
-    raise InvalidPlaybookError([f"timing anchor: unknown kind '{kind}'"])
+        faults.append(_AttributedFault(f"timing anchor: {exc}", (name,)))
+        return 0
+
+
+def _anchor_from_form(
+    form: dict[str, str], faults: list[_AttributedFault]
+) -> TimingAnchor | None:
+    """The submitted timing anchor, or `None` where it could not be read,
+    appending each failure to `faults` rather than raising.
+
+    Only the inputs the submitted kind uses are read. The others still
+    submit their values — that is what lets a kind be selected and then
+    reconsidered without discarding anything — so parsing them eagerly
+    would refuse a write that succeeds today, which is a rule change and
+    not this one's business.
+    """
+    kind = form.get("anchor_kind", "offset")
+    before = len(faults)
+    if kind == "offset":
+        days = _anchor_int(form, "anchor_days", faults)
+        return None if len(faults) != before else OffsetAnchor(days=days)
+    if kind == "window":
+        start = _anchor_int(form, "anchor_start", faults)
+        end = _anchor_int(form, "anchor_end", faults)
+        if len(faults) != before:
+            return None
+        try:
+            return WindowAnchor(start=start, end=end)
+        except ValueError as exc:
+            # A combination, not a parse failure: both offsets read
+            # perfectly well and neither is wrong on its own, so both
+            # are named and either is a valid thing to change. Wrapped
+            # rather than left to escape, since the routes catch one type.
+            faults.append(
+                _AttributedFault(
+                    f"timing anchor: {exc}", ("anchor_start", "anchor_end")
+                )
+            )
+            return None
+    if kind == "open-ended":
+        start = _anchor_int(form, "anchor_start", faults)
+        return None if len(faults) != before else OpenEndedAnchor(start=start)
+    if kind == "recurring":
+        raw = form.get("anchor_cadence") or Cadence.WEEKLY.value
+        try:
+            return RecurringAnchor(cadence=Cadence(raw))
+        except ValueError as exc:
+            faults.append(
+                _AttributedFault(f"timing anchor: {exc}", ("anchor_cadence",))
+            )
+            return None
+    faults.append(
+        _AttributedFault(f"timing anchor: unknown kind '{kind}'", ("anchor_kind",))
+    )
+    return None
 
 
 def _truthy(value: str | None) -> bool:
@@ -367,11 +444,20 @@ def _truthy(value: str | None) -> bool:
 
 
 def _authorable_fields(
-    form: dict[str, str], assignees: tuple[str, ...] = ()
+    form: dict[str, str],
+    assignees: tuple[str, ...],
+    faults: list[_AttributedFault],
 ) -> dict[str, Any]:
-    """The authorable shape as one form submission carries it. Enum
-    parsing faults are collected, not raised one at a time."""
-    faults: list[str] = []
+    """The authorable shape as one form submission carries it.
+
+    Appends to the caller's accumulator and never raises, so that every
+    value the surface parses is read before anything is reported. The
+    timing anchor used to be built *after* the enum faults were gathered
+    and before they were raised, which discarded them all whenever the
+    anchor failed; it now joins the same list. The caller raises, which
+    is also what lets the create route gather its discipline alongside
+    these rather than after them.
+    """
     fields: dict[str, Any] = {}
 
     def _enum(name: str, enum_type: Any, fallback: Any) -> Any:
@@ -381,7 +467,11 @@ def _authorable_fields(
         try:
             return enum_type(raw)
         except ValueError:
-            faults.append(f"{name}: '{raw}' is not a recognised value")
+            # The name is held right here, so the fault carries it
+            # structurally; nothing downstream has to read the message.
+            faults.append(
+                _AttributedFault(f"{name}: '{raw}' is not a recognised value", (name,))
+            )
             return fallback
 
     kind = _enum("kind", StepKind, StepKind.HUMAN)
@@ -403,10 +493,166 @@ def _authorable_fields(
     # the rule instead of the page quietly deciding for the author.
     fields["automation_brief"] = (form.get("automation_brief") or "").strip() or None
     fields["handler"] = (form.get("handler") or "").strip() or None
-    fields["timing_anchor"] = _anchor_from_form(form)
-    if faults:
-        raise InvalidPlaybookError(faults)
+    anchor = _anchor_from_form(form, faults)
+    if anchor is not None:
+        fields["timing_anchor"] = anchor
     return fields
+
+
+def _discipline_from_form(
+    submitted: str, faults: list[_AttributedFault]
+) -> Discipline | None:
+    """The create surface's own vocabulary, gathered beside the fields
+    the shared helper parses rather than after it.
+
+    Parsed here and not inside `_authorable_fields`: the edit route calls
+    that helper and has no discipline to read, since authoring refuses to
+    update one.
+    """
+    try:
+        return Discipline(submitted)
+    except ValueError as exc:
+        faults.append(_AttributedFault(str(exc), ("discipline",)))
+        return None
+
+
+# --------------------------------------------------------------------------
+# Attributing the faults that cross from the domain or the application
+# --------------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class _Crossing:
+    """A coherence rule or write-time precondition whose fault reaches
+    this surface as prose, and the form fields it concerns.
+
+    Keyed on message text because that is all a string carries across a
+    module boundary: field names are adapter vocabulary the domain must
+    not learn. This is the fragile half of the attribution and the only
+    half that is — the faults this adapter raises itself carry their
+    fields structurally. A rule reworded in the domain silently stops
+    matching here and degrades to page level, which is what the
+    exhaustiveness test exists to catch.
+
+    `step_level` is a second reading of the same table: a step-level
+    fault a *create* reports can only concern the step being created, so
+    it is the classification that decides whether the generated
+    identifier is stripped.
+    """
+
+    marker: str
+    fields: tuple[str, ...]
+    step_level: bool
+
+
+_CROSSINGS: Final = (
+    # Single-field, from the domain's coherence rules.
+    _Crossing("declares unknown gate", ("gate",), True),
+    _Crossing("has an empty name", ("name",), True),
+    _Crossing("has a name spanning more than one line", ("name",), True),
+    # Combinations: neither value is wrong alone, and either is a valid
+    # thing to change, so every field in the pair or triple is marked.
+    _Crossing("cannot block its gate", ("hazard", "blocking"), True),
+    _Crossing(
+        "but carries no automation brief",
+        ("kind", "status", "automation_brief"),
+        True,
+    ),
+    _Crossing(
+        "is automated and active but names no handler",
+        ("kind", "status", "handler"),
+        True,
+    ),
+    _Crossing(
+        "is a human step and cannot carry an automation brief",
+        ("kind", "automation_brief"),
+        True,
+    ),
+    _Crossing("is a human step and cannot name a handler", ("kind", "handler"), True),
+    # The write-time preconditions, from the application layer.
+    _Crossing("whom the roster does not carry", ("assignees",), True),
+    _Crossing(
+        "names no assignee who is active on the roster",
+        ("kind", "status", "assignees"),
+        True,
+    ),
+    _Crossing("which no registered use case answers to", ("handler",), True),
+    # Recognised and held at page level: it concerns the step set rather
+    # than anything the form in front of the admin carries. Entered
+    # explicitly all the same, because an entry is what lets the
+    # exhaustiveness test tell "held by the criterion" from "fell through
+    # unmatched" — otherwise one state wearing two names.
+    _Crossing("has no active blocking step attached", (), False),
+)
+
+# The words every step-level fault opens with. Removed from a create's
+# faults and from nothing else — see `_crossing`.
+_STEP_PREFIX: Final = re.compile(r"^step '[^']*' ")
+
+
+def _crossing(text: str, *, creating: bool) -> _AttributedFault:
+    """One fault authored in another layer, attributed by its wording.
+
+    A fault no entry recognises keeps everything it carries, identifier
+    included, and renders at page level exactly as it would have without
+    attribution: unrecognised is *unclassified*, and a surface that
+    guessed would strip identifiers off faults naming steps the admin
+    needs to go and look at.
+    """
+    for rule in _CROSSINGS:
+        if rule.marker in text:
+            if creating and rule.step_level:
+                # The identifier `create_step` generated names nothing
+                # that was persisted, and a step-level fault a create
+                # reports can only concern the step being created. Only
+                # the leading `step '<identifier>' ` goes; the rest is
+                # rendered exactly as the write reported it.
+                text = _STEP_PREFIX.sub("", text, count=1)
+            return _AttributedFault(text, rule.fields)
+    return _AttributedFault(text, ())
+
+
+@dataclass(frozen=True, slots=True)
+class _Rejection:
+    """A rejected write as an authoring surface renders it: every fault
+    in full, plus what each field is marked with.
+
+    Attribution is additional and never a filter — `faults` still carries
+    everything, whether or not any field was marked with it.
+    """
+
+    faults: tuple[str, ...] = ()
+    marks: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
+
+
+#: A clean render: no fault, nothing marked.
+_NO_REJECTION: Final = _Rejection()
+
+
+def _rejection(rejected: Exception, *, creating: bool = False) -> _Rejection:
+    """Read a rejection into what the surface renders.
+
+    The two tiers never meet in one rejection — the adapter raises before
+    the write is called, and the crossing faults come only from the write
+    — so which tier this is can simply be asked of the exception.
+    """
+    carried: Sequence[_AttributedFault] | None = getattr(rejected, "attributed", None)
+    if carried is None:
+        texts: Sequence[str] = getattr(rejected, "faults", (str(rejected),))
+        carried = [_crossing(text, creating=creating) for text in texts]
+
+    marks: dict[str, list[str]] = {}
+    for fault in carried:
+        for name in fault.fields:
+            # Marked once and carrying every fault that named it, rather
+            # than letting the first rule to reach the field win.
+            carrying = marks.setdefault(name, [])
+            if fault.text not in carrying:
+                carrying.append(fault.text)
+    return _Rejection(
+        faults=tuple(fault.text for fault in carried),
+        marks={name: tuple(texts) for name, texts in marks.items()},
+    )
 
 
 def _row(record: Any, people: Mapping[str, Any]) -> dict[str, Any]:
@@ -674,7 +920,7 @@ async def _render_page(
 async def _render_new(
     values: dict[str, Any],
     *,
-    faults: tuple[str, ...] = (),
+    rejection: _Rejection = _NO_REJECTION,
     notice: str | None = None,
     narrowing: _Narrowing,
 ) -> HTMLResponse:
@@ -685,7 +931,8 @@ async def _render_new(
     context["status_options"] = list(_CREATE_STATUS_OPTIONS)
     html = _TEMPLATES.get_template("new.html").render(
         values=values,
-        faults=faults,
+        faults=rejection.faults,
+        marks=rejection.marks,
         notice=notice,
         narrowing=narrowing,
         assignee_options=_assignee_options(await _roster_people()),
@@ -699,7 +946,7 @@ async def _render_edit(
     discipline: str,
     values: dict[str, Any],
     *,
-    faults: tuple[str, ...] = (),
+    rejection: _Rejection = _NO_REJECTION,
     notice: str | None = None,
     narrowing: _Narrowing,
 ) -> HTMLResponse:
@@ -707,7 +954,8 @@ async def _render_edit(
         step_id=step_id,
         discipline=discipline,
         values=values,
-        faults=faults,
+        faults=rejection.faults,
+        marks=rejection.marks,
         notice=notice,
         narrowing=narrowing,
         assignee_options=_assignee_options(await _roster_people()),
@@ -848,7 +1096,10 @@ async def save_edit(
     record = await _find_record(step_id)
     discipline = record.definition.discipline.value
     try:
-        fields = _authorable_fields(form, assignees)
+        parsed: list[_AttributedFault] = []
+        fields = _authorable_fields(form, assignees, parsed)
+        if parsed:
+            raise _AdapterRejection(parsed)
         await update_step(
             steps=steps,
             principal=principal,
@@ -862,7 +1113,7 @@ async def save_edit(
             step_id,
             discipline,
             _submitted_values(form, assignees),
-            faults=rejected.faults,
+            rejection=_rejection(rejected),
             narrowing=narrowing,
         )
     except StaleStepSetError:
@@ -896,8 +1147,16 @@ async def create(
         raise HTTPException(status_code=400, detail="a step cannot be created retired")
 
     try:
-        fields = _authorable_fields(form, assignees)
-        discipline = Discipline(submitted_discipline)
+        # The discipline is gathered *beside* the fields the shared
+        # helper parses, not after it has already raised: otherwise a
+        # create wrong in a control and in its discipline reports one of
+        # them, and "every value the surface parses" would be true of
+        # editing and false of creating.
+        parsed: list[_AttributedFault] = []
+        fields = _authorable_fields(form, assignees, parsed)
+        discipline = _discipline_from_form(submitted_discipline, parsed)
+        if parsed or discipline is None:
+            raise _AdapterRejection(parsed)
         record = await create_step(
             steps=steps,
             principal=principal,
@@ -907,10 +1166,9 @@ async def create(
             **fields,
         )
     except (InvalidPlaybookError, ValueError) as rejected:
-        faults = getattr(rejected, "faults", (str(rejected),))
         return await _render_new(
             _submitted_values(form, assignees),
-            faults=tuple(faults),
+            rejection=_rejection(rejected, creating=True),
             narrowing=narrowing,
         )
     except StaleStepSetError:
