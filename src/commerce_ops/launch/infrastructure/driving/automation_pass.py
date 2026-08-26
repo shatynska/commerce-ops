@@ -60,6 +60,7 @@ from commerce_ops.launch.infrastructure.driven.playbook_repository import (
     ServedPlaybooks,
 )
 from commerce_ops.launch.infrastructure.driving import automation_confirmation
+from commerce_ops.shared.domain.identity import ProductId
 from commerce_ops.shared.infrastructure.driven.database import session
 from commerce_ops.shared.infrastructure.driven.recurring_work import register_scheduled
 
@@ -143,7 +144,13 @@ async def run_automation_pass(
     """Deliver what is waiting, then resolve what is open."""
     active: Sequence[Launch] = await launches.list_active()
 
-    await _deliver_waiting(results=results, deliver=deliver, now=now)
+    await _deliver_waiting(
+        results=results,
+        playbook=playbook,
+        read_product=read_product,
+        deliver=deliver,
+        now=now,
+    )
 
     for launch in active:
         await _walk_launch(
@@ -159,18 +166,40 @@ async def run_automation_pass(
 
 
 async def _deliver_waiting(
-    *, results: Any, deliver: Callable[..., Awaitable[Any]], now: datetime.datetime
+    *,
+    results: Any,
+    playbook: LaunchPlaybook,
+    read_product: Callable[..., Awaitable[Any]],
+    deliver: Callable[..., Awaitable[Any]],
+    now: datetime.datetime,
 ) -> None:
     """Post every pending result nothing has managed to post yet.
+
+    The product and the step's name are resolved here rather than left to
+    the adapter: the requirement is that the message *names the product
+    and the step*, and a row carries only their identifiers. Delivering
+    without them produces a message headed "an unnamed product", which
+    names nothing a person can act on.
 
     A failure leaves `delivered_at` unstamped and the row standing, so the
     next pass tries again — the decoupling the daily briefing already keeps
     between assembling a report and delivering it. Nothing is recorded
     either way: an undelivered proposal is not a decided one.
     """
+    named = {step.identifier: step.name for step in playbook.served_steps}
     for row in await results.undelivered():
+        step_id = getattr(row, "step_id", None)
         try:
-            await deliver(result=row)
+            # The row carries the identifier as the database spells it; the
+            # catalog read wants the value object. A stored row is read back
+            # long after the pass that wrote it, so the conversion belongs
+            # here rather than being assumed of whatever produced the row.
+            product = await read_product(ProductId(str(getattr(row, "product_id", ""))))
+            await deliver(
+                result=row,
+                product=product,
+                step_name=named.get(str(step_id)),
+            )
         except Exception:
             _logger.warning(
                 "automation pass: could not deliver the pending result for "
