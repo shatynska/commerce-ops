@@ -300,31 +300,33 @@ def test_a_description_is_optional() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_a_gate_whose_only_blocking_step_is_a_draft_is_rejected() -> None:
-    """Scenario: A gate with no active blocking step is rejected.
+def test_a_gate_whose_only_blocking_step_is_a_draft_leaves_it_unheld() -> None:
+    """Scenario: A gate with no active blocking step is not served.
 
     WHEN a playbook's steps leave any gate with no active step whose
     blocking flag is true
-    THEN loading fails with an error naming that gate.
+    THEN the set constructs, and the readiness read names that gate.
 
     SPECIFIED reason: "a gate whose only blocking step is a draft is a
-    gate that opens for free, and the floor exists to make that state
-    unreachable". An implementation carrying the pre-change rule forward
-    unmodified — counting any blocking step — would accept this playbook,
-    which is precisely the state this change closes.
+    gate that *would* open for free, and the floor exists to make that
+    state unservable". `serve-only-a-ready-playbook` moved the refusal
+    from construction to the serving read; what stays load-bearing here is
+    that a `draft` blocking step does not count, which an implementation
+    carrying the pre-change rule forward — counting any blocking step —
+    would get wrong.
     """
     draft_blocker = _hold("ignition", status=StepStatus.DRAFT)
     steps = (*_holding_steps(except_gates=frozenset({"ignition"})), draft_blocker)
 
-    with pytest.raises(InvalidPlaybookError) as caught:
-        _raw(steps)
+    playbook = _raw(steps)
 
-    # SPECIFIED: the error names the gate left unheld.
-    assert "ignition" in str(caught.value)
+    # SPECIFIED: the read names the gate the draft does not hold.
+    assert playbook.unheld_gates == ("ignition",)
+    assert not playbook.is_ready
 
 
-def test_a_gate_whose_only_blocking_step_is_in_development_is_rejected() -> None:
-    """Scenario: A gate with no active blocking step is rejected
+def test_a_gate_whose_only_blocking_step_is_in_development_leaves_it_unheld() -> None:
+    """Scenario: A gate with no active blocking step is not served
     (`in-development` case).
 
     Covered separately from the draft case because `in-development` is
@@ -337,10 +339,10 @@ def test_a_gate_whose_only_blocking_step_is_in_development_is_rejected() -> None
         _hold("live", status=StepStatus.IN_DEVELOPMENT),
     )
 
-    with pytest.raises(InvalidPlaybookError) as caught:
-        _raw(steps)
+    playbook = _raw(steps)
 
-    assert "live" in str(caught.value)
+    assert playbook.unheld_gates == ("live",)
+    assert not playbook.is_ready
 
 
 def test_no_gate_opens_for_free() -> None:

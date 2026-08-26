@@ -41,6 +41,8 @@ from commerce_ops.launch.domain.launch_playbook import (
     TimingAnchor,
     assignee_faults,
     framework_gates,
+    gate_holding_faults,
+    unheld_gates_of,
 )
 
 AUTHORED_NAMESPACE = "mg"
@@ -229,6 +231,7 @@ async def _accept(
     version: int,
     touched: Sequence[StepDefinition],
     *,
+    prior_unheld: Sequence[str],
     roster: Any,
     handlers: Any,
 ) -> None:
@@ -240,12 +243,31 @@ async def _accept(
     raised, so a rejection does not have to be corrected one fault at a
     time — the shape `InvalidPlaybookError` has carried since the load
     path.
+
+    The gate-holding rule is a third kind, and the only one that reads the
+    set as it stood *before* the write. It is one-directional: a write is
+    refused for leaving a gate unheld only when the set it started from was
+    itself ready, so a served playbook cannot be taken from a running
+    launch by one authoring action, while a set still being built reaches
+    readiness one activation at a time.
+
+    The prior set arrives already reduced to its unheld gates, and must:
+    `_write_fields` mutates the loaded record **in place** (`_as_record`
+    returns the stored object, not a copy), so by the time this runs the
+    caller's `records` already reflects the write. Sampling the prior set
+    here would read the candidate twice and the ratchet would never fire.
     """
     faults: list[str] = []
     try:
         _validate(candidate, version + 1)
     except InvalidPlaybookError as rejected:
         faults.extend(rejected.faults)
+    faults.extend(
+        gate_holding_faults(
+            tuple(prior_unheld),
+            unheld_gates_of(authored_definitions(candidate)),
+        )
+    )
     faults.extend(await _precondition_faults(touched, roster=roster, handlers=handlers))
     if faults:
         raise InvalidPlaybookError(faults)
@@ -414,6 +436,7 @@ async def create_step(
     the two preconditions a load cannot check."""
     for _ in range(_WRITE_ATTEMPTS):
         records, version = await steps.load()
+        prior_unheld = unheld_gates_of(authored_definitions(records))
         now = datetime.now(UTC)
         definition = StepDefinition(
             identifier=_generate_identifier(records, discipline),
@@ -444,7 +467,12 @@ async def create_step(
             _stamp(record, "retired", principal, now)
         candidate = (*records, record)
         await _accept(
-            candidate, version, (definition,), roster=roster, handlers=handlers
+            candidate,
+            version,
+            (definition,),
+            prior_unheld=prior_unheld,
+            roster=roster,
+            handlers=handlers,
         )
         try:
             await steps.save(candidate, expected_version=version)
@@ -473,6 +501,9 @@ async def _write_fields(
     whole set the write would produce."""
     for _ in range(_WRITE_ATTEMPTS):
         records, version = await steps.load()
+        # Sampled before the record below is mutated in place, which is
+        # what makes the ratchet able to see the set as it stood.
+        prior_unheld = unheld_gates_of(authored_definitions(records))
         index = _find(records, step_id)
         record = _as_record(records[index])
         before = record.definition
@@ -486,7 +517,12 @@ async def _write_fields(
             record.updated_on = now
         candidate = (*records[:index], record, *records[index + 1 :])
         await _accept(
-            candidate, version, (definition,), roster=roster, handlers=handlers
+            candidate,
+            version,
+            (definition,),
+            prior_unheld=prior_unheld,
+            roster=roster,
+            handlers=handlers,
         )
         try:
             await steps.save(candidate, expected_version=version)
@@ -631,6 +667,16 @@ async def reorder_step(
         candidate = tuple(
             renumbered.get(position, row) for position, row in enumerate(records)
         )
+        # Deliberately `_validate` and not `_accept`, which is where every
+        # other write goes. A reorder rewrites `display_order` and nothing
+        # else — it carries each definition across unchanged — so it can
+        # neither break a coherence rule nor move a ready set to not-ready,
+        # and the ratchet has nothing to say about it. Routing it through
+        # `_accept` would additionally subject the moved step to
+        # `_precondition_faults`, refusing reorders of the migrated
+        # `active` `human` steps that name no assignee — which is a
+        # refusal `playbook-authoring`'s reorder requirement does not
+        # contemplate and nobody asked for.
         _validate(candidate, version + 1)
         try:
             await steps.save(candidate, expected_version=version)

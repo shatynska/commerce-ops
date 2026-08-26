@@ -41,6 +41,7 @@ from commerce_ops.launch.domain.launch_playbook import (
     LaunchPlaybook,
     OffsetAnchor,
     OpenEndedAnchor,
+    PlaybookNotReadyError,
     RecurringAnchor,
     Scope,
     StepDefinition,
@@ -193,13 +194,27 @@ class PlaybookRepository:
         evaluated over steps that carry a status, and the playbook's own
         queries answer the served (`active`) subset while
         `authored_steps` answers the whole authored set the admin
-        surface reads."""
+        surface reads.
+
+        This is the **serving** read: a read taken on a launch's behalf,
+        to advance one, project one, or report on one. It refuses a
+        playbook that cannot hold a launch — one leaving a gate with no
+        `active` blocking step — with `PlaybookNotReadyError` naming those
+        gates. The authoring read (`load`) is deliberately not refused, so
+        a set under construction stays visible and editable throughout.
+
+        An *absent* playbook stays a different failure: `_version` raises
+        before this point, because nothing to serve and nothing built yet
+        are not the same problem."""
         records, set_version = await self.load()
-        return LaunchPlaybook(
+        playbook = LaunchPlaybook(
             version=f"v{set_version}",
             gates=framework_gates(),
             steps=authored_definitions(records),
         )
+        if not playbook.is_ready:
+            raise PlaybookNotReadyError(playbook=playbook, gates=playbook.unheld_gates)
+        return playbook
 
     # -- the StepSetStore half ------------------------------------------
 
