@@ -20,7 +20,14 @@
    so the header identifies it as current rather than naming this page. #}
 {% with current = "playbook" %}{% include "_admin_header.html" %}{% endwith %}
 <main class="container">
-  <h1>Add a step</h1>
+  {# Cancel rides the title for the reason the edit surface's back link
+     does, and stays un-boosted for the reason this page's own comment
+     above records. It carries the narrowing, so leaving without creating
+     returns the list exactly as it was left. #}
+  <div class="page-head">
+    <h1>Add a step</h1>
+    <a href="{{ page_path }}{{ narrowing.suffix() }}" role="button" class="row-action quiet" hx-boost="false">Cancel</a>
+  </div>
   <p>
     The identifier is generated on save — <code>mg.&lt;discipline&gt;.&lt;seq&gt;</code>,
     never chosen.
@@ -43,14 +50,11 @@
   </article>
   {% endif %}
 
-  <form method="post" action="{{ page_path }}/steps/create{{ narrowing.suffix() }}" hx-boost="false">
+  <form method="post" action="{{ page_path }}/steps/create{{ narrowing.suffix() }}" hx-boost="false" class="authoring">
     {% with include_discipline = true %}
     {% include "_fields.html" %}
     {% endwith %}
     <button type="submit">Create</button>
-    {# Carries the narrowing back, so leaving without creating returns the
-       list exactly as it was left. #}
-    <a href="{{ page_path }}{{ narrowing.suffix() }}" hx-boost="false">Cancel</a>
   </form>
 </main>
 </body>

@@ -11,7 +11,26 @@
 <body hx-boost="true">
 {% with current = "playbook" %}{% include "_admin_header.html" %}{% endwith %}
 <main class="container">
-  <h1>Launch playbook steps</h1>
+  {# The create control rides the page title rather than sitting in a band
+     of its own. It stays ahead of the gate tables, which is the guarantee
+     that matters: reaching it never depends on how many steps are shown.
+     As the page's last section it sat below some twenty screens of steps,
+     and an admin opening the page for the first time concluded there was
+     no way to add one at all.
+
+     Un-boosted deliberately: `hx-boost` is inherited from `<body>`, so
+     left alone htmx would swap the create page into *this* body, discard
+     that page's own `<body>` attributes, turn its POST into an XHR and
+     drop the redirect's fragment on the floor. #}
+  {# Not a `row-action`: this is the page's one affirmative control, and it
+     keeps Pico's primary treatment. The row vocabulary is about the actions
+     *on a step's row* being peers of one another — flattening the page's
+     create control into that grey would make the one thing an admin comes
+     here to do the quietest thing on the page. #}
+  <div class="page-head">
+    <h1>Launch playbook steps</h1>
+    <a href="{{ page_path }}/steps/new{{ narrowing.suffix() }}" role="button" class="page-head-action" hx-boost="false">Add step</a>
+  </div>
 
   {% if notice %}
   <article class="notice">{{ notice }}</article>
@@ -38,7 +57,19 @@
   </article>
   {% endif %}
 
-  <form method="get" action="{{ page_path }}">
+  {# The narrowing sits to the right, at the table's own type scale — this
+     is the control an admin reaches for most on a set of 105 steps, so it
+     is sized to be read and aimed at rather than tucked away.
+
+     The retired toggle leads the bar: it narrows the same set the form
+     does, and as a paragraph of its own it read as an announcement. #}
+  <div class="narrowing-bar">
+  {% if narrowing.retired %}
+  <a href="{{ page_path }}{{ hide_retired }}" role="button" class="row-action quiet">Hide retired steps</a>
+  {% else %}
+  <a href="{{ page_path }}{{ show_retired_link }}" role="button" class="row-action quiet">Show retired steps</a>
+  {% endif %}
+  <form method="get" action="{{ page_path }}" class="narrowing">
     <fieldset role="group">
       <select name="gate">
         <option value=""{% if not narrowing.gate %} selected{% endif %}>every gate</option>
@@ -54,26 +85,10 @@
       </select>
       <input type="search" name="q" placeholder="search names and descriptions" value="{{ narrowing.q }}">
       {% if narrowing.retired %}<input type="hidden" name="retired" value="1">{% endif %}
-      <button type="submit">Narrow</button>
+      <button type="submit" class="row-action">Narrow</button>
     </fieldset>
   </form>
-
-  {# Ahead of the gate tables, so reaching it never depends on how many
-     steps are shown. As the last section of this page it sat below some
-     twenty screens of steps, and an admin opening the page for the first
-     time concluded there was no way to add one at all.
-
-     Un-boosted deliberately: `hx-boost` is inherited from `<body>`, so
-     left alone htmx would swap the create page into *this* body, discard
-     that page's own `<body>` attributes, turn its POST into an XHR and
-     drop the redirect's fragment on the floor. #}
-  <p><a href="{{ page_path }}/steps/new{{ narrowing.suffix() }}" role="button" hx-boost="false">Add step</a></p>
-
-  {% if narrowing.retired %}
-  <p><a href="{{ page_path }}{{ hide_retired }}">Hide retired steps</a></p>
-  {% else %}
-  <p><a href="{{ page_path }}{{ show_retired_link }}">Show retired steps</a></p>
-  {% endif %}
+  </div>
 
   {% if inert_reason %}
   <article class="notice inert-reorder">
@@ -100,12 +115,39 @@
   </form>
   {% endmacro %}
 
+  {% macro move_controls(step) %}
+  {# Both controls speak one vocabulary — the visible step to come to rest
+     after — so the placement rule has a single code path. An end of the
+     visible list names nothing, and renders inert.
+
+     `direction` identifies which of the two controls was pressed, in the
+     markup and in the submitted body; placement comes from `after`, which
+     the server resolves against the set it reads.
+
+     They lead the row, stacked one above the other rather than side by
+     side: up is above down, so the control's shape says which way it
+     moves. The position they change is the column immediately to their
+     right, which is what makes a reorder legible without counting rows. #}
+  <form method="post" action="{{ page_path }}/steps/{{ step.identifier }}/move{{ narrowing.suffix() }}">
+    <input type="hidden" name="direction" value="up">
+    <input type="hidden" name="after" value="{{ step.up if step.up is not none else '' }}">
+    <input type="hidden" name="version" value="{{ version }}">
+    <button type="submit" class="row-action" title="move up"{% if step.up is none %} disabled{% endif %}>↑</button>
+  </form>
+  <form method="post" action="{{ page_path }}/steps/{{ step.identifier }}/move{{ narrowing.suffix() }}">
+    <input type="hidden" name="direction" value="down">
+    <input type="hidden" name="after" value="{{ step.down if step.down is not none else '' }}">
+    <input type="hidden" name="version" value="{{ version }}">
+    <button type="submit" class="row-action" title="move down"{% if step.down is none %} disabled{% endif %}>↓</button>
+  </form>
+  {% endmacro %}
+
   {% macro row_actions(step) %}
   {# Every action a row offers speaks one vocabulary: same weight, same
-     treatment, sitting together rather than stacking one per line. The
-     `edit` link takes `role="button"` and matches the buttons — not the
-     buttons matching it — and `retire`, the destructive one, is
-     distinguished by colour and border alone rather than by prominence.
+     treatment, on one line rather than stacking one per line. The `edit`
+     link takes `role="button"` and matches the buttons — not the buttons
+     matching it — and `retire`, the destructive one, is distinguished by
+     colour and border alone rather than by prominence.
 
      Rendered from a macro because `page.html` lays a step's row out at two
      sites: the served table and the "Not served at this gate" one. Two
@@ -114,23 +156,39 @@
   {% if step.retired %}
   <form method="post" action="{{ page_path }}/steps/{{ step.identifier }}/unretire{{ narrowing.suffix() }}"><button type="submit" class="row-action">unretire</button></form>
   {% else %}
-  {{ status_control(step) }}
   <a href="{{ page_path }}/steps/{{ step.identifier }}/edit{{ narrowing.suffix() }}" role="button" class="row-action">edit</a>
   <form method="post" action="{{ page_path }}/steps/{{ step.identifier }}/retire{{ narrowing.suffix() }}"><button type="submit" class="row-action danger">retire</button></form>
   {% endif %}
   {% endmacro %}
 
-  {% macro step_cells(step) %}
-  {# The identifier carries the position beside it so both read as one
-     fact: where this step stands among its gate's *active* steps. A
-     step that holds no slot renders none rather than a misleading one. #}
-  <td>
-    <code>{{ step.identifier }}</code>
-    {% if step.position %}<small>{{ step.position }} / {{ step.live_count }}</small>{% endif %}
+  {# `movable` is the row site, not a permission: only the served table's
+     steps hold a slot, so only they offer a move. `reorderable` is the
+     page-level condition on top of it. #}
+  {% macro step_cells(step, movable) %}
+  {# Reorder, then the position it changes, then the identity — the two
+     move controls lead the row so the arrows form one vertical rail down
+     the table rather than sitting at a different offset on every row. #}
+  <td class="reorder">
+    {%- if movable and reorderable %}{{ move_controls(step) }}{% endif %}
   </td>
-  <td>{{ step.status_label }}</td>
-  <td>{% if step.assignees %}{{ step.assignees | join(", ") }}{% else %}<em>unowned</em>{% endif %}</td>
+  {# Where this step stands among its gate's *active* steps. A step that
+     holds no slot renders none rather than a misleading one. #}
+  {# The two spaces around the slash are literal U+00A0 NON-BREAKING SPACE
+     characters, not ordinary spaces and not `&nbsp;` entities. The
+     position is one fact and must never break across two lines, and the
+     markup is the one place that holds even against a stale cached
+     stylesheet. The character rather than the entity because the served
+     suite reads this cell with `\s` between the numbers, which matches a
+     non-breaking space and does not match the six characters `&nbsp;`. #}
+  <td class="position">
+    {%- if step.position %}{{ step.position }} / {{ step.live_count }}{% endif %}
+  </td>
+  <td class="identity"><code>{{ step.identifier }}</code></td>
   <td>{{ step.name }}</td>
+  {# Nobody assigned renders as nothing. A word saying "unowned" on every
+     one of the migrated steps is noise the eye has to filter on every
+     scan, and an empty cell says the same thing without being read. #}
+  <td>{% if step.assignees %}{{ step.assignees | join(", ") }}{% endif %}</td>
   <td>{{ step.discipline }}</td>
   {# The facts as compact marks rather than as a `·`-joined sentence: a gate
      is something an admin scans down, and a sentence per row is what made a
@@ -140,6 +198,14 @@
     {%- if step.needs_confirmation %}<span class="mark">needs confirmation</span>{% endif %}
     {%- if step.blocking %}<span class="mark emphatic">blocks its gate</span>{% endif %}
   </td>
+  {# The status control gets a column of its own, second to last. A retired
+     step is not offered one — crossing `retired` is the un-retire write,
+     which records who did it — so its status renders as the text it always
+     was, keeping every step's status legible whether or not it can be
+     changed here. #}
+  <td class="actions">
+    {%- if step.retired %}{{ step.status_label }}{% else %}{{ status_control(step) }}{% endif %}
+  </td>
   {% endmacro %}
 
   {% for gate in gates %}
@@ -148,7 +214,7 @@
     {% if gate.steps %}
     <table>
       <thead>
-        <tr><th>step</th><th>status</th><th>assignees</th><th>name</th><th>discipline</th><th>facts</th><th>actions</th></tr>
+        <tr><th class="reorder">move</th><th>at</th><th>step</th><th>name</th><th>assignees</th><th>discipline</th><th>facts</th><th>status</th><th>actions</th></tr>
       </thead>
       <tbody>
         {% for step in gate.steps %}
@@ -156,29 +222,8 @@
            the template can only mark a step it is rendering, so a `created`
            naming a step this read did not return marks nothing. #}
         <tr class="step status-{{ step.status }}{% if created and step.identifier == created %} just-created{% endif %}" id="step-{{ step.identifier }}">
-          {{ step_cells(step) }}
+          {{ step_cells(step, true) }}
           <td class="actions">
-            {% if reorderable %}
-            {# Both controls speak one vocabulary — the visible step to come to
-               rest after — so the placement rule has a single code path. An end
-               of the visible list names nothing, and renders inert.
-
-               `direction` identifies which of the two controls was pressed, in
-               the markup and in the submitted body; placement comes from
-               `after`, which the server resolves against the set it reads. #}
-            <form method="post" action="{{ page_path }}/steps/{{ step.identifier }}/move{{ narrowing.suffix() }}">
-              <input type="hidden" name="direction" value="up">
-              <input type="hidden" name="after" value="{{ step.up if step.up is not none else '' }}">
-              <input type="hidden" name="version" value="{{ version }}">
-              <button type="submit" class="row-action" title="move up"{% if step.up is none %} disabled{% endif %}>↑</button>
-            </form>
-            <form method="post" action="{{ page_path }}/steps/{{ step.identifier }}/move{{ narrowing.suffix() }}">
-              <input type="hidden" name="direction" value="down">
-              <input type="hidden" name="after" value="{{ step.down if step.down is not none else '' }}">
-              <input type="hidden" name="version" value="{{ version }}">
-              <button type="submit" class="row-action" title="move down"{% if step.down is none %} disabled{% endif %}>↓</button>
-            </form>
-            {% endif %}
             {{ row_actions(step) }}
           </td>
         </tr>
@@ -197,14 +242,14 @@
       <summary>Not served at this gate ({{ gate.pending | length }})</summary>
       <table class="not-served">
         <thead>
-          <tr><th>step</th><th>status</th><th>assignees</th><th>name</th><th>discipline</th><th>facts</th><th>actions</th></tr>
+          <tr><th class="reorder">move</th><th>at</th><th>step</th><th>name</th><th>assignees</th><th>discipline</th><th>facts</th><th>status</th><th>actions</th></tr>
         </thead>
         <tbody>
           {% for step in gate.pending %}
           {# The second row site, and the one a step created as a `draft`
              lands on — so the created marker belongs here too. #}
           <tr class="step status-{{ step.status }}{% if created and step.identifier == created %} just-created{% endif %}" id="step-{{ step.identifier }}">
-            {{ step_cells(step) }}
+            {{ step_cells(step, false) }}
             <td class="actions">
               {{ row_actions(step) }}
             </td>

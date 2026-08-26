@@ -33,17 +33,24 @@
   control, `.danger` distinguishing the destructive one by colour and
   border only — never by size or weight, or retire stays the loudest
   control and the requirement fails.
-- [x] 2.3 Add the density layer: the action cell as `display: flex` with
-  `gap`, `td.actions form { display: contents }` so each single-action
-  form's button becomes a direct flex item, and `.mark` pills for the
-  facts cell.
+- [x] 2.3 Add the density layer: the action cells' forms as
+  `display: inline` so each single-action form's button becomes the
+  inline item, and `.mark` pills for the facts cell. `display: contents`
+  on a flex cell was the first approach and was replaced by the fallback
+  `design.md` — Risks already named: `display: flex` on a `<td>` replaces
+  `display: table-cell`, so the cell leaves the table's column model and
+  stops sizing with its column.
 - [x] 2.4 Add `.field-faults` treatment and `.just-created` (an untimed
   background tint — no fade on a timer, which no response could assert).
-- [x] 2.5 Ensure `.inapplicable` **dims and never hides** its fieldset,
-  and that the dim does not reach the faults inside it. Hiding it
+- [x] 2.5 Ensure whatever treatment `.inapplicable` carries **never
+  hides** its fieldset, and never reaches the faults inside it. Hiding it
   outright would break what `attribute-faults-to-fields` established;
   dimming the fault defeats the same guarantee more quietly, and every
-  scenario would still pass.
+  scenario would still pass. **Settled: it carries no treatment.** Three
+  were built and rejected on sight (pale fill, bordered grey box,
+  transparent controls with a dashed edge) — each read as a region
+  demanding attention rather than one to ignore. The controls render as
+  ordinary fields and stay `disabled`, which is the served guarantee.
 - [x] 2.5a Do **not** apply `opacity` to `.inapplicable` or to any
   ancestor of `.field-faults` — **the `<label>` included**. The mark is
   rendered inside the label, after the control and its `<small>`
@@ -52,7 +59,9 @@
   a stacking context, so `.inapplicable .field-faults { opacity: 1 }`
   cannot restore what an ancestor dimmed. Dim the control elements
   themselves (`legend`, `textarea`, `input`, `small`), or dim by colour
-  rather than by opacity.
+  rather than by opacity. Since 2.5 settled on no treatment, this stands
+  as the rule for whoever adds one; the stylesheet keeps it, with a
+  comment naming exactly what not to do.
 
 ## 3. The shared header
 
@@ -82,12 +91,17 @@
   "Not served at this gate" table — each with its own edit link, retire
   form and `status_control` call. Both sites, or a draft's row keeps the
   old vocabulary while every delta scenario still passes.
-- [x] 4.3 Give both action `<td>`s `class="actions"` — the selector
+- [x] 4.3 Give the action `<td>`s `class="actions"` — the selector
   task 2.3 relies on. No such class exists today; `actions` appears in
   `page.html` only as `<th>` header text, so without this the density
   layer is dead CSS that no scenario would catch. Otherwise leave every
   action form exactly as it is: five separate forms to five endpoints,
-  with their hidden inputs intact.
+  with their hidden inputs intact. **The row reads by meaning**: the
+  reorder pair moved to a `reorder` cell beside the `position` it
+  changes and the status control took a column of its own, so the
+  classes are `reorder`, `position` and two `actions` cells rather than
+  one. See `design.md` — *The row reads by meaning, not by control
+  type*.
 - [x] 4.4 Render the facts cell as `.mark` pills instead of the
   `·`-joined sentence in `page.html`'s `step_cells` macro.
 - [x] 4.5 Add `just-created` to the step row when
@@ -152,18 +166,18 @@
   this break is silent and must be checked by grep.
 - [x] 7.3 Run `uv run ruff check`, `uv run ruff format --check`,
   `uv run mypy` and `uv run lint-imports`.
-- [ ] 7.4 Start the app against the seeded set and check by hand: a step
+- [x] 7.4 Start the app against the seeded set and check by hand: a step
   occupies one row, a gate is scannable, and the page is far short of
   the ~23,000px it stands at today. No test tier can measure a rendered
   row's height, so this stays a manual check rather than a scenario.
-- [ ] 7.5 Check by hand that both header links work in a real browser,
+- [x] 7.5 Check by hand that both header links work in a real browser,
   in both directions, and that the roster page's forms still post after
   losing their inline styles.
-- [ ] 7.6 Check by hand that a `human` step rejected for carrying an
+- [x] 7.6 Check by hand that a `human` step rejected for carrying an
   automation brief shows that fault legibly on the dimmed automation
   fieldset — the reachable not-offered case, and the half a response
   cannot establish. Dimmed, never hidden.
-- [ ] 7.7 Check by hand what the markers cannot establish: that a step
+- [x] 7.7 Check by hand what the markers cannot establish: that a step
   row's actions sit on one line, and that retire is **not** the most
   prominent control in the row. The `row-action` / `danger` scenarios
   pass for any stylesheet, including one that leaves retire loudest, so

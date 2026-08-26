@@ -11,7 +11,14 @@
 <body hx-boost="true">
 {% with current = "playbook" %}{% include "_admin_header.html" %}{% endwith %}
 <main class="container">
-  <h1>Edit step</h1>
+  {# The way back rides the title rather than sitting under the form: an
+     author who opened this page to look rather than to write should not
+     have to scroll past every field to leave. It carries the narrowing, so
+     leaving returns the list exactly as it was left. #}
+  <div class="page-head">
+    <h1>Edit step</h1>
+    <a href="{{ page_path }}{{ narrowing.suffix() }}" role="button" class="row-action quiet">Back to the table</a>
+  </div>
   <p>
     Identifier: <code>{{ step_id }}</code> — Discipline: {{ discipline }}
     <br><small>Both are read-only: other surfaces rely on the identifier's
@@ -33,12 +40,11 @@
   </article>
   {% endif %}
 
-  <form method="post" action="{{ page_path }}/steps/{{ step_id }}/edit{{ narrowing.suffix() }}">
+  <form method="post" action="{{ page_path }}/steps/{{ step_id }}/edit{{ narrowing.suffix() }}" class="authoring">
     {% with include_discipline = false %}
     {% include "_fields.html" %}
     {% endwith %}
     <button type="submit">Save</button>
-    <a href="{{ page_path }}{{ narrowing.suffix() }}">Back to the table</a>
   </form>
 </main>
 </body>

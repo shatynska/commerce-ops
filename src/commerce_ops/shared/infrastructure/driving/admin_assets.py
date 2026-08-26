@@ -76,4 +76,10 @@ async def admin_asset(asset: str, request: Request) -> Response:
     path = (STATIC_DIR / asset).resolve()
     if path.parent != STATIC_DIR.resolve() or not path.is_file():
         raise HTTPException(status_code=404)
-    return FileResponse(path)
+    # `no-cache` is "revalidate before reusing", not "do not store": the
+    # response still carries an ETag, so an unchanged file costs a 304 and
+    # no bytes. Without it a browser serves the stylesheet it already has
+    # while the templates come fresh from the server every request, which
+    # presents as markup that changed and styling that did not — a fault
+    # nobody can find by reading the diff.
+    return FileResponse(path, headers={"Cache-Control": "no-cache"})

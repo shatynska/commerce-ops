@@ -165,17 +165,51 @@ them for Add step: the `edit` link becomes
 than the buttons matching it. Pico styles `[role=button]` as a button,
 so this needs no rule of our own.
 
-Getting them into one row is CSS, not restructuring: the action cell
-becomes `display: flex` with `gap`, and `td.actions form { display: contents }`
-collapses each single-action form so its button becomes a direct flex
-item. The forms stay exactly as they are — separate forms with separate
-actions and separate hidden inputs — which matters, because they post to
-five different endpoints and merging them would change behaviour this
-change has no business changing.
+Getting them onto one line is CSS, not restructuring: the forms go
+`display: inline` so their buttons become the inline items. The forms
+stay exactly as they are — separate forms with separate actions and
+separate hidden inputs — which matters, because they post to five
+different endpoints and merging them would change behaviour this change
+has no business changing.
+
+`display: contents` on the form was the first approach, and **Risks**
+below records it as the load-bearing trick. It was replaced during
+implementation by the fallback that entry already named, and the reason
+is worth keeping: it requires the *cell* to be the flex container, and
+`display: flex` on a `<td>` replaces `display: table-cell`. The cell
+then leaves the table's column model and stops sizing with its column,
+and every attempt to hand it a width back is a guess the table was
+making correctly. Inline layout keeps the cell a cell.
+
+Two further corrections landed the same way, and both were specificity
+rather than layout. Pico styles these controls through
+`button[type=submit]` and `[role=button], [type=submit], button` —
+specificity (0,1,1) — so a plain `.row-action` at (0,1,0) loses on every
+property they both set, source order notwithstanding. The class is
+doubled (`.row-action.row-action`) to outrank it. Left single, the
+symptom is exact and was observed twice: every action stretches to its
+cell's full width and stacks one per line, while the `edit` link alone
+sits inline, because `a[role="button"]` is not matched by that width
+rule.
 
 `danger` is a colour and a border, never a size or a weight increase.
 The requirement is that retire stops being the loudest control, so
 making it a *different* loud control would fail it.
+
+### The row reads by meaning, not by control type
+
+The delta requires a step's row to occupy one line; it does not require
+every control to sit in one cell. The reorder pair sits beside the
+position it changes, the status control takes a column of its own, and
+`edit` and `retire` share the last one.
+
+This was settled during implementation, against an earlier draft of this
+document that pooled all five into a single action cell. Grouping by
+"these are all buttons" classifies the markup rather than the work: an
+admin looking for *where does this sit* and one looking for *retire
+this* are after different things, and `2 / 3` beside the arrows that
+change it reads as one fact. The delta's wording was amended to match
+rather than left describing the pooled cell.
 
 ### The fault-visibility defect does not exist, and the treatment is negative
 
@@ -206,16 +240,32 @@ What `attribute-faults-to-fields` actually deferred here is narrower
 than either draft assumed. Its design says "Marking ships unstyled", and
 the not-offered case it names as guaranteed is the **disabled** one: a
 `human` step carrying an automation brief is refused for the pair and
-marks both halves, and the brief renders disabled inside the fieldset
-this change is about to dim.
+marks both halves, and the brief renders disabled among controls the
+step's kind cannot use.
 
-So the treatment is a negative obligation and nothing more: **dimming
-must not become hiding, and must not swallow the fault it sits beside.**
-`.inapplicable` dims its fieldset and never hides it; no vocabulary rule
-renders a mark, or a container holding one, as not displayed or as less
-legible than the surface's ordinary text. That is tasks 2.5 and 2.5a,
-and it is the whole of the fix. No template restructuring is required,
-and none is done.
+So the treatment is a negative obligation and nothing more: **setting
+those controls apart must not become hiding them, and must not swallow
+the fault sitting beside them.** No vocabulary rule renders a mark, or a
+container holding one, as not displayed or as less legible than the
+surface's ordinary text. That is tasks 2.5 and 2.5a, and it is the whole
+of the fix. No template restructuring is required, and none is done.
+
+**The vocabulary ends up carrying no such treatment at all**, which is
+the outcome the negative obligation permits and does not require. Three
+were built and rejected on sight — a pale fill, a bordered grey box, and
+transparent controls with a dashed edge — and each read as a region
+demanding attention rather than one that can be ignored, which is the
+opposite of what "this kind of step cannot use these" means. The
+controls render as ordinary fields; they stay `disabled`, which is the
+served guarantee and not a style decision, and the browser's own
+rendering of a disabled control is what says so.
+
+The obligation is kept in the delta anyway, and the stylesheet keeps the
+rule and a comment naming exactly what not to do. With no treatment
+there is nothing that could reach the fault, so the requirement is
+trivially satisfied — and that is precisely when a constraint is easiest
+to lose, because the next person adds a treatment and nothing pushes
+back.
 
 The second half is not a refinement of the first. The mark is rendered
 *inside* the control's `<label>`, so the obvious way to dim a fieldset
@@ -285,9 +335,26 @@ markup governed by nothing, which is the state this change exists to end.
 
 It is bounded, and the bounds are not stylistic:
 
-1. **No field is added, removed, renamed, or reordered in the submitted
-   body.** The form's wire shape is a contract the write depends on;
-   grouping is a visual regrouping of the same controls.
+1. **No field is added, removed, or renamed, and none changes the values
+   it submits.** The form's wire shape is a contract the write depends
+   on; grouping is a visual regrouping of the same controls.
+
+   This bound originally said "or reordered", and the sequence *was*
+   changed during implementation — the form now runs status, name,
+   description, assignees, gate, discipline, scope, blocking, hazard,
+   timing anchor, needs confirmation, kind, automation. The clause is
+   dropped rather than quietly broken, because on inspection it was
+   protecting nothing: `_form_of` reads `await request.form()` into a
+   mapping, so sequence reaches no rule. It would matter only for a
+   duplicated key, where last-wins decides — and the anchor groups
+   already render each input exactly once, for that very reason, which
+   is recorded under the anchor comment in `_fields.html`.
+
+   What the new sequence buys is that `status` comes first. It governs
+   every other field — a `draft` is a sketch nobody is held to, an
+   `active` step is work a launch waits on — and an author who fills
+   eleven fields before discovering which one they were writing has
+   filled them under the wrong assumption.
 2. **No mark is separated from the control it concerns.** Grouping must
    not do what the rejected fault fix above would have done. This is the
    interaction that makes the two pieces of work touch: both move markup

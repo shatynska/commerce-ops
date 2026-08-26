@@ -4,9 +4,18 @@
 
 Every action a step's row offers — reordering, changing status, editing,
 retiring, un-retiring — SHALL be presented as a control of the same
-weight as its siblings, and the row's actions SHALL sit together rather
-than stacking one per line. Which actions a row offers is unchanged by
-this requirement: a step that offers no move today offers none after it.
+weight as its siblings, and a step's row SHALL occupy one line rather
+than stacking its controls one per line. Which actions a row offers is
+unchanged by this requirement: a step that offers no move today offers
+none after it.
+
+Actions that act on the same thing SHALL be grouped with the thing they
+act on rather than pooled into one cell by virtue of all being controls.
+The reorder pair belongs beside the position it changes; the status
+control belongs in the status column. What the requirement forbids is
+the vertical stack that cost a step five lines of height, not a layout
+that reads by meaning — an admin looking for "where does this sit" and
+an admin looking for "retire this" are looking for different things.
 
 The **destructive** action SHALL be distinguished by its own treatment
 rather than by being the most prominent control in the row. Retiring a
@@ -25,10 +34,10 @@ derived from, as this capability already does for its fault-rewriting
 rule.
 
 The markers are a necessary condition, not a sufficient one. They
-establish that the vocabulary was applied; they cannot establish that
-the row's controls sit on one line or that the destructive one is not
-the most prominent, which no server response can show. Those SHALL be
-confirmed by direct inspection of the rendered page.
+establish that the vocabulary was applied; they cannot establish that a
+row occupies one line or that the destructive action is not the most
+prominent, which no server response can show. Those SHALL be confirmed
+by direct inspection of the rendered page.
 
 Nothing in this requirement licenses removing an action, changing what
 an action does, or changing which actions a row offers for a given step.
@@ -69,11 +78,11 @@ a fault the surface marked.**
 
 The case this actually concerns is the automation controls. A `human`
 step carrying an automation brief is refused for the pair, marking both
-the kind and the brief, and the brief renders disabled inside the
-fieldset the surface dims for a kind that cannot use it. Dimming that
-fieldset is presentation this change introduces; hiding it would remove
-a fault the surface is required to render, turning a styling decision
-into a silent breach of an existing guarantee.
+the kind and the brief, and the brief renders disabled among controls a
+step of that kind cannot use. Any treatment that sets those controls
+apart is presentation; hiding them would remove a fault the surface is
+required to render, turning a styling decision into a silent breach of
+an existing guarantee.
 
 So the obligation is negative and specific: no rule in the vocabulary
 SHALL render a marked control's fault, or a container holding one, as
@@ -81,14 +90,25 @@ not displayed **or as less legible than the surface's ordinary text**.
 A disabled control stays disabled, and the fault marked on it stays as
 readable as any other.
 
-Both halves are stated because the dim is what this change introduces.
-The fieldset is styled nowhere today, so the mark inside it is fully
-legible; the natural way to dim a fieldset — reducing its opacity —
-applies to its descendants, and would take the fault down with the
-controls. Dimming a control an admin cannot use is the point; dimming
-the sentence explaining why their write was refused defeats it. The
-legibility half cannot be read from a response and is confirmed by
-inspection.
+Both halves are stated because the second is the one a treatment reaches
+by accident. The mark renders *inside* the marked control's label, so
+the natural way to set a region apart — reducing its opacity — applies
+to descendants and takes the fault down with the controls; opacity also
+establishes a stacking context, so restoring it on the mark alone does
+not work. Setting apart a control an admin cannot use is legitimate;
+dimming the sentence explaining why their write was refused defeats the
+guarantee it exists to serve. The legibility half cannot be read from a
+response and is confirmed by inspection.
+
+This requirement binds whatever treatment the surface carries, including
+none. The vocabulary as built gives those controls no treatment of its
+own — every version tried read as a region demanding attention rather
+than one that can be ignored, which is the opposite of what it means —
+so the controls render as ordinary fields and the browser's own
+rendering of a disabled control is what says they are not offered. That
+makes this requirement trivially satisfied rather than carefully
+satisfied, and it stays stated for exactly that reason: it is the
+constraint on the treatment somebody adds next.
 
 #### Scenario: A fault on a disabled automation control is not suppressed
 

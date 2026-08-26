@@ -76,8 +76,13 @@ the state the spec-driven rule exists to prevent.
   occupies one row, and the facts a step carries render as compact marks
   rather than as a sentence.
 - **The vocabulary never suppresses a fault the surface marked.** The
-  fieldset a step's kind cannot use is dimmed, never hidden, so a mark
-  landing on a disabled automation control stays legible. No template
+  controls a step's kind cannot use are never hidden, so a mark landing
+  on a disabled automation control stays legible. In the end they carry
+  no treatment of their own either — every version tried read as a
+  region demanding attention rather than one to ignore — so the
+  obligation is satisfied by there being nothing that could reach the
+  fault, and it stays stated as the constraint on whatever is added
+  next. No template
   restructuring: two earlier drafts of this change proposed surgery on
   the timing-anchor groups to free a "trapped" fault, and no such fault
   exists — the surface parses only the inputs the submitted anchor kind
