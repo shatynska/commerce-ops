@@ -327,6 +327,75 @@ def _task_name(step: StepDefinition) -> str:
     return f"{step.name[:kept]}{tail}"
 
 
+GATE_TAG_PREFIX = "gate:"
+DISCIPLINE_TAG_PREFIX = "discipline:"
+
+_OWNED_TAG_PREFIXES = (GATE_TAG_PREFIX, DISCIPLINE_TAG_PREFIX)
+"""The two prefixes the system owns. A tag carrying neither belongs to
+whoever put it there and is never read, written or removed — a person
+labelling a task `urgent` is doing something this projection has no
+opinion about.
+
+Owning a prefix is what lets this change persist nothing: for the name,
+the body and the assignees the system must retain what it last wrote in
+order to tell an authored change from a person's edit, but an owned tag
+already on a task *is* that record."""
+
+
+def _step_tags(step: StepDefinition) -> tuple[str, ...]:
+    """The step's gate and discipline, as the tags standing for them."""
+    return (
+        f"{GATE_TAG_PREFIX}{step.gate}",
+        f"{DISCIPLINE_TAG_PREFIX}{step.discipline.value}",
+    )
+
+
+def _missing_tags(step: StepDefinition, carried: Sequence[str]) -> tuple[str, ...]:
+    """The step's own tags that the task does not already carry.
+
+    Only ever additive. A task carrying an owned tag that disagrees with
+    the step — a step re-gated after its task was made — keeps it: telling
+    that case from a person's own retagging needs retained state, which is
+    the machinery this change exists to avoid. See design.md, Decision 4.
+    """
+    present = set(carried)
+    return tuple(tag for tag in _step_tags(step) if tag not in present)
+
+
+async def _ensure_tags(
+    *, clickup: Any, task_id: str, step: StepDefinition, carried: Sequence[str]
+) -> None:
+    """Add each of the step's tags the task lacks, one request per tag.
+
+    A tag that cannot be set is reported and stepped over rather than
+    failing the pass: a task stating its work without its tags is a lesser
+    fault than a launch whose work is not projected at all, and
+    `scheduled-jobs` records only whether a run succeeded, so a failed run
+    would hide the gap behind a retry — the same trade `_clickup_users`
+    already makes for an assignee with no ClickUp account.
+    """
+    missing = _missing_tags(step, carried)
+    if not missing:
+        return
+    # Resolved before the try, deliberately: a client that has no such
+    # operation is a wiring fault and must surface as one. Swallowing it
+    # with the failures below would leave tags silently never written and
+    # nothing but a warning to say so.
+    add_tag = clickup.add_task_tag
+    for tag in missing:
+        try:
+            await add_tag(task_id, tag)
+        except Exception:
+            _logger.warning(
+                "step %s could not be tagged '%s' on ClickUp task %s; the task "
+                "keeps the tags it has and the pass continues",
+                step.identifier,
+                tag,
+                task_id,
+                exc_info=True,
+            )
+
+
 def _task_body(step: StepDefinition) -> str | None:
     """The step's description, or nothing at all where it carries none.
 
@@ -480,6 +549,17 @@ async def converge_launch(
                 mapping=mapping,
                 desired_assignees=_clickup_users(step, people, task_id=task_id),
             )
+            # Additive, and reading what the task already carries from the
+            # list read this pass already took — a task holding both of
+            # its tags costs no request at all. This is what carries the
+            # tags onto tasks projected before they existed, rather than
+            # leaving every in-flight launch as it is.
+            await _ensure_tags(
+                clickup=clickup,
+                task_id=task_id,
+                step=step,
+                carried=getattr(task, "tags", ()),
+            )
         else:
             composed_name = _task_name(step)
             composed_body = _task_body(step)
@@ -489,6 +569,10 @@ async def converge_launch(
                 name=composed_name,
                 description=composed_body,
                 assignees=list(assignees),
+                # Carried on the create itself: ClickUp accepts tags here
+                # but not on an update, so a new task costs no extra
+                # request for them.
+                tags=list(_step_tags(step)),
             )
             await mapping.record_task(launch.product_id, step.identifier, created.id)
             # Whenever the system writes a name, a body or an assignee

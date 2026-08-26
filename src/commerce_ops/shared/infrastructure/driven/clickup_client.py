@@ -14,6 +14,7 @@ import functools
 import os
 from collections.abc import Mapping, Sequence
 from datetime import UTC, date, datetime
+from urllib.parse import quote
 
 import httpx
 
@@ -43,6 +44,7 @@ async def create_task(
     name: str,
     description: str | None = None,
     assignees: Sequence[str] | None = None,
+    tags: Sequence[str] | None = None,
 ) -> ClickUpTask:
     body: dict[str, object] = {"name": name}
     if description is not None:
@@ -52,12 +54,37 @@ async def create_task(
     # no such claim.
     if assignees:
         body["assignees"] = list(assignees)
+    # Omitted when empty for the same reason, and because ClickUp accepts
+    # tags on a create but not on an update -- this is the one call that
+    # can set them without a second request per tag.
+    if tags:
+        body["tags"] = list(tags)
 
     response = await get_client().post(
         f"{_BASE_URL}/api/v2/list/{list_id}/task", json=body
     )
     response.raise_for_status()
     return _task_from_response(response)
+
+
+async def add_task_tag(task_id: str, tag_name: str) -> None:
+    """Attach a tag to a task, creating it in the task's space if it does
+    not already exist there.
+
+    Its own endpoint rather than a field on `update_task`: ClickUp's task
+    update accepts no `tags` key, so a tag added after creation costs one
+    request per tag. Returns nothing -- the response carries no task body
+    to hand back.
+
+    The tag needs no prior existence. Measured against the live API on
+    2026-08-26: attaching `discipline:listing` to a task in a space
+    holding no tags answered `200` and left that name in the space. This
+    is why the projection seeds no vocabulary.
+    """
+    response = await get_client().post(
+        f"{_BASE_URL}/api/v2/task/{task_id}/tag/{quote(tag_name, safe='')}"
+    )
+    response.raise_for_status()
 
 
 async def update_task(task_id: str, fields: Mapping[str, object]) -> ClickUpTask:
@@ -100,6 +127,8 @@ def _task_state(raw: Mapping[str, object]) -> ClickUpTaskState:
     description = raw.get("description")
     assignees = raw.get("assignees") or ()
     assert isinstance(assignees, Sequence)
+    tags = raw.get("tags") or ()
+    assert isinstance(tags, Sequence)
     return ClickUpTaskState(
         id=str(raw["id"]),
         status=str(status.get("status", "")),
@@ -113,6 +142,14 @@ def _task_state(raw: Mapping[str, object]) -> ClickUpTaskState:
             str(person["id"])
             for person in assignees
             if isinstance(person, Mapping) and "id" in person
+        ),
+        # ClickUp reports a tag as an object carrying its name and its
+        # colours; only the name is judged, so a tag object without one
+        # is skipped rather than read as an empty tag.
+        tags=tuple(
+            str(tag["name"])
+            for tag in tags
+            if isinstance(tag, Mapping) and "name" in tag
         ),
     )
 
