@@ -336,7 +336,7 @@ Counting only active steps is what makes the floor mean what it says: a gate who
 
 The **seeded** step set SHALL contain at least one step for every timing-anchor kind (offset, window, open-ended, recurring), at least one step for every discipline in the shared vocabulary, at least one `prohibited-tactic` step and at least one `compliance-obligation` step, at least one step of each kind, and at least one automated step that needs confirmation alongside one that does not.
 
-Every seeded `human` step SHALL be `active`. The seeded `automated` steps SHALL be `in-development`: no automation runtime exists yet, so no handler can be registered for them, and `active` would be a claim that something resolves them. Neither is a blocking step, so the gate-holding floor is unaffected — which is what makes this the honest migration rather than a compromise.
+Every seeded `human` step SHALL be `active`. The seeded `automated` steps SHALL be `in-development`: the seed delivers no handler for either of them, and `active` would be a claim that something resolves them. That a runtime now exists to invoke handlers (`launch-step-automation`) does not change what the seed delivers — activation is an authoring act performed against a deployment that registers the step's handler, never something seeding or deploying does on an author's behalf. Neither is a blocking step, so the gate-holding floor is unaffected — which is what makes this the honest migration rather than a compromise.
 
 Tactics the reference document marks as suspension risks SHALL be represented as `prohibited-tactic` steps only where the row names a tactic to refuse; a row that is a caution about a mistake SHALL remain an ordinary step, because heeding a caution is satisfiable work while a tactic can only be refused.
 
@@ -367,6 +367,11 @@ Like its sibling seed requirement, this describes the seed and only the seed: it
 
 - **WHEN** the report of what blocks activation runs over the authored set while any step cannot yet be made `active`
 - **THEN** it lists exactly those steps
+
+#### Scenario: A registered runtime does not activate a seeded step
+
+- **WHEN** a deployment registers step handlers and the seeded step set is read back
+- **THEN** the seeded `automated` steps are still `in-development`, having been activated by no one
 
 ### Requirement: A step declares a lifecycle status, and only active steps are served
 
