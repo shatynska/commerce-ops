@@ -34,3 +34,73 @@
     {% endif %}
   </nav>
 </header>
+{# Where a failed write is reported, and the behaviour that reports it —
+   shipped together, in the one partial every admin surface includes.
+
+   Together, deliberately. A listener that reaches for a slot each page
+   happens to own is a listener that finds nothing and fails silently on
+   the page that lacks one, which is the very defect this exists to fix.
+   Pairing them here makes "the handler has somewhere to render" true by
+   construction rather than by inspection of two templates.
+
+   `write-failure-notice` names the container's ROLE, so it sits on every
+   admin page whether or not anything has failed. `write-failed` is added
+   only when a failure has actually been reported into it — the same
+   discipline `just-created` follows, where a marker asserting an
+   occurrence must never outrun the occurrence. #}
+<div class="container write-failure-notice" hidden role="alert" aria-live="polite"></div>
+<script>
+  (function () {
+    // Addressed by the marker that names it, so the handler and its
+    // target cannot drift apart under a rename.
+    var notice = document.querySelector(".write-failure-notice");
+    if (!notice) return;
+
+    // What the page can establish is that the submission did not
+    // complete. Whether the step set changed it cannot know: a failure
+    // raised after the set was written answers the same way as one raised
+    // before it. So the report makes no claim about persistence at all --
+    // it says what is on screen may be stale, and sends the admin to look.
+    // Claiming otherwise is cheap to write and wrong exactly when it
+    // matters, which is why the spec forbids that claim outright.
+    var DID_NOT_COMPLETE =
+      "That write did not complete. What this page is showing may no " +
+      "longer describe the step set — reload to see it as it stands.";
+
+    // The one failure in this class an admin can act on themselves, so it
+    // is called by its name instead of being folded into the general
+    // wording. Read CLIENT-SIDE, from what the page already knows: it
+    // posted to a route the server had just rendered for it, so a 404
+    // answering that post is the guard refusing rather than a route that
+    // does not exist. Nothing is marked on the server to make this
+    // recognisable -- the guard's answer has to stay indistinguishable
+    // from an unregistered route's.
+    var SESSION_ENDED =
+      "That write did not complete: this admin session has ended. Mint a " +
+      "fresh link with the Slack command and reopen the page. What this " +
+      "page is showing may no longer describe the step set.";
+
+    function report(message) {
+      notice.textContent = message;
+      notice.classList.add("write-failed");
+      notice.hidden = false;
+      notice.scrollIntoView({ block: "nearest" });
+    }
+
+    // Three events, not one. `htmx:responseError` is a response the page
+    // cannot render; `htmx:sendError` is no response at all -- which is
+    // what a submission in flight during a deploy receives, since every
+    // merge to main replaces the container; `htmx:timeout` is a response
+    // that never arrives. Binding only the first would ship this
+    // guarantee with a hole in the case this deployment produces most.
+    function onFailure(event) {
+      var xhr = event.detail && event.detail.xhr;
+      var ended = xhr && xhr.status === 404;
+      report(ended ? SESSION_ENDED : DID_NOT_COMPLETE);
+    }
+
+    document.body.addEventListener("htmx:responseError", onFailure);
+    document.body.addEventListener("htmx:sendError", onFailure);
+    document.body.addEventListener("htmx:timeout", onFailure);
+  })();
+</script>

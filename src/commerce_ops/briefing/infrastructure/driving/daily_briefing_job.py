@@ -29,6 +29,7 @@ from procrastinate import RetryStrategy, job_context
 
 from commerce_ops.briefing.application import (
     LaunchReports,
+    LaunchReportsUnavailableError,
     ProductReader,
     run_daily_briefing,
 )
@@ -154,6 +155,33 @@ async def daily_briefing(context: job_context.JobContext, timestamp: int) -> Non
             audience=AUDIENCE,
             as_of=datetime.datetime.now(datetime.UTC).date(),
         )
+    except LaunchReportsUnavailableError as unavailable:
+        # Ahead of the assembly-failure branch on purpose: a source that
+        # cannot answer yet is an expected stage of a deployment being set
+        # up, not a failure to read data, and retrying cannot resolve it.
+        # So the run succeeds and is not retried — and a message goes out
+        # naming what is still missing, because the alternative is a clean
+        # briefing, which posts nothing and reads as an all-clear.
+        #
+        # Posted on every run while the condition lasts, deliberately: the
+        # existing once-per-outage hook is retry exhaustion, which a
+        # succeeded run never reaches, and no other state is kept to tell a
+        # continuing condition from a new one.
+        _logger.info(
+            "the launch source cannot supply reports; briefing stood down",
+            extra={"identifiers": list(unavailable.identifiers)},
+        )
+        await _attempt_post(
+            "Could not assemble the daily launch briefing: the launch "
+            "source cannot supply reports"
+            + (
+                f" ({', '.join(unavailable.identifiers)})"
+                if unavailable.identifiers
+                else ""
+            )
+            + "."
+        )
+        return
     except Exception as exc:
         # Distinct from a delivery failure: the briefing was never
         # assembled, so the run is recorded as failed and the runner

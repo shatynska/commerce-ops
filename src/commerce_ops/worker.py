@@ -36,6 +36,7 @@ configure_logging()
 # lists is exactly the divergence that leaves the freshness endpoint
 # reporting on a different set of work than the worker actually runs
 # (tasks.md 1.3a).
+from commerce_ops.briefing.application import LaunchReportsUnavailableError
 from commerce_ops.briefing.infrastructure.driven import slack_notifier
 from commerce_ops.briefing.infrastructure.driving import daily_briefing_job
 from commerce_ops.catalog.application import get_product_by_id
@@ -43,6 +44,7 @@ from commerce_ops.catalog.infrastructure.driven.product_repository import (
     CatalogProductRepository,
 )
 from commerce_ops.launch.application import read_launches
+from commerce_ops.launch.domain.launch_playbook import PlaybookNotReadyError
 from commerce_ops.launch.infrastructure.driven.launch_repository import LaunchRepository
 from commerce_ops.launch.infrastructure.driven.playbook_repository import (
     PlaybookRepository,
@@ -125,9 +127,22 @@ async def _read_launch_reports(*, as_of: date) -> tuple[LaunchReport, ...]:
     module — outside `.importlinter`'s containers — may name both sides.
     """
     async with session() as db_session:
+        try:
+            playbook = await PlaybookRepository(db_session).get("live")
+        except PlaybookNotReadyError as unready:
+            # Translated here, and only here. `briefing` may not name
+            # `launch.domain`, and by its own convention names nothing from
+            # `launch` at all — its report port is structurally typed for
+            # exactly that reason. This module sits outside every
+            # `.importlinter` container, which is what lets it hold both
+            # sides, and it already does the same for the product and
+            # roster readers.
+            raise LaunchReportsUnavailableError(
+                identifiers=unready.unheld_gates
+            ) from unready
         return await read_launches(
             LaunchRepository(db_session),
-            ServedPlaybooks(await PlaybookRepository(db_session).get("live")),
+            ServedPlaybooks(playbook),
             as_of=as_of,
             scope=_INTERNAL_SCOPE,
         )

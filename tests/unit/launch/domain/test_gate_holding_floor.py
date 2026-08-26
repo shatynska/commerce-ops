@@ -1,4 +1,15 @@
-"""The gate-holding floor as a construction rule of `LaunchPlaybook`.
+"""The gate-holding floor as a readiness property of `LaunchPlaybook`.
+
+`serve-only-a-ready-playbook` moved this rule out of the constructor: its
+subject is not whether the step set is internally consistent but whether
+it is complete enough to hold a launch, and as a construction rule it made
+an all-`draft` set unrepresentable. So each test below now asserts that
+the set **constructs** and that the readiness read names the gate it
+leaves unheld. What each one establishes — which gate, and that attachment
+or a non-`active` status does not satisfy the floor — is unchanged; only
+where the answer is read has moved. That the *serving read* refuses such a
+set is covered by the repository tests (`tasks.md` 5.6), which is the
+layer that can observe it.
 
 Derived strictly from the delta spec:
 `openspec/changes/move-playbook-steps-to-postgres/specs/launch-playbook/spec.md`
@@ -170,11 +181,12 @@ def test_a_gate_with_no_step_at_all_is_rejected_naming_the_gate() -> None:
     """
     steps = _holding_steps(except_gates=frozenset({"ignition"}))
 
-    with pytest.raises(InvalidPlaybookError) as caught:
-        _playbook(steps)
+    playbook = _playbook(steps)
 
-    # SPECIFIED: the error names the gate left unheld.
-    assert "ignition" in str(caught.value)
+    # SPECIFIED: the set constructs, and the readiness read names the gate
+    # left unheld.
+    assert playbook.unheld_gates == ("ignition",)
+    assert not playbook.is_ready
 
 
 def test_a_gate_with_only_non_blocking_steps_is_rejected() -> None:
@@ -194,11 +206,12 @@ def test_a_gate_with_only_non_blocking_steps_is_rejected() -> None:
         non_blocking_at_live,
     )
 
-    with pytest.raises(InvalidPlaybookError) as caught:
-        _playbook(steps)
+    playbook = _playbook(steps)
 
-    # SPECIFIED: the error names the gate, not the attached step.
-    assert "live" in str(caught.value)
+    # SPECIFIED: the read names the gate, not the attached step — a step
+    # being attached does not satisfy the floor.
+    assert playbook.unheld_gates == ("live",)
+    assert not playbook.is_ready
 
 
 def test_the_floor_fault_is_reported_alongside_another_fault() -> None:
@@ -234,9 +247,16 @@ def test_the_floor_fault_is_reported_alongside_another_fault() -> None:
         _playbook(steps)
 
     message = str(caught.value)
-    # SPECIFIED: every fault is reported, each naming its step or gate.
-    assert "order" in message
+    # SPECIFIED: the coherence fault is still reported, naming its step.
     assert "creative.image-advice" in message
+    # SPECIFIED, and the half this change inverts: the unheld gate is no
+    # longer a fault, so it is absent from the aggregated report — it is a
+    # readiness fact now, and readable as one only once the set is
+    # otherwise coherent enough to construct.
+    assert "order" not in message
+    assert _playbook(
+        _holding_steps(except_gates=frozenset({"order"}))
+    ).unheld_gates == ("order",)
 
 
 def test_a_playbook_with_every_gate_held_constructs() -> None:

@@ -50,6 +50,39 @@ class InvalidPlaybookError(ValueError):
         super().__init__("; ".join(self.faults))
 
 
+class PlaybookNotReadyError(RuntimeError):
+    """The playbook is coherent but cannot hold a launch: some gate has no
+    `active` blocking step.
+
+    Deliberately **not** an `InvalidPlaybookError`. A consumer has to be
+    able to tell "this playbook is broken and someone should be paged"
+    from "this playbook is still being written and will serve once it is
+    finished" — the first is a defect, the second is an expected stage of
+    a system being set up, and collapsing them makes a bootstrap look like
+    an outage.
+
+    It carries the playbook as well as the gates. A consumer that is
+    declining to act may still owe an obligation that turns on what the
+    set contains — `launch-clickup-sync`'s webhook intake owes opposite
+    treatments to a served and a non-served step's task — and a refusal
+    carrying only gate names would force it to take a second read or to
+    guess. The carried playbook is for **classifying** the set only: it
+    must never be used to advance, project or report on a launch, which is
+    the very thing the refusal withheld it from.
+    """
+
+    def __init__(self, *, playbook: LaunchPlaybook, gates: Sequence[str]) -> None:
+        # Taken as `gates` and read back as `unheld_gates`: inside an error
+        # whose whole subject is the unheld ones the shorter name is
+        # unambiguous, while at a read site far from here it is not.
+        self.playbook = playbook
+        self.unheld_gates: tuple[str, ...] = tuple(gates)
+        super().__init__(
+            "the playbook cannot hold a launch: "
+            + ", ".join(unheld_gate_fault(gate) for gate in self.unheld_gates)
+        )
+
+
 class Scope(Enum):
     """Whether a step concerns the product itself, or one marketplace."""
 
@@ -520,27 +553,80 @@ def _automation_faults(step: StepDefinition) -> list[str]:
     return faults
 
 
-def _gate_holding_faults(
+def _unheld_gates(
     gates: tuple[Gate, ...], steps: tuple[StepDefinition, ...]
-) -> list[str]:
-    """The gate-holding floor: every gate needs an active blocking step.
+) -> tuple[str, ...]:
+    """The gates holding no `active` blocking step, in gate-sequence order.
 
-    Promoted from a shipped-set test to a construction rule by
-    `move-playbook-steps-to-postgres`: with an editable step set the floor
-    must hold after every write, and construction is where every other
-    coherence rule already lives — one rulebook for load and write alike.
+    The gate-holding floor was a construction rule until
+    `serve-only-a-ready-playbook`, which found it to be the wrong kind of
+    rule for the place it sat in. Its subject is not whether the step set
+    is internally consistent — every other rule in the constructor answers
+    that — but whether the set is *complete enough to hold a launch*. As a
+    construction rule it made an all-`draft` set unrepresentable, and
+    unrepresentable in a way no sequence of writes could climb out of,
+    since write validation reconstructs the whole candidate set.
+
+    So it is a computation now rather than a fault, and the two places
+    that care ask it directly: the serving read refuses a set that leaves
+    a gate unheld, and the write path refuses a write that would leave one
+    unheld *in a set that is already ready*.
     """
     held = {
         step.gate
         for step in steps
         if step.blocking and step.status is StepStatus.ACTIVE
     }
-    return [
-        f"gate '{gate.identifier}' has no active blocking step attached — a "
+    return tuple(gate.identifier for gate in gates if gate.identifier not in held)
+
+
+def unheld_gates_of(steps: Sequence[StepDefinition]) -> tuple[str, ...]:
+    """The framework gates that `steps` leaves without an `active` blocking
+    step.
+
+    Public so the write path can ask the question without constructing an
+    aggregate purely to ask it — which matters because the candidate set a
+    write is judging may not be constructible at all, and the ratchet's
+    answer is wanted alongside whatever coherence faults it carries rather
+    than instead of them.
+    """
+    return _unheld_gates(framework_gates(), tuple(steps))
+
+
+def unheld_gate_fault(gate_identifier: str) -> str:
+    """The wording a gate-holding refusal carries, in one place.
+
+    Kept verbatim from when this was a construction fault, deliberately:
+    the admin surface matches it by substring to attribute the refusal to
+    a field (`playbook_admin._CROSSINGS`), so rewording it would silently
+    turn an attributed fault into an unattributed one.
+    """
+    return (
+        f"gate '{gate_identifier}' has no active blocking step attached — a "
         f"gate whose step obligations are an empty set opens for free"
-        for gate in gates
-        if gate.identifier not in held
-    ]
+    )
+
+
+def gate_holding_faults(
+    prior: tuple[str, ...], candidate: tuple[str, ...]
+) -> list[str]:
+    """The one-directional gate-holding rule, over a prior and a candidate
+    set's unheld gates.
+
+    It is always permitted to move a set toward being served, and never to
+    move a served set away from it in one write. So a write is refused for
+    leaving a gate unheld **only when the set it started from was itself
+    ready** — which is what protects a running launch from losing its
+    playbook to a single authoring action, while still letting a set that
+    is being built reach readiness one activation at a time.
+
+    Stated here rather than in the application layer so the ratchet is a
+    domain rule: the layer above supplies the two sets and reports what
+    comes back.
+    """
+    if prior:
+        return []
+    return [unheld_gate_fault(gate) for gate in candidate]
 
 
 def _gate_condition_faults(gates: tuple[Gate, ...]) -> list[str]:
@@ -571,7 +657,6 @@ class LaunchPlaybook:
             *_gate_sequence_faults(self.gates),
             *_gate_condition_faults(self.gates),
             *_step_faults(self.gates, self.steps),
-            *_gate_holding_faults(self.gates, self.steps),
         ]
         if faults:
             raise InvalidPlaybookError(faults)
@@ -597,6 +682,24 @@ class LaunchPlaybook:
         Every query below answers this set, so nothing that advances a
         launch can be handed a draft by accident."""
         return tuple(step for step in self.steps if step.status is StepStatus.ACTIVE)
+
+    @property
+    def unheld_gates(self) -> tuple[str, ...]:
+        """The gates holding no `active` blocking step, in sequence order.
+
+        Derived on every read and never stored: a stored flag would need
+        maintaining on every write and could disagree with the steps it
+        summarises, while this is eight set-membership tests over a
+        collection already in memory."""
+        return _unheld_gates(self.gates, self.steps)
+
+    @property
+    def is_ready(self) -> bool:
+        """Whether this playbook can hold a launch — that every gate has at
+        least one `active` blocking step. Exactly the emptiness of
+        `unheld_gates`, which is what the requirement defines readiness
+        as."""
+        return not self.unheld_gates
 
     def steps_for_gate(self, gate_identifier: str) -> tuple[StepDefinition, ...]:
         return tuple(step for step in self.served_steps if step.gate == gate_identifier)

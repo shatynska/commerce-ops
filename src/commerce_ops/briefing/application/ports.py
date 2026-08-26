@@ -24,7 +24,15 @@ from commerce_ops.shared.domain.lifecycle_stage import LifecycleStage
 
 
 class LaunchReports(Protocol):
-    """Every launch position, reported as of a date."""
+    """Every launch position, reported as of a date.
+
+    Satisfying this port includes being able to say that reports cannot be
+    supplied **at all**, which is not the same as supplying none: raise
+    `LaunchReportsUnavailableError` (exported from this module's package)
+    carrying whatever identifiers explain why. Briefing treats those as
+    opaque strings, which is what lets the adapter translate its own
+    module's condition without briefing naming that module's types.
+    """
 
     async def __call__(self, *, as_of: date) -> Sequence[Any]: ...
 

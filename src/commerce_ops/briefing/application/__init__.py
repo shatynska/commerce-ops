@@ -19,6 +19,7 @@ from commerce_ops.briefing.domain.attention import (
     AttentionItem,
     BriefingError,
     Evidence,
+    LaunchReportsUnavailableError,
 )
 from commerce_ops.briefing.domain.briefing import Briefing
 
@@ -30,6 +31,7 @@ __all__ = [
     "CatalogProduct",
     "Evidence",
     "LaunchReports",
+    "LaunchReportsUnavailableError",
     "ProductReader",
     "assemble_daily_briefing",
     "render_briefing",

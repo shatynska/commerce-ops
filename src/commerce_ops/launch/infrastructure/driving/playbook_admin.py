@@ -23,6 +23,17 @@ wrapper opening its own session per operation), and `roster` /
 `admin_sessions`, injected by `main.py` the way `slack_entry`'s catalog
 registrar is, because this module may not import the access module's
 infrastructure.
+
+`roster` serves **two** contracts, and conflating them is what broke
+every write on this page. The guard hands it to `verify_admin_session`,
+which needs the roster *store*; the authoring writes need a *reader*,
+answering `list_people()`. The read path adapted it from the start and
+the write path did not, so each write reached the use cases holding a
+store they could not read and died on a `TypeError` before judging
+anything. Both directions are now explicit: the global is typed as the
+store, and `_roster_reader` is the reader the writes are given — over
+`_roster_people`, so a write is judged against the same roster the page
+rendered from.
 """
 
 from __future__ import annotations
@@ -39,7 +50,11 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from jinja2 import ChoiceLoader, Environment, FileSystemLoader, select_autoescape
 
-from commerce_ops.access.application import list_people, verify_admin_session
+from commerce_ops.access.application import (
+    RosterStore,
+    list_people,
+    verify_admin_session,
+)
 from commerce_ops.launch.application import (
     HANDLERS,
     StaleStepSetError,
@@ -247,7 +262,13 @@ steps: StepSetStore = _RequestScopedSteps()
 # pattern): the roster store and the access module's session store. Resolved
 # at call time; absent injection refuses every request, which is the
 # failing-closed direction.
-roster: Any = None
+#
+# Typed as the *store* it is, rather than `Any`. That is what makes the
+# mistake this change exists to fix a type error rather than a runtime
+# one: handing this object to an authoring write as its `roster=` reader
+# no longer type-checks, because a `RosterStore` does not satisfy
+# `RosterReader`. It was `Any`, so nothing objected.
+roster: RosterStore | None = None
 admin_sessions: Any = None
 
 
@@ -265,6 +286,34 @@ async def _roster_people() -> tuple[Any, ...]:
     if reader is not None:
         return tuple(await reader())
     return tuple(await list_people(roster=roster))
+
+
+class _PageRosterReader:
+    """The `RosterReader` the authoring writes take, over whatever the
+    composition root injected.
+
+    The page holds **one** collaborator serving two contracts. The guard
+    passes it to `access`'s `verify_admin_session`, which is typed
+    `RosterStore` and genuinely needs a store; the writes need a reader.
+    The read path has always adapted it — `_roster_people` above — and
+    the write path did not, so every write reached
+    `playbook_authoring._read_people` holding a `load()`/`save()` store,
+    which that function could not read. That is the whole production
+    fault, and this class is the missing half of the adaptation.
+
+    Delegating to `_roster_people` rather than resolving the roster
+    again is the point: the roster a write is judged against is then the
+    same roster the page rendered its assignee control from, by
+    construction rather than by two call sites agreeing.
+    """
+
+    async def list_people(self) -> tuple[Any, ...]:
+        return await _roster_people()
+
+
+#: Resolved per call through the module global, so a test that swaps
+#: `roster` needs no second seam and injection order stays irrelevant.
+_roster_reader: Final = _PageRosterReader()
 
 
 def _person_identifier(person: Any) -> str:
@@ -297,7 +346,11 @@ async def _require_admin(request: Request) -> str:
     404 — identical to an unregistered route, whatever actually failed."""
     session_id = request.cookies.get(SESSION_COOKIE)
     principal: str | None = None
-    if session_id:
+    # `roster is not None` is the failing-closed direction the comment on
+    # the global already claimed and nothing enforced: un-injected, the
+    # guard used to hand `None` to `verify_admin_session` and refuse with
+    # whatever that raised. Typing the global surfaced it.
+    if session_id and roster is not None:
         principal = await verify_admin_session(
             roster,
             admin_sessions,
@@ -1112,7 +1165,7 @@ async def save_edit(
             steps=steps,
             principal=principal,
             step_id=step_id,
-            roster=roster,
+            roster=_roster_reader,
             handlers=HANDLERS,
             **fields,
         )
@@ -1169,7 +1222,7 @@ async def create(
             steps=steps,
             principal=principal,
             discipline=discipline,
-            roster=roster,
+            roster=_roster_reader,
             handlers=HANDLERS,
             **fields,
         )
@@ -1209,7 +1262,7 @@ async def retire(
             steps=steps,
             principal=principal,
             step_id=step_id,
-            roster=roster,
+            roster=_roster_reader,
             handlers=HANDLERS,
         )
     except InvalidPlaybookError as rejected:
@@ -1229,7 +1282,7 @@ async def unretire(
             steps=steps,
             principal=principal,
             step_id=step_id,
-            roster=roster,
+            roster=_roster_reader,
             handlers=HANDLERS,
         )
     except InvalidPlaybookError as rejected:
@@ -1266,7 +1319,7 @@ async def change_status(
             principal=principal,
             step_id=step_id,
             status=status,
-            roster=roster,
+            roster=_roster_reader,
             handlers=HANDLERS,
         )
     except InvalidPlaybookError as rejected:

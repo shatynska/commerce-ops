@@ -27,6 +27,7 @@ import logging
 import os
 
 from commerce_ops.launch.application import record_step_outcome
+from commerce_ops.launch.domain.launch_playbook import PlaybookNotReadyError
 from commerce_ops.launch.infrastructure.driven.clickup_mapping import (
     ClickUpMappingRepository,
 )
@@ -126,7 +127,24 @@ async def reconcile_clickup_completions(timestamp: int) -> None:
         active = await launches.list_active()
         # The playbook is live and read per pass — every launch converges
         # against the same served set, whatever version stamp it recorded.
-        playbook = await PlaybookRepository(db_session).get("live")
+        try:
+            playbook = await PlaybookRepository(db_session).get("live")
+        except PlaybookNotReadyError as unready:
+            # A playbook still being authored is an expected state, not an
+            # outage, so the pass stands down and the run is recorded as
+            # having succeeded: `scheduled-jobs` records only success or
+            # failure, and a failure would put a working deployment into
+            # retry and overdue reporting for something retrying cannot
+            # fix. The cost is accepted — a stood-down pass refreshes the
+            # work's last success, so overdue reporting cannot fire while
+            # the playbook is unready. The daily briefing carries that
+            # signal instead, on every run while it lasts.
+            _logger.info(
+                "ClickUp completion pass standing down: the playbook cannot "
+                "hold a launch (gates: %s)",
+                ", ".join(unready.unheld_gates),
+            )
+            return
         record = functools.partial(
             record_step_outcome, launches, ServedPlaybooks(playbook)
         )
