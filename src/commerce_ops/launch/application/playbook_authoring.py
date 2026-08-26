@@ -50,6 +50,41 @@ _WRITE_ATTEMPTS = 3
 """How many times a write retries after losing the set-version race."""
 
 
+class RosterReader(Protocol):
+    """The one shape a roster collaborator answers to.
+
+    The write-side preconditions need to know who the roster carries; the
+    module boundary forbids `launch` resolving that itself, so a caller
+    supplies a reader. It used to be addressed by guessing among several
+    shapes, and the shape production actually supplied — the `RosterStore`
+    the composition root holds, which answers `load()` and `save()` — was
+    not among them. Every write from the admin page therefore died on a
+    `TypeError` raised from inside the write.
+
+    One member, and it is a `Protocol` so that `mypy` sees a store handed
+    over where a reader belongs, at the call site, which is where the
+    mistake was made and where nothing was watching.
+    """
+
+    async def list_people(self) -> Sequence[Any]: ...
+
+
+class UnreadableRosterError(TypeError):
+    """A roster collaborator that does not answer `RosterReader`.
+
+    A defect of *wiring*, and deliberately not an `InvalidPlaybookError`:
+    that type carries a rejected write's fault list, which the admin page
+    renders as a judgement about what the author submitted. Presenting a
+    mis-wired deployment that way would show an operator's mistake in an
+    author's form, at 200, where nothing but the browser could tell a
+    broken deployment from a refused edit.
+
+    A `TypeError` subclass because that is what it is, and because the
+    production fault was one — a caller that already handles the old
+    failure keeps handling this one, better named.
+    """
+
+
 class StaleStepSetError(RuntimeError):
     """A conditional persist lost the race: the step set changed between
     load and save.
@@ -160,7 +195,7 @@ def _validate(records: Sequence[Any], version: int) -> None:
     )
 
 
-async def _roster_identifiers(roster: Any) -> tuple[set[str], set[str]]:
+async def _roster_identifiers(roster: RosterReader) -> tuple[set[str], set[str]]:
     """(everyone the roster carries, everyone active on it), by identifier.
 
     The reader is a collaborator the composition root supplies across the
@@ -180,13 +215,25 @@ async def _roster_identifiers(roster: Any) -> tuple[set[str], set[str]]:
     return known, active
 
 
-async def _read_people(roster: Any) -> tuple[Any, ...]:
+async def _read_people(roster: RosterReader) -> tuple[Any, ...]:
+    """Everyone the roster carries, read through the one stated shape.
+
+    It once accepted three — a `list_people()` reader, a callable, or a
+    plain iterable — and fell through to `tuple(roster)` for anything
+    else, which is how a `RosterStore` produced `'PostgresRoster' object
+    is not iterable` from the middle of a write. One shape now, and
+    anything else is refused by name before the write is attempted.
+    """
     lister = getattr(roster, "list_people", None)
-    if lister is not None:
-        return tuple(await lister())
-    if callable(roster):
-        return tuple(await roster())
-    return tuple(roster)
+    if lister is None:
+        raise UnreadableRosterError(
+            f"the roster collaborator is a {type(roster).__name__!r}, which "
+            f"cannot answer who the roster carries: a roster reader must "
+            f"provide `list_people()`, and this one does not. Pass a reader "
+            f"rather than a roster store, or pass no roster at all to leave "
+            f"the two roster preconditions unevaluated"
+        )
+    return tuple(await lister())
 
 
 def person_identifier(person: Any) -> str:
@@ -205,7 +252,7 @@ def person_identifier(person: Any) -> str:
 async def _precondition_faults(
     touched: Sequence[StepDefinition],
     *,
-    roster: Any,
+    roster: RosterReader | None,
     handlers: Any,
 ) -> list[str]:
     """The two checks a load cannot make, over the steps a write touches.
@@ -229,7 +276,7 @@ async def _accept(
     version: int,
     touched: Sequence[StepDefinition],
     *,
-    roster: Any,
+    roster: RosterReader | None,
     handlers: Any,
 ) -> None:
     """Judge the write whole, and report every fault it carries at once.
@@ -399,7 +446,7 @@ async def create_step(
     timing_anchor: TimingAnchor,
     blocking: bool,
     kind: StepKind,
-    roster: Any = None,
+    roster: RosterReader | None = None,
     handlers: Any = None,
     description: str | None = None,
     needs_confirmation: bool = False,
@@ -461,7 +508,7 @@ async def _write_fields(
     steps: StepSetStore,
     principal: str,
     step_id: str,
-    roster: Any,
+    roster: RosterReader | None,
     handlers: Any,
     attribute_as_update: bool,
     what: str,
@@ -501,7 +548,7 @@ async def update_step(
     steps: StepSetStore,
     principal: str,
     step_id: str,
-    roster: Any = None,
+    roster: RosterReader | None = None,
     handlers: Any = None,
     **fields: Any,
 ) -> StepRecord:
@@ -538,7 +585,7 @@ async def retire_step(
     steps: StepSetStore,
     principal: str,
     step_id: str,
-    roster: Any = None,
+    roster: RosterReader | None = None,
     handlers: Any = None,
 ) -> StepRecord:
     """Retire a step: its status becomes `retired`, which excludes it
@@ -650,7 +697,7 @@ async def unretire_step(
     steps: StepSetStore,
     principal: str,
     step_id: str,
-    roster: Any = None,
+    roster: RosterReader | None = None,
     handlers: Any = None,
 ) -> StepRecord:
     """Return a retired step to `in-development` under its original
@@ -678,7 +725,7 @@ async def change_step_status(
     principal: str,
     step_id: str,
     status: StepStatus,
-    roster: Any = None,
+    roster: RosterReader | None = None,
     handlers: Any = None,
 ) -> StepRecord:
     """Move a step to `status`, validated by the rules of the status it
