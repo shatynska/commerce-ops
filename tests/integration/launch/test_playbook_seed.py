@@ -76,6 +76,7 @@ Baseline recorded before these tests were written:
 
 from __future__ import annotations
 
+import functools
 import inspect
 import os
 import re
@@ -437,6 +438,10 @@ async def test_the_served_playbook_reports_a_version_identifier() -> None:
     assert playbook.version.strip() != ""
 
 
+# Cached because the call sites below sit inside comprehension conditions,
+# where an uncached read re-parses a 43 KB file once per step — 97 parses per
+# test, and ~6 s added to each.
+@functools.cache
 def _migration_era_identifiers() -> frozenset[str]:
     document = yaml.safe_load(
         (_repository_root() / "alembic" / "data" / "playbook_v1.yaml").read_text(
