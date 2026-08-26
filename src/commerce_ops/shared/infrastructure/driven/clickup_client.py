@@ -68,54 +68,23 @@ async def create_task(
 
 
 async def add_task_tag(task_id: str, tag_name: str) -> None:
-    """Attach an existing space tag to a task.
+    """Attach a tag to a task, creating it in the task's space if it does
+    not already exist there.
 
     Its own endpoint rather than a field on `update_task`: ClickUp's task
     update accepts no `tags` key, so a tag added after creation costs one
     request per tag. Returns nothing -- the response carries no task body
     to hand back.
+
+    The tag needs no prior existence. Measured against the live API on
+    2026-08-26: attaching `discipline:listing` to a task in a space
+    holding no tags answered `200` and left that name in the space. This
+    is why the projection seeds no vocabulary.
     """
     response = await get_client().post(
         f"{_BASE_URL}/api/v2/task/{task_id}/tag/{quote(tag_name, safe='')}"
     )
     response.raise_for_status()
-
-
-async def create_space_tag(space_id: str, name: str) -> None:
-    """Create a tag in a space, so tasks in it may carry that tag.
-
-    Creating a name the space already holds answers `200` and leaves the
-    existing tag alone (measured against the live API on 2026-08-26), so
-    this is safe to repeat; callers still read first, to spend one request
-    per pass rather than one per tag.
-    """
-    response = await get_client().post(
-        f"{_BASE_URL}/api/v2/space/{space_id}/tag",
-        json={"tag": {"name": name}},
-    )
-    response.raise_for_status()
-
-
-async def space_tags(space_id: str) -> tuple[str, ...]:
-    """The names of every tag a space holds."""
-    response = await get_client().get(f"{_BASE_URL}/api/v2/space/{space_id}/tag")
-    response.raise_for_status()
-    tags = response.json().get("tags") or []
-    return tuple(
-        str(tag["name"]) for tag in tags if isinstance(tag, Mapping) and "name" in tag
-    )
-
-
-async def space_id_for_folder(folder_id: str) -> str:
-    """The identifier of the space a folder belongs to.
-
-    Lets a caller configured with a launch folder reach that folder's
-    space without a second configured value -- see the change's design.md,
-    Decision 1.
-    """
-    response = await get_client().get(f"{_BASE_URL}/api/v2/folder/{folder_id}")
-    response.raise_for_status()
-    return str(response.json()["space"]["id"])
 
 
 async def update_task(task_id: str, fields: Mapping[str, object]) -> ClickUpTask:

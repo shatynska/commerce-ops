@@ -31,7 +31,6 @@ from datetime import UTC, date, datetime
 from typing import Any, Protocol
 
 from commerce_ops.launch.domain.launch_playbook import (
-    GATE_SEQUENCE,
     Hazard,
     InProgress,
     LaunchPlaybook,
@@ -46,7 +45,6 @@ from commerce_ops.launch.domain.launch_run import (
     Provenance,
     StepOutcomeValue,
 )
-from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
 
 # design.md fixes this identity: a reconciliation read exposes no acting
@@ -344,19 +342,6 @@ order to tell an authored change from a person's edit, but an owned tag
 already on a task *is* that record."""
 
 
-def tag_vocabulary() -> tuple[str, ...]:
-    """Every tag the projection may set: one per gate, one per discipline.
-
-    Fixed by the framework's own two vocabularies rather than restated, so
-    a gate or a discipline added to either reaches ClickUp without a
-    second list having to be kept true to the first.
-    """
-    return tuple(
-        [f"{GATE_TAG_PREFIX}{gate}" for gate in GATE_SEQUENCE]
-        + [f"{DISCIPLINE_TAG_PREFIX}{d.value}" for d in Discipline]
-    )
-
-
 def _step_tags(step: StepDefinition) -> tuple[str, ...]:
     """The step's gate and discipline, as the tags standing for them."""
     return (
@@ -409,37 +394,6 @@ async def _ensure_tags(
                 task_id,
                 exc_info=True,
             )
-
-
-async def ensure_tag_vocabulary(*, clickup: Any, folder_id: str | None) -> None:
-    """Create, in the space the launch folder lives in, whichever of the
-    projection's tags it does not already hold.
-
-    Run once per pass rather than once per launch, and read-then-create
-    rather than create-blindly: duplicate creation is harmless, but
-    reading first spends one request per pass instead of one per tag on a
-    pass that runs every ten minutes against a ~100 req/min budget.
-
-    Ensured per pass rather than once at worker startup deliberately — a
-    pass must not depend on having been preceded by a successful startup
-    step, or a space edited afterwards would stay incomplete with nothing
-    to repair it.
-    """
-    if not folder_id:
-        # Nothing to resolve the space from. The pass still projects into
-        # lists it has already recorded; a tag write that finds no such
-        # tag reports itself through `_ensure_tags`.
-        _logger.warning(
-            "no ClickUp launch folder is configured (CLICKUP_LAUNCH_FOLDER_ID), "
-            "so the gate and discipline tag vocabulary cannot be ensured"
-        )
-        return
-
-    space_id = await clickup.space_id_for_folder(folder_id)
-    existing = set(await clickup.space_tags(space_id))
-    for tag in tag_vocabulary():
-        if tag not in existing:
-            await clickup.create_space_tag(space_id, tag)
 
 
 def _task_body(step: StepDefinition) -> str | None:

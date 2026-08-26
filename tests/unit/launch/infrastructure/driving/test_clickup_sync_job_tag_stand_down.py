@@ -1,73 +1,66 @@
-"""The sync pass stands down while the served playbook cannot hold a launch.
+"""No tag is written while the passes have stood down.
 
 Derived strictly from the delta spec of the OpenSpec change
-`serve-only-a-ready-playbook`:
-`openspec/changes/serve-only-a-ready-playbook/specs/launch-clickup-sync/spec.md`
+`tag-tasks-with-gate-and-discipline`:
+`openspec/changes/tag-tasks-with-gate-and-discipline/specs/launch-clickup-sync/spec.md`
 
-Covers, from the ADDED requirement *Projection and intake stand down while
-the playbook cannot hold a launch*:
+Covers exactly one scenario of the ADDED requirement *A projected task
+carries its step's gate and discipline as tags*:
 
-- *A pass stands down rather than failing*
-- *A ready playbook restores the passes* — the pass half. (Its intake half
-  is in `test_clickup_webhook_stand_down.py`.)
+- *No tag is written during a stand-down*
 
-And, from the MODIFIED requirement *Each launch is projected into its own
-ClickUp list*, the clause this change adds to its statement — "A pass that
-stands down because the served playbook cannot hold a launch SHALL create
-nothing and write nothing ... that is a decline rather than the silent skip
-this requirement forbids, and it is recorded as a successful run." That
-clause names no `#### Scenario:` of its own; the requirement's four
-scenarios are stated outside a stand-down and keep their existing tests in
-`tests/unit/launch/infrastructure/driven/`.
+Every other scenario of that requirement is covered at the projection level
+in `tests/unit/launch/infrastructure/driven/test_clickup_sync_tags.py`. See
+`openspec/changes/tag-tasks-with-gate-and-discipline/test-manifest.md`.
 
-## Level
+## Why this scenario cannot live with the others
 
-The job body, which is the smallest unit that can observe two of the three
-things the scenario asserts: it is the job that takes the serving read
-(`design.md`'s consumer table), and "the run is recorded as succeeded" has
-no signal below it — a job body's only outcome signal is whether it raises,
-the reading `tests/unit/briefing/infrastructure/driving/test_daily_briefing_job.py`
-already recorded for the same words. The runner's own recording of that
-outcome is integration-tier
-(`tests/integration/shared/test_scheduled_run_history.py`).
+The stand-down happens in the **job**, which declines before the pass body
+is entered — `converge_launch` is never called, so it has no stand-down
+state to be tested in. The smallest unit that can observe "no tag is
+written while the passes have stood down" is therefore the job body, the
+same level `test_clickup_sync_job_stand_down.py` already sits at for the
+stand-down's own scenarios.
 
-## Reading the outcome clauses
+## What this adds over the existing stand-down test
 
-"Recorded as succeeded" is read as *the job body returns normally*;
-"recorded as failed" as *it raises*. Same reading as the briefing job's
-tests, and the same reason: it is the only outcome signal a job body has.
+`test_clickup_sync_job_stand_down.py` already asserts that neither pass
+function runs during a stand-down, and tagging lives inside
+`converge_launch` — so on today's shape, that test entails this one. What
+it does not catch, and this file does, is a tag **backfill placed in the
+job body itself**: a loop over mapped tasks written outside
+`converge_launch`, which would run whether or not the passes did. That is
+a plausible shape for a one-off backfill, and it is the failure mode the
+spy below exists for.
 
-## What is fixed, and what is INVENTED
+The control against vacuity is that file's own
+`test_a_ready_playbook_restores_the_passes`, which establishes that these
+same fixtures let the passes run when the playbook is ready. It is not
+duplicated here.
 
-Fixed by the artifacts: that `clickup_sync_job` stands the pass down, logs
-the stand-down and the unheld gates, and lets the run record as succeeded
-(`tasks.md` 4.2); and `PlaybookNotReadyError` as the refusal's type.
+## INVENTED shapes
 
-INVENTED, each with a correction point below:
+The harness — reaching the job through the runner's periodic registry,
+substituting `PlaybookRepository`, `LaunchRepository` and the two pass
+functions on the job module — is transcribed from
+`test_clickup_sync_job_stand_down.py`, including its `_build_not_ready`
+signature probe. Correcting any of it there and here is a fixture
+correction.
 
-- How the job is reached — through the runner's periodic registry and the
-  registered function's `__module__`, never by module path or task name.
-  That is `test_clickup_sync_job_schedule.py`'s own convention, transcribed.
-- The collaborator names substituted on the job module: `PlaybookRepository`
-  for the serving read, and the two pass functions. The `passes` fixture
-  probes and fails loudly rather than defaulting, so a differently-named
-  collaborator cannot leave a test green against an unpatched real one.
-- How the job reaches the launches to run the pass over. The `launches`
-  fixture installs its double over `LaunchRepository` with `raising=False`,
-  because no artifact fixes that name; where the job reaches them some
-  other way the double is simply not installed, and the *ready-playbook*
-  test below is what surfaces it — the passes never run and it fails,
-  loudly and for a reason its message names. Correction point:
-  `_FakeLaunches` and the `launches` fixture.
+Added for this change: a spy installed over
+`clickup_client.add_task_tag` **strictly** (`raising=True`), so an absent
+operation fails this test by name rather than leaving it green against a
+system that cannot tag at all.
 
 ## Expected first-run state
 
-`PlaybookNotReadyError` does not exist, so every test here fails on an
-absent target (`ImportError`) — absence, and nothing more.
+`clickup_client.add_task_tag` does not exist, so the spy fixture fails on
+an absent target (`AttributeError` from `monkeypatch.setattr`) — absence,
+and nothing more.
 
-Baseline recorded before these tests were written:
-`uv run pytest tests/unit tests/agents` — 901 passed, 0 failed;
-`uv run pytest tests/integration` — 84 passed, 0 failed.
+Baseline recorded before this test was written:
+`uv run pytest tests/unit tests/agents` at the worktree root —
+1064 passed, 0 failed.
 """
 
 from __future__ import annotations
@@ -101,6 +94,7 @@ from commerce_ops.launch.domain.launch_playbook import (
 from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
+from commerce_ops.shared.infrastructure.driven import clickup_client
 from commerce_ops.shared.infrastructure.driven.job_runner import app as runner_app
 
 pytestmark = pytest.mark.anyio
@@ -125,11 +119,12 @@ CONFIRMATION_GATES: Final = frozenset(
 UNHELD_GATE: Final = "graduated"
 PRODUCT_ID: Final = ProductId(str(uuid.uuid4()))
 
-# The two pass functions the job drives, as
-# `tests/unit/launch/infrastructure/driven/test_clickup_sync_reconciliation.py`
-# names them. Probed on the job module rather than assumed present under
-# both spellings.
 PASS_ATTRIBUTES: Final = ("converge_launch", "reconcile_launch")
+
+# The two tag-writing operations of the shared adapter. `create_task` is
+# included because a task created carrying tags is a tag write too, and a
+# job-body backfill could plausibly take either route.
+TAG_WRITING_OPERATIONS: Final = ("add_task_tag", "create_task")
 
 
 @pytest.fixture(scope="module")
@@ -138,7 +133,7 @@ def anyio_backend() -> str:
 
 
 # ---------------------------------------------------------------------------
-# Domain fixtures
+# Domain fixtures — transcribed from `test_clickup_sync_job_stand_down.py`
 # ---------------------------------------------------------------------------
 
 
@@ -207,17 +202,12 @@ def _active_launch() -> Launch:
     return launch
 
 
-# ---------------------------------------------------------------------------
-# The refusal — INVENTED constructor keywords, one correction point
-# ---------------------------------------------------------------------------
-
-
 def _build_not_ready(playbook: LaunchPlaybook) -> Exception:
     error = getattr(playbook_module, "PlaybookNotReadyError", None)
     if error is None:
         pytest.fail(
             "commerce_ops.launch.domain.launch_playbook exports no "
-            "`PlaybookNotReadyError` (`tasks.md` 1.3)"
+            "`PlaybookNotReadyError`"
         )
     attempts: tuple[tuple[tuple[Any, ...], dict[str, Any]], ...] = (
         ((), {"playbook": playbook, "gates": (UNHELD_GATE,)}),
@@ -242,8 +232,6 @@ def _build_not_ready(playbook: LaunchPlaybook) -> Exception:
 
 
 def _reconciliation_periodic() -> Any:
-    """The ClickUp sync job, found by placement and subject — transcribed
-    from `test_clickup_sync_job_schedule.py`."""
     registered = list(runner_app.periodic_registry.periodic_tasks.values())
     matching = [
         entry
@@ -264,7 +252,6 @@ def _job_module() -> ModuleType:
 
 
 async def _run_job(task: Any) -> Any:
-    """Invoke the job body the way the runner would."""
     parameters = inspect.signature(task.func).parameters
     args: list[Any] = []
     if task.pass_context:
@@ -296,14 +283,6 @@ async def _run_job(task: Any) -> Any:
 
 
 class _RecordingPass:
-    """Stands in for `converge_launch` / `reconcile_launch`.
-
-    Records that it ran. Whether it *did* is the whole of "no list is
-    created, no task is written, and no outcome is recorded": the pass
-    functions are the only things in the job that create, write or record,
-    so a job that never calls them creates, writes and records nothing.
-    """
-
     def __init__(self, name: str) -> None:
         self.name = name
         self.calls = 0
@@ -313,8 +292,9 @@ class _RecordingPass:
 
 
 class _FakeLaunches:
-    """Hands the job one active launch, so the pass has something to run
-    against and "it did not run" cannot pass for the wrong reason."""
+    """Hands the job one active launch, so "nothing was tagged" cannot pass
+    for the wrong reason — a job with no launches to visit would write no
+    tag whatever it did about the stand-down."""
 
     def __init__(self) -> None:
         self._launches = (_active_launch(),)
@@ -327,6 +307,19 @@ class _FakeLaunches:
 
     async def __call__(self, *args: Any, **kwargs: Any) -> tuple[Launch, ...]:
         return self._launches
+
+
+class _TagSpy:
+    def __init__(self, name: str) -> None:
+        self.name = name
+        self.calls: list[tuple[tuple[Any, ...], dict[str, Any]]] = []
+
+    async def __call__(self, *args: Any, **kwargs: Any) -> Any:
+        self.calls.append((args, kwargs))
+        pytest.fail(
+            f"{self.name} reached ClickUp during a stand-down: "
+            f"args={args!r} kwargs={kwargs!r}"
+        )
 
 
 @asynccontextmanager
@@ -354,12 +347,6 @@ def sessionless(job_module: ModuleType, monkeypatch: pytest.MonkeyPatch) -> None
 def passes(
     job_module: ModuleType, monkeypatch: pytest.MonkeyPatch
 ) -> Iterator[dict[str, _RecordingPass]]:
-    """Substitute every pass function the job drives.
-
-    Fails loudly where the module exposes none of them, rather than leaving
-    every assertion below trivially satisfied by an unpatched real pass that
-    could not run without a database anyway.
-    """
     installed: dict[str, _RecordingPass] = {}
     for name in PASS_ATTRIBUTES:
         if hasattr(job_module, name):
@@ -380,6 +367,22 @@ def launches(job_module: ModuleType, monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
 
+@pytest.fixture()
+def tag_spies(monkeypatch: pytest.MonkeyPatch) -> dict[str, _TagSpy]:
+    """Substitute every tag-writing operation of the shared adapter.
+
+    Installed **strictly**: `raising=True`, so an adapter with no
+    `add_task_tag` fails this test on an absent target rather than leaving
+    it green against a system that cannot write a tag at all.
+    """
+    spies: dict[str, _TagSpy] = {}
+    for name in TAG_WRITING_OPERATIONS:
+        spy = _TagSpy(f"clickup_client.{name}")
+        monkeypatch.setattr(clickup_client, name, spy)
+        spies[name] = spy
+    return spies
+
+
 def install_playbook_read(
     job_module: ModuleType,
     monkeypatch: pytest.MonkeyPatch,
@@ -398,73 +401,48 @@ def install_playbook_read(
 
 
 # ---------------------------------------------------------------------------
-# Requirement: Projection and intake stand down while the playbook cannot
-# hold a launch
+# Requirement: A projected task carries its step's gate and discipline as
+# tags
 # ---------------------------------------------------------------------------
 
 
-async def test_a_pass_stands_down_rather_than_failing(
+async def test_no_tag_is_written_during_a_stand_down(
     job_module: ModuleType,
     monkeypatch: pytest.MonkeyPatch,
     passes: dict[str, _RecordingPass],
-    caplog: pytest.LogCaptureFixture,
+    tag_spies: dict[str, _TagSpy],
 ) -> None:
-    """Scenario: A pass stands down rather than failing.
+    """Scenario: No tag is written during a stand-down.
 
-    WHEN the reconciliation pass runs while a gate holds no active blocking
-    step
-    THEN no list is created, no task is written, and no outcome is recorded
-    AND the run is recorded as succeeded, with the stand-down and the
-    unheld gates logged.
+    WHEN a pass stands down because the served playbook cannot hold a
+    launch
+    THEN no tag is written to any task.
 
-    "Recorded as succeeded" matters more than it looks: the requirement
-    says recording a failure "would put a working deployment into retry and
-    overdue reporting for a condition retrying cannot resolve", so a job
-    that raised here would be wrong in a way no other assertion catches.
+    SPECIFIED: "No tag is written while the passes have stood down, for the
+    reason the stand-down requirement already gives." The job is given one
+    active launch, so the absence of a tag write traces to the stand-down
+    rather than to there having been nothing to tag.
+
+    The run returning normally is asserted too, not incidentally: the
+    stand-down requirement says a stood-down pass is "recorded as having
+    **succeeded**", and a job that raised here would satisfy "no tag was
+    written" for the wrong reason entirely.
     """
     install_playbook_read(job_module, monkeypatch, refusing_with=_unready_playbook())
 
-    with caplog.at_level("INFO"):
-        # SPECIFIED: the run is recorded as succeeded — no `pytest.raises`;
-        # returning normally is the assertion.
-        await _run_job(_reconciliation_periodic().task)
+    # SPECIFIED: the run succeeds — returning normally is the assertion.
+    await _run_job(_reconciliation_periodic().task)
 
-    # SPECIFIED: no list is created, no task is written, no outcome is
-    # recorded — the passes that would do any of those never ran.
+    # SPECIFIED: no tag is written to any task. The spies fail the test at
+    # the point of call; these assertions are the record for a spy that was
+    # somehow bypassed.
+    for name, spy in tag_spies.items():
+        assert spy.calls == [], f"clickup_client.{name} was called during a stand-down"
+
+    # The mechanism today: tagging lives inside the projection pass, which
+    # never ran. Asserted so a future implementation that hoisted tagging
+    # into the job body is distinguishable from one that did not.
     for name, recorded in passes.items():
         assert recorded.calls == 0, (
             f"{name} ran during a stand-down, so the pass did not decline"
-        )
-
-    # SPECIFIED: the stand-down and the unheld gates are logged.
-    logged = "\n".join(record.getMessage() for record in caplog.records)
-    assert UNHELD_GATE in logged, (
-        "the stand-down did not log the gate holding no active blocking "
-        f"step; captured log was: {logged!r}"
-    )
-
-
-async def test_a_ready_playbook_restores_the_passes(
-    job_module: ModuleType,
-    monkeypatch: pytest.MonkeyPatch,
-    passes: dict[str, _RecordingPass],
-) -> None:
-    """Scenario: A ready playbook restores the passes.
-
-    WHEN every gate holds at least one active blocking step
-    THEN the projection and reconciliation passes run exactly as they do
-    today.
-
-    The control for the test above: without it, a job that stood down
-    unconditionally — or one that had simply stopped working — would
-    satisfy every assertion there.
-    """
-    install_playbook_read(job_module, monkeypatch, refusing_with=None)
-
-    await _run_job(_reconciliation_periodic().task)
-
-    for name, recorded in passes.items():
-        assert recorded.calls >= 1, (
-            f"{name} did not run against a ready playbook, so the passes "
-            "were not restored"
         )

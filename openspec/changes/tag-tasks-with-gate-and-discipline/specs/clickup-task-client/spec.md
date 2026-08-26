@@ -13,44 +13,16 @@ The system SHALL accept a set of tag names when creating a task, and SHALL creat
 - **THEN** the create-task request carries no tags field
 
 ### Requirement: A tag can be added to an existing task
-The system SHALL add a named tag to an existing task, identified by its task identifier. Adding a tag the task already carries SHALL NOT be an error.
+The system SHALL add a named tag to an existing task, identified by its task identifier. The tag SHALL NOT be required to exist beforehand — attaching it creates it in the task's space where it is not already there. Adding a tag the task already carries SHALL NOT be an error.
 
 #### Scenario: A tag is added to a task
 - **WHEN** a tag is added to a task by the task's identifier and the tag's name
 - **THEN** ClickUp receives an add-tag request for that task and that tag
+- **AND** no space-level tag request — no tag creation, and no read of a space's tags — is sent first
 
 #### Scenario: Adding a tag twice is not an error
 - **WHEN** a tag is added to a task that already carries it
 - **THEN** the caller receives no error
-
-### Requirement: A tag can be created in a space
-The system SHALL create a named tag in a caller-specified space. Creating a tag the space already holds SHALL NOT be an error and SHALL NOT alter the existing tag.
-
-#### Scenario: A tag is created in a space
-- **WHEN** a tag is created with a space identifier and a name
-- **THEN** ClickUp receives a create-tag request for that space containing the name
-
-#### Scenario: Creating an existing tag leaves it as it stands
-- **WHEN** a tag is created in a space that already holds a tag of that name
-- **THEN** the caller receives no error and the existing tag is unaltered
-
-### Requirement: The tags of a space can be read
-The system SHALL retrieve the tag names a caller-specified space holds, so that a caller can tell which of the tags it needs are missing before creating any.
-
-#### Scenario: A space's tags are read
-- **WHEN** the tags of a space are read
-- **THEN** the caller receives the name of every tag the space holds
-
-#### Scenario: A space with no tags reads as empty
-- **WHEN** the tags of a space holding no tags are read
-- **THEN** the caller receives an empty result, not an error
-
-### Requirement: The space containing a folder can be resolved
-The system SHALL report the identifier of the space a caller-specified folder belongs to, so that a caller configured with a folder need not also be configured with its space.
-
-#### Scenario: A folder resolves to its space
-- **WHEN** the space of a folder is resolved by the folder's identifier
-- **THEN** the caller receives the identifier of the space that folder belongs to
 
 ## MODIFIED Requirements
 
@@ -73,3 +45,30 @@ The system SHALL retrieve the tasks of a caller-specified list, returning for ea
 #### Scenario: A multi-page list is read completely
 - **WHEN** the tasks of a list holding more tasks than one ClickUp page are read
 - **THEN** the caller receives all of them
+
+### Requirement: A failed ClickUp request is surfaced to the caller
+The system SHALL NOT catch or suppress a failure from ClickUp's API on any of its operations — creating or updating a task, creating a list, reading a list's tasks, or adding a tag to a task; a non-successful response, or the absence of any response, SHALL propagate to the caller as an error identifying the failure. The enumeration is exhaustive of the operations this capability offers, and an operation added to it later joins this rule rather than sitting outside it.
+
+#### Scenario: ClickUp rejects a create request
+- **WHEN** ClickUp responds to a create-task request with a non-success status
+- **THEN** the caller receives an error and no task identifier
+
+#### Scenario: ClickUp rejects an update request
+- **WHEN** ClickUp responds to an update-task request with a non-success status
+- **THEN** the caller receives an error and no updated task identifier
+
+#### Scenario: ClickUp rejects a create-list request
+- **WHEN** ClickUp responds to a create-list request with a non-success status
+- **THEN** the caller receives an error and no list identifier
+
+#### Scenario: ClickUp rejects a read of a list's tasks
+- **WHEN** ClickUp responds to a request for a list's tasks with a non-success status
+- **THEN** the caller receives an error and no tasks
+
+#### Scenario: ClickUp is unreachable
+- **WHEN** any of the client's requests cannot reach ClickUp at all (a connection failure or timeout, with no response received)
+- **THEN** the caller receives an error and no result
+
+#### Scenario: ClickUp rejects a tag write
+- **WHEN** ClickUp responds to an add-tag request with a non-success status
+- **THEN** the caller receives an error and no result
