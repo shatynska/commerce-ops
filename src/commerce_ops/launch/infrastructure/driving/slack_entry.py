@@ -45,6 +45,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from commerce_ops.catalog.application import DuplicateSkuError
 from commerce_ops.launch.application import start_launch
+from commerce_ops.launch.domain.launch_playbook import PlaybookNotReadyError
 from commerce_ops.launch.infrastructure.driven.launch_repository import (
     LaunchRepository,
 )
@@ -379,6 +380,17 @@ async def _register_and_start(submission: _Submission) -> None:
         )
 
     async with transaction() as db_session:
+        # Read before the registrar runs, deliberately. A playbook that
+        # cannot hold a launch refuses here, and reading it first means the
+        # refusal happens before anything is written rather than being
+        # rolled back after — so "nothing was saved" is true because
+        # nothing was attempted, which is the stronger claim and the one a
+        # reader of this function can check.
+        #
+        # The live served playbook: the launch records its version
+        # identifier as an audit stamp, and every later read serves the
+        # current set regardless of the stamp.
+        playbook = await PlaybookRepository(db_session).get("live")
         product_id = await registrar(
             db_session,
             sku=submission.sku,
@@ -388,10 +400,7 @@ async def _register_and_start(submission: _Submission) -> None:
         )
         await start_launch(
             LaunchRepository(db_session),
-            # The live served playbook: the launch records its version
-            # identifier as an audit stamp, and every later read serves
-            # the current set regardless of the stamp.
-            await PlaybookRepository(db_session).get("live"),
+            playbook,
             product_id=product_id,
             launch_date=submission.launch_date,
         )
@@ -412,6 +421,19 @@ def _confirmation_text(submission: _Submission) -> str:
 def _failure_text(submission: _Submission, error: Exception) -> str:
     if isinstance(error, DuplicateSkuError):
         detail = f"the SKU {submission.sku.value} is already registered"
+    elif isinstance(error, PlaybookNotReadyError):
+        # Named rather than left to `str(error)`: what the submitter needs
+        # is the work that would make the start succeed, and no field they
+        # filled in caused this.
+        detail = (
+            "the playbook cannot yet hold a launch — no active blocking "
+            "step holds "
+            + (
+                f"gates {', '.join(error.unheld_gates)}"
+                if len(error.unheld_gates) > 1
+                else f"gate {error.unheld_gates[0]}"
+            )
+        )
     else:
         detail = str(error) or error.__class__.__name__
     return (

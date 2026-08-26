@@ -8,7 +8,7 @@ Runs as its own process in the container's start chain, after
 
 An `automated` step names a handler; the deployed code registers handlers
 under names. That a handler is *present* on a step is a property of the
-step set and is checked whenever the playbook loads. That this deployment
+step set and is checked whenever the playbook is constructed. That this deployment
 **registers** it is not — the registry changes without the step set
 changing — so it is checked when a step is activated, and never again at
 load. A rename in the registry must fail a deployment, not take every
@@ -23,6 +23,18 @@ automated step leaves everything else in the launch working.
 Lives beside `main.py`, outside the containers `.importlinter` layers, so
 naming both the launch module's public surface and its repository here
 violates no contract.
+
+Reads the **authored** set, through the authoring read rather than the
+serving one. That is what it always wanted — it reports on every step that
+names a handler, whatever its status — and since
+`serve-only-a-ready-playbook` it also matters: the serving read refuses a
+playbook that cannot hold a launch, so taking it here would suppress this
+report in exactly the state the change makes reachable, an unregistered
+handler going unmentioned for the whole of a bootstrap.
+
+One consequence to know: this step no longer constructs the aggregate, so
+an incoherent stored set no longer aborts the container start chain here.
+No accepted write can persist one, but a hand-edit or a rollback could.
 """
 
 from __future__ import annotations
@@ -32,6 +44,7 @@ import logging
 
 from commerce_ops.launch.application import (
     HANDLERS,
+    authored_definitions,
     report_unregistered_handlers,
 )
 from commerce_ops.launch.infrastructure.driven.playbook_repository import (
@@ -46,9 +59,9 @@ _logger = logging.getLogger(__name__)
 async def _report() -> None:
     try:
         async with session() as db_session:
-            playbook = await PlaybookRepository(db_session).get("startup")
+            records, _ = await PlaybookRepository(db_session).load()
         faults = report_unregistered_handlers(
-            steps=playbook.authored_steps, handlers=HANDLERS
+            steps=authored_definitions(records), handlers=HANDLERS
         )
     finally:
         # This process obtained a session, so it closes the pool before

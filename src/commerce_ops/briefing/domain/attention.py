@@ -27,6 +27,35 @@ class BriefingError(Exception):
     """A briefing rule was violated."""
 
 
+class LaunchReportsUnavailableError(Exception):
+    """The source the briefing reads its launch items from cannot supply
+    reports at all — which is a different thing from supplying none.
+
+    Supplying no reports is a clean day and posts nothing. Being unable to
+    supply any is a source that is not yet able to answer, and reporting it
+    as a clean day would let a deployment still being set up read as an
+    all-clear, every day, for as long as it lasts.
+
+    It is also not a failure to read data: retrying cannot resolve it, so
+    it is neither retried nor recorded as a failed run, which is what
+    separates it from an assembly failure.
+
+    `identifiers` says *why*, and briefing treats it as opaque. Whatever
+    satisfies the port is responsible for translating its own module's
+    condition into this one — today that is a launch playbook that cannot
+    hold a launch, and the identifiers are the gates holding no active
+    blocking step. Briefing never learns what a gate is, which is what
+    keeps it from naming another module's types.
+    """
+
+    def __init__(self, *, identifiers: Sequence[str] = ()) -> None:
+        self.identifiers: tuple[str, ...] = tuple(identifiers)
+        super().__init__(
+            "the launch source cannot supply reports"
+            + (f": {', '.join(self.identifiers)}" if self.identifiers else "")
+        )
+
+
 @dataclass(frozen=True, slots=True, repr=False)
 class Evidence:
     """One fact an item rests on, naming its source.

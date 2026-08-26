@@ -41,6 +41,7 @@ from fastapi import APIRouter, Request, Response, status
 from fastapi.responses import JSONResponse
 
 from commerce_ops.launch.application import record_step_outcome
+from commerce_ops.launch.domain.launch_playbook import PlaybookNotReadyError
 from commerce_ops.launch.domain.launch_run import Provenance
 from commerce_ops.launch.infrastructure.driven.clickup_mapping import (
     ClickUpMappingRepository,
@@ -176,11 +177,38 @@ async def receive_clickup_event(request: Request) -> Response:
             # open statuses. Nothing happened that the launch records.
             return _acknowledged()
 
+        # The readiness check comes before the observation, and only it
+        # does. Observing commits, so a stand-down that ran after it would
+        # leave the retained state already advanced — and reconciliation
+        # detects a missed completion *only* as a transition of that state,
+        # so the completion would be lost silently.
+        try:
+            playbook = await PlaybookRepository(db_session).get(launch.playbook_version)
+        except PlaybookNotReadyError as unready:
+            # A stand-down records nothing either way, but what it does to
+            # the retained state splits on whether the step is served, and
+            # the two obligations are opposite:
+            #
+            #   served     -> leave it alone, so the reconciliation pass
+            #                 sees the transition once the playbook is
+            #                 ready and the completion is recovered.
+            #   not served -> observe exactly as below, so a closure that
+            #                 happened while the step was out of the served
+            #                 set is consumed and never replayed after it
+            #                 returns.
+            #
+            # The set comes from the playbook the refusal carries, which is
+            # what it is carried for; no second read is taken.
+            served = {step.identifier for step in unready.playbook.served_steps}
+            if mapped.step_id not in served:
+                await mapping.observe(mapped.product_id, mapped.step_id, now_closed)
+            return _acknowledged()
+
         # Every observation updates the retained state — a retired step's
-        # included, so nothing is replayed after an un-retirement.
+        # included, so nothing is replayed after an un-retirement. The
+        # membership check below stays *after* it for that reason.
         await mapping.observe(mapped.product_id, mapped.step_id, now_closed)
 
-        playbook = await PlaybookRepository(db_session).get(launch.playbook_version)
         if mapped.step_id not in {step.identifier for step in playbook.steps}:
             # A retired step's task records nothing: the step is no longer
             # part of the launch's obligations. Acknowledged quietly, like
