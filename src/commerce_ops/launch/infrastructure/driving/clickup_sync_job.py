@@ -35,6 +35,7 @@ from commerce_ops.launch.infrastructure.driven.clickup_sync import (
     ProductReader,
     RosterReader,
     converge_launch,
+    ensure_tag_vocabulary,
     reconcile_launch,
 )
 from commerce_ops.launch.infrastructure.driven.launch_repository import (
@@ -148,6 +149,12 @@ async def reconcile_clickup_completions(timestamp: int) -> None:
         record = functools.partial(
             record_step_outcome, launches, ServedPlaybooks(playbook)
         )
+
+        # After the stand-down return above, so a pass that declines to run
+        # creates nothing in the space either; and before the loop, so the
+        # vocabulary costs one resolve and one read per pass rather than
+        # per launch.
+        await ensure_tag_vocabulary(clickup=clickup, folder_id=folder_id)
 
         _logger.info("ClickUp completion pass starting over %d launch(es)", len(active))
         for launch in active:

@@ -42,6 +42,13 @@ class ClickUpTaskState:
     an edited name or body is, which the loop can only tell by reading
     what the task currently carries. They default to empty/absent so
     earlier constructions stay valid.
+
+    `tags` joined with `tag-tasks-with-gate-and-discipline`, and for a
+    different reason than the fields above: the projection adds an owned
+    tag a task lacks and never removes one, so what it needs from a read
+    is only whether the tag is already there. Tag *names* alone, because
+    nothing judges a tag's colour — ClickUp assigns one and a person may
+    change it.
     """
 
     id: str
@@ -51,3 +58,4 @@ class ClickUpTaskState:
     name: str = ""
     description: str | None = None
     assignees: tuple[str, ...] = ()
+    tags: tuple[str, ...] = ()

@@ -129,7 +129,15 @@ PRODUCT_ID: Final = ProductId(str(uuid.uuid4()))
 # `tests/unit/launch/infrastructure/driven/test_clickup_sync_reconciliation.py`
 # names them. Probed on the job module rather than assumed present under
 # both spellings.
-PASS_ATTRIBUTES: Final = ("converge_launch", "reconcile_launch")
+PASS_ATTRIBUTES: Final = (
+    "converge_launch",
+    "reconcile_launch",
+    # Added by `tag-tasks-with-gate-and-discipline`: seeding the gate and
+    # discipline tag vocabulary is a write into the launch space, so the
+    # stand-down's "creating no list, writing no task" extends to it —
+    # "No tag is written during a stand-down" in that change's delta.
+    "ensure_tag_vocabulary",
+)
 
 
 @pytest.fixture(scope="module")

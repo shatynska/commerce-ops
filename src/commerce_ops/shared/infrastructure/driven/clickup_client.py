@@ -14,6 +14,7 @@ import functools
 import os
 from collections.abc import Mapping, Sequence
 from datetime import UTC, date, datetime
+from urllib.parse import quote
 
 import httpx
 
@@ -43,6 +44,7 @@ async def create_task(
     name: str,
     description: str | None = None,
     assignees: Sequence[str] | None = None,
+    tags: Sequence[str] | None = None,
 ) -> ClickUpTask:
     body: dict[str, object] = {"name": name}
     if description is not None:
@@ -52,12 +54,68 @@ async def create_task(
     # no such claim.
     if assignees:
         body["assignees"] = list(assignees)
+    # Omitted when empty for the same reason, and because ClickUp accepts
+    # tags on a create but not on an update -- this is the one call that
+    # can set them without a second request per tag.
+    if tags:
+        body["tags"] = list(tags)
 
     response = await get_client().post(
         f"{_BASE_URL}/api/v2/list/{list_id}/task", json=body
     )
     response.raise_for_status()
     return _task_from_response(response)
+
+
+async def add_task_tag(task_id: str, tag_name: str) -> None:
+    """Attach an existing space tag to a task.
+
+    Its own endpoint rather than a field on `update_task`: ClickUp's task
+    update accepts no `tags` key, so a tag added after creation costs one
+    request per tag. Returns nothing -- the response carries no task body
+    to hand back.
+    """
+    response = await get_client().post(
+        f"{_BASE_URL}/api/v2/task/{task_id}/tag/{quote(tag_name, safe='')}"
+    )
+    response.raise_for_status()
+
+
+async def create_space_tag(space_id: str, name: str) -> None:
+    """Create a tag in a space, so tasks in it may carry that tag.
+
+    Creating a name the space already holds answers `200` and leaves the
+    existing tag alone (measured against the live API on 2026-08-26), so
+    this is safe to repeat; callers still read first, to spend one request
+    per pass rather than one per tag.
+    """
+    response = await get_client().post(
+        f"{_BASE_URL}/api/v2/space/{space_id}/tag",
+        json={"tag": {"name": name}},
+    )
+    response.raise_for_status()
+
+
+async def space_tags(space_id: str) -> tuple[str, ...]:
+    """The names of every tag a space holds."""
+    response = await get_client().get(f"{_BASE_URL}/api/v2/space/{space_id}/tag")
+    response.raise_for_status()
+    tags = response.json().get("tags") or []
+    return tuple(
+        str(tag["name"]) for tag in tags if isinstance(tag, Mapping) and "name" in tag
+    )
+
+
+async def space_id_for_folder(folder_id: str) -> str:
+    """The identifier of the space a folder belongs to.
+
+    Lets a caller configured with a launch folder reach that folder's
+    space without a second configured value -- see the change's design.md,
+    Decision 1.
+    """
+    response = await get_client().get(f"{_BASE_URL}/api/v2/folder/{folder_id}")
+    response.raise_for_status()
+    return str(response.json()["space"]["id"])
 
 
 async def update_task(task_id: str, fields: Mapping[str, object]) -> ClickUpTask:
@@ -100,6 +158,8 @@ def _task_state(raw: Mapping[str, object]) -> ClickUpTaskState:
     description = raw.get("description")
     assignees = raw.get("assignees") or ()
     assert isinstance(assignees, Sequence)
+    tags = raw.get("tags") or ()
+    assert isinstance(tags, Sequence)
     return ClickUpTaskState(
         id=str(raw["id"]),
         status=str(status.get("status", "")),
@@ -113,6 +173,14 @@ def _task_state(raw: Mapping[str, object]) -> ClickUpTaskState:
             str(person["id"])
             for person in assignees
             if isinstance(person, Mapping) and "id" in person
+        ),
+        # ClickUp reports a tag as an object carrying its name and its
+        # colours; only the name is judged, so a tag object without one
+        # is skipped rather than read as an empty tag.
+        tags=tuple(
+            str(tag["name"])
+            for tag in tags
+            if isinstance(tag, Mapping) and "name" in tag
         ),
     )
 
