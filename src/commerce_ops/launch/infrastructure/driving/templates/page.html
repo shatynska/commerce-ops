@@ -263,15 +263,22 @@
   {% endfor %}
 
 </main>
-<script>
-  document.body.addEventListener("htmx:responseError", function (event) {
-    if (event.detail.xhr && event.detail.xhr.status === 404) {
-      document.body.innerHTML =
-        "<main class='container'><h1>Signed out</h1>" +
-        "<p>This admin session has ended and nothing was saved. " +
-        "Mint a fresh link with the Slack command and reopen the page.</p></main>";
-    }
-  });
-</script>
+{# The signed-out listener that stood here is gone, replaced by the one in
+   `_admin_header.html`. It was wrong in four ways at once, and all four
+   are the reasons `restore-admin-step-writes` exists:
+
+   - it claimed "nothing was saved", which a listener watching a response
+     status cannot establish -- a failure raised after the write landed
+     answers identically to one raised before it;
+   - it lived here, so the edit surface -- boosted exactly the same way --
+     had no failure handling whatsoever;
+   - it bound `htmx:responseError` alone, leaving a submission that gets
+     no response (a deploy restart) as silent as before;
+   - it acted only on 404, so the 500 every broken write actually answered
+     fell straight through it, which is why a whole page of dead writes
+     looked like a page where clicking Save simply did nothing;
+   - and it replaced the document body to display a sentence, destroying
+     the page to report on it.
+#}
 </body>
 </html>
