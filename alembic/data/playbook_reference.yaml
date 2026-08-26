@@ -1,0 +1,5973 @@
+version: reference-v1
+steps:
+- identifier: lp.strategy.001
+  name: Confirm the product is visibly better on the search results page
+  description: Product is VISIBLY BETTER on the search results page
+  gate: commit
+  discipline: strategy
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -90
+  blocking: true
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG Intro
+- identifier: lp.strategy.002
+  name: Classify the product as subjective or non-subjective
+  description: Product classified non-subjective (spec-driven, lean exact match + top of search) or subjective
+    (visual, decision-heavy, lean SBV / SD / product targeting)
+  gate: commit
+  discipline: strategy
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -60
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PPC 3.0
+- identifier: lp.strategy.003
+  name: 'Clear the demand gate: 8+ keywords at 1,000+ monthly searches'
+  description: 'Demand gate: at least 8 keywords with 1,000+ monthly searches each at relevancy score
+    3 - ''8 or more ways that a thousand customers can find us each month'''
+  gate: commit
+  discipline: strategy
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -90
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 8.1 Validating Product Ideas 2025
+- identifier: lp.strategy.004
+  name: 'Clear the revenue gate: $10,000/month minimum'
+  description: 'Revenue gate: minimum $10,000/month revenue to keep growing'
+  gate: commit
+  discipline: strategy
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -90
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 8.2 Expanding Tolerance 2025
+- identifier: lp.strategy.005
+  name: 'Screen review depth: 2 page-one products under 1,000 ratings'
+  description: 'Review-depth screen: at least 2 page-one products under 1,000 ratings and a category average
+    under 2,000 - if incumbents hold thousands, page-one rank is ''very challenging and likely expensive'''
+  gate: commit
+  discipline: strategy
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -90
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 8.2 Expanding Tolerance 2025
+- identifier: lp.strategy.006
+  name: Screen against the hazmat list and high-compliance categories
+  description: Screen against the FBA-prohibited hazmat list and high-compliance categories (furniture,
+    medical devices, supplements, grills, fire pits, balloons, lighters, CO detectors) before sourcing
+  gate: commit
+  discipline: strategy
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -90
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: compliance-obligation
+  assignees: []
+  provenance: 4 Products to Avoid 2025; Proactive Product Compliance 2025
+- identifier: lp.strategy.007
+  name: Screen for fragile goods and their return-rate exposure
+  description: 'Fragile-goods screen: breakables drive returns, and a high return rate hits account health,
+    margin and the ability to sell at all - protective packaging then eats the margin it was meant to
+    protect'
+  gate: commit
+  discipline: strategy
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -90
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 4 Products to Avoid 2025
+- identifier: lp.strategy.008
+  name: Benchmark projected Unit Session % against comparable competitors
+  description: Projected Unit Session % benchmarked against comparable competitors in the same price range
+    via Brand Analytics
+  gate: commit
+  discipline: strategy
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -90
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: States+Drivers Q1
+- identifier: lp.strategy.009
+  name: Set a launch price that beats the market average
+  description: Launch price must beat the market AVERAGE, not undercut everyone
+  gate: commit
+  discipline: strategy
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -60
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PPC 2.0 Part 5 Launching and Ranking 2025
+- identifier: lp.strategy.010
+  name: Set launch length from the product's tier
+  description: 'Launch length is tier-dependent: a tier-1 product is a shorter launch'
+  gate: commit
+  discipline: strategy
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -60
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 09/26/2024 Alpha Q&A Launch Strategies
+- identifier: lp.strategy.011
+  name: Hold 15-20 products in development to launch 12 a year
+  description: 'Pipeline math: hold 15-20 products in development to launch 12 a year'
+  gate: commit
+  discipline: strategy
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -90
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 6.1 Scheduling Product Development 2025
+- identifier: lp.strategy.012
+  name: Define the target post-launch price before any discount
+  description: Define the TARGET post-launch price FIRST, then model launch discounts backward from it
+    - never set the launch price first
+  gate: commit
+  discipline: strategy
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -90
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 12/17/2025 CM3 Launch Strategy
+- identifier: lp.finance.001
+  name: Clear 70% CM1 and 35% CM2 before committing
+  description: Unit economics clear 70%+ CM1 and 35% CM2 before anything is committed (some Titan members
+    push for 80%+ CM1, 45%+ CM2)
+  gate: commit
+  discipline: finance
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -90
+  blocking: true
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.1.2
+- identifier: lp.finance.002
+  name: Clear 25%+ CM3 on the plan
+  description: Plan clears 25%+ CM3 - Titan defines 'the right traffic' as higher CVR than competitors
+    AND 25%+ CM3
+  gate: commit
+  discipline: finance
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -90
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG Priority 1.0
+- identifier: lp.finance.003
+  name: Compute CM2 from sale price, landed cost and fulfilment cost
+  description: CM2 computed as Sale Price - Landed Cost - Fulfilment Cost, where Landed Cost = Unit Cost
+    + Freight + Storage and Unit Cost = raw material + packaging + labour
+  gate: commit
+  discipline: finance
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -90
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.1.2
+- identifier: lp.finance.004
+  name: Test the Pick & Pack fee tier before packaging is tooled
+  description: Pick & Pack fee tier tested - smallest change to size or weight that drops a tier, found
+    BEFORE packaging is tooled
+  gate: commit
+  discipline: finance
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -90
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.1.2 Part 1
+- identifier: lp.finance.005
+  name: Check for a category with lower referral fees
+  description: Category with lower referral fees checked before the listing category is fixed
+  gate: commit
+  discipline: finance
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -90
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.1.2 Part 4
+- identifier: lp.finance.006
+  name: 'Clear the fee gate: FBA fulfilment under 25% of selling price'
+  description: 'Fee gate: FBA fulfilment fee must be under 25% of selling price - above 25% the product
+    is ''unlikely to be profitable'''
+  gate: commit
+  discipline: finance
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -90
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 8.2 Expanding Tolerance 2025
+- identifier: lp.finance.007
+  name: Build the launch P&L before ordering
+  description: 'Build the launch P&L BEFORE ordering: total launch spend ~$9,000 (PPC + coupons + ~$1,000
+    influencers)'
+  gate: commit
+  discipline: finance
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -90
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: Profit and Loss Forecast 2025
+- identifier: lp.finance.008
+  name: 'Declare the budget tier: constrained or well-funded'
+  description: Budget tier declared - budget-constrained (fewer single-keyword exacts, one family at a
+    time, delay SBV) or well-funded (Phase 1 + 2 in parallel, 2-3 families, SBV early)
+  gate: commit
+  discipline: finance
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -60
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PPC 3.0
+- identifier: lp.finance.009
+  name: 'Plan against the TACoS curve: 70% / 50% / 20%'
+  description: 'TACoS curve to plan against: 70% month 1, 50% month 2, 20% months 3-5'
+  gate: commit
+  discipline: finance
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -90
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: Cash Flow Forecasting with Titan Tools 2025
+- identifier: lp.inventory.001
+  name: Avoid a large deposit order before Chinese New Year
+  description: Do NOT place an order with a large cash deposit right before Chinese New Year - the supplier
+    holds the cash and manufactures nothing for 30 days anyway
+  gate: commit
+  discipline: inventory
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -90
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 6.1 Scheduling Product Development 2025
+- identifier: lp.strategy.013
+  name: Decide the warranty or protection programme
+  description: Warranty / protection programme decided - routes complaints to a replacement instead of
+    a negative review, and collects customer contact details (TOS check)
+  gate: order
+  discipline: strategy
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -60
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.1.3
+- identifier: lp.strategy.014
+  name: Buy competitors with higher review velocity and document their inserts
+  description: Competitor products with higher review velocity bought and their insert / follow-up strategy
+    documented
+  gate: order
+  discipline: strategy
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -60
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.3.4
+- identifier: lp.finance.010
+  name: Negotiate terms and split the first order into shipments
+  description: 'Terms negotiated: pay when stock ships, and the first order split into several smaller
+    shipments'
+  gate: order
+  discipline: finance
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -60
+  blocking: true
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.1.2 Part 4
+- identifier: lp.finance.011
+  name: Confirm the testing obligation from the HTS classification
+  description: Confirm the actual testing obligation from the HTS classification with the freight forwarder
+    before paying for tests you may not need
+  gate: order
+  discipline: finance
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -60
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 07/02/2026 Flammability Testing & CPSC eFiling
+- identifier: lp.finance.012
+  name: Re-run profit and ROI validation immediately before ordering
+  description: Re-run profit and ROI validation immediately before placing the order - competitors and
+    prices move during sampling, so the numbers you validated on are stale
+  gate: order
+  discipline: finance
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -60
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 'Sourcing: Final Order and Pre Production Form 2025'
+- identifier: lp.finance.013
+  name: 'EU: Register EPR per country'
+  description: 'EU: EPR is per country and paid annually to cover packaging disposal'
+  gate: order
+  discipline: finance
+  scope: market
+  timing_anchor:
+    kind: offset
+    days: -60
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 06/18/2026 Managing DDP Risk, Tariffs & AGL
+- identifier: lp.finance.014
+  name: 'EU: Register for VAT in every country holding stock under Pan-EU'
+  description: 'EU: Pan-EU forces VAT registration in every country holding stock - Poland, Germany, France,
+    Italy, Spain'
+  gate: order
+  discipline: finance
+  scope: market
+  timing_anchor:
+    kind: offset
+    days: -90
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 04/09/2025 EU Market Expansion Q&A
+- identifier: lp.finance.015
+  name: Budget ~$1,000 all-in for the trademark
+  description: Trademark budget ~$990-1,000 all-in via the Titan route ($180 search deducted from $540
+    filing)
+  gate: order
+  discipline: finance
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -90
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: Trademark & Brand Registry BONUS 2025; 02/24/2025 Q&A Trademarks
+- identifier: lp.finance.016
+  name: Accept order 1 as the highest unit price from a new factory
+  description: Accept that order 1 is the highest unit price you will ever pay from a new factory
+  gate: order
+  discipline: finance
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -60
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: Launch Strategy Phase 2 Profit Optimization 2025
+- identifier: lp.finance.017
+  name: 'EU: Audit EFN against Pan-EU before launching into Europe'
+  description: 'EU: audit EFN against Pan-EU before launching into Europe - one member found EFN fees
+    ''incredibly expensive, more so than the pan European'''
+  gate: order
+  discipline: finance
+  scope: market
+  timing_anchor:
+    kind: offset
+    days: -60
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 05/13/2026 Company-Wide Huddle
+- identifier: lp.finance.018
+  name: Cut MOQ cash exposure with a split commitment
+  description: Cut MOQ cash exposure with a split commitment
+  gate: order
+  discipline: finance
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -60
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 'Sourcing: The Art of Negotiation 2025'
+- identifier: lp.setup.001
+  name: Check Ships in Own Packaging eligibility and apply to the programme
+  description: Ships in Own Packaging eligibility checked and Amazon Sustainable Packaging Program applied
+    for (~$0.22/unit saving)
+  gate: order
+  discipline: setup
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -90
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.1.2 Part 1
+- identifier: lp.setup.002
+  name: Choose shrink wrap over an oversized poly bag
+  description: Shrink wrap chosen over poly bag where possible - an oversized poly bag is cubiscanned
+    into a higher fee tier
+  gate: order
+  discipline: setup
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -90
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.1.2 Part 1
+- identifier: lp.setup.003
+  name: Spec the in-box insert into the carton before production
+  description: In-box insert specced into the carton before production - members report warranties are
+    the most effective insert form (review Amazon TOS first)
+  gate: order
+  discipline: setup
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -60
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.3.4
+- identifier: lp.setup.004
+  name: Put manufacturer details and batch code on children's packaging
+  description: 'Children''s products: manufacturer name/address plus batch code must be ON THE PACKAGING,
+    not just the outer box - a member had 1,000+ units confiscated over this'
+  gate: listable
+  discipline: setup
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -30
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 07/14/2025 Avoiding Launch Mistakes CPC Compliance
+- identifier: lp.setup.005
+  name: Interrogate why the MOQ is high before accepting it
+  description: Interrogate WHY the MOQ is high - packaging paid upfront and amortised, stock packaging
+    with a sticker, brown box with black print, shared mould cost - before accepting 4,000 when you want
+    1,000
+  gate: order
+  discipline: setup
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -60
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 06/25/2024 Q&A Sourcing & Product Development
+- identifier: lp.setup.006
+  name: File the trademark on the application number, not the granted mark
+  description: File the trademark on the APPLICATION number, not the granted mark - Amazon accepts a pending
+    application from the USA, UK, Germany, India or Poland
+  gate: order
+  discipline: setup
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -90
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: Trademark & Brand Registry BONUS 2025
+- identifier: lp.setup.007
+  name: 'TOS RISK: Brand Registry on a pending application is revocable'
+  description: 'TOS RISK: Brand Registry granted on a PENDING application is revocable'
+  gate: order
+  discipline: setup
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -90
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 11/04/2024 Q&A Brand Registry
+- identifier: lp.setup.008
+  name: Lock branding before artwork so Brand Registry evidence exists
+  description: Brand Registry enrolment needs photographic evidence the mark appears ON the product or
+    packaging - branding must be locked before artwork is signed off
+  gate: order
+  discipline: setup
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -60
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: Trademark & Brand Registry BONUS 2025
+- identifier: lp.setup.009
+  name: Book compliance testing at an Amazon-approved lab before production
+  description: Book compliance testing BEFORE the production run - turnaround ~2 weeks, and it must be
+    an Amazon-approved lab (US, Canada, UK, Europe list)
+  gate: order
+  discipline: setup
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -90
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: compliance-obligation
+  assignees: []
+  provenance: Andrew's Launch Checklist 2024; 09/24/2025 Prime Day & Listing Insights
+- identifier: lp.setup.010
+  name: Allow 11-13 days for testing or the listing goes dark
+  description: 'Test late and the listing goes dark: 3 days to get product to the lab, 5 days to test,
+    3-5 days for Amazon to review the documents - 11-13 days of downtime'
+  gate: order
+  discipline: setup
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -60
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 06/19/2024 Alpha Compliance & Warehouse Distribution
+- identifier: lp.setup.011
+  name: Issue the General Certificate of Conformity from the brand
+  description: The BRAND issues the General Certificate of Conformity from the manufacturer's test report
+  gate: order
+  discipline: setup
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -60
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 07/02/2026 Flammability Testing & CPSC eFiling
+- identifier: lp.setup.012
+  name: Apply the Reese's Law label to coin-cell battery products
+  description: 'Coin-cell battery products: Reese''s Law ingestion warning label is mandatory (in force
+    Nov 2023) with the exact text mandated'
+  gate: order
+  discipline: setup
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -60
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: Mastering Consumer Product Labeling 2025
+- identifier: lp.setup.013
+  name: 'TOS RISK: A non-hazardous SDS does not guarantee the exemption'
+  description: 'TOS RISK: a ''non-hazardous'' SDS does not guarantee the exemption is accepted - a live
+    listing was put on the dangerous goods programme 3 months after go-live and the exemption was rejected
+    repeatedly'
+  gate: listable
+  discipline: setup
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -30
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 10/03/2024 Alpha Q&A Hazardous Goods
+- identifier: lp.setup.014
+  name: 'EU: Supply per-SKU detail before a provider lends its address'
+  description: 'EU: a compliance provider will not lend its address until you supply per SKU'
+  gate: order
+  discipline: setup
+  scope: market
+  timing_anchor:
+    kind: offset
+    days: -60
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 04/09/2025 EU Market Expansion Q&A
+- identifier: lp.setup.015
+  name: 'EU: Register WEEE separately for Germany'
+  description: 'EU: separate WEEE registration for Germany, with EPR batteries enforcement flagged as
+    coming across Europe'
+  gate: order
+  discipline: setup
+  scope: market
+  timing_anchor:
+    kind: offset
+    days: -60
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 'Community: WEEE for Germany 2025; EPR Batteries enforcement 2025'
+- identifier: lp.setup.016
+  name: Kick off the launch sequence at final production inspection
+  description: The launch sequence is kicked off at the final production inspection at the factory, roughly
+    30 days to 6 weeks before launch while goods are in transit
+  gate: listable
+  discipline: setup
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -30
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 08.07.2024 Omega Launch Special
+- identifier: lp.setup.017
+  name: 'EU: Appoint an EU Responsible Person under GPSR'
+  description: 'EU: appoint an EU Responsible Person under GPSR - Titan members were sourcing this against
+    the December 13 deadline'
+  gate: order
+  discipline: setup
+  scope: market
+  timing_anchor:
+    kind: offset
+    days: -60
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 'Community: EU responsible person service 2024; NEW EU GPSR regulations 2025'
+- identifier: lp.setup.018
+  name: 'EU: Obtain EPR numbers before they block the listing'
+  description: 'EU: Amazon is tightening EPR number requirements and missing numbers BLOCK listings'
+  gate: order
+  discipline: setup
+  scope: market
+  timing_anchor:
+    kind: offset
+    days: -60
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 05/13/2026 Company-Wide Huddle
+- identifier: lp.inventory.002
+  name: Ask the supplier how to reduce the FBA fee tier
+  description: Supplier asked for their own suggestions to reduce the FBA fee tier before cartons and
+    packaging are finalised
+  gate: order
+  discipline: inventory
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -90
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.1.2 Part 1
+- identifier: lp.inventory.003
+  name: Maximise units per carton within Amazon's carton maxima
+  description: Units per carton maximised within Amazon's maxima - max length 36.0 in, width 25.0 in,
+    height 25.0 in (raised 20 June 2025)
+  gate: order
+  discipline: inventory
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -90
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.1.2 Part 2
+- identifier: lp.inventory.004
+  name: Verify the HS code against the freight forwarder's answer
+  description: HS code verified via the Flexport lookup and cross-checked against the freight forwarder's
+    answer
+  gate: order
+  discipline: inventory
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -90
+  blocking: true
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.1.2 Part 3
+- identifier: lp.inventory.005
+  name: Select the inbound port on supply-chain geography
+  description: Inbound port selected on supply-chain geography
+  gate: order
+  discipline: inventory
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -60
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.1.2 Part 3
+- identifier: lp.inventory.006
+  name: Quote Amazon Global Logistics direct to FBA with Managed Placement
+  description: Amazon Global Logistics quoted direct to FBA with Amazon Managed Placement (flat AMP fee
+    vs per-unit placement fees) - optimal for high volume, high density units
+  gate: order
+  discipline: inventory
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -60
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.1.2 Part 3
+- identifier: lp.inventory.007
+  name: Lock packaging dimensions into the supplier brief
+  description: Lock packaging dimensions into the supplier brief
+  gate: order
+  discipline: inventory
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -60
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 'Sourcing: Packaging (TitanOS Sourcing)'
+- identifier: lp.inventory.008
+  name: Pass the 3-foot drop test with packaging at pre-shipment inspection
+  description: 'Pre-shipment inspection pass criteria: 3-foot product drop test WITH packaging (the international
+    standard is only 2-foot'
+  gate: stock-ready
+  discipline: inventory
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -30
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 'Sourcing: PP Samples and Inspections; Product Testing and Certifications'
+- identifier: lp.inventory.009
+  name: Remove major-issue units and replace only minor-issue ones
+  description: 'Inspection defect rule: have the supplier REMOVE major-issue units completely and REPLACE
+    only minor-issue units - never replace a major-issue unit - and require video of the replacements
+    being made'
+  gate: stock-ready
+  discipline: inventory
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -30
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 'Sourcing: PP Samples and Inspections'
+- identifier: lp.inventory.010
+  name: Analyse 12-24 months of lane shipping costs before quoting
+  description: 12-24 months of comparable lane shipping costs analysed before the launch shipment is quoted
+  gate: order
+  discipline: inventory
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -90
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.1.2 Part 3
+- identifier: lp.inventory.011
+  name: Negotiate the first-order price against a 12-month forecast
+  description: First-order price negotiated against a 12-month forecast including growth
+  gate: order
+  discipline: inventory
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -90
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.1.2 Part 5
+- identifier: lp.inventory.012
+  name: Have the supplier hold excess first-order stock at the factory
+  description: Supplier agrees to store excess first-order stock at the factory (usually free) and ship
+    direct to FBA - keep inventory in China as long as possible
+  gate: order
+  discipline: inventory
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -60
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.1.2 Part 4
+- identifier: lp.inventory.013
+  name: Quote DDP, DDU, FOB and EXW side by side
+  description: DDP, DDU, FOB and EXW quoted side by side, and the supplier asked which forwarders they
+    use
+  gate: order
+  discipline: inventory
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -60
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.1.2 Part 3
+- identifier: lp.inventory.014
+  name: Pull the SDS/MSDS for anything with a battery or chemical
+  description: Pull the SDS/MSDS from the factory for anything with a battery or chemical component -
+    it must state lithium count, number of cells and grams of lithium, the exact fields Amazon asks for
+  gate: order
+  discipline: inventory
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -60
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 03/27/2024 Omega Q&A HS Codes
+- identifier: lp.inventory.015
+  name: Quote a second supplier to create pricing leverage
+  description: A second supplier quoted on the same first order purely to create pricing leverage
+  gate: order
+  discipline: inventory
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -90
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.1.2 Part 5
+- identifier: lp.inventory.016
+  name: Run the FBA Placement Fee Calculator on the launch shipment
+  description: FBA Placement Fee Calculator run on the launch shipment - 1FC West vs 3FCs East vs Amazon
+    Optimised Split (5FCs) - lowest total of freight + placement fees selected
+  gate: order
+  discipline: inventory
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -60
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.1.2 Part 3
+- identifier: lp.creative.001
+  name: Produce the instructions and test-results PDFs at sourcing stage
+  description: Instructions PDF and 3rd-party test-results PDF produced at sourcing stage, ready to upload
+    to the listing
+  gate: order
+  discipline: creative
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -60
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 2.3.2
+- identifier: lp.creative.002
+  name: Send packaging artwork to the test lab with the product
+  description: Send packaging ARTWORK to the test lab alongside the product - warnings are checked as
+    part of certification
+  gate: order
+  discipline: creative
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -60
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 03/12/2026 Shipping Disruptions & Product Compliance
+- identifier: lp.strategy.015
+  name: Identify like-for-like competitors and the keywords they miss
+  description: Like-for-like competitors identified with every keyword they rank for, and separately the
+    relevant keywords they do NOT rank for
+  gate: listable
+  discipline: strategy
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -60
+  blocking: true
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.3.1
+- identifier: lp.strategy.016
+  name: 'Sequence CTR assets first: title, main image, price'
+  description: CTR assets sequenced first - title, main image and price, at 'less than 10% of the time
+    involved in optimizing the entire listing'
+  gate: listable
+  discipline: strategy
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -30
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.3.3
+- identifier: lp.setup.019
+  name: Buy the GS1 barcode from your company's own country
+  description: Buy the GS1 barcode from the country your COMPANY is based in, not the country you sell
+    in - a UK company selling in the US still buys UK GS1
+  gate: listable
+  discipline: setup
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -60
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 'Listing Content BONUS: Purchasing Your UPC 2025'
+- identifier: lp.setup.020
+  name: 'TOS RISK: Match the GS1 record to Seller Central exactly'
+  description: 'TOS RISK: the GS1 record must match Seller Central exactly - legal company name INCLUDING
+    address, and brand name matching the listing - or listing creation throws the ''brand name glitch''
+    error'
+  gate: listable
+  discipline: setup
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -60
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 'Listing Content BONUS: Purchasing Your UPC 2025'
+- identifier: lp.setup.021
+  name: Wait 3-5 days after buying the UPC before creating the listing
+  description: Wait 3-5 days after buying the UPC before creating the listing so it lands in the GS1 database
+    Amazon checks
+  gate: listable
+  discipline: setup
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -60
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 'Listing Content BONUS: Creating Your Initial Listing 2025'
+- identifier: lp.setup.022
+  name: Create the listing before inventory ships
+  description: Create the listing BEFORE inventory ships, for three reasons
+  gate: listable
+  discipline: setup
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -60
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 'Listing Content BONUS: Creating Your Initial Listing 2025'
+- identifier: lp.setup.023
+  name: Keep the GTIN rather than taking an exemption
+  description: Keep the GTIN on the listing rather than taking an exemption - exemptions break FNSKU/barcode
+    defaults, and 3PLs, retailers and Google Merchant Center all require a GTIN
+  gate: listable
+  discipline: setup
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -60
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: GS1 Barcodes - What They Are & Why You Need Them 2025
+- identifier: lp.setup.024
+  name: Clear category gating early through the Qualification Center
+  description: Clear category gating early through the Qualification Center using label and artwork mock-ups,
+    'before you spend any money on the inventory upfront'
+  gate: listable
+  discipline: setup
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -60
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: compliance-obligation
+  assignees: []
+  provenance: Restricted Category Qualification 2026
+- identifier: lp.inventory.017
+  name: Decide FNSKU versus manufacturer barcode deliberately
+  description: Decide FNSKU vs manufacturer barcode deliberately
+  gate: listable
+  discipline: inventory
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -60
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 05/20/2026 AI Workflows & Inventory Strategy
+- identifier: lp.inventory.018
+  name: 'TOS RISK: Never convert FNSKU stock to a manufacturer barcode'
+  description: 'TOS RISK: never accept the ''convert to manufacturer barcode'' prompt during shipment
+    creation on stock already labelled FNSKU - a member did and the entire arriving shipment was lost'
+  gate: stock-ready
+  discipline: inventory
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -30
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 10/20/2025 Optimizing Listings & Backend Data
+- identifier: lp.listing.001
+  name: Populate every attribute from the category flat-file template
+  description: Category-specific flat file template downloaded and every attribute populated - the Add
+    a Product interface hides many attributes
+  gate: listable
+  discipline: listing
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -30
+  blocking: true
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.3.2
+- identifier: lp.listing.002
+  name: Appear in the same browse paths as competitors
+  description: Listing appears in the same browse paths as competitors, not only in search
+  gate: listable
+  discipline: listing
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -14
+  blocking: true
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.3.2
+- identifier: lp.listing.003
+  name: Match category and GL across child ASINs for a week before combining
+  description: Category and GL matched across all child ASINs for 1+ week BEFORE combining them under
+    a parent
+  gate: listable
+  discipline: listing
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -30
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.3.4
+- identifier: lp.listing.004
+  name: Schedule any parent/child restructure for a slow period
+  description: Any parent/child restructure scheduled for a slow period or while out of stock - changes
+    can hide reviews and variation types, or force a 24-hour delete and relist
+  gate: listable
+  discipline: listing
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -30
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.3.4
+- identifier: lp.listing.005
+  name: Design the variation family so no child drags the parent rating
+  description: Variation family designed so no poorly rated child drags the parent rating
+  gate: listable
+  discipline: listing
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -30
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.3.4
+- identifier: lp.listing.006
+  name: Assemble the full content pack before opening Add-a-Product
+  description: Have the full content pack ready before touching Add-a-Product - UPC, title, main image,
+    secondary images, bullets, description and the keyword list
+  gate: listable
+  discipline: listing
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -60
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 'Listing Content BONUS: Creating Your Initial Listing 2025'
+- identifier: lp.listing.007
+  name: Pick the sub-category deliberately, not just the main category
+  description: Pick the SUB-category deliberately, not just the main category - the chosen node changes
+    which compliance fields and certifications Amazon then demands
+  gate: listable
+  discipline: listing
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -60
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: Flat File Mastery 2025
+- identifier: lp.listing.008
+  name: Use flat files rather than the UI once variations exist
+  description: Use flat files rather than the UI once variations exist - 'a new child listing in about
+    2 minutes as opposed to 10 to 20 minutes'
+  gate: listable
+  discipline: listing
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -60
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 'Listing Content BONUS: Flat Files 2025'
+- identifier: lp.listing.009
+  name: Create the parent with no relationship type and no parent SKU
+  description: 'Variation mechanics at creation: the parent carries no relationship type and no parent
+    SKU'
+  gate: listable
+  discipline: listing
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -60
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 'Listing Content BONUS: Flat Files 2025'
+- identifier: lp.listing.010
+  name: Design the family so Amazon does not break it
+  description: Design the family so Amazon does not break it - 'variations that connect items with kits
+    or different components are at a higher risk'
+  gate: listable
+  discipline: listing
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -60
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: Flat File Mastery 2025
+- identifier: lp.listing.011
+  name: Enrich every child, not just the parent
+  description: Enrich EVERY child, not just the parent - the parent is never shown to customers, so do
+    not put colours in parent copy and do not advertise the parent
+  gate: listable
+  discipline: listing
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -60
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 'Pre-Launch: Setting up your Listing for Success 2025'
+- identifier: lp.listing.012
+  name: Set up the canonical URL
+  description: Set up the Canonical URL per the dedicated lesson
+  gate: listable
+  discipline: listing
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -30
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 'Pre-Launch: Setting up your Listing for Success 2025'
+- identifier: lp.listing.013
+  name: Do not architect variation families around Vine stacking
+  description: Do not architect variation families around Vine stacking - enrolling each child then combining
+    under a parent to inflate review count is closed
+  gate: listable
+  discipline: listing
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -30
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: prohibited-tactic
+  assignees: []
+  provenance: 'Launch: Week 1 Actions - Reviews 2025'
+- identifier: lp.listing.014
+  name: Run listing copy through the Amazon Compliance Advisor GPT
+  description: Listing copy run through the Amazon Compliance Advisor GPT for US law and Amazon TOS before
+    publishing
+  gate: listable
+  discipline: listing
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -14
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: compliance-obligation
+  assignees: []
+  provenance: PLOG 1.3.2
+- identifier: lp.listing.015
+  name: Upload the instructions and test-results PDFs to the listing
+  description: Instructions PDF and 3rd-party test-results PDF uploaded to the listing
+  gate: listable
+  discipline: listing
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -7
+  blocking: true
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 2.3.2
+- identifier: lp.listing.016
+  name: Review badge eligibility including Climate Pledge Friendly
+  description: Badge eligibility reviewed including Amazon Climate Pledge Friendly
+  gate: listable
+  discipline: listing
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -14
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.3.4 / 2.3.2
+- identifier: lp.listing.017
+  name: Upload each creative asset while the listing is still inactive
+  description: Upload every creative asset to the listing WHILE IT IS INACTIVE, as each becomes available
+    - do not batch them to the end
+  gate: listable
+  discipline: listing
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -15
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 'Pre-Launch: Setting up your Listing for Success 2025'
+- identifier: lp.listing.018
+  name: Sequence marketplace launches so US reviews port with you
+  description: 'EU rollout: existing US reviews PORT to other marketplaces - sequence marketplace launches
+    so the review base carries with you'
+  gate: listable
+  discipline: listing
+  scope: market
+  timing_anchor:
+    kind: offset
+    days: -30
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 04/09/2025 EU Market Expansion Q&A
+- identifier: lp.listing.019
+  name: Identify the top 20% of search terms driving 80% of sales
+  description: Top ~20% of search terms that will bring 80%+ of sales identified, with which competitors
+    rank highest on them, how much click and conversion share goes to the top 3 positions, and how those
+    competitors price
+  gate: listable
+  discipline: listing
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -30
+  blocking: true
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.3.3
+- identifier: lp.listing.020
+  name: Rescale the volume tier for non-US marketplaces
+  description: 'Non-US marketplaces: RESCALE the volume tier, do not copy the US band - on a smaller marketplace
+    mid-tier may be 500 to 1,000 and low under 300'
+  gate: listable
+  discipline: listing
+  scope: market
+  timing_anchor:
+    kind: offset
+    days: -14
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PPC Optimization Part 3 2025
+- identifier: lp.listing.021
+  name: Check title rendering on mobile and desktop
+  description: Title rendering checked on mobile and desktop - different categories display a different
+    character count
+  gate: listable
+  discipline: listing
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -30
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.3.3
+- identifier: lp.listing.022
+  name: Set all three release dates well into the future
+  description: Set all three release dates WELL into the future - Product Site Launch Date, Merchant Release
+    Date, Offering Release Date
+  gate: listable
+  discipline: listing
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -30
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 'Pre-Launch: Setting up your Listing for Success 2025'
+- identifier: lp.listing.023
+  name: On launch day backdate all three release dates to the launch day
+  description: On LAUNCH DAY backdate Product Site Launch Date to the actual launch day and set Merchant
+    and Offering Release Dates to match - 'or you'll open your listing and it won't be available'
+  gate: ignition
+  discipline: listing
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: 0
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 06/02/2025 Pricing Confidence & Launch Setup
+- identifier: lp.listing.024
+  name: Confirm phrase-form keyword coverage with the Listing Optimizer
+  description: Run the Listing Optimizer to confirm highest-relevance keywords appear in PHRASE form and
+    every individual keyword appears somewhere in copy or backend
+  gate: listable
+  discipline: listing
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -15
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 'Pre-Launch: Setting up your Listing for Success 2025'
+- identifier: lp.listing.025
+  name: Document Rufus questions and answer them in copy, images and A+
+  description: Rufus default questions on our listing and competitors' documented, and the answers built
+    into copy, images and A+
+  gate: listable
+  discipline: listing
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -30
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.3.2
+- identifier: lp.listing.026
+  name: Place every researched keyword into bullets, description and backend
+  description: Every researched keyword placed into bullets, description and backend so the listing indexes
+    for it
+  gate: listable
+  discipline: listing
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -14
+  blocking: true
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.3.2
+- identifier: lp.listing.027
+  name: Refresh keyword research 30 days out
+  description: Refresh keyword research 30 days out even though it was done 4-5 months earlier during
+    product development
+  gate: listable
+  discipline: listing
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -30
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 04/17/2024 Andrew's Product Launch Checklist
+- identifier: lp.listing.028
+  name: Choose 10-20 hyper-relevant mid-volume launch keywords
+  description: Launch keyword set = 10 to 20 hyper-relevant MID-volume keywords, one keyword per campaign
+  gate: listable
+  discipline: listing
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -14
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PPC Optimization Part 3 2025
+- identifier: lp.listing.029
+  name: Write and test 2+ title versions against the control
+  description: Title written to convert for the top ~20% keywords, with 2+ versions created and tested
+    against the control
+  gate: listable
+  discipline: listing
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -30
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.3.3
+- identifier: lp.listing.030
+  name: Draft bullets, description and backend for indexation
+  description: Bullets, description and backend drafted for indexation
+  gate: listable
+  discipline: listing
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -30
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.3.2
+- identifier: lp.rank.001
+  name: Select root keywords from competitors' organic positions
+  description: Root keywords selected in Titan Tools from competitors' organic positions, search volume
+    and relevance scores
+  gate: listable
+  discipline: rank
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -60
+  blocking: true
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PPC 3.0 Phase 1 Step 1
+- identifier: lp.rank.002
+  name: Choose one keyword family to launch on
+  description: ONE keyword family chosen to launch on - a cluster of terms targeting the same feature,
+    use case or buyer avatar
+  gate: listable
+  discipline: rank
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -30
+  blocking: true
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PPC 3.0 Phase 1 Step 1
+- identifier: lp.rank.003
+  name: Do not attack the head term head-on at launch
+  description: Head term not attacked head-on at launch (worked example
+  gate: listable
+  discipline: rank
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -30
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PPC 3.0 Phase 1 Step 1
+- identifier: lp.rank.004
+  name: Load the final keyword and competitor list into Titan Tools
+  description: Finalised keyword and competitor list loaded into Titan Tools for tracking (stated key
+    output of the step)
+  gate: listable
+  discipline: rank
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -60
+  blocking: true
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.3.1
+- identifier: lp.rank.005
+  name: Cap each keyword set at 15,000 searches of volume
+  description: Build keyword sets by keyword family and deploy no more than 15,000 searches of volume
+    at a time - keyword sets must stay under that ceiling
+  gate: listable
+  discipline: rank
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -30
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 'Pre-Launch: Selecting your Launch Keywords 2025'
+- identifier: lp.rank.006
+  name: Deploy keyword sets in waves through phase 1
+  description: Non-subjective and semi-subjective products usually exceed 15,000 total searches, so deploy
+    in multiple waves through phase 1
+  gate: listable
+  discipline: rank
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -30
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 'Pre-Launch: Selecting your Launch Keywords 2025'
+- identifier: lp.rank.007
+  name: Target depth over breadth on page-one keywords
+  description: 'Reality check on rank ambition: a competitor at target revenue held only 8 high-volume
+    keywords on page one out of 684 - you do not need breadth, you need those 8'
+  gate: listable
+  discipline: rank
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -30
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: Double Your Sales Challenge Day 2 2025
+- identifier: lp.creative.003
+  name: Test CTR elements 3-5x more than the rest of the listing
+  description: CTR elements tested 3-5X more than any other part of the listing - in some categories as
+    high as 55% of customers purchase from the Add to Cart button on the search results page
+  gate: listable
+  discipline: creative
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -30
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.3.3
+- identifier: lp.creative.004
+  name: Make every asset readable on mobile and desktop in 17 seconds
+  description: Every asset readable on mobile and desktop against the stated budget that Amazon shoppers
+    average 17 seconds on site before checking out
+  gate: listable
+  discipline: creative
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -30
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 2.3.1
+- identifier: lp.creative.005
+  name: Assign named owners for design, research and publishing
+  description: Named owners assigned for the creative block - one for all designs, one for research, one
+    to publish listing changes
+  gate: listable
+  discipline: creative
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -60
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: Titan Huddle 10.22.2025 Outsourcing PLOG
+- identifier: lp.creative.006
+  name: Finish most assets 1-2 weeks before launch
+  description: Most assets should be finished 1-2 weeks before launch to leave processing time
+  gate: listable
+  discipline: creative
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -14
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 07/24/2024 Andrew's Launch Checklist
+- identifier: lp.creative.007
+  name: Deposition competitors using their own reviews
+  description: Deposition competitors in your own creative - read their reviews and sell the product that
+    fixes their flaws
+  gate: listable
+  discipline: creative
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -30
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 8.2 Expanding Tolerance 2025
+- identifier: lp.creative.008
+  name: Design a scroll-stopping main image unlike competitors'
+  description: Main image designed to be scroll-stopping and explicitly different from competitors, not
+    blending in
+  gate: listable
+  discipline: creative
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -30
+  blocking: true
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.3.3
+- identifier: lp.creative.009
+  name: Survey-test titles and main images before going live
+  description: Titles and main images survey-tested BEFORE going live, via Product Pinion, PickFu or Prolific
+  gate: listable
+  discipline: creative
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -14
+  blocking: true
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.3.3
+- identifier: lp.creative.010
+  name: Write the image brief as concepts, not ready-to-publish images
+  description: Image design brief written as concepts only - not ready-to-publish images - to confirm
+    the story flow before design time is spent
+  gate: listable
+  discipline: creative
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -60
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 2.3.1
+- identifier: lp.creative.011
+  name: Make every image and video confirm, differentiate and set expectations
+  description: Every image and video must confirm what the shopper is looking for, show why this product
+    is better than the comparison set, and set expectations that encourage positive feedback
+  gate: listable
+  discipline: creative
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -60
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 2.3.1
+- identifier: lp.creative.012
+  name: Mine competitor reviews for what matters in the category
+  description: Competitor customer reviews mined to establish what matters in the category
+  gate: listable
+  discipline: creative
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -60
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 2.3.1
+- identifier: lp.creative.013
+  name: Produce the launch video at 15-20 seconds
+  description: Launch video produced at 15-20 seconds - anything over 30 seconds rarely performs as well
+  gate: listable
+  discipline: creative
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -30
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PPC 3.0 Phase 2
+- identifier: lp.creative.014
+  name: Add tutorial video and imagery wherever user error is predictable
+  description: Tutorial video and explanatory image added wherever user error is a predictable source
+    of negative reviews
+  gate: listable
+  discipline: creative
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -30
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.3.4
+- identifier: lp.creative.015
+  name: Create the photoshoot list and get units to the photographer
+  description: 'First item on the checklist at T-30: create the photoshoot list and get units to the photographer
+    - allow 3 weeks even when paying extra, so budget a month'
+  gate: listable
+  discipline: creative
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -30
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 04/17/2024 Andrew's Product Launch Checklist
+- identifier: lp.creative.016
+  name: Send production-period samples to the photographer
+  description: Send PRODUCTION-PERIOD samples to the photographer, never pre-production samples
+  gate: listable
+  discipline: creative
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -30
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: '02/12/2025 Panel: Product Launch Strategy'
+- identifier: lp.creative.017
+  name: Plan the listing's look before launch, not during
+  description: Plan what the listing should LOOK like - infographics, image stack, A+ - before launch
+    rather than during
+  gate: listable
+  discipline: creative
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -30
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: '02/12/2025 Panel: Product Launch Strategy'
+- identifier: lp.creative.018
+  name: Win the pre-review window on image and price alone
+  description: Win the pre-review window on assets alone - with no rating, customers decide on image and
+    price only
+  gate: listable
+  discipline: creative
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -30
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 07/28/2025 Launch Without Reviews
+- identifier: lp.creative.019
+  name: Build A+ modules answering the documented Rufus questions
+  description: A+ / A++ modules built to confirm what the product has and why it beats the comparison
+    set, with the documented Rufus questions answered inside A+
+  gate: listable
+  discipline: creative
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -30
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 2.3.4
+- identifier: lp.creative.020
+  name: Design one Brand Story for the whole brand
+  description: ONE Brand Story designed for the whole brand, featuring the top sellers and the most logical
+    cross-sell / up-sell
+  gate: listable
+  discipline: creative
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -30
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 2.3.3
+- identifier: lp.creative.021
+  name: Preview the Brand Story on desktop and mobile separately
+  description: Brand Story previewed on desktop and mobile separately - they render differently
+  gate: listable
+  discipline: creative
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -14
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 2.3.3
+- identifier: lp.creative.022
+  name: Use the Brand Story slot for content blocked elsewhere
+  description: Brand Story slot used for content blocked elsewhere on the listing - screenshots of customer
+    reviews, and promotion of Subscribe & Save
+  gate: listable
+  discipline: creative
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -30
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 2.3.3
+- identifier: lp.creative.023
+  name: Add A+ content shortly after launch rather than delaying for it
+  description: A+ content is NOT essential for launch - do not delay three weeks waiting on it, add it
+    shortly after
+  gate: ignition
+  discipline: creative
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: 0
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 06/11/2026 AI Workflows & Strikethrough Pricing
+- identifier: lp.ppc.001
+  name: Fix the campaign naming convention before building any campaign
+  description: Campaign naming convention fixed before any campaign is built - tokens joined by '
+  gate: live
+  discipline: ppc
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -14
+  blocking: true
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: Campaign Naming Convention
+- identifier: lp.ppc.002
+  name: Bucket target keywords at the 1,000 monthly searches threshold
+  description: Every target keyword bucketed at the 1,000 monthly searches threshold - 1,000+ gets its
+    own single-keyword exact campaign, under 1,000 goes into a stacked exact campaign
+  gate: live
+  discipline: ppc
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -14
+  blocking: true
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PPC 3.0 Phase 1 Step 3
+- identifier: lp.ppc.003
+  name: Build the never-keywords list that must never receive ad spend
+  description: '''Never-keywords'' list built - terms the listing will index for as a by-product that
+    must never receive ad spend'
+  gate: live
+  discipline: ppc
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -60
+  blocking: true
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.3.1
+- identifier: lp.ppc.004
+  name: Avoid launch keywords above 5,000 searches
+  description: Avoid launch keywords above 5,000 searches - 'you spend fast' and budget runs away
+  gate: live
+  discipline: ppc
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -14
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 'Launch: Day 1 Actions - Setting up Rank Campaigns 2025'
+- identifier: lp.strategy.017
+  name: Do not delay the launch chasing a strike-through
+  description: 'Hard rule: do NOT delay the launch chasing a strikethrough'
+  gate: live
+  discipline: strategy
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -7
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PPC 2.0 Part 5 Launching and Ranking 2025
+- identifier: lp.finance.019
+  name: Complete the Price Tier Calculator across all 6 levels
+  description: Price Tier Calculator completed - CM2 known at all 6 levels of pricing before any discount
+    is offered
+  gate: listable
+  discipline: finance
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -30
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.2.2
+- identifier: lp.finance.020
+  name: Calculate CM2 for every price a customer could actually pay
+  description: CM2 calculated for every price a customer could actually pay in every scenario, not just
+    the headline price
+  gate: listable
+  discipline: finance
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -14
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.2.1
+- identifier: lp.finance.021
+  name: Calculate the target CVR before any price change
+  description: Target CVR calculated before any price change - what the conversion rate must be at the
+    new price for CM2 to improve
+  gate: live
+  discipline: finance
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -7
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.2.1
+- identifier: lp.finance.022
+  name: Load the Price Tier Calculator with costs, fees and average TACoS
+  description: Load the Price Tier Calculator with landed cost, inbound and storage cost, FBA fee, referral
+    fee % and average TACoS
+  gate: listable
+  discipline: finance
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -30
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 'July 01 2025 Roundtable: Mastering Pricing & Inventory'
+- identifier: lp.finance.023
+  name: Never let the discount ladder drop the net below CM2
+  description: 'Absolute floor: never let the ladder - list price, sale price, then coupon - drop the
+    net below CM2'
+  gate: live
+  discipline: finance
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -7
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PPC 2.0 Part 5 Launching and Ranking 2025
+- identifier: lp.finance.024
+  name: Model the coupon at its redemption rate, not face value
+  description: Model the coupon at its REDEMPTION rate, not its face value - a $5 coupon at a 60% redemption
+    rate is $3 of actual discount
+  gate: live
+  discipline: finance
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -7
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: '2025 Plan Workshop Day 1: Financial Foundations'
+- identifier: lp.price.001
+  name: Set the target price so CM2 lands at 35%+
+  description: Target price set so CM2 lands at 35%+ (many sellers now prefer 40%+ given FBA fee rises)
+  gate: listable
+  discipline: price
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -30
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.2.1
+- identifier: lp.price.002
+  name: Check competitor pricing on the top 20% keywords
+  description: Competitor pricing on the top ~20% keywords checked before the launch price is fixed
+  gate: listable
+  discipline: price
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -14
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.3.3
+- identifier: lp.price.003
+  name: Record baseline listing performance before the price goes live
+  description: Baseline listing performance recorded before the price goes live so before and after can
+    be compared
+  gate: live
+  discipline: price
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -7
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.2.1
+- identifier: lp.price.004
+  name: Define the List / Your / Sale price combination
+  description: List Price / Your Price / Sale Price combination defined - Sale Price is what the shopper
+    pays, List and Your Price only change what is displayed
+  gate: listable
+  discipline: price
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -14
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.2.1
+- identifier: lp.price.005
+  name: Build the price ladder from the tier structure
+  description: Price ladder built from the tier pricing structure rather than ad-hoc discounts
+  gate: listable
+  discipline: price
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -14
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.2.1 / 1.2.2
+- identifier: lp.price.006
+  name: Set tier 1 list price and mirror it to other channels
+  description: TIER 1 LIST PRICE - entered in the list price field AND your price field, and mirrored
+    to Walmart/Shopify/TikTok Shop
+  gate: listable
+  discipline: price
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -30
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 'July 01 2025 Roundtable: Mastering Pricing & Inventory'
+- identifier: lp.price.007
+  name: Set tier 2 regular price in the sale price field
+  description: TIER 2 REGULAR PRICE - entered in the SALE PRICE field
+  gate: listable
+  discipline: price
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -30
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 'July 01 2025 Roundtable: Mastering Pricing & Inventory'
+- identifier: lp.price.008
+  name: Set tier 3 push price at 5-10% off regular
+  description: TIER 3 PUSH PRICE - usually 5-10% off regular, for Subscribe & Save, business customers,
+    coupons and brand-tailored or multi-buy promotions
+  gate: listable
+  discipline: price
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -30
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 'July 01 2025 Roundtable: Mastering Pricing & Inventory'
+- identifier: lp.price.009
+  name: Set tier 4 deal price to earn the red deal badge
+  description: TIER 4 DEAL PRICE - Best Deal, Lightning Deal or Prime Exclusive Discount at regular intervals
+    to earn the red deal badge
+  gate: listable
+  discipline: price
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -30
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 'July 01 2025 Roundtable: Mastering Pricing & Inventory'
+- identifier: lp.price.010
+  name: Set tier 5 event price for Prime Day and Black Friday
+  description: TIER 5 EVENT PRICE - Prime Day, Black Friday, Cyber Monday, Spring Deal Days
+  gate: graduated
+  discipline: price
+  scope: product
+  timing_anchor:
+    kind: open-ended
+    start: 59
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 09/24/2025 Prime Day Strategy & Six-Tier Pricing
+- identifier: lp.price.011
+  name: Insert a profit price for the six-tier variant
+  description: The six-tier variant inserts a PROFIT price
+  gate: listable
+  discipline: price
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -30
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 09/24/2025 Prime Day Strategy & Six-Tier Pricing
+- identifier: lp.price.012
+  name: Keep the same tier structure across all marketplaces
+  description: Maintain the same tier structure across ALL marketplaces, explicitly to prevent the buy
+    box issues that follow raising price on one marketplace only
+  gate: listable
+  discipline: price
+  scope: market
+  timing_anchor:
+    kind: offset
+    days: -30
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 'July 01 2025 Roundtable: Mastering Pricing & Inventory'
+- identifier: lp.price.013
+  name: Trigger the strike-through with one full-price sale
+  description: 'Strike-through trigger, step by step: set your price = list price, take ONE full-price
+    sale, wait about 6 hours for the order to process to paid, then set your price down to the sale price'
+  gate: live
+  discipline: price
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -7
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 09/25/2024 Omega Accelerate Recap
+- identifier: lp.price.014
+  name: 'TOS RISK: Refuse friend-purchase strike-through triggers'
+  description: 'TOS RISK: the fastest strike-through trigger discussed in-network is having a friend buy
+    at list price, and the coach states plainly it is against TOS. Do not use it'
+  gate: live
+  discipline: price
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -7
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: prohibited-tactic
+  assignees: []
+  provenance: 08/28/2024 Alpha Q&A Buy Box & Pricing
+- identifier: lp.price.015
+  name: Decide and set up strike-through pricing
+  description: Strike-through pricing decided and set up
+  gate: listable
+  discipline: price
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -14
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.2.1
+- identifier: lp.price.016
+  name: Set the strike-through gap in the 15-25% band
+  description: 'Strike-through gap depth: 15-25% is the working band, 30% has been achieved'
+  gate: live
+  discipline: price
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -7
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 09/25/2024 Omega Accelerate Recap; 09/03/2025 Growth Guide
+- identifier: lp.price.017
+  name: Establish the strike-through while the SKU has no price history
+  description: A brand-new SKU with no price history is the EASIEST time to establish a genuine strike-through
+    - capture a few sales at the higher price before any discounting history exists
+  gate: live
+  discipline: price
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -7
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 07/06/2026 Winning The Click
+- identifier: lp.price.018
+  name: Select deal types with CM2 computed for each
+  description: Deal types selected with CM2 computed for each - B2B Pricing, Best Deals, Lightning Deals,
+    Prime Exclusive / Price Discounts, Brand Tailored Promotions, promo codes, Outlet Deals
+  gate: live
+  discipline: price
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -7
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.2.2
+- identifier: lp.price.019
+  name: Check upcoming events requiring a 30-day lowest price
+  description: Upcoming events checked whose rules require the lowest price in 30 days (Black Friday,
+    Prime Day) so launch pricing does not block a profitable event deal later
+  gate: listable
+  discipline: price
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -30
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.2.2
+- identifier: lp.price.020
+  name: Add every scheduled deal to the shared calendar
+  description: Every scheduled deal added to a shared calendar so the whole team can see when deals run
+    and whether they overlap
+  gate: live
+  discipline: price
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -7
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.2.2
+- identifier: lp.price.021
+  name: Work through the coupon economics before running one
+  description: 'Coupon economics worked through: 20-30% off, redemption about half, $0.60 Amazon fee per
+    redemption, run 30 days gives roughly $3.95 per coupon, an effective 18% discount and about $1,700
+    of total coupon cost'
+  gate: live
+  discipline: price
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -7
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: Profitability and ROI 2025
+- identifier: lp.price.022
+  name: 'TOS-adjacent: Coupons on new launches stopped working reliably'
+  description: 'TOS-adjacent: coupons on brand-new launches stopped working reliably around mid-2024'
+  gate: live
+  discipline: price
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -7
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 04/17/2024 Andrew's Product Launch Checklist
+- identifier: lp.finance.025
+  name: Keep the first order under 120 days of cover
+  description: First order does not land the ASIN above 120 days of cover
+  gate: stock-ready
+  discipline: finance
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -30
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.1.1
+- identifier: lp.finance.026
+  name: Plan cash flow in 2-week sections against Amazon deposits
+  description: Cash flow planned around the forecast, broken into 2-week sections matching future Amazon
+    deposits to supplier balances and freight costs, with funding identified BEFORE it is needed
+  gate: order
+  discipline: finance
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -60
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.1.1
+- identifier: lp.inventory.019
+  name: Size the first order to 45-90 days of cover
+  description: First order sized so the ASIN lands at 45-90 days of cover, and 91+ days where growth is
+    expected
+  gate: stock-ready
+  discipline: inventory
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -30
+  blocking: true
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.1.1
+- identifier: lp.inventory.020
+  name: Stage the growth buffer in AWD or a 3PL rather than in FBA
+  description: Where the growth rate is uncertain, the buffer is staged in Amazon AWD or a 3PL close to
+    FBA rather than pushing the whole first order in
+  gate: stock-ready
+  discipline: inventory
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -30
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.1.1
+- identifier: lp.inventory.021
+  name: Build a 6+ month unit forecast before the first order ships
+  description: 6+ month unit forecast built before the first order ships, revised monthly - or every 1-2
+    weeks where sales fluctuate heavily or supplier lead time is 150+ days
+  gate: order
+  discipline: inventory
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -60
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.1.1
+- identifier: lp.inventory.022
+  name: Set the first order quantity to the practitioner default
+  description: FIRST ORDER QUANTITY, the practitioner default
+  gate: order
+  discipline: inventory
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -60
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 07/24/2024 Andrew's Launch Checklist
+- identifier: lp.inventory.023
+  name: Bias the launch order to slightly understocked
+  description: 'Deliberate launch bias: ''I''d rather be a little understocked than a little overstocked'''
+  gate: order
+  discipline: inventory
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -60
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 07/24/2024 Andrew's Launch Checklist
+- identifier: lp.inventory.024
+  name: Set the launch floor for a fairly unique product
+  description: Launch floor for a fairly unique product
+  gate: stock-ready
+  discipline: inventory
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -30
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 07/22/2026 Listing Optimization, PPC Fixes & Launch Inventory
+- identifier: lp.inventory.025
+  name: Split the first shipment between FBA and AWD
+  description: 'Split the first shipment: of 1,500 units send 500 direct to FBA and 1,000 to AWD, launch
+    on the 500 and replenish manually'
+  gate: stock-ready
+  discipline: inventory
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -30
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 04/09/2026 Amazon AWD, AGL & Conversion Deep Dive
+- identifier: lp.inventory.026
+  name: Size the send-in with no sales history
+  description: Sizing the send-in with no sales history
+  gate: stock-ready
+  discipline: inventory
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -30
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 09/25/2024 New Platform Preview Q&A
+- identifier: lp.inventory.027
+  name: Allow for staggered, unpredictable FBA check-in
+  description: 'Check-in is staggered and unpredictable: of 300 units, the first 50 check in quickly,
+    the next 100 medium-fast, the last 150 a week or two later'
+  gate: stock-ready
+  discipline: inventory
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -15
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 07/24/2024 Andrew's Launch Checklist
+- identifier: lp.inventory.028
+  name: Never let cover fall below 45 days
+  description: Plan never lets cover fall below 45 days - Amazon charges a low-inventory fee below that
+  gate: stock-ready
+  discipline: inventory
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -30
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.1.1
+- identifier: lp.inventory.029
+  name: Keep the Unit Forecasting Calculator updated with actual sales
+  description: Forecast loaded into the Titan Unit Forecasting Calculator and updated with actual units
+    sold so reorders trigger and cash flow is planned
+  gate: stock-ready
+  discipline: inventory
+  scope: product
+  timing_anchor:
+    kind: recurring
+    cadence: weekly
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.1.1
+- identifier: lp.inventory.030
+  name: Assign a named owner for holding 45-90 days of cover
+  description: Named owner assigned for holding the SKU at 45-90 days of cover, with account managers
+    on the hook to flag when growth is expected
+  gate: stock-ready
+  discipline: inventory
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -14
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: Titan Huddle 10.22.2025
+- identifier: lp.inventory.031
+  name: Check the live FBA restock limit before booking the shipment
+  description: Check the live FBA restock limit for the NEW ASIN before booking the shipment - limits
+    are reset ahead of peak and have been changed by storage type
+  gate: stock-ready
+  discipline: inventory
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -30
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 'Announcement: US FBA peak inventory shipments'
+- identifier: lp.inventory.032
+  name: Hold 150-200 units to keep PPC behaving predictably
+  description: 'PPC integrity floor: below roughly 150-200 units an ASIN''s PPC ''can start behaving erratically''
+    because a couple of units are spread across many fulfilment centres'
+  gate: phase-one-complete
+  discipline: inventory
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 28
+    end: 55
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 07/22/2026 Listing Optimization, PPC Fixes & Launch Inventory
+- identifier: lp.inventory.033
+  name: Cut the first shipment when launching into November or December
+  description: If launching into November or December, first shipment cut and shipments made more often
+    - Amazon storage fees increase 5X in those two months
+  gate: order
+  discipline: inventory
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -60
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.1.1
+- identifier: lp.inventory.034
+  name: Combine the launch shipment with other SKUs' demand plan
+  description: Launch shipment combined with other SKUs' demand plan so the total number of shipments
+    is the fewest possible
+  gate: order
+  discipline: inventory
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -60
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.1.2 Part 3
+- identifier: lp.inventory.035
+  name: Send the supplier the FNSKU only after the listing exists
+  description: Send the supplier the FNSKU only after the basic listing exists
+  gate: stock-ready
+  discipline: inventory
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -30
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 'Pre-Launch: Setting up your Listing for Success 2025'
+- identifier: lp.inventory.036
+  name: Compare AWD, 3PL and FBA in the Storage Fee Calculator
+  description: AWD vs 3PL vs FBA compared in the Storage Fee Calculator on both pallet and volume pricing
+    - 'AWD is NOT a straightforward solution to save shipping cost'
+  gate: stock-ready
+  discipline: inventory
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -30
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.1.2 Part 4
+- identifier: lp.inventory.037
+  name: Do not rely on AWD auto-replenish during a launch
+  description: Do NOT rely on AWD auto-replenish during a launch - Amazon 'might only put 50 units into
+    FBA, and then it might take them a week to react by which time you've nearly run out'
+  gate: stock-ready
+  discipline: inventory
+  scope: product
+  timing_anchor:
+    kind: recurring
+    cadence: weekly
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 04/09/2026 Amazon AWD, AGL & Conversion Deep Dive
+- identifier: lp.finance.027
+  name: Calculate the ad budget as target TACOS x target monthly sales
+  description: Ad budget calculated as Monthly Budget = Target TACOS x Target Monthly Sales, capped by
+    the inventory actually available
+  gate: live
+  discipline: finance
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -7
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 2.2.1
+- identifier: lp.setup.025
+  name: Work the 44-item pre-launch checklist before ignition
+  description: The pre-launch block of the checklist is 44 items - everything up to launch day is 'check
+    the engine', launch day is 'light the ignition'
+  gate: live
+  discipline: setup
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -7
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 07/24/2024 Andrew's Launch Checklist
+- identifier: lp.setup.026
+  name: Configure the Automated Review Requester
+  description: 'Set up the Automated Review Requester: enable FBA and FBM, B2C and B2B, leave the seller-feedback
+    filter at Amazon''s default, set the send window 5-30 days after delivery, and tick auto-enable so
+    new products are added automatically'
+  gate: live
+  discipline: setup
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -14
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 'Review Acquisition: Automated Review Request Demo 2025'
+- identifier: lp.setup.027
+  name: Clear all four Vine eligibility gates
+  description: 'Vine eligibility, all four gates: professional selling account, Brand Registry, an eligible
+    FBA offer in new condition (FBM is not eligible), and fewer than 30 reviews on the detail page'
+  gate: order
+  discipline: setup
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -60
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: Review Acquisition Part 2 2025
+- identifier: lp.inventory.038
+  name: Confirm inventory supports the sales the budget should generate
+  description: Inventory confirmed to support the sales that budget is expected to generate
+  gate: live
+  discipline: inventory
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -7
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 2.2.1
+- identifier: lp.inventory.039
+  name: Compare CTR and CVR across shipping speeds in Search Catalog
+  description: Search Catalog Performance pulled and CTR/CVR compared at Same Day vs 1 Day vs 2 Day vs
+    3+ Day shipping - a significant drop as shipping lengthens is grounds to stock above the 45-90 day
+    range
+  gate: live
+  discipline: inventory
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -14
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.1.1
+- identifier: lp.listing.031
+  name: Confirm the listing contains every keyword on the research list
+  description: Listing confirmed to contain every keyword on the research list, via Titan Tools Listing
+    Optimizer
+  gate: live
+  discipline: listing
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -14
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.3.2
+- identifier: lp.listing.032
+  name: Turn the listing live 3-4 days before the launch date
+  description: Turn the listing LIVE 3-4 days before the actual launch date
+  gate: live
+  discipline: listing
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -7
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 07/24/2024 Andrew's Launch Checklist
+- identifier: lp.rank.008
+  name: Confirm the listing indexes for the full keyword list
+  description: Listing confirmed to be indexing for the full keyword list via Keyword Rank Tracker - ads
+    cannot run on keywords the listing does not index for
+  gate: live
+  discipline: rank
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -7
+  blocking: true
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.3.2
+- identifier: lp.creative.024
+  name: Preview Brand Story and A+ on desktop and mobile
+  description: Brand Story and A+ previewed on both desktop and mobile
+  gate: live
+  discipline: creative
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -7
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 2.3.3
+- identifier: lp.creative.025
+  name: 'TOS RISK: Product inserts must never mention reviews'
+  description: 'TOS RISK: product inserts must NEVER mention reviews - ''we''re never ever talking about
+    reviews in product inserts'''
+  gate: live
+  discipline: creative
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -14
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PPC 2.0 Part 5 2025; 05/05/2025 Optimizing External Marketing
+- identifier: lp.ppc.005
+  name: Confirm ads can run on every researched keyword and ASIN
+  description: Confirmed we can run ads on every keyword AND every competitor ASIN identified in research
+    (stated key output of the step)
+  gate: live
+  discipline: ppc
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -7
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.3.2
+- identifier: lp.ppc.006
+  name: Review the PPC structure with someone before launch
+  description: Bring the planned PPC structure to a huddle or work party BEFORE launch to have someone
+    confirm the plan
+  gate: live
+  discipline: ppc
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -7
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 'Pre-Launch: PPC Lifecycles and Launch Phases 2025'
+- identifier: lp.ppc.007
+  name: Set the exact-match ranking bid as the highest bid
+  description: Exact-match ranking bid set as the highest bid for this product - every other campaign
+    bid derives from it
+  gate: live
+  discipline: ppc
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -7
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PPC 3.0 Bid stacking
+- identifier: lp.ppc.008
+  name: 'Set the bid waterfall: phrase, broad and autos below exact'
+  description: 'Bid waterfall set: phrase 10-15% below exact, broad 15-20% below exact, autos at or below
+    broad (exact $2.00 -> phrase $1.70-1.80, broad $1.60-1.70, autos $1.50 or below)'
+  gate: live
+  discipline: ppc
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -7
+  blocking: true
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PPC 3.0 Bid stacking
+- identifier: lp.ppc.009
+  name: Lean on the base bid, not the top-of-search modifier
+  description: Launch placement policy set - lean heavy on the base bid and low on the top-of-search modifier
+  gate: live
+  discipline: ppc
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -7
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PPC 3.0
+- identifier: lp.strategy.018
+  name: Stagger price, bid and creative changes so results stay readable
+  description: No price change in the same window as PPC bid changes, or as image and title changes -
+    the tests are staggered or the result is unreadable
+  gate: ignition
+  discipline: strategy
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 0
+    end: 6
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: States+Drivers Lever Conflicts
+- identifier: lp.finance.028
+  name: Set breakeven ACOS equal to your margin
+  description: 'BREAKEVEN ACOS = your margin: a 50% margin means breakeven ROAS 2.0 and breakeven ACOS
+    50%'
+  gate: ignition
+  discipline: finance
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: 0
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 01/13/2026 Launch Momentum & Pricing Signals
+- identifier: lp.inventory.042
+  name: Keep a standing line between supply chain and sales
+  description: Standing communication line open between supply chain and sales so rising sales trigger
+    inventory in time to hold 45+ days of cover
+  gate: ignition
+  discipline: inventory
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: 0
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.1.1
+- identifier: lp.listing.033
+  name: Do not switch the listing on until units land in FBA
+  description: Do not switch the listing on until units physically land in FBA - 'an active listing with
+    no traffic just teaches Amazon that nothing happens on it, which can hurt early ranking'
+  gate: ignition
+  discipline: listing
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: 0
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 07/10/2026 Listing Review & PPC Cleanup
+- identifier: lp.listing.034
+  name: Hold off on copy and content changes in the first few days
+  description: Hold off on copy and content changes in the first few days
+  gate: ignition
+  discipline: listing
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 0
+    end: 6
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 04/17/2024 Andrew's Product Launch Checklist
+- identifier: lp.rank.009
+  name: 'Day 2: Confirm the listing is indexing with PPC live'
+  description: 'Day 2 check: with PPC live, confirm the listing is INDEXING for the launch keywords'
+  gate: ignition
+  discipline: rank
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: 0
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 04/17/2024 Andrew's Product Launch Checklist
+- identifier: lp.price.023
+  name: Log every price and creative change in the Daily Sales Tracker
+  description: Dated note added in the Daily Sales Tracker for every price or creative change published
+  gate: ignition
+  discipline: price
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: 0
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.2.1
+- identifier: lp.price.024
+  name: Monitor daily for 2-3 days after any change
+  description: Daily monitoring for the first 2-3 days after any change to confirm it is not a disaster
+  gate: ignition
+  discipline: price
+  scope: product
+  timing_anchor:
+    kind: recurring
+    cadence: daily
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.2.1
+- identifier: lp.price.025
+  name: Prioritise deals that increase impressions
+  description: Deals that increase impressions prioritised (Best Deals, Lightning Deals, Prime Exclusive,
+    promo codes shared with affiliates, B2B, Brand Tailored) over discounts that only lift CTR/CVR at
+    the cost of margin
+  gate: ignition
+  discipline: price
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 0
+    end: 6
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.2.2
+- identifier: lp.ppc.010
+  name: Launch broad match campaigns before any single-keyword exact
+  description: Broad match campaigns launched FIRST, before any single-keyword exact campaign - they serve
+    data collection, CTR relevance signal and initial sales velocity
+  gate: ignition
+  discipline: ppc
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: 0
+  blocking: true
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PPC 3.0 Phase 1 Step 2
+- identifier: lp.ppc.011
+  name: Broad-match only tightly relevant keywords
+  description: Only tightly relevant keywords broad-matched - a plastic taco holder must not broad-match
+    'stainless steel taco holder'
+  gate: ignition
+  discipline: ppc
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: 0
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PPC 3.0 Phase 1 Step 2
+- identifier: lp.ppc.012
+  name: Launch auto campaigns on close match and substitute
+  description: Auto campaigns launched right after broads, defaulting to close match and substitute, with
+    all four match types tested rather than assumed
+  gate: ignition
+  discipline: ppc
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: 0
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PPC 3.0 Phase 1 Step 5
+- identifier: lp.ppc.013
+  name: Keep auto loose match and complement off at launch
+  description: Auto loose match kept OFF at launch (Phase 2 expansion) and auto complement OFF (Phase
+    3 expansion)
+  gate: ignition
+  discipline: ppc
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: 0
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PPC 3.0
+- identifier: lp.ppc.014
+  name: Bid low-bid discovery campaigns at 25% of Max CPC
+  description: Low-bid discovery campaigns (broad, phrase, auto) bid at 25% of Max CPC to maximise the
+    chance they run profitably
+  gate: ignition
+  discipline: ppc
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 0
+    end: 6
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 2.1.2
+- identifier: lp.ppc.015
+  name: Take cheap head-term sales through the auto campaign
+  description: Cheap head-term sales taken through the auto campaign rather than paying premium exact
+    bids at launch
+  gate: ignition
+  discipline: ppc
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 0
+    end: 6
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PPC 3.0 Phase 1 Step 5
+- identifier: lp.ppc.016
+  name: Watch the search term report and negate aggressively
+  description: Search term report watched closely for the first two weeks and negated aggressively when
+    broad goes off the rails - Amazon does not always keep the ad on the +modifier keywords specified
+  gate: ignition
+  discipline: ppc
+  scope: product
+  timing_anchor:
+    kind: recurring
+    cadence: daily
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PPC 3.0 Phase 1 Step 2
+- identifier: lp.ppc.017
+  name: Put the ad objective first in campaign names
+  description: Campaign naming puts the ad objective first in capitals (RANK) plus a short product acronym
+  gate: ignition
+  discipline: ppc
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: 0
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 'Launch: Day 1 Actions - Setting up Rank Campaigns 2025'
+- identifier: lp.ppc.018
+  name: Keep one keyword family per campaign
+  description: One keyword family per campaign - never mixed with an unrelated cluster
+  gate: ignition
+  discipline: ppc
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 0
+    end: 6
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PPC 3.0 Phase 2
+- identifier: lp.ppc.019
+  name: Start PPC the day the listing goes live
+  description: Start PPC the day the listing goes live - three to four days BEFORE the marketing launch
+    date - so campaigns are already moving on launch day
+  gate: live
+  discipline: ppc
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -7
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 07/24/2024 Andrew's Launch Checklist
+- identifier: lp.ppc.020
+  name: Avoid over-aggressive spend in week 1
+  description: 'Pacing: avoid over-aggressive spending in week 1 and scale the ranking push progressively'
+  gate: ignition
+  discipline: ppc
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 0
+    end: 6
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 08/18/2025 Launch Readiness & Pacing Strategy
+- identifier: lp.ppc.021
+  name: Derive seed bids from a mock campaign's suggested bids
+  description: SEED BID DERIVATION - dump the keyword set into a mock campaign, read Amazon's suggested-bid
+    outputs, and average the highest and the lowest
+  gate: ignition
+  discipline: ppc
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: 0
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 'PPC Optimization Bonus: Titan Bulk Uploader 2025'
+- identifier: lp.ppc.022
+  name: Set each rank campaign's daily budget to allow 10 clicks
+  description: 'DAILY BUDGET FORMULA per rank campaign: allow 10 clicks a day, so max bid x 10'
+  gate: ignition
+  discipline: ppc
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: 0
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 'Launch: Day 1 Actions - Setting up Rank Campaigns 2025'
+- identifier: lp.ppc.023
+  name: Use fixed bids on rank campaigns, never dynamic
+  description: Rank campaigns use FIXED bids, never dynamic - 'if you veer from this method for ranking
+    campaigns, it's hard to create predictable results'
+  gate: ignition
+  discipline: ppc
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: 0
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 'Launch: Day 1 Actions - Setting up Rank Campaigns 2025'
+- identifier: lp.ppc.024
+  name: Set placement modifiers by product type at launch
+  description: PLACEMENT MODIFIERS at launch, by product type
+  gate: ignition
+  discipline: ppc
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: 0
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 'Launch: Day 1 Actions - Setting up Rank Campaigns 2025'
+- identifier: lp.ppc.025
+  name: Treat the 25% modifier as a default, not a ceiling
+  description: The 25% modifier is an anti-paralysis default, not a ceiling - 'you can be at a hundred
+    and 25 percent if you want' if the data takes you there
+  gate: ignition
+  discipline: ppc
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 0
+    end: 6
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 04/23/2024 Launch Audits
+- identifier: lp.ppc.026
+  name: Ignore rank-campaign ACOS unless it exceeds 2x margin
+  description: 'Launch ACOS tolerance on RANK campaigns: ignore ACOS unless it exceeds roughly 2x your
+    profit margin'
+  gate: ignition
+  discipline: ppc
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 0
+    end: 6
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 'Pre-Launch: PPC Rank Objective Campaigns 2025'
+- identifier: lp.ppc.027
+  name: 'Day 4: Review impressions, orders and budget caps only'
+  description: 'Day 4 PPC review, three questions only: are we getting impressions, are we seeing orders,
+    and are we NOT maxing out budgets'
+  gate: ignition
+  discipline: ppc
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 0
+    end: 6
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 04/30/2025 Profit Benchmarks & PPC Correlations
+- identifier: lp.ppc.028
+  name: 'Clear both BOOST tests: ACOS at breakeven and CVR above listing'
+  description: 'BOOST campaigns must clear BOTH tests: ACOS at or below breakeven AND campaign CVR above
+    the listing''s own CVR'
+  gate: phase-one-complete
+  discipline: ppc
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 28
+    end: 55
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 'Pre-Launch: PPC BOOST Objective Campaigns 2025'
+- identifier: lp.external.001
+  name: Blast the email list in three separate sends on launch day
+  description: 'Launch day is the marketing ignition: blast the email list in THREE separate sends (one
+    send generates too many same-day sales), social, influencers'
+  gate: ignition
+  discipline: external
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: 0
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 04/17/2024 Andrew's Product Launch Checklist
+- identifier: lp.strategy.019
+  name: Record state and driver on entering Inventory Override
+  description: State and driver recorded on entering Inventory Override so both can be resumed when stock
+    normalises
+  gate: phase-one-complete
+  discipline: strategy
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 7
+    end: 27
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: States+Drivers
+- identifier: lp.strategy.020
+  name: After a month with no traction, move to a different keyword family
+  description: 'If stuck after a month with no traction: keep what worked, drop what did not, move to
+    a different keyword family - do not let a stuck product absorb budget for a quarter'
+  gate: phase-one-complete
+  discipline: strategy
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 28
+    end: 55
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PPC 3.0 Phase 1 timeline
+- identifier: lp.strategy.021
+  name: 'TOS RISK: Refuse the friends-and-friends-of-friends purchase step'
+  description: 'TOS RISK: Titan''s own Week 1 lesson contains a ''friends and friends of friends'' step
+    - line people up to purchase, drip-feed the sales, ask for reviews and keep the activity off social
+    media'
+  gate: ignition
+  discipline: strategy
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 0
+    end: 6
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: prohibited-tactic
+  assignees: []
+  provenance: 'Launch: Week 1 Actions - Reviews 2025'
+- identifier: lp.finance.029
+  name: Track units, revenue, CM3%, CVR and TACOS for every price test
+  description: Units sold, revenue, CM3%, conversion rate and TACOS tracked for every price test
+  gate: phase-one-complete
+  discipline: finance
+  scope: product
+  timing_anchor:
+    kind: recurring
+    cadence: weekly
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.2.1
+- identifier: lp.finance.030
+  name: Take all 30 Vine units — there is no top-up
+  description: There is no Vine top-up - 30 is the maximum and you cannot add units later
+  gate: ignition
+  discipline: finance
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 0
+    end: 6
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 08.29.2024 Alpha Q&A Vine Reviews; Review Acquisition Part 2 2025
+- identifier: lp.inventory.043
+  name: Run the Inventory Override gate weekly
+  description: Inventory Override gate run weekly; invoked below 14 days of cover in Scale, below 21 days
+    in Hold, Recover or Optimize
+  gate: phase-one-complete
+  discipline: inventory
+  scope: product
+  timing_anchor:
+    kind: recurring
+    cadence: weekly
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: States+Drivers
+- identifier: lp.inventory.044
+  name: Alert when daily units drop from steady velocity to near zero
+  description: Alert when daily units drop from steady velocity to near zero - diagnose Recover vs Inventory
+    Override before doing anything else
+  gate: phase-one-complete
+  discipline: inventory
+  scope: product
+  timing_anchor:
+    kind: recurring
+    cadence: daily
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: States+Drivers
+- identifier: lp.inventory.045
+  name: Share the return rate and its reasons with the supplier
+  description: Return rate and its most common reasons shared with the supplier, stating explicitly that
+    avoiding negative reviews is what allows larger future orders
+  gate: phase-one-complete
+  discipline: inventory
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 28
+    end: 55
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.1.3
+- identifier: lp.listing.035
+  name: Compare CTR and CVR before and after listing changes
+  description: CTR and CVR compared before vs after the listing and creative changes
+  gate: phase-one-complete
+  discipline: listing
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 7
+    end: 27
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 2.1.2
+- identifier: lp.listing.036
+  name: Start the rating, review and badge workstream in parallel
+  description: Rating, review and badge workstream started early and run in parallel - these take longer
+    to move and must not block the rest of the sequence
+  gate: ignition
+  discipline: listing
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 0
+    end: 6
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.3.4
+- identifier: lp.listing.037
+  name: Verify the listing has not acquired the Frequently Returned badge
+  description: Listing verified as NOT having acquired the 'Frequently Returned' badge
+  gate: phase-one-complete
+  discipline: listing
+  scope: product
+  timing_anchor:
+    kind: recurring
+    cadence: weekly
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 2.3.2
+- identifier: lp.listing.038
+  name: Run review analysis across the whole parent
+  description: Review analysis run across the whole parent - poorly rated children removed, discontinued
+    variations kept under the parent
+  gate: phase-one-complete
+  discipline: listing
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 28
+    end: 55
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.3.4
+- identifier: lp.rank.010
+  name: Identify rank-eligible keywords already in the top 20-30
+  description: Rank-eligible keywords identified - already ranked top 20-30 organically with reasonable
+    search volume
+  gate: phase-one-complete
+  discipline: rank
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 7
+    end: 27
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PPC 3.0 Phase 1 Step 3
+- identifier: lp.rank.011
+  name: 'Day 7: Confirm indexation and real rank increases'
+  description: 'Day 7 checkpoint: indexed for all top keywords and showing real rank increases, having
+    sent multiple promotional emails and social posts'
+  gate: ignition
+  discipline: rank
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 0
+    end: 6
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 04/17/2024 Andrew's Product Launch Checklist
+- identifier: lp.rank.012
+  name: Deploy keyword round 2 only once round 1 stabilises
+  description: Deploy keyword ROUND 2 only once round 1 shows stabilisation in sales, clicks and conversion
+    rate - repeat for as many rounds as the keyword count needs, all still within phase 1
+  gate: phase-one-complete
+  discipline: rank
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 7
+    end: 27
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 'PPC Challenge Day 5: Launching and Ranking 2025'
+- identifier: lp.rank.013
+  name: Coordinate deals with the PPC owner as a sell-through strategy
+  description: Deals coordinated with the PPC owner as a sell-through strategy, so the discount buys ranking
+    and review rate together
+  gate: phase-one-complete
+  discipline: rank
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 7
+    end: 27
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.2.2
+- identifier: lp.rank.014
+  name: Download and compare Search Query Performance around each change
+  description: Search Query Performance downloaded before and after each key change and compared
+  gate: phase-one-complete
+  discipline: rank
+  scope: product
+  timing_anchor:
+    kind: recurring
+    cadence: biweekly
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.3.5
+- identifier: lp.rank.015
+  name: Read SQP alongside business reports and PPC, never alone
+  description: SQP never read alone - it covers organic searches only, so business report metrics and
+    PPC performance are read alongside it
+  gate: phase-one-complete
+  discipline: rank
+  scope: product
+  timing_anchor:
+    kind: recurring
+    cadence: biweekly
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.3.5
+- identifier: lp.rank.016
+  name: Share every product's rank position with the team twice a week
+  description: Share the rank position of every launch product with the whole team TWICE A WEEK for the
+    first two weeks - it creates a deliverable and surfaces problems early
+  gate: ignition
+  discipline: rank
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 0
+    end: 13
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 04/17/2024 Andrew's Product Launch Checklist
+- identifier: lp.rank.017
+  name: Compare against the worked benchmark of a launch that worked
+  description: Worked benchmark of a launch that worked
+  gate: phase-one-complete
+  discipline: rank
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 7
+    end: 27
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PPC 2.0 Part 5 Launching and Ranking 2025
+- identifier: lp.creative.026
+  name: Fix product and listing for recurring complaints
+  description: Product and listing fixed for recurring complaints - an image for user error, a tutorial
+    video for user error
+  gate: phase-one-complete
+  discipline: creative
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 28
+    end: 55
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.3.4
+- identifier: lp.price.026
+  name: Track price-test results on the parent ASIN
+  description: Price-test results tracked on the PARENT ASIN - price testing can shift sales between child
+    ASINs
+  gate: phase-one-complete
+  discipline: price
+  scope: product
+  timing_anchor:
+    kind: recurring
+    cadence: weekly
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.2.1
+- identifier: lp.price.027
+  name: Enrol Subscribe & Save and create S&S coupons
+  description: Subscribe & Save enrolment completed and S&S coupons created to build subscriber count
+  gate: phase-one-complete
+  discipline: price
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 28
+    end: 55
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.2.2
+- identifier: lp.ppc.029
+  name: Launch single-keyword exacts for 1,000+ keywords with traction
+  description: Single-keyword exact campaigns launched for 1,000+ search keywords showing rank traction
+    - one per campaign so bid and placement modifiers are controlled independently
+  gate: phase-one-complete
+  discipline: ppc
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 7
+    end: 27
+  blocking: true
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PPC 3.0 Phase 1 Step 3
+- identifier: lp.ppc.030
+  name: Group sub-1,000-search keywords into one stacked exact campaign
+  description: Sub-1,000-search keywords with traction grouped into one stacked exact campaign managed
+    by ACOS
+  gate: phase-one-complete
+  discipline: ppc
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 7
+    end: 27
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PPC 3.0 Phase 1 Step 3
+- identifier: lp.ppc.031
+  name: Cap stacked campaigns at 5 keywords or 5 ASINs
+  description: Stacked campaigns capped at 5 keywords / 5 ASINs as the default
+  gate: phase-one-complete
+  discipline: ppc
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 7
+    end: 27
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: States+Drivers Numbers Map
+- identifier: lp.ppc.032
+  name: Spin dominant keywords out of a stacked campaign into their own
+  description: If 60-70% of a stacked campaign's impressions and clicks go to two keywords over a month,
+    those two are paused and spun into their own campaign
+  gate: phase-one-complete
+  discipline: ppc
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 28
+    end: 55
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PPC 3.0 Phase 1 Step 3
+- identifier: lp.ppc.033
+  name: Launch phrase support campaigns 10-15% below the exact bid
+  description: Phrase support campaigns launched on the same family at 10-15% below the exact bid
+  gate: phase-one-complete
+  discipline: ppc
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 7
+    end: 27
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PPC 3.0 Phase 1 Step 4
+- identifier: lp.ppc.034
+  name: Run the n-gram report on broads and harvest converting terms
+  description: N-gram report run on the broad campaigns after two to three weeks and converting search
+    terms harvested into stacked exacts
+  gate: phase-one-complete
+  discipline: ppc
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 7
+    end: 27
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PPC 3.0
+- identifier: lp.ppc.035
+  name: Apply the harvest paths from auto to product targeting or exact
+  description: 'Harvest paths applied: auto close/substitute converts -> SP product targeting (ASIN) or
+    phrase/exact (keyword)'
+  gate: phase-one-complete
+  discipline: ppc
+  scope: product
+  timing_anchor:
+    kind: recurring
+    cadence: weekly
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PPC 3.0 Continuous harvesting
+- identifier: lp.ppc.036
+  name: Set the lookback window by volume tier
+  description: Lookback window set by volume tier - 7 or 14 days for 1,000+ searches, 30-60 days below
+    that, 60 days for the stacked pool - with 3 days subtracted for attribution lag
+  gate: phase-one-complete
+  discipline: ppc
+  scope: product
+  timing_anchor:
+    kind: recurring
+    cadence: weekly
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: States+Drivers Layer 4
+- identifier: lp.ppc.037
+  name: Pause SP phrase, broad, auto, SB and SD under Inventory Override
+  description: 'Under Inventory Override: SP phrase, broad, auto, SB and SD paused by default, SP exact
+    kept only above 30 days cover, bids down 50% per tier, PPC held to 1-2 keywords'
+  gate: phase-one-complete
+  discipline: ppc
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 7
+    end: 27
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: States+Drivers CONF-INV-01
+- identifier: lp.ppc.038
+  name: Permit a broad-match campaign in phase 1 if momentum stalls
+  description: If momentum stalls in phase 1 with indexing fixed but too few or too low-volume keywords,
+    a broad-match campaign is permitted in phase 1 - otherwise stay on single-keyword campaigns
+  gate: phase-one-complete
+  discipline: ppc
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 7
+    end: 27
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 'PPC Challenge Day 5: Launching and Ranking 2025'
+- identifier: lp.ppc.039
+  name: Harvest a search term at 3+ conversions in a few weeks
+  description: Harvest threshold applied - a search term with 3+ conversions in a few weeks is enough
+    evidence to test in its own campaign
+  gate: phase-one-complete
+  discipline: ppc
+  scope: product
+  timing_anchor:
+    kind: recurring
+    cadence: weekly
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PPC 3.0
+- identifier: lp.ppc.040
+  name: Pause any keyword at 10 clicks with 0 orders
+  description: Any keyword at 10 clicks with 0 orders in the lookback window is paused
+  gate: phase-one-complete
+  discipline: ppc
+  scope: product
+  timing_anchor:
+    kind: recurring
+    cadence: weekly
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: States+Drivers Layer 5
+- identifier: lp.ppc.041
+  name: Apply negative-keyword click thresholds by posture
+  description: Negative-keyword click thresholds by posture
+  gate: phase-one-complete
+  discipline: ppc
+  scope: product
+  timing_anchor:
+    kind: recurring
+    cadence: weekly
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: States+Drivers Numbers Map
+- identifier: lp.ppc.042
+  name: At 60 days with 0 orders, pause or flag by spend
+  description: 'At 60 days with 0 orders: pause the keyword if spend is over $25, flag for transition
+    if under $25'
+  gate: graduated
+  discipline: ppc
+  scope: product
+  timing_anchor:
+    kind: open-ended
+    start: 59
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: States+Drivers Layer 5
+- identifier: lp.ppc.043
+  name: Gate spend scaling on rating stability, not review count
+  description: The gate on scaling spend is RATING STABILITY, not a review count - you need enough 5-star
+    reviews that one negative cannot drop you half a star
+  gate: phase-one-complete
+  discipline: ppc
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 28
+    end: 55
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PPC Challenge Day 1 2025
+- identifier: lp.ppc.044
+  name: Hold placement modifiers flat until conversion data exists
+  description: Placement modifiers held flat until placement-level conversion data exists
+  gate: phase-one-complete
+  discipline: ppc
+  scope: product
+  timing_anchor:
+    kind: recurring
+    cadence: weekly
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: States+Drivers / PPC 3.0
+- identifier: lp.ppc.045
+  name: Compute bid changes from current ACOS over target ACOS
+  description: Bid change computed from ratio = current ACOS / target ACOS against the normalised ladder
+    bands
+  gate: phase-one-complete
+  discipline: ppc
+  scope: product
+  timing_anchor:
+    kind: recurring
+    cadence: weekly
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: States+Drivers Layer 1
+- identifier: lp.ppc.046
+  name: Require data sufficiency before a placement decision
+  description: Data sufficiency for a placement decision
+  gate: phase-one-complete
+  discipline: ppc
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 7
+    end: 27
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: Double Your Sales Challenge Day 4 2025
+- identifier: lp.ppc.047
+  name: Treat rating as a CPC tax
+  description: Rating is a CPC tax - dropping to 4.0 stars produced fewer clicks, lower trust and a higher
+    CPC burden
+  gate: phase-one-complete
+  discipline: ppc
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 28
+    end: 55
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 01/19/2026 Fixing Conversion Gaps
+- identifier: lp.customer.001
+  name: Watch the half-star cliff weekly
+  description: 'Watch the half-star cliff weekly: at 4.26 with 63% five-star, any further non-5-star review
+    drops the displayed rating to 4'
+  gate: phase-one-complete
+  discipline: customer
+  scope: product
+  timing_anchor:
+    kind: recurring
+    cadence: weekly
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 11/27/2024 Titan Tools Analytics Report
+- identifier: lp.customer.002
+  name: Read all reviews and feedback and list the negative reasons
+  description: All product reviews and seller feedback read, with the common reasons for negative feedback
+    listed
+  gate: phase-one-complete
+  discipline: customer
+  scope: product
+  timing_anchor:
+    kind: recurring
+    cadence: weekly
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.3.4
+- identifier: lp.customer.003
+  name: Contact negative product reviewers to refund and replace
+  description: Negative product reviewers contacted - refund and replace
+  gate: phase-one-complete
+  discipline: customer
+  scope: product
+  timing_anchor:
+    kind: recurring
+    cadence: weekly
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.3.4
+- identifier: lp.customer.004
+  name: 'TOS RISK: Reject the review-inflation tactics circulating in-network'
+  description: 'TOS RISK: reject the review-inflation tactics circulating in-network'
+  gate: ignition
+  discipline: customer
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 0
+    end: 6
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 03/26/2025 Q&A Vine Reviews; 05/13/2026 Company-Wide Huddle
+- identifier: lp.customer.005
+  name: Staff a same-day response to any 1-star review
+  description: Staff a same-day response to any 1-star review - one operator reports roughly a 40% reversal
+    rate through immediate refund or replacement, with some flipping to 5-star purely for the support
+    experience
+  gate: phase-one-complete
+  discipline: customer
+  scope: product
+  timing_anchor:
+    kind: recurring
+    cadence: daily
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 07.25.2024 Omega Q&A Vine Reviews
+- identifier: lp.customer.006
+  name: Apply the Vine approach where rating risk exists at launch
+  description: Vine approach applied where rating risk exists at launch, targeting a 4.8+ star rating
+    (low image, low price, high packaging)
+  gate: ignition
+  discipline: customer
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 0
+    end: 6
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.3.4 Other Notes
+- identifier: lp.customer.007
+  name: Enrol Vine only after the strike-through price is visible
+  description: Enrol Vine and take all 30 units - but ONLY after the strikethrough price is visible, or
+    Vine reviewers will mark you down for the high price
+  gate: ignition
+  discipline: customer
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 0
+    end: 6
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 'Launch: Week 1 Actions - Reviews 2025; 01/29/2025 Q&A Vine Reviews'
+- identifier: lp.customer.008
+  name: Plan on about 20 reviews from 30 Vine units
+  description: Plan on about 20 reviews from 30 Vine units, not 30
+  gate: phase-one-complete
+  discipline: customer
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 7
+    end: 27
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 04/10/2024 Alpha Q&A; 01/29/2025 Q&A Vine Reviews
+- identifier: lp.customer.009
+  name: Stop waiting on Vine at 15-20 reviews
+  description: Stop waiting on Vine at 15-20 reviews and take the next action - never delay a merge for
+    5 extra reviews when the merge itself could bring 50-100 sales
+  gate: phase-one-complete
+  discipline: customer
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 7
+    end: 27
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 04/10/2024 Alpha Q&A Vine Reviews
+- identifier: lp.customer.010
+  name: Consider holding Vine until 4-5 organic reviews exist
+  description: 'Timing refinement worth testing: hold Vine until 4 or 5 organic reviews exist'
+  gate: ignition
+  discipline: customer
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 0
+    end: 6
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 05/13/2026 Company-Wide Huddle
+- identifier: lp.customer.011
+  name: Send full-price test orders to real users before opening Vine
+  description: Send a few full-price test orders to people who will actually USE the product before opening
+    Vine - it catches defects that would otherwise land as Vine reviews
+  gate: ignition
+  discipline: customer
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: 0
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 06/02/2025 Pricing Confidence & Launch Setup
+- identifier: lp.customer.012
+  name: Ship and run the insert or scratch-card follow-up
+  description: Insert / scratch card follow-up shipped and run - flagged as risky, review Amazon TOS first
+  gate: phase-one-complete
+  discipline: customer
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 7
+    end: 27
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.3.4
+- identifier: lp.customer.013
+  name: Send hand-written thank-you postcards
+  description: Hand-written thank-you postcards sent to customers
+  gate: phase-one-complete
+  discipline: customer
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 7
+    end: 27
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.3.4
+- identifier: lp.customer.014
+  name: Identify the top 3+ reasons for returns
+  description: Top 3+ reasons for returns identified from product reviews, customer service messages and
+    the Voice of the Customer page
+  gate: phase-one-complete
+  discipline: customer
+  scope: product
+  timing_anchor:
+    kind: recurring
+    cadence: weekly
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.1.3
+- identifier: lp.customer.015
+  name: 'TOS RISK: Refuse paid review-removal services'
+  description: 'TOS RISK: paid review-removal services are openly traded in the member WhatsApp group'
+  gate: phase-one-complete
+  discipline: customer
+  scope: product
+  timing_anchor:
+    kind: recurring
+    cadence: weekly
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: WhatsApp Titan_8 2024
+- identifier: lp.customer.016
+  name: Track the review-to-sales ratio daily
+  description: 'Track a review-to-sales ratio daily: aim for about 10% on a new launch, 4-6% on a mature
+    product'
+  gate: phase-one-complete
+  discipline: customer
+  scope: product
+  timing_anchor:
+    kind: recurring
+    cadence: daily
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: WhatsApp Titan_8 2025; 05/13/2026 Company-Wide Huddle
+- identifier: lp.customer.017
+  name: 'TOS RISK: Never reference the review when refunding a reviewer'
+  description: 'TOS RISK: when refunding a negative reviewer, never reference the review, never hint at
+    changing it, and never guilt-trip'
+  gate: phase-one-complete
+  discipline: customer
+  scope: product
+  timing_anchor:
+    kind: recurring
+    cadence: daily
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 06/18/2024 Q&A UGC & Review Management
+- identifier: lp.customer.018
+  name: Generate reviews through service rather than asking
+  description: Generate reviews through service rather than asking - 'the secret is to never ask for a
+    review
+  gate: phase-one-complete
+  discipline: customer
+  scope: product
+  timing_anchor:
+    kind: recurring
+    cadence: daily
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: Customer Service Part 2 2025
+- identifier: lp.customer.019
+  name: Report non-TOS-compliant reviews to Seller Support
+  description: Non-TOS-compliant reviews reported to Seller Support
+  gate: phase-one-complete
+  discipline: customer
+  scope: product
+  timing_anchor:
+    kind: recurring
+    cadence: weekly
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.3.4
+- identifier: lp.customer.020
+  name: Convert positive seller feedback into product reviews
+  description: Positive seller feedback converted into product reviews
+  gate: phase-one-complete
+  discipline: customer
+  scope: product
+  timing_anchor:
+    kind: recurring
+    cadence: weekly
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.3.4
+- identifier: lp.customer.021
+  name: Hold Subscribe & Save off while price is still moving down
+  description: Hold Subscribe & Save OFF while you are still moving price down
+  gate: phase-one-complete
+  discipline: customer
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 28
+    end: 55
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 01/16/2024 Q&A Subscribe & Save; 12/12/2025 Scaling Launches
+- identifier: lp.customer.022
+  name: Set return-rate alerts against the category baseline
+  description: 'Return rate alerts: 2% above category baseline (Scale, Recover), 1.5% above (Optimize),
+    or 1.5x the account baseline on the Demand Quality driver'
+  gate: phase-one-complete
+  discipline: customer
+  scope: product
+  timing_anchor:
+    kind: recurring
+    cadence: biweekly
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: States+Drivers Numbers Map
+- identifier: lp.external.002
+  name: Shift to 1-2 dozen smaller influencers from week 2
+  description: 'Influencer model from week 2: shift from one large influencer to 1-2 dozen smaller influencers
+    on free-product-for-post'
+  gate: phase-one-complete
+  discipline: external
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 7
+    end: 27
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 04/17/2024 Andrew's Product Launch Checklist
+- identifier: lp.external.003
+  name: Message your own list, then ask for a review a week later
+  description: 'Compliant list play: message your own list that the product is available, then a week
+    later ''please review it if you liked it'''
+  gate: phase-one-complete
+  discipline: external
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 7
+    end: 27
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 05/13/2026 Company-Wide Huddle
+- identifier: lp.strategy.022
+  name: Gate off-Amazon spend on having maxed out Amazon
+  description: Gate before any off-Amazon spend - 'if you have maxed out opportunities on Amazon'
+  gate: graduated
+  discipline: strategy
+  scope: product
+  timing_anchor:
+    kind: open-ended
+    start: 59
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG Priority 3.0
+- identifier: lp.strategy.023
+  name: 'NOTE: Re-check PLOG monthly for external-traffic procedure'
+  description: 'NOTE: Titan publishes NO external-traffic or DSP procedure - PLOG Priority 3.0 and 2.2.3
+    both read ''COMING SOON'', and Titan makes no claim anywhere that external traffic improves organic
+    rank. Re-check on the first Friday of each month when PLOG updates'
+  gate: graduated
+  discipline: strategy
+  scope: product
+  timing_anchor:
+    kind: recurring
+    cadence: monthly
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG Priority 3.0 / 2.2.3
+- identifier: lp.external.004
+  name: Enrol Creator Connections and duplicate campaigns regularly
+  description: Creator Connections enrolled (US sellers only) and the campaigns duplicated regularly so
+    creators keep seeing the products
+  gate: phase-one-complete
+  discipline: external
+  scope: market
+  timing_anchor:
+    kind: window
+    start: 7
+    end: 27
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.2.2
+- identifier: lp.external.005
+  name: Use Levanta instead of Creator Connections for UK and EU
+  description: Levanta used instead of Creator Connections for UK, DE, FR, IT and ES
+  gate: phase-one-complete
+  discipline: external
+  scope: market
+  timing_anchor:
+    kind: window
+    start: 7
+    end: 27
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.2.2
+- identifier: lp.external.006
+  name: Issue promo codes and share them with Amazon affiliates
+  description: Group or single-use promo codes issued and shared with Amazon affiliates
+  gate: ignition
+  discipline: external
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 0
+    end: 6
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.2.2
+- identifier: lp.external.007
+  name: 'Track TikTok milestones: $2,000 GMV unlocks more creators'
+  description: 'TikTok milestones: $2,000 GMV unlocks reaching more creators'
+  gate: phase-one-complete
+  discipline: external
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 28
+    end: 55
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: Launch Strategy Phase 1 2025
+- identifier: lp.external.008
+  name: Hold three Google positions on your own brand term
+  description: 'Google brand defence: you can hold three positions on your own brand term - organic, store
+    ad and Amazon listing ad'
+  gate: phase-one-complete
+  discipline: external
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 28
+    end: 55
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 11/04/2024 TikTok Shop & Affiliate Programs
+- identifier: lp.external.009
+  name: Use the owned email and SMS list to create launch velocity
+  description: The owned email/SMS list is the cheapest marketing you have and a genuine launch advantage
+    - use it to create launch velocity, defend against a competitor's coupon, or recover from a review
+    hit
+  gate: ignition
+  discipline: external
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 0
+    end: 6
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 'PPC Challenge Day 5: Launching and Ranking 2025'
+- identifier: lp.external.010
+  name: Create a Brand Tailored Promotion
+  description: Brand Tailored Promotion created
+  gate: phase-one-complete
+  discipline: external
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 7
+    end: 27
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.2.2
+- identifier: lp.external.011
+  name: Exhaust Amazon before spending on external traffic
+  description: Exhaust Amazon first - external traffic is for products where there are no keywords and
+    no search volume, where buyers are problem-aware but not solution-aware
+  gate: phase-one-complete
+  discipline: external
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 28
+    end: 55
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 02/13/2024 Launch Audit & TikTok Discussion
+- identifier: lp.external.012
+  name: Budget $3,000-5,000/month upfront for external traffic
+  description: 'External-traffic operating budget: samples $2,000-3,000/month plus initial ads $1,000-2,000,
+    so $3,000-5,000/month upfront'
+  gate: phase-one-complete
+  discipline: external
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 7
+    end: 27
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 'Optional: External Traffic - Owned Lists 2025'
+- identifier: lp.external.013
+  name: Decide the storefront destination before any ad points at it
+  description: Storefront destination decided explicitly before any ad points at it - under 5% of shoppers
+    see the storefront unless significant effort goes into driving traffic there
+  gate: phase-one-complete
+  discipline: external
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 28
+    end: 55
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 2.3.5
+- identifier: lp.external.014
+  name: 'Treat TikTok as all-or-nothing: a $10k test or full commitment'
+  description: 'TikTok is all-or-nothing: either a test with 1-2 products at roughly $10k including the
+    module, or full commitment with a dedicated team at roughly $50k quarterly'
+  gate: phase-one-complete
+  discipline: external
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 28
+    end: 55
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: Launch Strategy Phase 1 2025
+- identifier: lp.external.015
+  name: Expect 3+ extra Amazon orders per 10 TikTok orders
+  description: 'TikTok halo maths: every 10 TikTok orders yields at least 3 extra Amazon orders, observed
+    closer to 4-5'
+  gate: phase-one-complete
+  discipline: external
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 7
+    end: 27
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: Launch Strategy Phase 1 2025
+- identifier: lp.traffic.001
+  name: Stop sending traffic if CTR and CVR have not improved
+  description: Traffic push stop-rule applied - if CTR and CVR have not improved, stop sending traffic
+    and fix the listing first
+  gate: phase-one-complete
+  discipline: traffic
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 7
+    end: 27
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 2.1.2
+- identifier: lp.strategy.024
+  name: Concentrate phase 1 in the first three to four weeks
+  description: Phase 1 concentrated in the first three to four weeks - by the end of week four you should
+    already be harvesting and testing new waters
+  gate: phase-one-complete
+  discipline: strategy
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 7
+    end: 27
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PPC 3.0 Phase 1 timeline
+- identifier: lp.strategy.026
+  name: Read the phase 1 to 2 transition metrics
+  description: 'Phase 1 to 2 metric read: PPC clicks increasing but slowing, conversion rate stabilising,
+    sessions increasing but slowing'
+  gate: graduated
+  discipline: strategy
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 28
+    end: 55
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PPC 2.0 Part 5 Launching and Ranking 2025
+- identifier: lp.strategy.027
+  name: Move the product onto the post-launch track at phase 4
+  description: Phase 4 means the launch is over and the product is in regular maintenance mode - it moves
+    onto the post-launch track, which can last a year or ten
+  gate: graduated
+  discipline: strategy
+  scope: product
+  timing_anchor:
+    kind: open-ended
+    start: 59
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 07/24/2024 Andrew's Launch Checklist
+- identifier: lp.strategy.028
+  name: Set the post-launch handover cadence
+  description: 'Post-launch handover cadence: one action item on one product every day per team member,
+    a weekly scorecard reviewed in a weekly meeting driving toward 100% completion, and a 1-on-1 kickoff
+    with each team member'
+  gate: graduated
+  discipline: strategy
+  scope: product
+  timing_anchor:
+    kind: recurring
+    cadence: weekly
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: Post Launch Optimization Guide 2026
+- identifier: lp.strategy.029
+  name: Assign state and driver at handoff via the decision flow
+  description: State and driver assigned at handoff via the decision flow - Inventory Override gate, then
+    performance gate, then the 5-question core fork
+  gate: graduated
+  discipline: strategy
+  scope: product
+  timing_anchor:
+    kind: open-ended
+    start: 59
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: States+Drivers Section 4
+- identifier: lp.strategy.030
+  name: Confirm 60 days of availability and stable demand
+  description: Consistent availability and stable demand confirmed over the last 60 days before assigning
+    a permanent state
+  gate: graduated
+  discipline: strategy
+  scope: product
+  timing_anchor:
+    kind: open-ended
+    start: 59
+  blocking: true
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: States+Drivers
+- identifier: lp.strategy.031
+  name: Apply PLOG only once the product is established at 120+ days
+  description: PLOG applied only once the product is established at 120+ days - it states 'THIS IS NOT
+    A LAUNCH GUIDE'
+  gate: graduated
+  discipline: strategy
+  scope: product
+  timing_anchor:
+    kind: open-ended
+    start: 59
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG Intro
+- identifier: lp.strategy.032
+  name: Set the post-launch review cadence
+  description: Post-launch cadence set - biweekly performance check for transition triggers, quarterly
+    full state review across the catalogue, daily only for emergencies
+  gate: graduated
+  discipline: strategy
+  scope: product
+  timing_anchor:
+    kind: recurring
+    cadence: biweekly
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: States+Drivers Section 6
+- identifier: lp.strategy.034
+  name: Prefer rating quality over review volume when choosing an ASIN
+  description: Prefer rating quality over review volume when choosing which ASIN to push - '30 stars at
+    a 4.9 is better than a hundred ratings at a 4.3 or 4.4'
+  gate: graduated
+  discipline: strategy
+  scope: product
+  timing_anchor:
+    kind: open-ended
+    start: 59
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 06/11/2025 Amazon Growth Levers
+- identifier: lp.finance.031
+  name: Run the Fee Preview report and file reimbursements
+  description: Fee Preview report run to verify the SKU is not being over-charged Pick & Pack fees, and
+    reimbursements filed
+  gate: graduated
+  discipline: finance
+  scope: product
+  timing_anchor:
+    kind: open-ended
+    start: 59
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.1.2
+- identifier: lp.finance.032
+  name: Run the Aged Inventory Fee Calculator on unsold launch stock
+  description: Aged Inventory Fee Calculator run on unsold launch stock - at 181-270 days ($1.50/cu ft/month)
+    it can pay to hold if seasonal demand is expected or sell-through can be pushed
+  gate: graduated
+  discipline: finance
+  scope: product
+  timing_anchor:
+    kind: open-ended
+    start: 59
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.1.2 Part 4
+- identifier: lp.finance.033
+  name: Apply the phase 1 to 2 gate as restated under PPC 3.0
+  description: Phase 1 to 2 gate restated under PPC 3.0
+  gate: graduated
+  discipline: finance
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 28
+    end: 55
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PPC 3.0 Playbook Walkthrough 2026
+- identifier: lp.finance.034
+  name: Analyse liquidation versus storage versus removal
+  description: Liquidation vs storage vs removal cost analysis run on any launch stock that did not move
+  gate: graduated
+  discipline: finance
+  scope: product
+  timing_anchor:
+    kind: open-ended
+    start: 59
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.1.2 Part 4
+- identifier: lp.finance.035
+  name: Act on a stalled launch around the 4-5 month mark
+  description: 'Stalled launch exit timing: act around the 4-to-5 month mark if stock is not moving'
+  gate: graduated
+  discipline: finance
+  scope: product
+  timing_anchor:
+    kind: open-ended
+    start: 59
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 07/09/2026 PPC Launch & Product Validation
+- identifier: lp.inventory.046
+  name: Confirm 60 days of cover before moving to Scale or Optimize
+  description: Cover confirmed at 60 days of healthy supply before the product moves into Scale or Optimize
+  gate: graduated
+  discipline: inventory
+  scope: product
+  timing_anchor:
+    kind: open-ended
+    start: 59
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: States+Drivers Numbers Map
+- identifier: lp.inventory.047
+  name: Set the reorder trigger from total lead time
+  description: 'REORDER TRIGGER: ''if I know it takes a hundred days for me to order my product for that
+    product to show up at Amazon, anything that has less than a hundred days is where I need to place
+    an order'''
+  gate: graduated
+  discipline: inventory
+  scope: product
+  timing_anchor:
+    kind: recurring
+    cadence: weekly
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: '10: The Amazon Seller Checklist 2025'
+- identifier: lp.inventory.048
+  name: Compute stock cover as units on hand over units per day
+  description: 'Stock cover is computed, not felt: units on hand divided by units per day'
+  gate: graduated
+  discipline: inventory
+  scope: product
+  timing_anchor:
+    kind: recurring
+    cadence: weekly
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: '10: The Amazon Seller Checklist 2025'
+- identifier: lp.inventory.049
+  name: Add a safety margin on the second order
+  description: Safety margin on the SECOND order before velocity is trusted
+  gate: graduated
+  discipline: inventory
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 28
+    end: 55
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 04/22/2024 Inventory Management & CPSIA
+- identifier: lp.inventory.050
+  name: Treat a launch stockout as wasting the whole launch effort
+  description: 'COST OF A LAUNCH STOCKOUT: ''that launch effort essentially goes to waste'''
+  gate: graduated
+  discipline: inventory
+  scope: product
+  timing_anchor:
+    kind: open-ended
+    start: 59
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 03/06/2025 Q&A Launch Strategy; 08/22/2025 PPC Reset & Inventory Discipline
+- identifier: lp.inventory.051
+  name: Suppress via price and cut campaigns if a stockout is unavoidable
+  description: 'If a stockout is unavoidable: suppress the listing via price when stock drops dangerously
+    low, cut to the top 3-4 converting campaigns, FBM some on-hand stock to prevent a total blackout,
+    and monitor PPC daily'
+  gate: graduated
+  discipline: inventory
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 28
+    end: 55
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 05/13/2025 Scaling Subjective Products
+- identifier: lp.listing.039
+  name: Use the two compliant plays for social proof on the next SKU
+  description: Two compliant plays for instant social proof on the NEXT SKU
+  gate: graduated
+  discipline: listing
+  scope: product
+  timing_anchor:
+    kind: open-ended
+    start: 59
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 02/19/2025 Product Development Tips Q&A
+- identifier: lp.rank.018
+  name: Refresh keyword and competitor research every 3-12 months
+  description: Keyword and competitor research refreshed every 3-12 months, fed by SQP and the PPC search
+    term report rather than competitor research alone
+  gate: graduated
+  discipline: rank
+  scope: product
+  timing_anchor:
+    kind: open-ended
+    start: 59
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 1.3.1
+- identifier: lp.price.028
+  name: Raise price a dollar at a time as rank moves
+  description: Raise price only when rank moves - roughly a dollar at a time as keyword rank and market
+    share improve, waiting a week or two between moves
+  gate: graduated
+  discipline: price
+  scope: product
+  timing_anchor:
+    kind: open-ended
+    start: 59
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 07/06/2026 Winning The Click; 01/23/2026 Fixing Early Launch Visibility
+- identifier: lp.price.029
+  name: Test profit by reducing or removing the coupon
+  description: 'Coupon removal is the profit test: reduce or remove it, and if conversion falls from 10%
+    to 3% ''that was a mistake'
+  gate: graduated
+  discipline: price
+  scope: product
+  timing_anchor:
+    kind: open-ended
+    start: 59
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: Launch Strategy Phase 2 2025
+- identifier: lp.price.030
+  name: Re-validate the list price every 90 days
+  description: Re-validate the list price every 90 days to keep the strike-through anchor alive, with
+    a weekly visual check that strikethrough, coupon and sale price are all still live
+  gate: graduated
+  discipline: price
+  scope: product
+  timing_anchor:
+    kind: recurring
+    cadence: weekly
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: July 01 2025 Roundtable; 09/24/2025 Six-Tier Pricing
+- identifier: lp.price.031
+  name: Protect the strike-through — losing it is expensive
+  description: 'Losing the strike-through is expensive: the trailing-30-day lowest price becomes the new
+    reference and ''once you lose it, sometimes it''s quite hard to get back'''
+  gate: graduated
+  discipline: price
+  scope: product
+  timing_anchor:
+    kind: recurring
+    cadence: weekly
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: 11/20/2023 Listing Audits Q&A Pricing
+- identifier: lp.ppc.049
+  name: Launch SBV once the underlying keyword's conversion is proven
+  description: SBV launched on phrase and exact once the underlying keyword's conversion is proven - 5-10
+    keywords per campaign, one family per campaign, one match type per campaign
+  gate: graduated
+  discipline: ppc
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 28
+    end: 55
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PPC 3.0 Phase 2
+- identifier: lp.ppc.050
+  name: Expand auto loose match only after close and substitute convert
+  description: Auto loose match expanded only after close and substitute have established conversion data
+  gate: graduated
+  discipline: ppc
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 28
+    end: 55
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PPC 3.0 Phase 2
+- identifier: lp.ppc.051
+  name: Run phase 2 additively, not as a replacement
+  description: Phase 2 run additively, not as a replacement - restart the Phase 1 sequence on a new keyword
+    family while expanding the graduated one
+  gate: graduated
+  discipline: ppc
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 28
+    end: 55
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PPC 3.0 Phase 2
+- identifier: lp.ppc.052
+  name: Reduce bids 10-30% where rank improved and measure the hold
+  description: Bids reduced 10-30% at a time on search terms where rank improved, measuring whether sales
+    and rank hold
+  gate: graduated
+  discipline: ppc
+  scope: product
+  timing_anchor:
+    kind: open-ended
+    start: 59
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 2.2.2
+- identifier: lp.ppc.053
+  name: Launch SP product targeting at 5 above and 5 below by BSR
+  description: SP product targeting launched at 5 above and 5 below by BSR and by organic keyword rank,
+    5-10 ASINs per campaign, expanded targeting UNCHECKED
+  gate: graduated
+  discipline: ppc
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 28
+    end: 55
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PPC 3.0 Phase 2
+- identifier: lp.ppc.054
+  name: Select ASIN targets by organic rank where BSR sourcing fails
+  description: 'Where 5-above/5-below by BSR cannot be sourced (product below #100 in category), targets
+    selected by organic keyword rank or similar review counts, cross-checked against the monthly velocity
+    Amazon displays under the title'
+  gate: graduated
+  discipline: ppc
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 28
+    end: 55
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PPC 3.0 Phase 2
+- identifier: lp.ppc.055
+  name: Add further targeting angles beyond BSR neighbours
+  description: Additional targeting angles added - higher-priced competitors with fewer features, listings
+    with lower-quality reviews (our 4.5 stars vs their 3.5), and New Release badge listings
+  gate: graduated
+  discipline: ppc
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 28
+    end: 55
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PPC 3.0 Phase 2
+- identifier: lp.ppc.056
+  name: Check top-3 click and conversion share before pulling spend back
+  description: Top 3 click and conversion share checked per search term before pulling spend back - the
+    more share going to the top 3, the more important it is to hold that position first
+  gate: graduated
+  discipline: ppc
+  scope: product
+  timing_anchor:
+    kind: open-ended
+    start: 59
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 2.2.2
+- identifier: lp.ppc.057
+  name: Lower spend on campaigns not contributing to rankings
+  description: Spend lowered on campaigns that do not contribute to rankings and sit above ACOS targets
+  gate: graduated
+  discipline: ppc
+  scope: product
+  timing_anchor:
+    kind: open-ended
+    start: 59
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: PLOG 2.2.2
+- identifier: lp.ppc.058
+  name: Exhaust hyper-relevant rank keywords before opening BOOST
+  description: Exhaust the remaining hyper-relevant rank keywords before opening BOOST or Sponsored Display
+    - one worked example had 104 hyper-relevant keywords and only ~50 deployed
+  gate: graduated
+  discipline: ppc
+  scope: product
+  timing_anchor:
+    kind: open-ended
+    start: 59
+  blocking: false
+  kind: human
+  needs_confirmation: false
+  status: draft
+  hazard: none
+  assignees: []
+  provenance: Launch Strategy Phase 2 2025
