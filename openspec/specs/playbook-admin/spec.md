@@ -63,6 +63,21 @@ persisted.
 
 The page SHALL let a step's authorable fields be edited inline and saved through the authoring update write. A saved edit SHALL re-render the step with its new values. A rejected write SHALL re-render the form still holding the submitted values, carrying **every** fault the write's validation reported. A write rejected because the step set changed underneath the form SHALL persist nothing and SHALL say so, so the admin re-reads before retrying.
 
+"Every fault" SHALL hold across **all the values the surface itself
+parses before the write**, not merely within one kind of them. Where a
+submission carries both an unrecognised value in one control and an
+unparseable one in another, the rejection SHALL report both, rather than
+stopping at whichever was read first. A rejection an admin has to
+correct one fault at a time is the failure this guarantee exists to
+prevent.
+
+The scope is stated precisely because it cannot honestly be wider. The
+surface parses submitted values before calling the write at all, so a
+submission the surface refuses never reaches the coherence rules and
+their faults are never computed. What this guarantees is that the
+surface reports everything **it** found, not that a rejection unites
+faults the write never produced.
+
 #### Scenario: A clean edit lands
 
 - **WHEN** an edit with valid values is saved
@@ -74,6 +89,20 @@ The page SHALL let a step's authorable fields be edited inline and saved through
 - **THEN** the re-rendered form reports both faults
 - **AND** the submitted values are still in the form
 - **AND** the served step set is unchanged
+
+#### Scenario: Faults from different sources arrive together
+
+- **WHEN** a submitted write carries both an unrecognised value in a
+  field the surface parses and an unparseable timing anchor
+- **THEN** the rejection reports both faults
+- **AND** neither source's faults are dropped in favour of the other's
+
+#### Scenario: A create wrong in a field and in its discipline reports both
+
+- **WHEN** a create carries both an unrecognised value in a field the
+  surface parses and an unrecognised discipline
+- **THEN** the rejection reports both faults
+- **AND** each marks its own control
 
 #### Scenario: A stale edit is surfaced, not silently dropped
 
@@ -103,6 +132,32 @@ nothing, say so, and likewise keep what was typed. This is the guarantee
 a rejected edit already carries; a create surface that loses a set of
 named people on a rejection is worse than one that loses a line of text,
 because retyping it means remembering who was on it.
+
+A fault a rejected create reports about **the step being created** SHALL
+NOT identify that step by the identifier the write would have generated.
+No such step exists — the identifier is generated before validation and
+nothing was persisted — so naming it sends the admin looking for a step
+that is not there.
+
+The rewriting SHALL be exactly this and no more: the leading
+`step '<identifier>' ` — the words every step-level fault opens with —
+is removed, and the remainder of the fault is rendered exactly as the
+write reported it. No fault text is composed by the surface. The literal
+form is given because it is the delta a test is derived from, and an
+intent is not assertable.
+
+A consequence, accepted rather than repaired: what remains reads as a
+predicate without a subject — *"is automated and beyond draft but
+carries no automation brief"*. Repairing it inside the fault would mean
+composing text, which the sentence above forbids. Where the rendering
+needs a subject, it belongs to the surface around the list rather than
+to the fault.
+
+Faults about the step set, which may legitimately name steps that do
+exist, SHALL keep the identifiers they carry. So SHALL a fault the
+surface does not recognise: unrecognised is unclassified, and a surface
+that guessed would strip identifiers from faults naming steps the admin
+would need to go and look at.
 
 The create surface SHALL require a discipline, and a create submitted
 without one SHALL be refused rather than assigned a default. A step's
@@ -256,6 +311,13 @@ to.
   discipline selected
 - **AND** a corrected resubmission generates an identifier carrying that
   discipline
+
+#### Scenario: A rejected create does not name the step it did not persist
+
+- **WHEN** a create is rejected by a fault about the step being created
+- **THEN** the reported fault does not identify that step by a generated
+  identifier
+- **AND** no step carrying that identifier is in the served set
 
 #### Scenario: A create naming no discipline is refused, not defaulted
 
@@ -603,3 +665,136 @@ SHALL have no effect on the step that is written.
   submitted anchor kind does not use
 - **THEN** the written step's timing anchor is the one its kind
   describes, unaffected by that value
+
+### Requirement: A rejected write names the fields its faults concern
+
+A surface **carrying the authorable form** — the edit form and the
+create surface — SHALL name, for each fault it reports, the form fields
+that fault concerns, so that an admin reads which controls to touch
+rather than translating prose back into inputs.
+
+This requirement binds those two surfaces only. The step list also
+renders rejections — of a retirement, an un-retirement, a status change
+or a move — and carries no authorable form for a fault to be attributed
+against; those rejections SHALL keep rendering at page level exactly as
+they do.
+
+Attribution SHALL be **additional to** the fault list, never a filter:
+every fault the write reported SHALL still be rendered in full, in the
+surface's own fault list, whether or not it was attributed. A fault the
+surface cannot attribute SHALL be rendered at page level, exactly as it
+would have been without this requirement — an unrecognised fault
+degrades, it does not disappear.
+
+Faults concern fields in three ways, and each SHALL be treated
+differently:
+
+- A fault about **one field** SHALL mark that field.
+- A fault about a **combination of fields** SHALL mark **every** field
+  in the combination. Neither value is wrong on its own — an `automated`
+  step carrying no automation brief is refused for the pair, and
+  changing either the kind or the brief resolves it — so marking one
+  would tell the admin to change that one.
+- A fault about the **step set as a whole, or about a gate**, SHALL mark
+  no field and SHALL be rendered at page level. Such a fault does not
+  concern anything the form in front of the admin carries.
+
+Where more than one fault concerns the same field, that field SHALL be
+marked once and SHALL carry all of them, so that a field is not silently
+attributed to only the first rule that named it.
+
+Marking SHALL be observable in the rendered response — the field's own
+control carries the fault text it was marked with — rather than
+expressed only visually, so that what an admin is told is what a
+response can be asked for.
+
+A marked control MAY be one the surface does not offer, and the
+combination treatment guarantees it will sometimes be: a `human` step
+carrying an automation brief is refused for the pair, and the automation
+controls render un-offered on a `human` step. Marking SHALL render the
+fault text adjacent to such a control just as it does for any other, and
+SHALL NOT change whether the control is offered. Telling an admin which
+pair was refused is the point; silently omitting half of it because one
+half is currently un-offered would leave the refusal unexplained.
+
+#### Scenario: A fault about one field marks that field
+
+- **WHEN** a write is rejected because a step's name is empty
+- **THEN** the re-rendered surface marks the name field with that fault
+- **AND** no other field is marked with it
+
+#### Scenario: A fault about a combination marks every field in it
+
+- **WHEN** a write is rejected because a `human` step carries an
+  automation brief
+- **THEN** the re-rendered surface marks both the kind field and the
+  automation brief field with that fault
+
+#### Scenario: A fault about the step set marks no field
+
+- **WHEN** a write is rejected because a gate would be left with no
+  active blocking step
+- **THEN** the re-rendered surface reports that fault at page level
+- **AND** marks no field with it
+
+#### Scenario: Attribution never shortens the fault list
+
+- **WHEN** a write is rejected reporting one fault the surface attributes
+  and one it does not
+- **THEN** both faults are rendered in the surface's fault list
+- **AND** the one it attributes is additionally marked on its field
+
+#### Scenario: A field two faults concern carries both
+
+- **WHEN** a write is rejected by two faults that both concern the kind
+  field
+- **THEN** the kind field is marked once
+- **AND** carries both faults
+
+#### Scenario: An unparseable anchor value marks the input it came from
+
+- **WHEN** a write is rejected because one of the timing anchor's
+  numeric inputs cannot be read as a number
+- **THEN** the re-rendered surface marks that input with the fault
+- **AND** marks neither of the anchor's other numeric inputs
+
+#### Scenario: Both authoring surfaces attribute alike
+
+- **WHEN** an edit and a create are each rejected by a fault about one
+  field
+- **THEN** each surface marks that field on its own rendering
+
+### Requirement: Every rule an authoring write can provoke attributes its fault
+
+Every coherence rule and parse failure that a submitted **edit or
+create** can provoke SHALL be attributed to the fields it concerns, or
+SHALL satisfy the page-level criterion below. There SHALL be no rule
+whose fault the surface fails to recognise by accident.
+
+The page-level criterion is a property of the fault, not a decision the
+attribution records: a fault is held at page level when **it concerns no
+control the authorable form carries** — a fault about the step set as a
+whole, or about a gate. Stating it this way is deliberate. Were
+"deliberately page-level" defined as whatever attribution declines to
+attribute, this requirement would be satisfiable by declaring every gap
+deliberate, and it would assert nothing.
+
+This requirement exists because some faults are attributed by matching
+message text authored in another layer. A rule reworded there would
+silently stop matching and degrade to page level, which the requirement
+above permits by design — so nothing about the rendering would reveal
+it. The obligation is therefore stated over the rules as a set rather
+than over any one rendering.
+
+Rules a write cannot provoke are outside this requirement — the gate
+sequence is constructed by the system rather than submitted, and step
+identifiers are generated rather than typed — since a rule that cannot
+be provoked cannot be checked by provoking it.
+
+#### Scenario: No rule an authoring write can provoke is unattributed by accident
+
+- **WHEN** every rule an edit or a create can provoke is provoked in
+  turn
+- **THEN** each resulting fault is either attributed to the fields it
+  concerns, or concerns no control the authorable form carries
+- **AND** no fault falls through unrecognised
