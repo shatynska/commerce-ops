@@ -46,4 +46,4 @@ These two are **reproduction probes**, not the change's test suite. They exist t
 - [x] 6.2 Drive the running admin page by hand — create a step, edit one, change a status, retire and un-retire — and confirm each lands and each is visible in the list.
 - [x] 6.3 Confirm the failure path by hand: provoke a failed response and check the page says so; stop the server mid-write and check the no-response path says so too.
 - [x] 6.4 Confirm the no-JavaScript degradation the delta requires — with scripting off, a failed write still reaches the admin, even if only as the browser's own error page.
-- [ ] 6.5 Archive the change (`openspec archive restore-admin-step-writes --yes`) as the last commit before the PR, per `AGENTS.md`.
+- [x] 6.5 Archive the change (`openspec archive restore-admin-step-writes --yes`) as the last commit before the PR, per `AGENTS.md`.
