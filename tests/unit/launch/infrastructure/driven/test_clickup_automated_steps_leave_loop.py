@@ -279,6 +279,7 @@ class _FakeTask:
     due_date: Any = None
     body: Any = None
     assignees: tuple[str, ...] = ()
+    tags: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -318,6 +319,15 @@ class _FakeClickUp:
         if "status" in fields:
             task.status = fields["status"]
         return _CreatedTask(id=task_id, url=f"https://app.clickup.com/t/{task_id}")
+
+    async def add_task_tag(self, task_id: str, tag_name: str) -> None:
+        """Added with `tag-tasks-with-gate-and-discipline`: the projection
+        attaches a tag through its own endpoint, since ClickUp accepts no
+        `tags` key on a task update."""
+        self.calls.append(("add_task_tag", {"task_id": task_id, "tag": tag_name}))
+        task = self.tasks[task_id]
+        if tag_name not in task.tags:
+            task.tags = (*task.tags, tag_name)
 
     async def list_tasks(self, list_id: str) -> Sequence[_FakeTask]:
         self.calls.append(("list_tasks", {"list_id": list_id}))
