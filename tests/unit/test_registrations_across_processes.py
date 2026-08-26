@@ -243,3 +243,89 @@ def test_registering_reads_no_configuration_at_import(tmp_path: Path) -> None:
         "read no earlier than the point at which it is used.\n"
         f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
     )
+
+
+# ---------------------------------------------------------------------------
+# `introduce-automation-runtime` tasks.md 8.6a: the same guard, for handlers
+# ---------------------------------------------------------------------------
+
+_HANDLER_DUMP_SCRIPT = """
+import json
+
+import {root}  # noqa: F401  -- imported for the registration side effect
+
+from commerce_ops.launch.application import HANDLERS
+
+print("HANDLER-DUMP " + json.dumps(sorted(HANDLERS.names())))
+"""
+
+
+def _handler_names(root: str, tmp_path: Path) -> list[str]:
+    """The step-handler names a fresh interpreter holds after importing
+    `root` and nothing else."""
+    script = _HANDLER_DUMP_SCRIPT.format(root=root)
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        env={"PATH": os.environ.get("PATH", "")},
+        cwd=str(tmp_path),
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    assert result.returncode == 0, (
+        f"dumping the step-handler registry after importing {root} in a "
+        "fresh interpreter failed.\n"
+        f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
+    )
+    dumps = [
+        line for line in result.stdout.splitlines() if line.startswith("HANDLER-DUMP ")
+    ]
+    assert len(dumps) == 1, (
+        f"expected exactly one handler dump from {root}, got {dumps!r}\n"
+        f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
+    )
+    parsed: list[str] = json.loads(dumps[0][len("HANDLER-DUMP ") :])
+    return parsed
+
+
+def test_both_composition_roots_resolve_the_same_handler_names(
+    tmp_path: Path,
+) -> None:
+    """`introduce-automation-runtime` tasks.md 8.6a.
+
+    Step handlers register by being imported, exactly as jobs do, and
+    carry the same asymmetric failure this file already guards for jobs —
+    but a worse one, because the two processes ask *different* questions
+    of the registry. `playbook-authoring` validates an activation against
+    it in the process serving the admin surface; the automation pass needs
+    the handler in the worker. A handler imported into only one leaves
+    `check_step_handlers` reporting it registered while the admin's
+    activation is refused as naming an unknown handler — a deploy that
+    passes every other check and then cannot complete its own migration.
+    """
+    api = _handler_names("commerce_ops.main", tmp_path)
+    worker = _handler_names("commerce_ops.worker", tmp_path)
+
+    assert api == worker, (
+        "the two composition roots resolve different step-handler names. "
+        "The process serving the admin surface validates activation "
+        "against this registry and the worker runs the pass against it, so "
+        "a name in one and not the other makes a step activatable in a "
+        "deployment that cannot resolve it, or resolvable in one that "
+        f"refuses to activate it.\napi: {api}\nworker: {worker}"
+    )
+
+
+def test_each_root_registers_at_least_one_handler(tmp_path: Path) -> None:
+    """Equality above is satisfied by two empty registries.
+
+    The same reason this file already asserts each root registers work at
+    all: an import that quietly stopped happening would leave both roots
+    agreeing on nothing.
+    """
+    for root in ("commerce_ops.main", "commerce_ops.worker"):
+        assert _handler_names(root, tmp_path), (
+            f"{root} registers no step handler at all; an automated step "
+            "would name a handler nothing in this deployment answers to"
+        )

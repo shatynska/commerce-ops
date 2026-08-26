@@ -1,0 +1,50 @@
+## Why
+
+A step can declare that code resolves it, and nothing invokes that code. `redesign-step-fields` built the whole authoring side — `kind`, `automation_brief`, `handler`, an activation rule refusing a handler the deployment does not register, and a startup report naming unresolvable steps — and then said plainly that running the step is a separate change: "**No handler is registered yet, and that is the honest state**" (`handler_registry.py`). `HANDLERS` is empty, the two seeded `automated` steps sit in `in-development` because nothing resolves them, and the launch model has an entire `kind` no part of the running system acts on.
+
+This change closes that. It supplies the missing invoker, the place a produced result waits for a person's decision, and one real handler — because a runtime with no handler is unobservable, and a claim that automation works is only worth as much as the step it actually resolves.
+
+## What Changes
+
+- **A scheduled resolution pass** walks every active launch and, for each `active` `automated` step not yet at a terminal outcome, resolves the step's named handler. It follows the idiom `clickup_sync_job`, `daily_briefing_job` and `overdue_check` already keep: a job module declaring its own schedule and tolerance, registered through the one list in `registrations.py`. A pass is chosen over event-driven invocation because a handler may legitimately report that a step is not resolved yet, and something must ask it again.
+
+- **A handler contract.** A handler receives the step definition, a read of the launch it is resolving against, the catalog product that launch is for — resolved by the system, never fetched by the handler — and the moment the pass runs; it returns an outcome from the existing `launch-playbook` vocabulary plus the result it produced. The handler never constructs its own provenance — the runtime does, with source `automated`, so a handler cannot misattribute its own work. A handler with nothing conclusive to report says so with a non-terminal outcome carrying its reason, which is recorded directly rather than held for anyone's acceptance.
+
+- **Produced results wait for a decision when the step says so.** A step whose `needs_confirmation` is true never has a **terminal** outcome recorded by the runtime. The result is stored as *pending*, posted to Slack, and recorded against the launch only when a person accepts it. This is the flag finally doing something: until now `needs_confirmation` was a fact a step carried and nothing read.
+
+- **A rejected result does not terminate the step.** `lp.listing.007` carries hazard `none`, whose permissible terminal outcomes are `Satisfied` and `NotApplicable` — `Refused` is unavailable to it, and rightly so. Rejection therefore records a non-terminal outcome naming the rejector, leaving the step live and the next pass free to produce a new result.
+
+- **One handler: a sub-category advisor.** A LangGraph agent that, from the catalog product's name and marketplace, proposes the Amazon sub-category node the product belongs in and names the compliance fields and certifications that node then demands — which is exactly what `lp.listing.007` says the work is. Its inputs are data the system already owns, so the handler needs no marketplace adapter, no new store, and no human to feed it.
+
+- **A step that becomes automated leaves the ClickUp loop in both directions.** The loop's outward half already refuses to project `automated` steps, but its inward half — the reconciliation pass and the webhook — excludes a step by **status** alone. A step flipped to `automated` stays `active`, so today its orphaned task, closed by a person tidying up, would record a `clickup`-sourced `Satisfied` — terminal for that hazard, and therefore permanently suppressing the automation the flip was performed to enable. `launch-clickup-sync`'s "a step that is not active leaves the loop" is generalised to key on the departure itself rather than on any one field — projection turns on kind, status and hazard — and the two neighbouring requirements that scoped inward recording to "a step the served playbook defines" are re-scoped to match.
+
+- **Nothing activates the step automatically.** Registering the handler makes `lp.listing.007` activatable as an `automated` step; performing that flip is an admin act through the existing playbook admin surface, as roster and step edits already are. **Consequence worth stating**: the step is `human` and `active` today, so flipping it drops it out of the ClickUp projection and orphans its existing task, which someone must close by hand.
+
+**On scope.** Runtime, confirmation loop and first handler are one change rather than three because they are not independently shippable: the runtime is unobservable without a handler, and a handler on a `needs_confirmation` step cannot resolve anything without the confirmation loop. What keeps the change reviewable is that exactly one handler is written — a second belongs to its own change.
+
+## Capabilities
+
+### New Capabilities
+
+- `launch-step-automation`: invoking an `active` `automated` step's registered handler on a schedule, the handler contract and what a handler may not do, storing a produced result pending confirmation, delivering it for a decision, and recording the outcome — with `automated` provenance — when a person accepts or rejects it.
+- `subcategory-advisor`: the agent's own behavior — what it is given, what its recommendation must contain, that it invokes no tools and carries no state between invocations, and that a model failure is surfaced rather than masked as a resolution. Specified separately from the runtime for the same reason `omni-agent` is: one handler's judgement is not the runtime's contract.
+
+### Modified Capabilities
+
+- `launch-playbook`: the requirement "The authored set exercises the full step vocabulary" states that the seeded `automated` steps are `in-development` because "no automation runtime exists yet, so no handler can be registered for them". That reason expires with this change. The seeded statuses themselves are unchanged — the requirement describes the one-time seed, not the live set — but its stated justification must stop asserting something untrue, and a scenario is added pinning that registering handlers activates nothing by itself.
+- `launch-clickup-sync`: **three requirements**. "A step that is not active leaves the loop" keys on status alone, which leaves an `active` step that stops being `human` inside the inward loop; it is generalised to "a step the loop no longer projects", keying on the departure rather than on any one field — kind, status and hazard all decide projection — with scenarios for both directions of the new case. "Completion flows from ClickUp to the launch as a recorded outcome" and "The reconciliation pass records completions and reopenings the webhook missed" each scope inward recording to "a step the served playbook defines" and point at "the retired-step requirement below"; one sentence in each is re-scoped to the projection, so the capability stops describing its own carve-out two different ways. Its own closing argument already anticipates this — "a rule that keyed on retirement alone would leave the other two undefined" — so the generalisation follows the form the requirement was written in rather than bolting a special case onto it.
+
+## Impact
+
+- **New**: a job module under `launch/infrastructure/driving/` for the pass; the handler contract and the resolution use case in `launch/application/`; a pending-result store (table + repository) under `launch/infrastructure/driven/`; the agent graph in its own module following `omni_agent/application/graph.py`, with its own `.importlinter` contract — a module absent from the contracts is layered vacuously; Slack delivery and the accept/reject interaction on the existing `product_agent` app.
+- **Touched**: `registrations.py` (the one list both composition roots import, which must now carry handler modules as well as job modules — a handler registered in only one root leaves activation refused in the API process while the worker reports it registered); `worker.py` (the catalog read must be injected there — `.importlinter`'s `products-infrastructure-boundary` forbids `launch` importing catalog's store, exactly as `clickup_sync_job.read_product` and `read_people` already are); `clickup_sync.py`'s inward reconciliation predicate.
+- **Migration**: one Alembic revision creating the pending-result table. No data migration; no seeded row is rewritten.
+- **Configuration**: none new. `OPENAI_API_KEY` is already declared, and delivery uses the `PRODUCT_AGENT_SLACK_BOT_TOKEN` / `PRODUCT_AGENT_MONITORING_CHANNEL_ID` pair the briefing notifier already reads. The post-rejection cool-off is a fixed property of the system rather than a configured one, precisely so this stays true — a configured value would owe the four obligations `AGENTS.md` places on every runtime variable.
+- **Unaffected by design**: `launch-instance` already specifies `automated` as a provenance source, so the confirmed outcome goes through the existing `record_step_outcome` rather than a second recording path; and `launch-clickup-sync`'s **outward** projection already refuses `automated` steps ("Automated steps are never projected"). Its **inward** half is not unaffected — see the ClickUp bullet above.
+
+## Non-goals
+
+- A second handler, and any handler needing data the system does not own (listing copy, keyword sets, Seller Central state).
+- Resolving `lp.listing.014`, the seeded step already parked as `automated`/`in-development`: its input is the listing copy, which is stored nowhere, so it needs an input channel this change deliberately does not build.
+- Delivering the confirmation request to a step's assignees by direct message. It goes to the one monitoring channel; assignee-directed delivery waits until there is a reason to prefer it.
+- Any web surface for launch state. There is none today, and this change does not introduce one.

@@ -558,7 +558,15 @@ async def reconcile_launch(
         return
 
     present = {task.id: task for task in await clickup.list_tasks(list_id)}
-    defined = {step.identifier for step in playbook.served_steps}
+    # The set the loop still projects, not merely the served set. A step
+    # that becomes `automated` stays `active`, so nothing about its status
+    # signals its departure — and its orphaned task, closed by a person
+    # tidying up, would otherwise record a `clickup`-sourced completion for
+    # work a handler is about to do. One predicate, shared with the outward
+    # half above, so the two directions cannot drift apart.
+    defined = {
+        step.identifier for step in playbook.served_steps if is_projectable(step)
+    }
 
     for mapped in await mapping.tasks_for(launch.product_id):
         task = present.get(mapped.task_id)

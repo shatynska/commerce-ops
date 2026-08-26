@@ -48,6 +48,7 @@ _NO_REPLY_REQUEST_TYPE: Final = "url_verification"
 
 TokenProvider = Callable[[], str | None]
 WillReply = Callable[[Mapping[str, Any]], bool]
+ListenerContribution = Callable[[Any], None]
 
 
 @dataclass(frozen=True)
@@ -65,6 +66,7 @@ class SlackAppSpec:
 
 
 _REGISTRY: Final[dict[str, SlackAppSpec]] = {}
+_CONTRIBUTIONS: Final[dict[str, list[ListenerContribution]]] = {}
 
 
 def register_slack_app(identity: str, spec: SlackAppSpec) -> None:
@@ -76,6 +78,25 @@ def register_slack_app(identity: str, spec: SlackAppSpec) -> None:
     `AsyncWebClient` per request.
     """
     _REGISTRY[identity] = spec
+
+
+def contribute_listeners(identity: str, attach: ListenerContribution) -> None:
+    """Adds listeners to one Slack app from a module that does not own it.
+
+    One Slack app can carry more than one capability's listeners: the
+    `product_agent` app answers `launch-entry`'s slash command and modal
+    *and* `launch-step-automation`'s accept/reject controls, and those
+    belong in different modules. Without this seam the second capability
+    would have to register its listener inside the first's factory, where
+    nobody would look for it.
+
+    `attach` is called with the built `AsyncApp` when `get_slack_app`
+    lazily builds it -- never at import, which is the constraint the whole
+    construction is arranged around. Contributions are applied in the
+    order they were made, and an identity with no contributions builds
+    exactly as it did before this existed.
+    """
+    _CONTRIBUTIONS.setdefault(identity, []).append(attach)
 
 
 def _guard_forbidden_environment() -> None:
@@ -247,4 +268,10 @@ def get_slack_app(identity: str) -> AsyncApp:
         # otherwise is what made this a separate change.
     )
     _register_unhandled_request_acknowledgement(app)
+    # Contributed listeners attach after the app exists and before it
+    # serves anything, so a module that does not own this app can still
+    # own its own listeners. Applied here rather than at import because
+    # nothing in this construction may run before a request arrives.
+    for attach in _CONTRIBUTIONS.get(identity, ()):
+        attach(app)
     return app
