@@ -144,10 +144,11 @@ def test_exactly_the_declared_pieces_of_recurring_work_are_scheduled() -> None:
     registered = _registered_periodics()
 
     names = [entry.task.name.lower() for entry in registered]
-    assert len(registered) == 3, (
-        "expected exactly three scheduled pieces of recurring work -- the "
+    assert len(registered) == 4, (
+        "expected exactly four scheduled pieces of recurring work -- the "
         "daily cadence, `report-overdue-scheduled-runs`' hourly overdue "
-        "check, and `add-clickup-completion-loop`' ClickUp completion pass "
+        "check, `add-clickup-completion-loop`' ClickUp completion pass, and "
+        "`introduce-automation-runtime`' step-automation resolution pass "
         f"-- got {names}"
     )
     assert any("daily" in name for name in names), (
@@ -155,6 +156,9 @@ def test_exactly_the_declared_pieces_of_recurring_work_are_scheduled() -> None:
     )
     assert any("overdue" in name for name in names), (
         f"the overdue check is not among the scheduled work: {names}"
+    )
+    assert any("automation" in name for name in names), (
+        f"the step-automation pass is not among the scheduled work: {names}"
     )
     assert any("clickup" in name for name in names), (
         f"the ClickUp completion pass is not among the scheduled work: {names}"

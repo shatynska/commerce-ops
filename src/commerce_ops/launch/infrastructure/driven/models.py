@@ -25,10 +25,12 @@ from sqlalchemy import (
     Date,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -321,6 +323,72 @@ class PlaybookStep(Base):
     )
     unretired_by: Mapped[str | None] = mapped_column(String, nullable=True)
     unretired_on: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+
+class AutomatedStepResult(Base):
+    """One result an automated step's handler produced, and what became of it.
+
+    `launch-step-automation`: a terminal proposal on a step that needs
+    confirmation is held here rather than recorded, until a person accepts
+    or rejects it. A non-terminal proposal never reaches this table — it is
+    recorded directly, because there is nothing in it for a person to
+    accept.
+
+    **Settled rows are kept, never deleted**, the same retire-never-delete
+    discipline `playbook_steps` follows: what a person accepted, and when,
+    is the record of a compliance-adjacent decision.
+
+    `state` carries four values, and `voided` is its own rather than a
+    flavour of `rejected`. A decision arriving for a step the served
+    playbook no longer defines is refused and the row voided; recording
+    that as a rejection would misattribute a refused decision to the person
+    who made it, and — since the cool-off keys on the most recent
+    *rejection* — would park the step for a further day once it returned.
+
+    The partial unique index is the concurrency guarantee, not an
+    optimisation: it is what makes "at most one pending result per step"
+    true against two overlapping passes rather than only inside one pass's
+    read-then-write.
+    """
+
+    __tablename__ = "automated_step_results"
+    __table_args__ = (
+        Index(
+            "uq_automated_step_results_one_pending",
+            "product_id",
+            "step_id",
+            unique=True,
+            postgresql_where=text("state = 'pending'"),
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    product_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey(
+            "launch_positions.product_id",
+            name="fk_automated_step_results_product_id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+    )
+    step_id: Mapped[str] = mapped_column(String, nullable=False)
+    handler: Mapped[str] = mapped_column(String, nullable=False)
+    proposed_outcome: Mapped[str] = mapped_column(String, nullable=False)
+    result_text: Mapped[str] = mapped_column(Text, nullable=False)
+    produced_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    delivered_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    state: Mapped[str] = mapped_column(String, nullable=False, default="pending")
+    decided_by: Mapped[str | None] = mapped_column(String, nullable=True)
+    decided_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
 

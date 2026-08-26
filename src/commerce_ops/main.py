@@ -20,6 +20,9 @@ from commerce_ops.catalog.infrastructure.driven.product_repository import (
     CatalogProductRepository,
 )
 from commerce_ops.launch.infrastructure.driving import (
+    automation_confirmation as launch_automation_confirmation,
+)
+from commerce_ops.launch.infrastructure.driving import (
     clickup_webhook as launch_clickup_webhook,
 )
 from commerce_ops.launch.infrastructure.driving import (
@@ -130,6 +133,11 @@ launch_playbook_admin.roster = roster
 launch_playbook_admin.admin_sessions = access_admin_link.admin_sessions
 access_roster_admin.roster = roster
 access_roster_admin.admin_sessions = access_admin_link.admin_sessions
+
+# The accept/reject controls on an automated result resolve the deciding
+# Slack identity through the roster, and `launch` may not import access's
+# store — so the root hands it the same one the admin pages get.
+launch_automation_confirmation.read_people = roster
 
 
 async def _verify_admin_session(*, session_id: str) -> str | None:
