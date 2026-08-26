@@ -48,7 +48,7 @@ from commerce_ops.launch.infrastructure.driven.playbook_repository import (
     PlaybookRepository,
     ServedPlaybooks,
 )
-from commerce_ops.launch.infrastructure.driving import clickup_sync_job
+from commerce_ops.launch.infrastructure.driving import automation_pass, clickup_sync_job
 from commerce_ops.registrations import register_all
 from commerce_ops.shared.infrastructure.driven.database import session
 from commerce_ops.shared.infrastructure.driving import overdue_check
@@ -89,6 +89,13 @@ async def _read_catalog_product(product_id: ProductId) -> Product | None:
 
 
 clickup_sync_job.read_product = _read_catalog_product
+
+# The automation pass hands each handler the catalog product its launch is
+# for, so a handler never fetches one itself -- the boundary is crossed
+# here, once, instead of once per handler. Same reader, same reason as the
+# ClickUp pass's: `launch` may not import catalog's store, and only this
+# module sits outside `.importlinter`'s containers.
+automation_pass.read_product = _read_catalog_product
 
 
 class _RosterReader:

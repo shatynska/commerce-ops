@@ -45,7 +45,10 @@ from commerce_ops.launch.domain.launch_run import Provenance
 from commerce_ops.launch.infrastructure.driven.clickup_mapping import (
     ClickUpMappingRepository,
 )
-from commerce_ops.launch.infrastructure.driven.clickup_sync import transition_outcome
+from commerce_ops.launch.infrastructure.driven.clickup_sync import (
+    is_projectable,
+    transition_outcome,
+)
 from commerce_ops.launch.infrastructure.driven.launch_repository import (
     LaunchRepository,
 )
@@ -181,10 +184,15 @@ async def receive_clickup_event(request: Request) -> Response:
         await mapping.observe(mapped.product_id, mapped.step_id, now_closed)
 
         playbook = await PlaybookRepository(db_session).get(launch.playbook_version)
-        if mapped.step_id not in {step.identifier for step in playbook.steps}:
-            # A retired step's task records nothing: the step is no longer
-            # part of the launch's obligations. Acknowledged quietly, like
-            # every other delivery there is nothing to record for.
+        projected = {
+            step.identifier for step in playbook.served_steps if is_projectable(step)
+        }
+        if mapped.step_id not in projected:
+            # A step the loop no longer projects records nothing: retired or
+            # otherwise not `active`, or no longer `human`, or a prohibited
+            # tactic. The observation above still ran, so nothing is replayed
+            # if it comes back. Acknowledged quietly, like every other
+            # delivery there is nothing to record for.
             return _acknowledged()
 
         await record_step_outcome(

@@ -1,4 +1,4 @@
-"""The one list of job modules, called by both composition roots.
+"""The one list of job and handler modules, called by both composition roots.
 
 A sibling of `main.py`, `preflight.py` and `worker.py`, deliberately outside
 `.importlinter`'s containers: it names modules in both `products` and
@@ -30,19 +30,37 @@ from commerce_ops.briefing.infrastructure.driving import (
     daily_briefing_job as _daily_briefing_job,
 )
 from commerce_ops.launch.infrastructure.driving import (
+    automation_pass as _automation_pass,
+)
+from commerce_ops.launch.infrastructure.driving import (
     clickup_sync_job as _clickup_sync_job,
 )
 from commerce_ops.shared.infrastructure.driving import (
     overdue_check as _overdue_check,
 )
 
-__all__ = ["JOB_MODULES", "register_all"]
+# Step handlers register the same way jobs do -- by being imported -- and
+# carry the same asymmetric failure. Activation is validated against the
+# registry in the process serving the admin surface; the automation pass
+# needs the handler in the worker. A handler imported into only one root
+# leaves `check_step_handlers` reporting it registered while an admin's
+# activation is refused as naming an unknown handler
+# (`introduce-automation-runtime`).
+from commerce_ops.subcategory_advisor.application import (
+    handler as _subcategory_advisor,
+)
+
+__all__ = ["HANDLER_MODULES", "JOB_MODULES", "register_all"]
 
 JOB_MODULES: tuple[ModuleType, ...] = (
     _daily_briefing_job,
+    _automation_pass,
     _clickup_sync_job,
     _overdue_check,
 )
+
+
+HANDLER_MODULES: tuple[ModuleType, ...] = (_subcategory_advisor,)
 
 
 def register_all() -> None:
@@ -58,5 +76,5 @@ def register_all() -> None:
     conflicting re-registration raises rather than silently overwriting
     (tasks.md 1.4b).
     """
-    for module in JOB_MODULES:
+    for module in (*JOB_MODULES, *HANDLER_MODULES):
         assert module is not None

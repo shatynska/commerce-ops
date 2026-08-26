@@ -6,9 +6,19 @@ from commerce_ops.launch.application.activation_readiness import (
     report_activation_blockers,
     report_unregistered_handlers,
 )
+from commerce_ops.launch.application.automated_decisions import (
+    Decision,
+    accept_automated_result,
+    reject_automated_result,
+)
 from commerce_ops.launch.application.errors import (
     GraduationStampError,
     LaunchNotFoundError,
+)
+from commerce_ops.launch.application.handler_contract import (
+    StepContext,
+    StepHandler,
+    StepResolution,
 )
 from commerce_ops.launch.application.handler_registry import (
     HANDLERS,
@@ -45,22 +55,43 @@ from commerce_ops.launch.application.use_cases import (
     record_step_outcome,
     start_launch,
 )
+from commerce_ops.launch.domain.launch_playbook import (
+    Blocked,
+    InProgress,
+    NotApplicable,
+    NotStarted,
+    Refused,
+    Satisfied,
+)
+from commerce_ops.launch.domain.launch_run import StepOutcomeValue
 
 __all__ = [
     "HANDLERS",
     "ActivationBlocker",
+    "Blocked",
+    "Decision",
     "GraduationStampError",
+    "InProgress",
     "LaunchNotFoundError",
     "LaunchReport",
     "LaunchStore",
+    "NotApplicable",
+    "NotStarted",
     "Playbooks",
+    "Refused",
     "ReportedStep",
+    "Satisfied",
     "StaleStepSetError",
     "SteadyStateStamper",
+    "StepContext",
+    "StepHandler",
     "StepHandlerRegistry",
+    "StepOutcomeValue",
     "StepRecord",
+    "StepResolution",
     "StepSetStore",
     "UnregisteredHandler",
+    "accept_automated_result",
     "advance_gate",
     "approve_gate",
     "authored_definitions",
@@ -73,6 +104,7 @@ __all__ = [
     "record_metric_attestation",
     "record_step_outcome",
     "register_step_handler",
+    "reject_automated_result",
     "reorder_step",
     "report_activation_blockers",
     "report_unregistered_handlers",

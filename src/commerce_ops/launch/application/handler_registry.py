@@ -21,6 +21,8 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterator
 
+from commerce_ops.launch.application.handler_contract import StepHandler
+
 __all__ = ["HANDLERS", "StepHandlerRegistry", "register_step_handler"]
 
 
@@ -34,9 +36,9 @@ class StepHandlerRegistry:
     """
 
     def __init__(self) -> None:
-        self._handlers: dict[str, Callable[..., object]] = {}
+        self._handlers: dict[str, StepHandler] = {}
 
-    def register(self, name: str, handler: Callable[..., object]) -> None:
+    def register(self, name: str, handler: StepHandler) -> None:
         """Register `handler` under `name`.
 
         A conflicting re-registration raises rather than silently
@@ -53,7 +55,7 @@ class StepHandlerRegistry:
             )
         self._handlers[name] = handler
 
-    def resolve(self, name: str) -> Callable[..., object] | None:
+    def resolve(self, name: str) -> StepHandler | None:
         return self._handlers.get(name)
 
     def names(self) -> frozenset[str]:
@@ -76,10 +78,10 @@ that saw a different set would judge a different deployment."""
 
 def register_step_handler(
     name: str,
-) -> Callable[[Callable[..., object]], Callable[..., object]]:
+) -> Callable[[StepHandler], StepHandler]:
     """Decorator form, so a handler is registered where it is defined."""
 
-    def decorate(handler: Callable[..., object]) -> Callable[..., object]:
+    def decorate(handler: StepHandler) -> StepHandler:
         HANDLERS.register(name, handler)
         return handler
 
