@@ -75,6 +75,7 @@ from pathlib import Path
 from typing import Any, Final
 
 import pytest
+import yaml
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
@@ -113,6 +114,15 @@ SPECIFIED_GATE_ORDER: Final = (
 
 SEEDED_PREFIX: Final = "lp."
 
+# `seed-the-reference-step-set` added a second, larger seeded set alongside
+# this one. It only ever *adds* rows — a step the stored set already carries
+# is never touched — so every assertion below stays true of the rows
+# `d2f8b3c64e17` seeded, and false of the 255 rows the preparation step adds
+# (whose names are authored rather than transcribed, and which are drafts).
+#
+# So "seeded" is scoped to the migration's own vendored file rather than to
+# the `lp.` prefix, which now matches both sets. Nothing here needs to know
+# whether the preparation step has run.
 _AREA_HEADING: Final = re.compile(r"^- (\d+)\. (.+?)\s*$")
 _ROW_ID: Final = re.compile(r"\*\*ID:\*\*\s*(\S+?)\s*$")
 _ROW_SOURCE: Final = re.compile(r"\*\*SOURCE:\*\*\s*(.*?)\s*(?:·\s*\*\*|$)")
@@ -210,7 +220,9 @@ async def _authored_steps() -> tuple[StepDefinition, ...]:
 
 
 def _seeded(steps: tuple[StepDefinition, ...]) -> tuple[StepDefinition, ...]:
-    found = tuple(step for step in steps if step.identifier.startswith(SEEDED_PREFIX))
+    found = tuple(
+        step for step in steps if step.identifier in _migration_era_identifiers()
+    )
     assert found, "no seeded (lp.*) steps were read back"
     return found
 
@@ -683,3 +695,12 @@ async def test_outstanding_readiness_decisions_stay_visible() -> None:
         assert step.identifier in reported, (
             f"{step.identifier} is active and unowned and is not reported"
         )
+
+
+def _migration_era_identifiers() -> frozenset[str]:
+    document = yaml.safe_load(
+        (_repository_root() / "alembic" / "data" / "playbook_v1.yaml").read_text(
+            encoding="utf-8"
+        )
+    )
+    return frozenset(step["identifier"] for step in document["steps"])
