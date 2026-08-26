@@ -1,0 +1,346 @@
+/*
+ * The admin surfaces' shared presentation vocabulary.
+ *
+ * A token and density layer *over* Pico v2, which stays as the form-control
+ * substrate. Both admin surfaces — the playbook page and the roster page —
+ * load this file from one URL, so a presentation fix reaches both rather
+ * than one.
+ *
+ * Served exactly as committed: no build, compile, bundle or subsetting step
+ * stands between this file and what a browser receives. That is why the type
+ * layer is a system stack and nothing binary is committed.
+ */
+
+/* ---------------------------------------------------------------------------
+ * Tokens
+ * ------------------------------------------------------------------------ */
+
+:root {
+  --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
+    Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+    "Liberation Mono", monospace;
+
+  --space-hair: 0.15rem;
+  --space-tight: 0.3rem;
+  --space-snug: 0.5rem;
+  --space-loose: 1rem;
+
+  --size-fine: 0.75rem;
+  --size-small: 0.85rem;
+  --size-body: 0.95rem;
+
+  --ink: #16202c;
+  --ink-quiet: #5b6875;
+  --ink-faint: #8b96a2;
+  --rule: #d6dce3;
+  --field: #f4f6f8;
+
+  --danger-ink: #8c1d1d;
+  --danger-rule: #d99a9a;
+  --danger-wash: #fdf3f3;
+
+  --fault-ink: #7a1717;
+  --fault-rule: #cf8a8a;
+  --fault-wash: #fdeeee;
+
+  --fresh-wash: #fdf6dd;
+  --fresh-rule: #d9c76a;
+
+  /* Pico's own scale, tightened: the admin surfaces are dense tables an
+     admin scans, not prose. */
+  --pico-font-family: var(--font-ui);
+  --pico-font-size: 100%;
+  --pico-line-height: 1.4;
+  --pico-spacing: var(--space-snug);
+  --pico-form-element-spacing-vertical: var(--space-tight);
+  --pico-form-element-spacing-horizontal: var(--space-snug);
+  --pico-border-radius: 0.25rem;
+}
+
+body {
+  font-family: var(--font-ui);
+  font-size: var(--size-body);
+  color: var(--ink);
+}
+
+/* Identifiers, gates and anchor values are things an admin compares
+   character by character, so they take the mono face. */
+code,
+kbd,
+samp,
+.identifier,
+.mark {
+  font-family: var(--font-mono);
+}
+
+/* ---------------------------------------------------------------------------
+ * The action vocabulary
+ *
+ * Every action a row offers renders as a control of the same weight: same
+ * font, same size, same padding, same border width. The destructive one is
+ * distinguished by colour and border alone — never by a larger size or a
+ * heavier weight, because the requirement is that retiring stops being the
+ * loudest control in the row, and a *differently* loud control would fail it
+ * just as squarely.
+ * ------------------------------------------------------------------------ */
+
+.row-action {
+  --pico-font-size: var(--size-small);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-hair);
+  margin: 0;
+  padding: var(--space-tight) var(--space-snug);
+  border: 1px solid var(--rule);
+  border-radius: var(--pico-border-radius);
+  background: var(--field);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: var(--size-small);
+  font-weight: 400;
+  line-height: 1.2;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.row-action:hover:not(:disabled) {
+  border-color: var(--ink-quiet);
+  background: #fff;
+}
+
+.row-action:disabled,
+.row-action[aria-disabled="true"] {
+  color: var(--ink-faint);
+  border-color: var(--rule);
+  background: var(--field);
+  cursor: not-allowed;
+}
+
+/* Colour and border only. Deliberately the same font-size, font-weight,
+   padding and border-width as every sibling above. */
+.row-action.danger {
+  color: var(--danger-ink);
+  border-color: var(--danger-rule);
+  background: var(--danger-wash);
+}
+
+.row-action.danger:hover:not(:disabled) {
+  border-color: var(--danger-ink);
+  background: #fff;
+}
+
+/* ---------------------------------------------------------------------------
+ * Density: one row per step, actions side by side
+ *
+ * Each action is its own `<form>` posting to its own endpoint — five forms,
+ * five endpoints, hidden inputs intact — and a block-level form per action
+ * is what stacked a step's controls into five lines. `display: contents`
+ * collapses the form box so its single button becomes a direct flex item of
+ * the cell, changing no markup and no submitted body.
+ * ------------------------------------------------------------------------ */
+
+td.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-tight);
+}
+
+td.actions form {
+  display: contents;
+  margin: 0;
+}
+
+td.actions select {
+  --pico-font-size: var(--size-small);
+  width: auto;
+  margin: 0;
+  padding: var(--space-tight) var(--space-snug);
+  font-size: var(--size-small);
+  line-height: 1.2;
+  background-position: right var(--space-tight) center;
+  padding-right: calc(var(--space-loose) + var(--space-snug));
+}
+
+table {
+  font-size: var(--size-small);
+}
+
+th,
+td {
+  padding: var(--space-tight) var(--space-snug);
+  vertical-align: middle;
+}
+
+td small {
+  color: var(--ink-quiet);
+  font-size: var(--size-fine);
+}
+
+/* The facts a step carries, as compact marks rather than as a sentence. */
+.mark {
+  display: inline-block;
+  margin-right: var(--space-hair);
+  padding: 0 var(--space-tight);
+  border: 1px solid var(--rule);
+  border-radius: var(--pico-border-radius);
+  background: var(--field);
+  color: var(--ink-quiet);
+  font-size: var(--size-fine);
+  line-height: 1.6;
+  white-space: nowrap;
+}
+
+.mark.emphatic {
+  border-color: var(--danger-rule);
+  background: var(--danger-wash);
+  color: var(--danger-ink);
+}
+
+/* ---------------------------------------------------------------------------
+ * The admin header
+ * ------------------------------------------------------------------------ */
+
+.admin-header {
+  margin-bottom: var(--space-loose);
+  border-bottom: 1px solid var(--rule);
+}
+
+.admin-header nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-snug);
+  padding: var(--space-snug) 0;
+}
+
+.admin-surface {
+  padding: var(--space-tight) var(--space-snug);
+  border-radius: var(--pico-border-radius);
+  font-size: var(--size-small);
+}
+
+.admin-surface.current {
+  background: var(--field);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* ---------------------------------------------------------------------------
+ * Faults, and the rule that presentation never suppresses one
+ *
+ * A fault marked on a control is rendered *inside* that control's `<label>`,
+ * so anything applied to the label reaches the mark. Nothing here renders a
+ * mark — or a container holding one — as not displayed, and nothing renders
+ * it less legible than the surface's ordinary text: it is darker and larger
+ * than the `<small>` beside it, never quieter.
+ * ------------------------------------------------------------------------ */
+
+.field-faults {
+  margin: var(--space-tight) 0 0;
+  padding: var(--space-tight) var(--space-snug);
+  border-left: 3px solid var(--fault-rule);
+  border-radius: 0 var(--pico-border-radius) var(--pico-border-radius) 0;
+  background: var(--fault-wash);
+  color: var(--fault-ink);
+  font-size: var(--size-body);
+  list-style-position: inside;
+}
+
+.field-faults li {
+  margin: 0;
+  color: var(--fault-ink);
+}
+
+.faults {
+  border-left: 3px solid var(--fault-rule);
+  background: var(--fault-wash);
+  color: var(--fault-ink);
+}
+
+/*
+ * A fieldset the step's kind cannot use is DIMMED, never hidden — hiding it
+ * would remove a fault the surface is required to render, turning a styling
+ * decision into a silent breach of an existing guarantee.
+ *
+ * Dimmed by COLOUR on the control elements themselves, never by `opacity`,
+ * and never on the fieldset or on a `<label>`. Two reasons, and both matter:
+ * `opacity` on an ancestor reaches `.field-faults` inside the label, and it
+ * establishes a stacking context, so `.inapplicable .field-faults {opacity:1}`
+ * could not undo it. See `design.md` — *The fault-visibility defect does not
+ * exist, and the treatment is negative*.
+ */
+.inapplicable {
+  display: block;
+  border-color: var(--rule);
+  background: var(--field);
+}
+
+.inapplicable > legend,
+.inapplicable label,
+.inapplicable small {
+  color: var(--ink-faint);
+}
+
+.inapplicable input,
+.inapplicable textarea,
+.inapplicable select {
+  border-color: var(--rule);
+  background: var(--field);
+  color: var(--ink-faint);
+}
+
+/* Restated against the rules above, which reach a label's descendants: the
+   mark keeps the surface's ordinary legibility wherever it lands. */
+.inapplicable .field-faults,
+.inapplicable .field-faults li {
+  color: var(--fault-ink);
+  font-size: var(--size-body);
+}
+
+/* ---------------------------------------------------------------------------
+ * A just-created step
+ *
+ * A background tint that does not fade on a timer. A timed fade would be
+ * unassertable from a response and would punish an admin who looked away.
+ * ------------------------------------------------------------------------ */
+
+tr.just-created > td {
+  background: var(--fresh-wash);
+  box-shadow: inset 0 -1px 0 var(--fresh-rule);
+}
+
+tr.just-created > td:first-child {
+  box-shadow: inset 3px 0 0 var(--fresh-rule), inset 0 -1px 0 var(--fresh-rule);
+}
+
+/* ---------------------------------------------------------------------------
+ * The roster page's own regions, replacing the inline style block it shipped
+ * ------------------------------------------------------------------------ */
+
+.attribution {
+  color: var(--ink-quiet);
+  font-size: var(--size-fine);
+}
+
+/* Deactivated people stay visibly set apart — a standing `roster-admin`
+   requirement, not a style choice. Set apart by colour and a rule, not by
+   `opacity`: this region carries action controls and, on a rejected write,
+   the page's own faults. */
+.deactivated {
+  border-left: 3px solid var(--rule);
+  background: var(--field);
+  color: var(--ink-quiet);
+}
+
+.deactivated td {
+  color: var(--ink-quiet);
+}
+
+.notice {
+  border-left: 3px solid var(--fresh-rule);
+  background: var(--fresh-wash);
+}

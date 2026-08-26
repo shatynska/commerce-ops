@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime
 
 from fastapi import FastAPI
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from commerce_ops.access.application import verify_admin_session
 from commerce_ops.access.infrastructure.driven.roster_repository import (
     PostgresRoster,
 )
@@ -30,6 +32,9 @@ from commerce_ops.omni_agent.infrastructure.driving import slack as omni_agent_s
 from commerce_ops.registrations import register_all
 from commerce_ops.shared.domain.identity import Asin, MarketplaceId, ProductId, Sku
 from commerce_ops.shared.infrastructure.driven.database import dispose_engine
+from commerce_ops.shared.infrastructure.driving import (
+    admin_assets as shared_admin_assets,
+)
 from commerce_ops.shared.infrastructure.driving import health, scheduled_runs
 from commerce_ops.shared.infrastructure.logging import configure_logging
 
@@ -79,6 +84,7 @@ app.include_router(launch_slack_entry.router)
 app.include_router(access_admin_link.router)
 app.include_router(launch_playbook_admin.router)
 app.include_router(access_roster_admin.router)
+app.include_router(shared_admin_assets.router)
 
 
 async def _register_catalog_product(
@@ -124,3 +130,20 @@ launch_playbook_admin.roster = roster
 launch_playbook_admin.admin_sessions = access_admin_link.admin_sessions
 access_roster_admin.roster = roster
 access_roster_admin.admin_sessions = access_admin_link.admin_sessions
+
+
+async def _verify_admin_session(*, session_id: str) -> str | None:
+    """The shared asset route's guard, injected the same way and for the
+    same reason the two admin pages' collaborators are: `shared` may not
+    import `access`, so it cannot resolve a session itself. It is handed a
+    callable that either answers a principal or answers nothing, and knows
+    nothing else about what an admin is."""
+    return await verify_admin_session(
+        roster,
+        access_admin_link.admin_sessions,
+        session_id=session_id,
+        now=datetime.now(UTC),
+    )
+
+
+shared_admin_assets.verify = _verify_admin_session

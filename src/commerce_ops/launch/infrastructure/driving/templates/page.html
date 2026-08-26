@@ -4,10 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Launch playbook steps</title>
-  <link rel="stylesheet" href="/admin/static/pico.min.css">
+  <link rel="stylesheet" href="/admin/assets/pico.min.css">
+  <link rel="stylesheet" href="/admin/assets/vocabulary.css">
   <script src="/admin/static/htmx.min.js" defer></script>
 </head>
 <body hx-boost="true">
+{% with current = "playbook" %}{% include "_admin_header.html" %}{% endwith %}
 <main class="container">
   <h1>Launch playbook steps</h1>
 
@@ -94,8 +96,28 @@
       <option value="{{ option }}"{% if option == step.status %} selected{% endif %}>{{ label }}</option>
       {% endfor %}
     </select>
-    <button type="submit">set status</button>
+    <button type="submit" class="row-action">set status</button>
   </form>
+  {% endmacro %}
+
+  {% macro row_actions(step) %}
+  {# Every action a row offers speaks one vocabulary: same weight, same
+     treatment, sitting together rather than stacking one per line. The
+     `edit` link takes `role="button"` and matches the buttons — not the
+     buttons matching it — and `retire`, the destructive one, is
+     distinguished by colour and border alone rather than by prominence.
+
+     Rendered from a macro because `page.html` lays a step's row out at two
+     sites: the served table and the "Not served at this gate" one. Two
+     copies is how a draft's row keeps the old vocabulary while every
+     scenario about an active step's row still passes. #}
+  {% if step.retired %}
+  <form method="post" action="{{ page_path }}/steps/{{ step.identifier }}/unretire{{ narrowing.suffix() }}"><button type="submit" class="row-action">unretire</button></form>
+  {% else %}
+  {{ status_control(step) }}
+  <a href="{{ page_path }}/steps/{{ step.identifier }}/edit{{ narrowing.suffix() }}" role="button" class="row-action">edit</a>
+  <form method="post" action="{{ page_path }}/steps/{{ step.identifier }}/retire{{ narrowing.suffix() }}"><button type="submit" class="row-action danger">retire</button></form>
+  {% endif %}
   {% endmacro %}
 
   {% macro step_cells(step) %}
@@ -110,7 +132,14 @@
   <td>{% if step.assignees %}{{ step.assignees | join(", ") }}{% else %}<em>unowned</em>{% endif %}</td>
   <td>{{ step.name }}</td>
   <td>{{ step.discipline }}</td>
-  <td>{{ step.kind }}{% if step.needs_confirmation %} · needs confirmation{% endif %}{% if step.blocking %} · blocks its gate{% endif %}</td>
+  {# The facts as compact marks rather than as a `·`-joined sentence: a gate
+     is something an admin scans down, and a sentence per row is what made a
+     step take five lines. #}
+  <td>
+    <span class="mark">{{ step.kind }}</span>
+    {%- if step.needs_confirmation %}<span class="mark">needs confirmation</span>{% endif %}
+    {%- if step.blocking %}<span class="mark emphatic">blocks its gate</span>{% endif %}
+  </td>
   {% endmacro %}
 
   {% for gate in gates %}
@@ -123,9 +152,12 @@
       </thead>
       <tbody>
         {% for step in gate.steps %}
-        <tr class="step status-{{ step.status }}" id="step-{{ step.identifier }}">
+        {# `just-created` follows the addressing exactly and never outruns it:
+           the template can only mark a step it is rendering, so a `created`
+           naming a step this read did not return marks nothing. #}
+        <tr class="step status-{{ step.status }}{% if created and step.identifier == created %} just-created{% endif %}" id="step-{{ step.identifier }}">
           {{ step_cells(step) }}
-          <td>
+          <td class="actions">
             {% if reorderable %}
             {# Both controls speak one vocabulary — the visible step to come to
                rest after — so the placement rule has a single code path. An end
@@ -138,18 +170,16 @@
               <input type="hidden" name="direction" value="up">
               <input type="hidden" name="after" value="{{ step.up if step.up is not none else '' }}">
               <input type="hidden" name="version" value="{{ version }}">
-              <button type="submit" title="move up"{% if step.up is none %} disabled{% endif %}>↑</button>
+              <button type="submit" class="row-action" title="move up"{% if step.up is none %} disabled{% endif %}>↑</button>
             </form>
             <form method="post" action="{{ page_path }}/steps/{{ step.identifier }}/move{{ narrowing.suffix() }}">
               <input type="hidden" name="direction" value="down">
               <input type="hidden" name="after" value="{{ step.down if step.down is not none else '' }}">
               <input type="hidden" name="version" value="{{ version }}">
-              <button type="submit" title="move down"{% if step.down is none %} disabled{% endif %}>↓</button>
+              <button type="submit" class="row-action" title="move down"{% if step.down is none %} disabled{% endif %}>↓</button>
             </form>
             {% endif %}
-            {{ status_control(step) }}
-            <a href="{{ page_path }}/steps/{{ step.identifier }}/edit{{ narrowing.suffix() }}">edit</a>
-            <form method="post" action="{{ page_path }}/steps/{{ step.identifier }}/retire{{ narrowing.suffix() }}"><button type="submit">retire</button></form>
+            {{ row_actions(step) }}
           </td>
         </tr>
         {% endfor %}
@@ -171,16 +201,12 @@
         </thead>
         <tbody>
           {% for step in gate.pending %}
-          <tr class="step status-{{ step.status }}" id="step-{{ step.identifier }}">
+          {# The second row site, and the one a step created as a `draft`
+             lands on — so the created marker belongs here too. #}
+          <tr class="step status-{{ step.status }}{% if created and step.identifier == created %} just-created{% endif %}" id="step-{{ step.identifier }}">
             {{ step_cells(step) }}
-            <td>
-              {% if step.retired %}
-              <form method="post" action="{{ page_path }}/steps/{{ step.identifier }}/unretire{{ narrowing.suffix() }}"><button type="submit">unretire</button></form>
-              {% else %}
-              {{ status_control(step) }}
-              <a href="{{ page_path }}/steps/{{ step.identifier }}/edit{{ narrowing.suffix() }}">edit</a>
-              <form method="post" action="{{ page_path }}/steps/{{ step.identifier }}/retire{{ narrowing.suffix() }}"><button type="submit">retire</button></form>
-              {% endif %}
+            <td class="actions">
+              {{ row_actions(step) }}
             </td>
           </tr>
           {% endfor %}

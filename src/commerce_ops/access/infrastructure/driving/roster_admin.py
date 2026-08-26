@@ -24,7 +24,7 @@ from typing import Any, Final
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from jinja2 import Environment, FileSystemLoader, select_autoescape
+from jinja2 import ChoiceLoader, Environment, FileSystemLoader, select_autoescape
 
 from commerce_ops.access.application import (
     InvalidRosterError,
@@ -35,6 +35,7 @@ from commerce_ops.access.application import (
     update_person,
     verify_admin_session,
 )
+from commerce_ops.shared.infrastructure.driving.admin_assets import TEMPLATES_DIR
 
 __all__ = [
     "PAGE_PATH",
@@ -47,8 +48,15 @@ PAGE_PATH: Final = "/admin/roster"
 
 SESSION_COOKIE: Final = "admin_session"
 
+# Own templates first, then the shared ones: the admin header is one
+# partial both surfaces include, so neither module owns a copy of it.
 _TEMPLATES: Final = Environment(
-    loader=FileSystemLoader(Path(__file__).parent / "templates"),
+    loader=ChoiceLoader(
+        [
+            FileSystemLoader(Path(__file__).parent / "templates"),
+            FileSystemLoader(TEMPLATES_DIR),
+        ]
+    ),
     autoescape=select_autoescape(default=True, default_for_string=True),
 )
 

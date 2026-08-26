@@ -24,6 +24,22 @@
   </ul>
 {%- endif %}
 {%- endmacro %}
+{# The controls are grouped into sections purely to be read: eleven of them
+   in one column above the two fieldsets that already existed is a form an
+   author scrolls rather than scans. The grouping is presentation and
+   implements no requirement, so it is bounded — see `design.md`, *Field
+   grouping is presentation, and carries three hard bounds*:
+
+   1. No field is added, removed, renamed or reordered in the submitted
+      body. Every control below is the same control, in the same order,
+      under the same name; only the wrapping changed.
+   2. No mark is separated from the control it concerns. Each `marked()`
+      call stays inside its own control's `<label>`, exactly where it was.
+   3. The anchor and automation fieldsets keep their existing semantics —
+      `hidden` on the anchor inputs, `disabled` on the automation controls.
+      Grouping wraps; it does not re-decide which controls are offered. #}
+<fieldset class="field-group">
+  <legend>The work</legend>
 {% if include_discipline %}
 <label>Discipline
   <select name="discipline">
@@ -46,6 +62,9 @@
   <textarea name="description" rows="4">{{ values.get("description", "") }}</textarea>
   {{ marked(marks, "description") }}
 </label>
+</fieldset>
+<fieldset class="field-group">
+  <legend>Ownership and placement</legend>
 <label>Assignees
   <select name="assignees" multiple size="4">
     {% for identifier, display_name in assignee_options %}
@@ -78,6 +97,9 @@
   </select>
   {{ marked(marks, "blocking") }}
 </label>
+</fieldset>
+<fieldset class="field-group">
+  <legend>How it is resolved</legend>
 <label>Kind
   <select name="kind">
     {% for option in kind_options %}
@@ -94,6 +116,9 @@
   <small>Meaningless on a human step: the person doing the work is the person attesting it.</small>
   {{ marked(marks, "needs_confirmation") }}
 </label>
+</fieldset>
+<fieldset class="field-group">
+  <legend>Lifecycle</legend>
 <label>Status
   <select name="status">
     {% for option, label in status_options %}
@@ -110,6 +135,7 @@
   </select>
   {{ marked(marks, "hazard") }}
 </label>
+</fieldset>
 {# An anchor kind uses at most two of the four inputs, and the form said
    nothing about which. The unused ones render `hidden` — *not* `disabled`
    like the automation fields below, and the difference is the whole

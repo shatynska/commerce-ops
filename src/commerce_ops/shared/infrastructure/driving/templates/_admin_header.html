@@ -1,0 +1,36 @@
+{#
+  The header every admin surface carries, naming both surfaces the session
+  can reach. Included from `launch`'s templates and from `access`'s alike,
+  through a `ChoiceLoader` over this directory — one copy, so the two
+  surfaces cannot drift apart the way the roster page's inline styles did.
+
+  `current` says which surface is being viewed: `"playbook"` from the step
+  list and from both authoring surfaces (an admin authoring a step is within
+  the playbook surface), `"roster"` from the roster page. The current one is
+  identified rather than linked, so the header reads as a position rather
+  than as an undifferentiated pair of links.
+
+  The paths are literals. `launch` cannot import `access`'s `PAGE_PATH`, and
+  `access` already writes `launch`'s path as a literal (`ADMIN_HOME_PATH`),
+  so one literal pair in one shared partial is strictly fewer than the two
+  in two modules that stood here before.
+
+  The outbound link from the playbook surfaces is un-boosted, for the reason
+  `page.html`'s Add step control already records: `hx-boost` is inherited
+  from `<body>`, so htmx would swap the roster page into this page's body,
+  discard that page's own body attributes and leave a roster page that
+  cannot post.
+#}
+<header class="admin-header">
+  {# `container` is Pico's own width constraint, so the header lines up with
+     the page's `<main class="container">` rather than running to the edge. #}
+  <nav class="container" aria-label="Admin surfaces">
+    {% if current == "playbook" %}
+    <span class="admin-surface current" aria-current="page">Playbook steps</span>
+    <a class="admin-surface" href="/admin/roster" hx-boost="false">Roster</a>
+    {% else %}
+    <a class="admin-surface" href="/admin/playbook">Playbook steps</a>
+    <span class="admin-surface current" aria-current="page">Roster</span>
+    {% endif %}
+  </nav>
+</header>

@@ -4,10 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Edit {{ step_id }}</title>
-  <link rel="stylesheet" href="/admin/static/pico.min.css">
+  <link rel="stylesheet" href="/admin/assets/pico.min.css">
+  <link rel="stylesheet" href="/admin/assets/vocabulary.css">
   <script src="/admin/static/htmx.min.js" defer></script>
 </head>
 <body hx-boost="true">
+{% with current = "playbook" %}{% include "_admin_header.html" %}{% endwith %}
 <main class="container">
   <h1>Edit step</h1>
   <p>

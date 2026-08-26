@@ -4,7 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Add a step</title>
-  <link rel="stylesheet" href="/admin/static/pico.min.css">
+  <link rel="stylesheet" href="/admin/assets/pico.min.css">
+  <link rel="stylesheet" href="/admin/assets/vocabulary.css">
   <script src="/admin/static/htmx.min.js" defer></script>
 </head>
 {# `hx-boost` is deliberately absent here, and putting it on this element
@@ -15,6 +16,9 @@
    here would be discarded — which is why the boost is switched off at the
    control, the form and Cancel rather than on this tag. #}
 <body>
+{# The playbook surface is the one an admin is within while authoring a step,
+   so the header identifies it as current rather than naming this page. #}
+{% with current = "playbook" %}{% include "_admin_header.html" %}{% endwith %}
 <main class="container">
   <h1>Add a step</h1>
   <p>
