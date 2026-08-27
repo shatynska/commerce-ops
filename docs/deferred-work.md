@@ -201,6 +201,38 @@ Nothing is broken either way — the creation requirement is written to hold for
 
 **Recorded in**: `add-step-page`'s `design.md` (Open Questions).
 
+### The container start chain is ~14× slower on the host than locally
+
+The `Dockerfile`'s CMD chain — `preflight`, `alembic upgrade head`, `seed_admin`, `seed_playbook`, `check_step_handlers`, then uvicorn — runs in **1.8s** locally against a real Postgres:
+
+| Step | Local |
+|---|---|
+| `alembic upgrade head` | 0.59s |
+| `preflight` | 0.11s |
+| `seed_admin` | 0.31s |
+| `seed_playbook` | 0.50s (inserting all 352 rows; 0.48s with nothing to add) |
+| `check_step_handlers` | 0.31s |
+
+On the deploy host the same chain reaches healthy at ~26.5s, and that is what made the 5s start period tight enough for one added process to break every deploy (`let-the-start-chain-finish`). Nobody has established where the factor of fourteen goes — plausibly uvicorn importing LangGraph and the OpenAI client on a small shared VPS, but that is a guess, not a measurement.
+
+**The chain's own duration on the host has never been measured**, only bounded. `Started` → `Healthy` is the moment of the first *successful* probe, so it snaps up to the probe cadence and over-states the chain; on a failing deploy it is only a lower bound. Anything sized against it should be sized as a clearance, not a ratio.
+
+**Post-merge reading (task 4.4 of `let-the-start-chain-finish`)**: _not yet taken — record the first passing deploy's `Started` → `Healthy` figure here._ At or below 40s the shipped 60s window remains compliant; above 40s the window must grow and a follow-up change is owed. Expect ~36.5s on a pre-25.0 Docker engine, or nearer ~30s on 25.0+, where a 5s start-interval applies by default.
+
+**Recorded in**: `let-the-start-chain-finish`'s `proposal.md` (Out of scope) and `design.md` (Context, Migration Plan).
+
+### `seed_playbook` and `check_step_handlers` emit no `INFO` records
+
+Both run as `python -m commerce_ops.<module>`, so `__name__` is `"__main__"` and their module logger is `__main__` — which inherits **root** at `WARNING`, not `commerce_ops` at `INFO`. Every `INFO` record from them is dropped in production.
+
+Verified directly: `logging.getLogger("__main__").getEffectiveLevel()` is 30 and `isEnabledFor(INFO)` is `False` after `configure_logging()`, and both processes emit nothing at all on a successful run. `seed_admin` is unaffected because it logs through `commerce_ops.access.application.roster`, a real package logger. `preflight` is unaffected because it uses `print`.
+
+The consequence is not cosmetic: `seed_playbook`'s "added N step(s)" line is how anyone would know the seeding ran, so **the 352-row seed reached production silently**. `ERROR` records still surface, so a *failing* step does still name itself — but a step that hangs emits neither, which is why a mid-chain hang in either process is diagnosable only by `docker exec`.
+
+The fix is small — give each module a package logger rather than `__name__` under `-m`, or set the level on root — but it is a behaviour change to logging and belongs in its own change rather than folded into a `HEALTHCHECK` edit.
+
+**Recorded in**: `let-the-start-chain-finish`'s `proposal.md` (Out of scope) and `design.md` (Risks).
+
 ### Small cleanups, not worth a change each
 
 Verified present at the time of writing; suitable for one chore commit.
