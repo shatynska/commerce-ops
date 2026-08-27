@@ -18,7 +18,11 @@ from urllib.parse import quote
 
 import httpx
 
-from commerce_ops.shared.domain.clickup import ClickUpTask, ClickUpTaskState
+from commerce_ops.shared.domain.clickup import (
+    ClickUpListState,
+    ClickUpTask,
+    ClickUpTaskState,
+)
 
 _BASE_URL = "https://api.clickup.com"
 
@@ -108,6 +112,29 @@ async def create_list(folder_id: str, name: str) -> str:
     )
     response.raise_for_status()
     return str(response.json()["id"])
+
+
+async def read_list_state(list_id: str) -> ClickUpListState:
+    """A list's own state — whether ClickUp reports it deleted.
+
+    Distinct from `list_tasks`, which reads what a list *holds*: ClickUp
+    answers a deleted list's task read with `200` and no tasks, so the
+    tasks cannot say whether the list is still there. Reading the list
+    itself can: ClickUp answers `200` with `"deleted": true`, observed
+    against list `901220624358` on 2026-08-27.
+
+    A non-2xx response and an unreachable ClickUp both propagate, as they
+    do from every other operation here. That is deliberate rather than
+    incidental: a failed read is not evidence of a deletion — it is
+    equally what a withdrawn permission or a mistaken identifier
+    produces — so this returns the fact or nothing at all. See
+    `heal-a-launchs-deleted-list`'s design.md, Decision 4.
+    """
+    response = await get_client().get(f"{_BASE_URL}/api/v2/list/{list_id}")
+    response.raise_for_status()
+    # Absent is read as "not deleted": ClickUp sends the flag on a
+    # deleted list, and a live list is under no obligation to carry it.
+    return ClickUpListState(deleted=bool(response.json().get("deleted", False)))
 
 
 def _due_date_from(raw: object) -> date | None:

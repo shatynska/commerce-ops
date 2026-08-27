@@ -100,6 +100,7 @@ from commerce_ops.launch.domain.launch_playbook import (
 )
 from commerce_ops.launch.domain.launch_run import Launch, Provenance
 from commerce_ops.launch.infrastructure.driven.clickup_sync import converge_launch
+from commerce_ops.shared.domain.clickup import ClickUpListState
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId, Sku
 
@@ -350,6 +351,17 @@ class _FakeClickUp:
 
     # -- writes ------------------------------------------------------------
 
+    async def read_list_state(self, list_id: str) -> ClickUpListState:
+        """Every list this file uses is one that still exists.
+
+        `heal-a-launchs-deleted-list` makes the projection verify a
+        recorded list before it uses it, so a double that cannot answer
+        this stops the pass before any scenario here is reached. Nothing
+        below asserts on the answer -- the deleted case belongs to
+        `test_clickup_sync_list_healing.py`.
+        """
+        return ClickUpListState(deleted=False)
+
     async def create_list(self, folder_id: str, name: str) -> str:
         self.calls.append(("create_list", {"folder_id": folder_id, "name": name}))
         list_id = self._identifier("list")
@@ -430,6 +442,25 @@ class _FakeMapping:
 
     async def list_id_for(self, product_id: ProductId) -> str | None:
         return self.lists.get(product_id)
+
+    async def replace_list_discarding_tasks(
+        self,
+        product_id: ProductId,
+        list_id: str,
+        *,
+        spare: Sequence[str] = (),
+    ) -> None:
+        """Present so this double still stands in for the whole
+        `MappingStore` port, which `heal-a-launchs-deleted-list` widened.
+        No scenario in this file replaces a list; the behaviour is
+        exercised in `test_clickup_sync_list_healing.py`."""
+        spared = {str(step_id) for step_id in spare}
+        self.tasks = {
+            key: mapped
+            for key, mapped in self.tasks.items()
+            if key[0] != product_id or key[1] in spared
+        }
+        self.lists[product_id] = list_id
 
     async def record_list(self, product_id: ProductId, list_id: str) -> None:
         self.lists[product_id] = list_id
@@ -593,26 +624,14 @@ async def test_a_launch_without_a_list_gets_one() -> None:
     assert await collaborators.mapping.list_id_for(PRODUCT_ID) is not None
 
 
-async def test_an_existing_list_is_not_recreated() -> None:
-    """Scenario: An existing list is not recreated.
-
-    WHEN the reconciliation pass runs and the launch already has a
-    recorded list
-    THEN no new list is created.
-    """
-    playbook = _playbook()
-    collaborators = _Collaborators()
-    collaborators.clickup.seed_list(LIST_ID)
-    await collaborators.mapping.record_list(PRODUCT_ID, LIST_ID)
-
-    await _converge(_start(playbook), playbook, collaborators)
-
-    # SPECIFIED: no new list is created.
-    assert collaborators.clickup.calls_named("create_list") == []
-    # SPECIFIED corollary: the recorded association still names the same
-    # list -- "a launch whose list already exists SHALL NOT get a second
-    # one" is not satisfied by creating one and forgetting it.
-    assert await collaborators.mapping.list_id_for(PRODUCT_ID) == LIST_ID
+# `test_an_existing_list_is_not_recreated` stood here. `heal-a-launchs-deleted-list`
+# revised its scenario's WHEN -- the no-second-list rule now holds because
+# ClickUp reports the list as existing, not because a record is merely
+# present -- and this file's ClickUp double cannot construct that state.
+# Superseded by `test_clickup_sync_list_healing.py`::
+# `test_a_list_clickup_reports_as_existing_is_not_recreated`, which carries
+# both of its assertions unchanged and adds the once-per-pass probe the
+# revised scenario turns on.
 
 
 async def test_a_graduated_launch_is_left_alone() -> None:
