@@ -22,7 +22,15 @@ automated step leaves everything else in the launch working.
 
 Lives beside `main.py`, outside the containers `.importlinter` layers, so
 naming both the launch module's public surface and its repository here
-violates no contract.
+violates no contract — and, for the same reason, `registrations`.
+
+It **registers the handlers it reports on**, at module scope, as the two
+composition roots do. Registering a handler is an import side effect, so
+a process that never imports the handler modules holds an empty registry
+— and a report drawn from one names every `active` `automated` step as
+unresolvable, answering identically whether or not this deployment
+registers a step's handler. That report establishes nothing about either,
+which is why the registration belongs here rather than in the caller.
 
 Reads the **authored** set, through the authoring read rather than the
 serving one. That is what it always wanted — it reports on every step that
@@ -50,10 +58,16 @@ from commerce_ops.launch.application import (
 from commerce_ops.launch.infrastructure.driven.playbook_repository import (
     PlaybookRepository,
 )
+from commerce_ops.registrations import register_all
 from commerce_ops.shared.infrastructure.driven.database import dispose_engine, session
 from commerce_ops.shared.infrastructure.logging import configure_logging
 
 _logger = logging.getLogger(__name__)
+
+# At module scope, as in `main.py` and `worker.py`, and load-bearing here:
+# the guard reads each root by import alone, so a call deferred into
+# `main()` would leave an importer of this module looking unregistered.
+register_all()
 
 
 async def _report() -> None:

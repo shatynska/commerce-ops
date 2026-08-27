@@ -43,9 +43,15 @@ from commerce_ops.shared.infrastructure.driving import (
 # carry the same asymmetric failure. Activation is validated against the
 # registry in the process serving the admin surface; the automation pass
 # needs the handler in the worker. A handler imported into only one root
-# leaves `check_step_handlers` reporting it registered while an admin's
-# activation is refused as naming an unknown handler
+# is resolvable in one and unknown in the other
 # (`introduce-automation-runtime`).
+#
+# The startup report does not catch that. It reads this list too
+# (`let-the-handler-report-see-handlers`), so it holds whatever a root
+# importing this module holds -- which is what makes it a real report on
+# the deployment, and equally what stops it distinguishing two roots that
+# disagree. `tests/unit/test_registrations_across_processes.py` is where
+# that is caught.
 from commerce_ops.subcategory_advisor.application import (
     handler as _subcategory_advisor,
 )
