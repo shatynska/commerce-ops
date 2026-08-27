@@ -54,10 +54,18 @@ question with its correction point:
   fails loudly rather than defaulting.
 - Its call shape — collaborators plus the decided-on identity as keyword
   arguments. `_decide` is the single correction point.
-- The roster collaborator's read. `_FakeRoster` answers under every
-  spelling this repository's existing roster doubles use
-  (`list_people`, `people`, `person`, a bare call), so the shape the
-  implementation picks is likely already satisfied.
+- The roster collaborator's read. This was INVENTED and has since been
+  RESOLVED: `_FakeRoster` once answered under every spelling this
+  repository's roster doubles use (`list_people`, `people`, `person`, a
+  bare call), so that whichever shape the implementation picked was
+  already satisfied. That was the right call while the shape was
+  unstated — and the wrong one afterwards, because a double answering
+  to everything cannot fail the way production failed. Production
+  supplied a `load()`/`save()` store, matching none of the spellings,
+  and every decision was refused as "the roster does not know that
+  Slack identity". The double now answers `list_people` and nothing
+  else, which is the one stated shape (`restore-automated-decisions`,
+  design.md — Decision 5). No assertion here changed.
 - How a refusal is *signalled*. The spec says a refused decision "SHALL
   tell the decider it was refused"; telling the decider is `tasks.md`
   6.4's Slack reply, and what the use case hands back for it is
@@ -246,33 +254,19 @@ class _Person:
 
 
 class _FakeRoster:
-    """Answers under every read spelling this repository's roster doubles
-    already use, so the shape the implementation picks is satisfied."""
+    """Answers `list_people` and nothing else — the one stated shape.
+
+    It used to answer six spellings at once so that any implementation
+    was satisfied. Keeping that would mean this file could not tell a
+    correctly wired deployment from the mis-wired one that shipped, since
+    a double satisfying every shape is satisfied by a caller reaching for
+    any of them. One shape, so a caller reaching for another fails here.
+    """
 
     def __init__(self, *people: _Person) -> None:
         self._people = list(people)
 
     async def list_people(self) -> tuple[_Person, ...]:
-        return tuple(self._people)
-
-    people = list_people
-
-    async def load(self) -> tuple[tuple[_Person, ...], int]:
-        return tuple(self._people), 1
-
-    async def person(self, person_id: str) -> _Person | None:
-        for person in self._people:
-            if person.id == person_id:
-                return person
-        return None
-
-    async def person_for_slack_identity(self, identity: str) -> _Person | None:
-        for person in self._people:
-            if person.slack_identity == identity:
-                return person
-        return None
-
-    async def __call__(self) -> tuple[_Person, ...]:
         return tuple(self._people)
 
 
