@@ -286,8 +286,13 @@ def _list_name(product: Any) -> str:
 
     The product identifier is opaque and never parsed for meaning, so the
     name the ops team reads is the product's own name and SKU.
+
+    The SKU is rendered from its `value`, not from the value object, which
+    would compose the name out of a Python repr — `Blue Cat Bed
+    (Sku(value='BCB-2027-01'))`. Same composition as the briefing
+    subject line (`briefing/application/use_cases.py`).
     """
-    return f"{product.name} ({product.sku})"
+    return f"{product.name} ({product.sku.value})"
 
 
 CLICKUP_TASK_NAME_LIMIT = 2048
