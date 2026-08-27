@@ -335,11 +335,28 @@ def test_each_root_registers_at_least_one_handler(tmp_path: Path) -> None:
     The same reason this file already asserts each root registers work at
     all: an import that quietly stopped happening would leave both roots
     agreeing on nothing.
+
+    Named, not merely non-empty, since `group-step-handlers`. A handler is
+    free to be a module or a package, and a package registers only if its
+    `__init__.py` re-exports the registration; omit that and the package
+    imports cleanly with the handler simply absent — the asymmetric
+    failure one level down from the one above. Both runtime mechanisms
+    that catch it are late: activation refuses the step at an admin's next
+    write, and the pass logs and skips at a launch's next pass. This is
+    the early one, so it has to name what it expects to find.
     """
     for root in ("commerce_ops.main", "commerce_ops.worker"):
-        assert _handler_names(root, tmp_path), (
+        names = _handler_names(root, tmp_path)
+        assert names, (
             f"{root} registers no step handler at all; an automated step "
             "would name a handler nothing in this deployment answers to"
+        )
+        assert "listing.subcategory_advisor" in names, (
+            f"{root} does not register 'listing.subcategory_advisor'. It is "
+            "reached through `registrations.py`, so either that import no "
+            "longer names where the handler lives, or the handler is a "
+            "package whose `__init__.py` does not re-export its "
+            f"registration.\n{root} registers: {names}"
         )
 
 

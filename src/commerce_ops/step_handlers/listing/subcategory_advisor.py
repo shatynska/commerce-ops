@@ -1,4 +1,4 @@
-"""The sub-category advisor's graph and what it proposes.
+"""The sub-category advisor: its graph, and its registration as a handler.
 
 `subcategory-advisor`: given a product's name and its marketplace, propose
 the Amazon sub-category node it belongs in and name the compliance fields
@@ -27,6 +27,25 @@ surface. A masked failure here would not merely return a poor answer — it
 would reach a person as a recommendation to accept and become the evidence
 for a compliance-relevant decision.
 
+**Which processes import this module is load-bearing.** Registration
+happens where the handler is defined, through `register_step_handler` —
+the `registrations.py` idiom this project keeps for scheduled work, and
+for the same reason: whoever registers a handler is not necessarily
+whoever decides a step is ready to hold a gate. Activation is validated
+against the registry in the process serving the admin surface, while the
+pass needs the same handler in the worker; a handler imported into only
+one leaves them disagreeing, with `check_step_handlers` reporting it
+registered while the admin's activation is refused as naming an unknown
+handler. `registrations.py` — the one list every composition root imports
+— is what keeps them in step.
+
+Because the graph and the registration now sit in one module, importing it
+at all is what registers the handler; previously the graph could be
+imported without that happening. Nothing about that is expensive.
+`_graph()` stays `lru_cache`d, so no credential read moves to import time,
+and `StepHandlerRegistry.register` raises only for a *different* callable
+under one name, so a repeated import is safe.
+
 **The graph libraries are imported inside the functions that build a
 graph, and that is deliberate — do not tidy them back to the top.**
 Registering a step handler makes its name resolvable and must load nothing
@@ -37,30 +56,41 @@ top-level `langgraph` or `langchain_openai` here is paid by processes that
 will never invoke this handler — the startup handler report among them —
 multiplied by every handler the deployment answers for.
 
-This is `handler.py`'s `_graph()` note one step earlier. That one defers
-*constructing* the model, because construction reads credentials; this
-defers *importing* it, because the import costs roughly two thousand
-modules. Same reasoning, one step apart.
+This is `_graph()`'s note one step earlier. That one defers *constructing*
+the model, because construction reads credentials; this defers *importing*
+it, because the import costs roughly two thousand modules. Same reasoning,
+one step apart.
 """
 
 from __future__ import annotations
 
+import functools
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, TypedDict
 
-from commerce_ops.launch.application import Blocked, Satisfied
+from commerce_ops.launch.application import (
+    Blocked,
+    Satisfied,
+    StepContext,
+    StepResolution,
+    register_step_handler,
+)
 
 if TYPE_CHECKING:
     from langchain_core.language_models import BaseChatModel
 
 __all__ = [
+    "HANDLER_NAME",
     "AdvisorState",
     "NonStringRecommendationError",
     "Proposal",
+    "advise_sub_category",
     "build_graph",
     "build_production_graph",
     "propose",
 ]
+
+HANDLER_NAME = "listing.subcategory_advisor"
 
 # What the advisor says when it cannot support a node choice. Recognised
 # by reading the model's own prose rather than by a sentinel token: the
@@ -190,3 +220,27 @@ def propose(
             result=recommendation,
         )
     return Proposal(outcome=Satisfied, result=recommendation)
+
+
+@functools.lru_cache
+def _graph() -> object:
+    """Built on first use, never at import: constructing the model reads
+    credentials, and importing this module must not require them."""
+    return build_production_graph()
+
+
+@register_step_handler(HANDLER_NAME)
+async def advise_sub_category(context: StepContext) -> StepResolution:
+    """Propose the sub-category node, or say it cannot support a choice.
+
+    Reads only what the context carries — the product the pass resolved,
+    never a catalog of its own. A model failure propagates, and the pass
+    records nothing for a step it could not evaluate.
+    """
+    product = context.product
+    proposal = propose(
+        product_name=str(getattr(product, "name", "")),
+        marketplace=str(getattr(product, "marketplace_id", "")),
+        graph=_graph(),
+    )
+    return StepResolution(outcome=proposal.outcome, result=proposal.result)
