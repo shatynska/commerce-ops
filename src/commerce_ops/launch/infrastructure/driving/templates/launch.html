@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ launch.label }}</title>
+  {# The same two files every other admin surface loads, from the same
+     shared guarded route, so a presentation fix reaches all of them
+     rather than some. This page carries no styling of its own. #}
+  <link rel="stylesheet" href="/admin/assets/pico.min.css">
+  <link rel="stylesheet" href="/admin/assets/vocabulary.css">
+</head>
+<body>
+{% with current = "launches" %}{% include "_admin_header.html" %}{% endwith %}
+<main class="container">
+  <h1>{{ launch.label }}</h1>
+  <p class="launch-date">
+    {% if launch.launch_date %}Launch date {{ launch.launch_date }}{% else %}No launch date{% endif %}
+  </p>
+
+  {# The sequence names every gate and holds no step, so it reads as the
+     launch's position rather than as a second copy of the work. #}
+  <ol class="gate-sequence">
+    {% for group in launch.gates %}
+    <li class="gate{% if group.current %} current{% endif %}"
+        {% if group.current %}aria-current="step"{% endif %}>
+      <a href="#gate-{{ group.identifier }}">{{ group.identifier }}</a>
+    </li>
+    {% endfor %}
+  </ol>
+
+  {% if not launch.served_any %}
+  <p class="empty">No step is served by the playbook.</p>
+  {% endif %}
+
+  {# The gate group is ONE element holding its own steps: an outer
+     section wrapping a table would make the table the smallest element
+     holding them, and the `id` a reader lands on would sit on an
+     ancestor rather than on the group itself. #}
+  {% for group in launch.gates %}
+  <ul class="gate-group" id="gate-{{ group.identifier }}"
+      {% if group.current %}aria-current="step"{% endif %}>
+    <li class="gate-heading">
+      {{ group.identifier }}{% if group.current %} — current gate{% endif %}
+    </li>
+    {% for step in group.steps %}
+    <li class="step-row">
+      <span class="step-name">{{ step.name }}</span>
+      <span class="step-id">{{ step.step_id }}</span>
+      <span class="discipline">{{ step.discipline }}</span>
+      {# Stated only when true: "Does not block" contains the word the
+         mark is read by, so the negative form made the mark
+         unfalsifiable. #}
+      {% if step.blocking %}<span class="mark blocking">Blocks its gate</span>{% endif %}
+      <span class="due">
+        {% if step.due_from or step.due_to %}Due {{ step.due_from }}–{{ step.due_to }}
+        {% else %}No due period{% endif %}
+      </span>
+      <span class="outcome">
+        {% if step.recorded %}
+          {{ step.outcome }} — recorded by {{ step.recorded_by }}
+          ({{ step.source }}) at {{ step.recorded_at }}: {{ step.evidence }}
+        {% else %}Unrecorded{% endif %}
+      </span>
+      {% if step.overdue %}<span class="mark overdue">Overdue</span>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% endfor %}
+
+  <section class="journal">
+    <h2>Journal</h2>
+    {% if not launch.journal %}
+    <p class="empty">Nothing is recorded in this launch's journal.</p>
+    {% else %}
+    <ol class="journal-entries">
+      {% for entry in launch.journal %}
+      <li><span class="what">{{ entry.what }}</span>
+        <span class="when">{{ entry.when }}</span>
+        <span class="cause">{{ entry.cause }}</span></li>
+      {% endfor %}
+    </ol>
+    {% endif %}
+  </section>
+</main>
+</body>
+</html>
