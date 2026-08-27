@@ -78,10 +78,15 @@ changes. One read is added to the automated-result repository.
   flow; this states that what is retained is legible afterwards, which is
   what makes "settled rows are kept, never deleted" worth more than
   storage.
-- `roster-admin`: its requirement *The page carries a header from which
-  the other admin surface is reachable* is written for exactly two
-  surfaces. A third makes that wording false, so it generalizes to the
-  admin surfaces the session can reach.
+This change carries **no** `roster-admin` or `playbook-admin` delta, and
+that is deliberate rather than an omission. Both capabilities' header
+requirements are generalized by `add-launch-tracking-pages` to name every
+admin surface the session can reach, so once that change archives this
+page is already covered and needs no requirement of its own. Writing one
+here would be actively harmful: an OpenSpec `MODIFIED` block replaces a
+requirement wholesale, so a delta drafted against the pre-generalization
+text would silently delete the generalized wording on archive, and
+`openspec validate` would not object.
 
 `product-catalog` is deliberately **not** modified: the page reads
 `get_product_by_id` through the catalog's public surface and asks it for
@@ -118,7 +123,13 @@ scope check, and the launch list links by id regardless.
 **Coordination**
 
 `add-launch-tracking-pages` proposes the launch list and detail pages,
-whose rows link here, and touches the same admin header for the same
-reason. Whichever archives second reconciles the header requirement
-rather than reproducing it. Neither change blocks the other: this page
-is addressable and useful without the launch pages existing.
+whose rows link here, and it owns the admin header's generalization for
+both capabilities that specify one — see *Modified Capabilities* for why
+this change carries no header delta of its own.
+
+**This change SHALL NOT archive before it.** The header requirements this
+page relies on are generalized there; archiving first would leave this
+surface named by a header requirement still written for two surfaces.
+Neither change blocks the other for review or implementation: this page
+is addressable and useful without the launch pages existing, and its own
+requirements stand alone.
