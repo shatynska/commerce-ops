@@ -26,9 +26,11 @@ from commerce_ops.launch.application.handler_registry import (
     register_step_handler,
 )
 from commerce_ops.launch.application.playbook_authoring import (
+    RosterReader,
     StaleStepSetError,
     StepRecord,
     StepSetStore,
+    UnreadableRosterError,
     authored_definitions,
     change_step_status,
     create_step,
@@ -80,6 +82,7 @@ __all__ = [
     "Playbooks",
     "Refused",
     "ReportedStep",
+    "RosterReader",
     "Satisfied",
     "StaleStepSetError",
     "SteadyStateStamper",
@@ -90,6 +93,7 @@ __all__ = [
     "StepRecord",
     "StepResolution",
     "StepSetStore",
+    "UnreadableRosterError",
     "UnregisteredHandler",
     "accept_automated_result",
     "advance_gate",

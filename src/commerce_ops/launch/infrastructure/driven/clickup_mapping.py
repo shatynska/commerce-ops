@@ -76,6 +76,53 @@ class ClickUpMappingRepository:
             existing.list_id = list_id
         await self._session.commit()
 
+    async def replace_list_discarding_tasks(
+        self,
+        product_id: ProductId,
+        list_id: str,
+        *,
+        spare: Sequence[str] = (),
+    ) -> None:
+        """Record a replacement list and discard the launch's task mappings,
+        in one commit.
+
+        One operation rather than `record_list` followed by a discard,
+        because every other method here commits for itself: two calls would
+        leave a window in which a crash records the new list while the dead
+        list's mappings survive, or discards the mappings while the dead
+        list stays recorded — and the second of those mints a further list
+        on the next pass, orphaning this one. Committing once removes the
+        window instead of choosing which side of it to fail on. It also
+        names what happened: the launch's projection was reset.
+
+        `spare` names the steps whose mappings stand — the ones whose work
+        is already finished. Their tasks died with the list like every
+        other, but the mapping is what tells the projection not to recreate
+        them; discarding it would put completed work back into the
+        replacement list as a fresh open task. The caller decides which
+        those are, because deciding needs the step definitions and this
+        store holds none. See `heal-a-launchs-deleted-list`'s design.md,
+        Decisions 2a, 2b and 3.
+        """
+        row_id = _row_id(product_id)
+        if row_id is None:
+            raise ValueError(f"no launch for product '{product_id.value}'")
+        spared = {str(step_id) for step_id in spare}
+        discard = delete(LaunchClickUpTask).where(
+            LaunchClickUpTask.product_id == row_id
+        )
+        if spared:
+            discard = discard.where(LaunchClickUpTask.step_id.not_in(spared))
+        await self._session.execute(discard)
+        existing = await self._session.get(LaunchClickUpList, row_id)
+        if existing is None:
+            self._session.add(LaunchClickUpList(product_id=row_id, list_id=list_id))
+        else:
+            existing.list_id = list_id
+        # The single commit this operation exists for. Both writes land or
+        # neither does.
+        await self._session.commit()
+
     async def task_for(
         self, product_id: ProductId, step_id: str
     ) -> ClickUpTaskMapping | None:

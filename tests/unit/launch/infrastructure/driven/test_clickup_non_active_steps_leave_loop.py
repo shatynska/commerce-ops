@@ -75,6 +75,7 @@ from commerce_ops.launch.infrastructure.driven.clickup_sync import (
     converge_launch,
     reconcile_launch,
 )
+from commerce_ops.shared.domain.clickup import ClickUpListState
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId, Sku
 
@@ -256,6 +257,17 @@ class _FakeClickUp:
         self.calls: list[tuple[str, Any]] = []
         self._next = 0
 
+    async def read_list_state(self, list_id: str) -> ClickUpListState:
+        """Every list this file uses is one that still exists.
+
+        `heal-a-launchs-deleted-list` makes the projection verify a
+        recorded list before it uses it, so a double that cannot answer
+        this stops the pass before any scenario here is reached. Nothing
+        below asserts on the answer -- the deleted case belongs to
+        `test_clickup_sync_list_healing.py`.
+        """
+        return ClickUpListState(deleted=False)
+
     async def create_list(self, folder_id: str, name: str) -> str:
         self.calls.append(("create_list", {"folder_id": folder_id, "name": name}))
         self._next += 1
@@ -337,6 +349,25 @@ class _FakeMapping:
 
     async def list_id_for(self, product_id: ProductId) -> str | None:
         return self.lists.get(product_id)
+
+    async def replace_list_discarding_tasks(
+        self,
+        product_id: ProductId,
+        list_id: str,
+        *,
+        spare: Sequence[str] = (),
+    ) -> None:
+        """Present so this double still stands in for the whole
+        `MappingStore` port, which `heal-a-launchs-deleted-list` widened.
+        No scenario in this file replaces a list; the behaviour is
+        exercised in `test_clickup_sync_list_healing.py`."""
+        spared = {str(step_id) for step_id in spare}
+        self.tasks = {
+            key: mapped
+            for key, mapped in self.tasks.items()
+            if key[0] != product_id or key[1] in spared
+        }
+        self.lists[product_id] = list_id
 
     async def record_list(self, product_id: ProductId, list_id: str) -> None:
         self.lists[product_id] = list_id

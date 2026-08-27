@@ -24,9 +24,15 @@ plausible implementation goes wrong:
   went unrecorded would leave the launch showing an unresolved step with
   nothing saying why.
 
-Every refusal returns a `Decision` rather than raising: the caller is a
-Slack interaction that must reply to the decider either way, and an
-exception would make "tell them why" the adapter's problem to reconstruct.
+Every refusal *of a decision* returns a `Decision` rather than raising:
+the caller is a Slack interaction that must reply to the decider either
+way, and an exception would make "tell them why" the adapter's problem
+to reconstruct.
+
+The one exception is not a refusal of a decision at all. A roster
+collaborator that cannot be read is a mis-wired deployment, and it
+raises `UnreadableRosterError`, because there is nothing true to tell
+the decider about *their* decision — see `_person_for`.
 """
 
 from __future__ import annotations
@@ -35,6 +41,10 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
+from commerce_ops.launch.application.playbook_authoring import (
+    RosterReader,
+    UnreadableRosterError,
+)
 from commerce_ops.launch.domain.launch_playbook import Blocked, LaunchPlaybook
 from commerce_ops.launch.domain.launch_run import Provenance
 from commerce_ops.shared.domain.identity import ProductId
@@ -68,20 +78,42 @@ def _refuse(reason: str) -> Decision:
     return Decision(refused=True, reason=reason)
 
 
-async def _person_for(roster: Any, slack_identity: str) -> Any | None:
+async def _person_for(roster: RosterReader, slack_identity: str) -> Any | None:
     """The roster person a Slack identity belongs to, or None.
 
-    Reached through whichever read the roster offers: `access` owns that
-    surface, and this module may only use it, not shape it.
+    One shape, and anything else is refused by name. This once probed
+    three spellings — `person_for_slack_identity`, `list_people`,
+    `people` — and returned `None` when the collaborator answered to
+    none of them. The composition root supplied a `RosterStore`, which
+    answers `load()`/`save()` and so matched nothing, and every decision
+    by every identity was refused as "the roster does not know that
+    Slack identity". A collaborator that cannot be read is a defect of
+    *wiring*; resolving it into a statement about the decider told
+    active admins their roster entry was at fault and sent them looking
+    at data that was correct all along.
+
+    So it raises rather than answering `None`. `None` here means one
+    thing only: the roster was read, and it does not carry that
+    identity.
+
+    The whole roster is read, deactivated entries included, because
+    "known" and "active" are two facts this module decides separately —
+    a reader that answered only active people would collapse two
+    distinct refusals into one.
     """
-    direct = getattr(roster, "person_for_slack_identity", None)
-    if callable(direct):
-        return await direct(slack_identity)
-    lister = getattr(roster, "list_people", None) or getattr(roster, "people", None)
-    if callable(lister):
-        for person in await lister():
-            if getattr(person, "slack_identity", None) == slack_identity:
-                return person
+    lister = getattr(roster, "list_people", None)
+    if lister is None:
+        raise UnreadableRosterError(
+            f"the roster collaborator is a {type(roster).__name__!r}, which "
+            f"cannot answer who the roster carries: a roster reader must "
+            f"provide `list_people()`, and this one does not. Pass a reader "
+            f"rather than a roster store — a decision cannot be judged "
+            f"without one, and no decision may be refused as though the "
+            f"roster had been read"
+        )
+    for person in await lister():
+        if getattr(person, "slack_identity", None) == slack_identity:
+            return person
     return None
 
 
@@ -92,7 +124,7 @@ def _serves(playbook: LaunchPlaybook, step_id: str) -> bool:
 async def _decide(
     *,
     results: Any,
-    roster: Any,
+    roster: RosterReader,
     launches: Any,
     playbook: LaunchPlaybook,
     record_outcome: Any,
@@ -112,6 +144,13 @@ async def _decide(
             "that result has already been decided; the decision recorded first stands"
         )
 
+    # The roster is read *after* the pending lookup, deliberately. A
+    # mis-wired deployment raises from here, so a repeat press on an
+    # already-settled result keeps answering "already decided" rather
+    # than reporting the wiring: that refusal does not depend on the
+    # roster, and it is still the true thing to say. "Before the
+    # deciding identity is judged" is what the requirement asks, and
+    # this is that point — not the top of the function.
     person = await _person_for(roster, slack_identity)
     if person is None:
         return _refuse(
@@ -184,7 +223,7 @@ def _proposed_outcome(pending: Any) -> Any:
 async def accept_automated_result(
     *,
     results: Any,
-    roster: Any,
+    roster: RosterReader,
     launches: Any,
     playbook: LaunchPlaybook,
     record_outcome: Any,
@@ -211,7 +250,7 @@ async def accept_automated_result(
 async def reject_automated_result(
     *,
     results: Any,
-    roster: Any,
+    roster: RosterReader,
     launches: Any,
     playbook: LaunchPlaybook,
     record_outcome: Any,
