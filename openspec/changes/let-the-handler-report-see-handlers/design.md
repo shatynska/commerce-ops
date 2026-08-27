@@ -36,7 +36,7 @@ Alternatives considered:
 - **Have `launch.application` import the handlers itself**, so the registry is populated by importing the registry. Rejected: it inverts the dependency the whole design rests on — `launch` would import every handler, which the boundary contract exists to prevent, and a handler's import failure would become a failure of the launch module.
 - **Make `report_unregistered_handlers` take the registry as a required argument** so an empty one cannot be passed by omission. Rejected as insufficient rather than wrong: the caller here passes `HANDLERS` explicitly already, so it would not have caught this.
 - **Fold the report into `main.py`**, which already registers. Rejected: it is a separate process on purpose — a report that runs inside the serving process cannot precede serving, and the start chain's staging (`preflight && migrate && seed && report && exec uvicorn`) is a settled shape that `deploy-pipeline` names.
-- **A narrower `register_handlers()` importing `HANDLER_MODULES` only.** Rejected because it does not work: `registrations.py` registers through *module-level* imports, so importing `commerce_ops.registrations` at all pulls both lists. Narrowing would require restructuring that module's imports to be lazy, which trades a real property — one list, imported the same way by every root — for 0.42s.
+- **A narrower `register_handlers()` importing `HANDLER_MODULES` only.** Rejected because it does not work as posed: `registrations.py` registers through *module-level* imports (`:29-51`), and `register_all()` (`:79-80`) only asserts the modules are non-`None`. So adding a second function changes nothing — importing the module at all fires both lists. Narrowing would require making those imports lazy, which trades away the property that module states about itself (`:25-28`): that registration is a side effect of importing the one module. With `keep-handler-imports-cheap` landed the prize for that trade is 0.42s of job-module imports in a process that runs once per container start, which does not buy a restructuring of the module whose entire design is top-level side-effecting imports.
 
 ### 2. This change lands after `keep-handler-imports-cheap`, and says why
 
@@ -53,7 +53,7 @@ The handler is the expensive half, because `subcategory_advisor/application/grap
 
 `keep-handler-imports-cheap` defers those three imports into the functions that use them, so importing a handler registers its name without loading a model client. With it landed, Decision 1 costs the four job modules and nothing else. This change therefore depends on it and lands after it.
 
-Worth stating plainly: the same cost is already paid by `main.py`, which registers at import and so loads LangGraph before uvicorn can serve — 1,988 of the 2,774 modules `import commerce_ops.main` pulls. That is the leading unverified hypothesis in `deferred-work.md:216` for where the host's 14× factor goes. Fixing it is that change's business, not this one's; this change only declines to make it worse first.
+Worth stating plainly, and carefully: `main.py` also loads LangGraph before uvicorn can serve, but by **two independent paths** — the omni_agent Slack router (`main.py:34` → `omni_agent/infrastructure/driving/slack.py`) and the advisor handler via `registrations`. Closing one leaves the other, so `keep-handler-imports-cheap` will not measurably shorten the web process's start. Which path dominates the host's 14× factor is `deferred-work.md:216`'s open question, and neither this change nor its dependency answers it. This change only declines to lengthen the chain first.
 
 ### 3. The test covers the third root, by registry equality, in the file that already owns the property
 
@@ -70,6 +70,14 @@ The startup clause was already correct; what it lacked was any scenario. But "un
 So the added scenarios put the registry's provenance in the **WHEN** — "started the way the deployment starts it" — rather than describing what a supplied registry produces. A scenario phrased the other way would be satisfied on the day it was written and would pin nothing. This is the change's central design decision, and the one an implementer is most likely to undo by writing the test at the convenient level.
 
 The added normative text says what is observable — that the report comes from a process holding the deployment's registrations — and deliberately does not say *how* registration happens. Import-driven registration is an implementation choice this specification should not fix in place.
+
+**Every test derived from these scenarios runs in a fresh interpreter.** This is not a stylistic preference; an in-process test cannot observe the property at all. `HANDLERS` is a module global, and five files under `tests/unit` import `commerce_ops.registrations` at module scope — `shared/infrastructure/driven/test_recurring_work_registry.py:87`, `shared/infrastructure/driving/test_overdue_check.py:98`, `test_overdue_consumers_agree.py:49`, `test_scheduled_runs_freshness.py:77`, `test_scheduled_runs_freshness_unreadable.py:73`. Pytest collection alone therefore populates the registry for the whole run: importing any one of those modules takes `HANDLERS` from 0 to 1, verified directly.
+
+The consequence is precise and nasty. A scenario test written in-process — substituting the repository read, as `test_check_step_handlers_reads_the_authored_set.py` already does, and letting the module's real `HANDLERS` be consulted — honours the **WHEN**'s letter and is red when run as a single file, so it passes the red-observation check and gets committed. Run in the full tree, as the pre-commit hook always runs it, collection has already registered the handler and the test is green whether or not `check_step_handlers.py` carries the import. The change would ship a guard that cannot catch its own revert, and whose verdict depends on which files the interpreter loaded first.
+
+So the scenarios' "started the way the deployment starts it" is discharged by the subprocess pattern `test_registrations_across_processes.py` establishes (`_handler_names`, `:263`) and by nothing else. The step set can be substituted inside the driver script, so this needs no database.
+
+An autouse fixture snapshotting and clearing `HANDLERS` around each test was considered and rejected: it manipulates a global that `handler_registry.py:41-56` deliberately makes conflict-raising, and it would not reproduce the deployment's own start, which is what the **WHEN** actually asks for.
 
 ## Risks / Trade-offs
 
