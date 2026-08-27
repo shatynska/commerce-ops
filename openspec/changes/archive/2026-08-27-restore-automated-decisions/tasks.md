@@ -35,9 +35,9 @@
 
 - [x] 5.1 Run `uv run pytest` across `tests/unit` and `tests/agents`; the pre-commit hook runs the whole tree, so an unrelated red test blocks the commit.
 - [x] 5.2 Run `uv run mypy`, `uv run ruff check`, `uv run ruff format --check` and the `import-linter` contracts — the last because group 2 touches a module the roster-boundary contracts govern.
-- [ ] 5.3 Confirm against a live deployment that a pending result already sitting in Slack becomes decidable on the existing message, without re-delivery (design.md — Migration Plan).
+- [x] 5.3 Confirm against a live deployment that a pending result already sitting in Slack becomes decidable on the existing message, without re-delivery (design.md — Migration Plan). **Confirmed** on the deploy from `3fef904` (PR #86): Accept was pressed on the message already standing for `lp.creative.003` on `TestProductName8` — the one whose earlier presses were refused — and it answered "Recorded — the automated result was accepted." No re-delivery, and the recording reached the launch. This is the only task of this change that could not be done before the merge, since it needs the deployment the merge produces.
 
 ## 6. Archive
 
 - [x] 6.1 Dispatch `ai-toolkit:openspec-change-reviewer` and address its findings before implementing; re-dispatch until approved.
-- [ ] 6.2 `openspec archive restore-automated-decisions --yes` as the last commit before the merge, per `AGENTS.md`.
+- [x] 6.2 `openspec archive restore-automated-decisions --yes` as the last commit before the merge, per `AGENTS.md`. Done in `16589e2`, which is the commit that moved this file here — so it could only ever be ticked afterwards.
