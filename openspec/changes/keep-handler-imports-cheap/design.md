@@ -26,9 +26,9 @@ See `proposal.md` — Why. What makes this a design question rather than a tidy-
 
 ### 1. Defer the imports; do not restructure the module
 
-Four import statements move into the functions that use them, and one annotation moves under `TYPE_CHECKING`. Nothing else changes: not the state schema, not the node, not the two build functions, not `__all__`.
+Three import statements move into the functions that use them, and a fourth — the annotation — moves under `TYPE_CHECKING`. Nothing else changes: not the state schema, not the node, not the two build functions, not `__all__`.
 
-Function-local imports are ordinarily worth avoiding — they hide a dependency from the reader at the top of the file and cost a dict lookup per call. Both objections are answered here. The dependency stays visible because the rule that produced it is written down (Decision 2) and the imports sit in the two functions actually named after building a graph. The per-call cost is irrelevant: `build_production_graph` runs once per process behind an `lru_cache`, and the node's import is a `sys.modules` hit against a model call.
+Function-local imports are ordinarily worth avoiding — they hide a dependency from the reader at the top of the file and cost a dict lookup per call. Both objections are answered here. The dependency stays visible because the rule that produced it is written down (Decision 2) and the imports sit in the two functions actually named after building a graph. The per-call cost is irrelevant: both deferred sites run once per `build_graph` / `build_production_graph` call, and in production that is once per process behind `_graph()`'s `lru_cache`. Nothing is deferred into the node itself — `recommend` is nested inside `build_graph`, so the closure carries `HumanMessage` and the import does not repeat per invocation.
 
 Alternatives considered:
 
@@ -42,7 +42,9 @@ A comment in `graph.py` would be read by whoever edits `graph.py`. The property 
 
 So it goes in `launch-step-automation`, as a property of what registration costs, phrased in terms of what a process holds rather than in terms of Python import mechanics. The requirement deliberately does not say "import at function scope": that is one way to satisfy it, and a future handler might satisfy it differently.
 
-The test is written at the level the requirement is stated: import the handler module in a fresh interpreter, assert the model client is absent from `sys.modules`. That is a process-level observation, and it is the only level at which this property is observable at all — within one interpreter, another test may already have imported LangGraph.
+The test is written at the level the requirement is stated, and that level is **the one list, not one module**. It imports `commerce_ops.registrations` in a fresh interpreter and asserts the model client is absent from `sys.modules`. Importing a single handler module by name would guard only the handler that exists today — and the paragraph above says the violator is the next one, in a file that test does not name. Naming `registrations` covers every handler the deployment answers for, including ones not yet written, because that is what `registrations.py` is: the one list every root reaches the registry through.
+
+Fresh interpreter, likewise, is not a preference. Within one interpreter another test may already have imported LangGraph, and the assertion would be meaningless.
 
 ### 3. This does not make the web process faster, and the proposal says so
 
@@ -62,7 +64,7 @@ The omni_agent half is the one with the deploy payoff, and it is deliberately no
 
 ## Migration Plan
 
-A source change in one pull request: four import statements, one `TYPE_CHECKING` block, one test, one spec delta. No dependency change, no configuration, no schema, no `Dockerfile`.
+A source change in one pull request: three import statements moved, one `TYPE_CHECKING` block, one test, one spec delta. No dependency change, no configuration, no schema, no `Dockerfile`.
 
 Rollback is a revert; nothing outside the repository is affected, and no deployed behaviour changes in either direction.
 

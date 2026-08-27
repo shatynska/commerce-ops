@@ -16,11 +16,11 @@ It also does not stay at one handler. The whole point of `group-step-handlers` i
   | --- | --- | --- |
   | `StateGraph`, `START`, `END` | `build_graph` body (`:126-129`) | inside `build_graph` |
   | `ChatOpenAI` | `build_production_graph` body (`:135`) | inside `build_production_graph` |
-  | `HumanMessage` | the `recommend` node body (`:116`) | inside the node |
+  | `HumanMessage` | the `recommend` node body (`:116`) | inside `build_graph`, captured by the nested `recommend` closure |
   | `BaseChatModel` | one annotation (`:106`) | `TYPE_CHECKING` block |
 
 - Record the rule this establishes: **importing a handler module registers its name and loads nothing else.** A handler's dependencies are loaded when it runs, not when it is registered.
-- Add a test asserting the property directly — importing the handler module in a fresh interpreter leaves `langgraph` and `openai` out of `sys.modules` — because this is a property that silently regresses the next time someone adds a convenient top-level import.
+- Add a test asserting the property directly: importing `commerce_ops.registrations` — the one list, not one handler module — in a fresh interpreter leaves `langgraph` and `openai` out of `sys.modules`. The list rather than the module, because this property regresses the next time someone adds a convenient top-level import to the *next* handler, in a file no single-module test names.
 
 ## Capabilities
 
