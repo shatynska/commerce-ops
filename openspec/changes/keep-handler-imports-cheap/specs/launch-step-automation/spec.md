@@ -11,12 +11,12 @@ Where obtaining a resource is deferred, the deferral SHALL NOT change what the h
 #### Scenario: Registering a handler loads no model client
 
 - **WHEN** a step handler's module is loaded such that its name becomes resolvable in the registry
-- **THEN** the resources it uses to resolve a step are not loaded, and the process holds only the registration
+- **THEN** its name resolves, and the process holds no resource the handler uses to resolve a step
 
 #### Scenario: A handler still resolves a step
 
-- **WHEN** a registered handler is invoked on a step after its resources were deferred
-- **THEN** it resolves the step exactly as it would have had those resources been obtained when it was registered
+- **WHEN** a registered handler whose resources are obtained on invocation is run over a step, against a model that answers as the deterministic agent-graph tests specify
+- **THEN** it produces the outcome and the result text those tests specify, unchanged by when its resources were obtained
 
 #### Scenario: A process that never invokes a handler still pays only for the registration
 
