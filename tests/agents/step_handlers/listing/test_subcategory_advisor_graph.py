@@ -49,7 +49,8 @@ are both surfaced as failures.
 INVENTED, each recorded in `test-manifest.md` as an unresolved project
 question with its correction point:
 
-- The module path `commerce_ops.subcategory_advisor.application.graph`.
+- The module path
+  `commerce_ops.step_handlers.listing.subcategory_advisor`.
   `design.md` says "the agent graph in its own module following
   `omni_agent/application/graph.py`, with its own `.importlinter`
   contract" and names the capability `subcategory-advisor`; the Python
@@ -95,7 +96,7 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMe
 from langchain_core.outputs import ChatGeneration, ChatResult
 from pydantic import ValidationError
 
-import commerce_ops.subcategory_advisor.application.graph as advisor_graph
+import commerce_ops.step_handlers.listing.subcategory_advisor as advisor_graph
 from commerce_ops.launch.domain.launch_playbook import (
     Blocked,
     InProgress,
@@ -315,24 +316,19 @@ _PROPOSE_NAMES: Final = (
 
 
 def _propose_entry() -> Any:
-    """The advisor's outcome-proposing entry point, probed on its module
-    and on the module's package, failing loudly rather than defaulting."""
-    import importlib
+    """The advisor's outcome-proposing entry point, failing loudly rather
+    than defaulting.
 
-    candidates: list[Any] = [advisor_graph]
-    for module_name in (
-        "commerce_ops.subcategory_advisor.application",
-        "commerce_ops.subcategory_advisor.application.handler",
-    ):
-        try:
-            candidates.append(importlib.import_module(module_name))
-        except ImportError:
-            continue
-    for module in candidates:
-        for name in _PROPOSE_NAMES:
-            found = getattr(module, name, None)
-            if callable(found):
-                return found
+    Probed on one module only. `group-step-handlers` merged the graph and
+    the handler into a single module, so the two extra `importlib`
+    candidates this once carried named what `advisor_graph` already is —
+    and three names for one module is what let a stale path sit here
+    unnoticed, since a candidate that fails to import is skipped silently.
+    """
+    for name in _PROPOSE_NAMES:
+        found = getattr(advisor_graph, name, None)
+        if callable(found):
+            return found
     pytest.fail(
         "no outcome-proposing entry point found for the advisor under any "
         f"of {_PROPOSE_NAMES} — correct this file's probe to the "

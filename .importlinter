@@ -267,11 +267,11 @@ forbidden_modules =
     commerce_ops.launch
     commerce_ops.omni_agent
 
-[importlinter:contract:subcategory-advisor-boundary]
-name = subcategory_advisor reaches launch only through its public surface
+[importlinter:contract:step-handler-boundary]
+name = step handlers reach launch only through its public surface
 type = forbidden
 source_modules =
-    commerce_ops.subcategory_advisor
+    commerce_ops.step_handlers
 forbidden_modules =
     commerce_ops.access
     commerce_ops.briefing
@@ -279,19 +279,22 @@ forbidden_modules =
     commerce_ops.omni_agent
     commerce_ops.launch.domain
     commerce_ops.launch.infrastructure
-; The advisor is a step handler: it must speak `launch`'s outcome
-; vocabulary and be registered through `register_step_handler`, both of
-; which `launch.application` exports. What it may not do is reach past
-; that surface into launch's domain or its adapters, or name another
-; module at all -- a handler that read the catalog itself would defeat
-; the contract that has the pass resolve the product once and hand it
-; over.
+; A step handler must speak `launch`'s outcome vocabulary and be
+; registered through `register_step_handler`, both of which
+; `launch.application` exports. What it may not do is reach past that
+; surface into launch's domain or its adapters, or name another module at
+; all -- a handler that read the catalog itself would defeat the contract
+; that has the pass resolve the product once and hand it over.
+;
+; Sourced at the container, not at one handler: a forbidden contract
+; covers a module and all its descendants, so this holds for every handler
+; ever added without an edit here (`group-step-handlers`).
 ignore_imports =
     commerce_ops.launch.application -> commerce_ops.launch.domain.**
     commerce_ops.launch.application.** -> commerce_ops.launch.domain.**
     commerce_ops.launch.application.** -> commerce_ops.catalog.application
 ; The last exempts an edge launch's own public surface makes on its own
 ; behalf: graduation stamps the catalog. Exempting it keeps that surface
-; opaque to the advisor without permitting the advisor to name catalog
+; opaque to a handler without permitting a handler to name catalog
 ; directly, which is the same reasoning the two products-*-boundary
 ; contracts already carry.

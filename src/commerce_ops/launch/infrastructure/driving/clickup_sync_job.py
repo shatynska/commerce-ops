@@ -25,6 +25,7 @@ import datetime
 import functools
 import logging
 import os
+from collections.abc import Sequence
 
 from commerce_ops.launch.application import record_step_outcome
 from commerce_ops.launch.domain.launch_playbook import PlaybookNotReadyError
@@ -52,6 +53,7 @@ __all__ = [
     "SYNC_SCHEDULE",
     "SYNC_TOLERANCE",
     "TASK_NAME",
+    "ClickUpCompletionPassError",
     "read_people",
     "read_product",
     "reconcile_clickup_completions",
@@ -102,6 +104,30 @@ def _launch_folder_id() -> str | None:
     return os.environ.get("CLICKUP_LAUNCH_FOLDER_ID")
 
 
+class ClickUpCompletionPassError(RuntimeError):
+    """One or more launches could not be converged, so the run failed.
+
+    Raised once, after the walk, naming every launch that failed rather
+    than only the first: containment governs which launches are attempted,
+    never whether a fault is visible, and `scheduled-jobs` carries no
+    per-launch outcome to report to — so the run's own failure is the only
+    signal an unprojected launch has.
+    """
+
+
+def _pass_failure(products: Sequence[str]) -> ClickUpCompletionPassError:
+    """The run's failure, naming each failed launch by its product.
+
+    By identifier rather than catalog name: the identifier is what the
+    pass already holds, and reading the catalog to render a failure is one
+    more thing that can fail while reporting a failure.
+    """
+    return ClickUpCompletionPassError(
+        f"the ClickUp completion pass failed for {len(products)} launch(es), "
+        f"by product: {', '.join(products)}"
+    )
+
+
 async def _read_product_or_fail(product_id: object) -> object:
     if read_product is None:
         raise RuntimeError(
@@ -150,20 +176,68 @@ async def reconcile_clickup_completions(timestamp: int) -> None:
         )
 
         _logger.info("ClickUp completion pass starting over %d launch(es)", len(active))
+        failed: list[str] = []
         for launch in active:
-            await converge_launch(
-                launch=launch,
-                playbook=playbook,
-                clickup=clickup,
-                mapping=mapping,
-                read_product=_read_product_or_fail,
-                roster=read_people,
-                folder_id=folder_id,
-            )
-            await reconcile_launch(
-                launch=launch,
-                playbook=playbook,
-                clickup=clickup,
-                mapping=mapping,
-                record_outcome=record,
-            )
+            # Both halves in one `try`, which is what makes them one unit:
+            # a launch whose projection raised is not reconciled, because
+            # projection establishes the list and the mappings
+            # reconciliation reads back. Skipping it *entirely* — not
+            # reading it and declining to record — is load-bearing:
+            # reconciliation records on a transition of the retained
+            # observed state, so observing without recording would consume
+            # the transition and lose the completion for good.
+            try:
+                await converge_launch(
+                    launch=launch,
+                    playbook=playbook,
+                    clickup=clickup,
+                    mapping=mapping,
+                    read_product=_read_product_or_fail,
+                    roster=read_people,
+                    folder_id=folder_id,
+                )
+                await reconcile_launch(
+                    launch=launch,
+                    playbook=playbook,
+                    clickup=clickup,
+                    mapping=mapping,
+                    record_outcome=record,
+                )
+            except Exception:
+                # `Exception`, not a curated list: the fault that made this
+                # necessary was an `HTTPStatusError` surfacing from a
+                # mapping row that had gone stale, and a fault nobody
+                # predicted is exactly the one that must not starve the
+                # launches behind it. `BaseException` stays uncaught, so a
+                # cancelled worker stops walking rather than booking the
+                # cancellation against a product.
+                failed.append(launch.product_id.value)
+                # Reported here rather than only in the aggregate below:
+                # the aggregate is what fails the run, this is what makes
+                # the fault diagnosable, and a walk that failed on three
+                # launches says so three times.
+                _logger.warning(
+                    "ClickUp completion pass: the launch for product %s could "
+                    "not be converged; it is left as it stands and the walk "
+                    "continues to the next launch",
+                    launch.product_id.value,
+                    exc_info=True,
+                )
+                try:
+                    # Every write in the walk commits as it is made, so this
+                    # discards nothing; what it restores is a session left
+                    # unusable by a *database* fault, which would otherwise
+                    # fail every launch behind this one.
+                    await db_session.rollback()
+                except Exception as unrecoverable:
+                    # The recovery itself failing means the pass can no
+                    # longer reach a state in which the next launch's writes
+                    # could be recorded. Continuing would write to ClickUp
+                    # and lose the record of it — which is how a list with
+                    # no association gets made, the very fault this pass
+                    # exists to survive. So the walk ends here, and the
+                    # aggregate is chained to the reason it ended.
+                    raise _pass_failure(failed) from unrecoverable
+
+        if failed:
+            raise _pass_failure(failed)

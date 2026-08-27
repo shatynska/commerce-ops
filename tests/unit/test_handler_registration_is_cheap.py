@@ -10,7 +10,7 @@ Derived strictly from the delta spec of the OpenSpec change
 
 The requirement's remaining scenario, *A handler still resolves a step*,
 is deliberately **not** covered here.
-`tests/agents/subcategory_advisor/test_subcategory_advisor_graph.py`
+`tests/agents/step_handlers/listing/test_subcategory_advisor_graph.py`
 already drives the advisor over a stubbed model and specifies the
 outcome and result text it produces; that scenario asks whether deferring
 a resource changed them, and the answer is that same file passing
@@ -20,6 +20,14 @@ assert the same thing twice and drift from the original.
 See `test-manifest.md` at the change root for the full accounting.
 
 ## Expected to fail on the unmodified tree
+
+The module paths below are as they were when the baseline was taken, and
+are left that way on purpose: `group-step-handlers` has since moved the
+advisor to `commerce_ops.step_handlers.listing.subcategory_advisor`, and
+rewriting an observation to a path that did not exist when it was made
+would turn a record into a claim. Nothing here is executable — the
+assertions read `HANDLER_MODULES` at runtime (see below), so no module
+path is hard-coded in this file.
 
 tasks.md 2.4: "a guard that is green before the change guards nothing."
 Observed when this pass was written, against the tree before task 3
