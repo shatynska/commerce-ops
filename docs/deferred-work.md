@@ -94,7 +94,7 @@ Until then, any *new* caller needing two writes to land together must use `trans
 
 ### The ClickUp variables are optional, and the reason has weakened
 
-`CLICKUP_API_TOKEN`, `CLICKUP_LAUNCH_FOLDER_ID` and `CLICKUP_WEBHOOK_SECRET` are all declared optional. The project owner has asked for them to be **required** (2026-08-24). Note what that would and would not do: required is not startup-critical, so preflight would report an absent variable *by name* and the application would still start and serve. It buys visibility at startup, not a refusal to boot, and it changes no runtime behaviour — every consumer reads `os.environ` directly.
+`CLICKUP_API_TOKEN`, `CLICKUP_LAUNCH_FOLDER_ID` and `CLICKUP_WEBHOOK_SECRET` are all declared optional. The project owner has asked for them to be **required** (2026-08-24). Note what that would and would not do: required is not startup-critical, so preflight would report an absent variable *by name* and the application would still start and serve. It buys visibility at startup, not a refusal to boot, and it changes no runtime behaviour — every consumer reads `os.environ` directly. All three are delivered to the host (`7e25508`, 2026-08-24), so what is left here is the declaration, not whether the deployment has them.
 
 **The two halves are not the same problem.**
 
@@ -106,10 +106,6 @@ Until then, any *new* caller needing two writes to land together must use `trans
 
 **Recorded in**: `clickup-task-client`'s "Authentication is configured independently of any one caller"; `launch-clickup-sync`'s projection requirement; the optionality comments in `shared/application/settings.py`.
 
-**Before that configuration lands, clear the test launches.** Checked on the deployment 2026-08-24: `launch_positions` holds 4 rows pinned to `v1`, all of them test launches started while trying out `start-launch-from-slack`, and the owner has confirmed they are disposable. None has ever been projected — the deployment carries no `CLICKUP_*` variable at all, so no convergence pass has reached ClickUp and no per-launch list exists. The moment a token and a valid folder id arrive, the first pass would project roughly 92 tasks per launch, about 368 in total, onto launches nobody wants. Delete them first: the five child tables cascade on delete, and here there is no ClickUp list left behind to archive by hand.
-
-**A second, separate defect in the same area.** `CLICKUP_LAUNCH_FOLDER_ID` is currently set to `901220457229`, which is the id of the *list* named "Launches", not a folder — `GET /list/901220457229` resolves, `GET /folder/901220457229` does not. Projection creates one list per launch inside a parent folder, so that value cannot work even once the token is present. Whoever takes this up needs a real folder id, not just the three variables added to `deploy.yml`.
-
 ### The parked `add-product-creation-clickup-task` change — superseded
 
 **Closed out by `start-launch-from-slack`**, which covers this ground on current foundations: a slash command and modal on the `product_agent` app that registers the product and starts its launch. The ClickUp half of the parked proposal is obsolete rather than deferred — the completion loop (`launch-clickup-sync`) now projects a launch's whole list and per-step tasks automatically, so a single hand-created task would be duplicated or fought by the next convergence pass. It remains true that `clickup_client` gains no new caller from this direction.
@@ -117,20 +113,6 @@ Until then, any *new* caller needing two writes to land together must use `trans
 The local branch holding that proposal (`0b9b85c`) was deleted on 2026-08-24, once this change shipped. This entry survives it only so the supersession stays findable; the reasoning is in the archived change.
 
 **Recorded in**: `start-launch-from-slack`'s `proposal.md` (Why).
-
-### `playbook_admin`'s guard does not fail closed when its collaborators are un-injected
-
-`playbook_admin.py` takes `directory` and `admin_sessions` as module-level globals that `main.py` assigns after the app is built. The comment above them states that "absent injection refuses every request, which is the failing-closed direction". **That is not what happens.**
-
-Observed rather than theorised, against the module as it stands: with both globals at their `None` default, a request bearing *no* cookie returns `404` — correct, because `_require_admin` short-circuits before touching them. A request bearing *any* cookie reaches `verify_admin_session`, which calls `sessions.find(...)` on `None` and raises `AttributeError`, producing **`500 Internal Server Error`**.
-
-That breaks `admin-session`'s requirement *"Admin access fails closed and absence-shaped"* twice over: a `500` is not a refusal, and it is trivially distinguishable from the `404` an unregistered route returns — so an un-injected deployment advertises that the admin surface exists to anyone who sends a cookie.
-
-**Latent, not live.** `main.py` assigns both globals at import, so a normally started application never reaches this state. The exposure is to a future composition root that adds a route, reorders startup, or mounts this router in a second app without repeating the assignment — exactly the kind of drift the "one guard, produced in one place" design exists to prevent. `admin_link.py` does not share the hole: it builds its `admin_sessions` at import time rather than receiving it.
-
-Not fixed in `reorder-steps-under-filters`, which added a route riding the same guard and verified that route's *refusal* shape, but did not change the guard. A fix is small — refuse when either global is absent, before the cookie is read — and belongs with a test at the `admin-session` tier rather than folded into an unrelated change.
-
-**Recorded in**: `reorder-steps-under-filters`'s implementation notes; the false claim is the comment above `directory`/`admin_sessions` in `playbook_admin.py`.
 
 ### `procrastinate` and `psycopg_pool` can outlive a cancellation
 
@@ -147,8 +129,8 @@ guard in `tests/integration/conftest.py` fails any future test that starts a
 worker against a registry holding production work. The archived change carries
 the captured await chain and the measurements.
 
-**`src/` still has a caller.** `worker.py:56` calls `register_all()` and
-`worker.py:141` calls `app.run_worker_async()` with `install_signal_handlers`
+**`src/` still has a caller.** `worker.py:60` calls `register_all()` and
+`worker.py:184` calls `app.run_worker_async()` with `install_signal_handlers`
 defaulting to `True`, so the deployed worker runs this same cancel-and-gather
 path over a periodic deferrer on **every** SIGTERM, with all three real jobs
 registered. What bounds it there is not absence but Docker's stop grace
@@ -156,7 +138,7 @@ period: a wedged shutdown is ended by SIGKILL rather than hanging forever.
 Benign in effect — but if a worker is ever seen being killed on stop rather
 than exiting cleanly, this is the mechanism to look at first.
 
-- `procrastinate`'s `cancel_and_capture_errors` (`utils.py:232`) gathers side
+- `procrastinate`'s `cancel_and_capture_errors` (`utils.py:215`) gathers side
   tasks with no timeout after a single `cancel()`.
 - `psycopg_pool` classifies `asyncio.CancelledError` as a retryable client
   exception (`pool_async.py:38`) and retries around it.
@@ -175,15 +157,15 @@ Neither has been reported upstream.
 
 ### The create surface has no signed-out panel
 
-Every other admin surface answers an expired session with a rendered panel — "Signed out … nothing was saved" — swapped in by `page.html`'s `htmx:responseError` handler. The create surface (`new.html`) shows FastAPI's raw `{"detail":"Not Found"}` instead.
+Every other admin surface answers an expired session with an in-page notice — "That write did not complete: this admin session has ended…" — reported by the `htmx:responseError` / `htmx:sendError` / `htmx:timeout` listener in `_admin_header.html`. The create surface (`new.html`) shows FastAPI's raw `{"detail":"Not Found"}` instead.
 
-**Two causes, and fixing either alone does nothing.** The handler fires only on an XHR (`event.detail.xhr`), and `add-step-page` deliberately un-boosts the transitions to and from the create surface so the success redirect's fragment is honoured — which removes the XHR. It also lives in `page.html`'s own inline script, which `new.html` does not carry, so re-boosting would not restore it either.
+**One cause, and it is not where the script lives.** `new.html` *does* include `_admin_header.html` (`new.html:21`), so it carries the listener — `restore-admin-step-writes` moved it out of `page.html`'s own inline script for exactly this class of reason, and it no longer claims "nothing was saved", which a listener watching a response status cannot establish. What defeats it here is that `add-step-page` deliberately un-boosts the transitions to and from the create surface so the success redirect's fragment is honoured (`hx-boost="false"` on the form, `new.html:53`, and on Cancel, `:29`). An un-boosted `POST` is a real browser form submission: htmx never sees the response, so no `htmx:*` event fires at all and the browser navigates to the 404.
 
 **No requirement is broken.** `admin-session`'s *Admin access fails closed and absence-shaped* asks only that the refusal be shaped like a missing route, and a raw 404 body satisfies that. What is lost is the explanation, on the one surface where an admin may have typed a screenful of fields before the session expired.
 
-The fix is not just moving the script: the un-boosted create `POST` is a real form submission, so the browser navigates to the 404 rather than handing it to a JS handler at all. Whoever takes it up should decide whether the refusal is server-rendered for this surface instead.
+The fix is therefore not a matter of moving or re-including the script. Whoever takes it up decides either that this surface's refusal is server-rendered, or that the create transition can be boosted without losing the redirect fragment.
 
-**Recorded in**: `add-step-page`'s `design.md` (Risks / Trade-offs).
+**Recorded in**: `add-step-page`'s `design.md` (Risks / Trade-offs); the listener it needs is in `_admin_header.html`.
 
 ### Refresh-resubmit is fixed for creating and for nothing else
 
