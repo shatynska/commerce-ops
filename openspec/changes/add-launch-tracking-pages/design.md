@@ -190,6 +190,17 @@ the `launch-instance` delta because it is a property of the read's
 signature, not of what the report carries — the four added requirements
 are all about the latter.
 
+**The gap this leaves is knowingly left open.** `launch-instance` does
+specify an evaluation date on its *enumeration* requirement, so the
+signature/content line drawn here is one that capability does not itself
+draw everywhere, and a later change could drop `as_of` from the
+single-launch read without violating any requirement — quietly breaking
+R4's render-date rule. It is left open because closing it means a fifth
+requirement about a read this change does not otherwise touch, and
+because R4's own scenario pins the behaviour a wrong implementation would
+produce. Whoever next revises `launch-instance`'s read-back requirement
+should close it there.
+
 ### 8. One driving module, shaped after `playbook_admin`
 
 `launch/infrastructure/driving/launch_admin.py` holds both routes, the
