@@ -335,6 +335,25 @@ class _FakeMapping:
     async def list_id_for(self, product_id: ProductId) -> str | None:
         return self.lists.get(product_id)
 
+    async def replace_list_discarding_tasks(
+        self,
+        product_id: ProductId,
+        list_id: str,
+        *,
+        spare: Sequence[str] = (),
+    ) -> None:
+        """Present so this double still stands in for the whole
+        `MappingStore` port, which `heal-a-launchs-deleted-list` widened.
+        No scenario in this file replaces a list; the behaviour is
+        exercised in `test_clickup_sync_list_healing.py`."""
+        spared = {str(step_id) for step_id in spare}
+        self.tasks = {
+            key: mapped
+            for key, mapped in self.tasks.items()
+            if key[0] != product_id or key[1] in spared
+        }
+        self.lists[product_id] = list_id
+
     async def record_list(self, product_id: ProductId, list_id: str) -> None:
         """Present so this double satisfies `MappingStore` whole. The
         reconciliation paths under test here never project, so recording a

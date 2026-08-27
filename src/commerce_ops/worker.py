@@ -66,6 +66,11 @@ register_all()
 # `.importlinter`'s containers, which is what makes naming both sides legal
 # (tasks.md 4.2).
 overdue_check.notifier = slack_notifier
+# The ClickUp Custom Field configuration report, injected for the same reason
+# and in the same place: the pass reports a misconfiguration to the team's
+# channel, and `launch` reaches that channel through the same port rather than
+# by importing the module that owns it.
+clickup_sync_job.notifier = slack_notifier
 
 # Scheduled work is not a person: the daily briefing addresses the whole
 # team and the ClickUp sync names a list for every launch, so neither

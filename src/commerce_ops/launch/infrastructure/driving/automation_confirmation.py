@@ -32,6 +32,8 @@ from typing import Any
 from slack_bolt.app.async_app import AsyncApp
 
 from commerce_ops.launch.application import (
+    RosterReader,
+    UnreadableRosterError,
     accept_automated_result,
     record_step_outcome,
     reject_automated_result,
@@ -69,10 +71,16 @@ SLACK_APP_IDENTITY = "product_agent"
 
 # Injected by `main.py`, never imported: resolving a Slack identity means
 # reading the roster, and `.importlinter` forbids this module from naming
-# `access`'s store. Only a composition root sits outside both containers,
-# which is what makes it legal there and not here -- the same shape
-# `clickup_sync_job.read_people` already has.
-read_people: Any = None
+# `access`'s *store*. Only a composition root may construct one, which is
+# what makes the injection legal there and not here.
+#
+# A **reader** is what belongs here -- something answering `list_people()`
+# -- and the type says so. It was `Any`, and the root assigned it the
+# `PostgresRoster` store, which answers `load()`/`save()`: nothing
+# objected, and every decision by every identity was refused as though
+# the roster did not carry them. Typed, that assignment is a `mypy`
+# error at the line where the mistake is made.
+read_people: RosterReader | None = None
 
 ACCEPT_ACTION = "automation_result_accept"
 REJECT_ACTION = "automation_result_reject"
@@ -197,22 +205,47 @@ async def _handle_decision(body: dict[str, Any], accept: bool) -> str:
 
     slack_identity = str((body.get("user") or {}).get("id") or "")
 
-    async with session() as db_session:
-        launches = LaunchRepository(db_session)
-        playbook = await PlaybookRepository(db_session).get("live")
-        use_case = accept_automated_result if accept else reject_automated_result
-        decision = await use_case(
-            results=AutomatedResultRepository(db_session),
-            roster=_roster_or_fail(),
-            launches=launches,
-            playbook=playbook,
-            record_outcome=functools.partial(
-                record_step_outcome, launches, ServedPlaybooks(playbook)
-            ),
-            product_id=ProductId(str(product_id)),
-            step_id=str(step_id),
-            slack_identity=slack_identity,
-            when=datetime.now(UTC),
+    try:
+        async with session() as db_session:
+            launches = LaunchRepository(db_session)
+            playbook = await PlaybookRepository(db_session).get("live")
+            use_case = accept_automated_result if accept else reject_automated_result
+            decision = await use_case(
+                results=AutomatedResultRepository(db_session),
+                roster=_roster_or_fail(),
+                launches=launches,
+                playbook=playbook,
+                record_outcome=functools.partial(
+                    record_step_outcome, launches, ServedPlaybooks(playbook)
+                ),
+                product_id=ProductId(str(product_id)),
+                step_id=str(step_id),
+                slack_identity=slack_identity,
+                when=datetime.now(UTC),
+            )
+    except UnreadableRosterError:
+        # Caught by its own type, never a bare `except Exception`: every
+        # genuine refusal comes back as a `Decision`, so a broad catch
+        # here would report unrelated bugs as a mis-wired deployment.
+        #
+        # Logged because this is a fault an operator must see and a
+        # decider can do nothing about, and answered because the
+        # alternative -- letting it escape after `ack()` -- leaves the
+        # press unanswered. The sentence says nothing about the decider:
+        # their identity, their roster entry and their authority are all
+        # irrelevant to what went wrong, and the previous behaviour of
+        # blaming the roster for a wiring fault is what sent an active
+        # admin looking at correct data.
+        _logger.exception(
+            "automation confirmation: a decision on step '%s' could not be "
+            "judged because the roster collaborator cannot be read; this is "
+            "a deployment wiring fault, not a fact about the decider",
+            step_id,
+        )
+        return (
+            "That decision could not be processed: this deployment cannot "
+            "read the roster right now. Nothing was recorded, the result is "
+            "still waiting, and the fault has been reported."
         )
     if decision.refused:
         return f"That decision was refused: {decision.reason}"
@@ -246,9 +279,22 @@ def attach_listeners(app: AsyncApp) -> None:
 contribute_listeners(SLACK_APP_IDENTITY, attach_listeners)
 
 
-def _roster_or_fail() -> Any:
+def _roster_or_fail() -> RosterReader:
+    """The injected reader, or the wiring error owed when there is none.
+
+    `UnreadableRosterError` rather than the `RuntimeError` this used to
+    raise, and the type is the whole point: a collaborator that is absent
+    and one that is the wrong shape are one mistake made in two places,
+    and a decider cannot act differently on them. Raising two types meant
+    `_handle_decision` caught one and let the other escape the Bolt
+    listener after `ack()` -- leaving the decider with a button that did
+    nothing, which is the one outcome worse than a wrong answer.
+
+    The message is unchanged: it already named the fault and where the
+    injection belongs.
+    """
     if read_people is None:
-        raise RuntimeError(
+        raise UnreadableRosterError(
             "a decision arrived on an automated result, but no roster "
             "reader was injected; `main.py` supplies one after the routers "
             "are mounted"
