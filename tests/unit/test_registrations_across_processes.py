@@ -65,6 +65,8 @@ REGISTRY_ACCESSOR = "registered_work"
 
 WORKER_ROOT = "commerce_ops.worker"
 HTTP_ROOT = "commerce_ops.main"
+REPORT_ROOT = "commerce_ops.check_step_handlers"
+DECLARED_ROOT = "commerce_ops.registrations"
 
 # Every variable `runtime-configuration`'s empty-environment guarantee
 # covers, transcribed from `tests/unit/test_startup_without_configuration.py`
@@ -299,10 +301,20 @@ def test_both_composition_roots_resolve_the_same_handler_names(
     but a worse one, because the two processes ask *different* questions
     of the registry. `playbook-authoring` validates an activation against
     it in the process serving the admin surface; the automation pass needs
-    the handler in the worker. A handler imported into only one leaves
-    `check_step_handlers` reporting it registered while the admin's
-    activation is refused as naming an unknown handler — a deploy that
+    the handler in the worker. A handler imported into only one is
+    resolvable in one process and unknown in the other — a step the admin
+    can activate and the worker cannot run, or the reverse: a deploy that
     passes every other check and then cannot complete its own migration.
+
+    The startup report is no help with that asymmetry, and this docstring
+    used to claim it was, saying such a handler left `check_step_handlers`
+    "reporting it registered". It never did. Before
+    `let-the-handler-report-see-handlers` the report held an empty
+    registry and answered the same whatever any root imported; since that
+    change it registers by the same `register_all()` the other two roots
+    call, so it agrees with both and can no more see them diverge from
+    each other than they can. That divergence is this test's job, and only
+    this test's.
     """
     api = _handler_names("commerce_ops.main", tmp_path)
     worker = _handler_names("commerce_ops.worker", tmp_path)
@@ -329,3 +341,50 @@ def test_each_root_registers_at_least_one_handler(tmp_path: Path) -> None:
             f"{root} registers no step handler at all; an automated step "
             "would name a handler nothing in this deployment answers to"
         )
+
+
+def test_the_reporting_process_holds_the_deployments_own_registrations(
+    tmp_path: Path,
+) -> None:
+    """`let-the-handler-report-see-handlers` delta spec, `launch-playbook`,
+    *A step carries the brief and the handler its automation needs* /
+    Scenario: The reporting process holds the deployment's own
+    registrations.
+
+    Relocated here from the change's own test file by `tasks.md` 1.3,
+    which asks for the reporting process as a **third root** beside the
+    two composition roots above rather than as a case apart from them.
+    The three other scenarios stay in
+    `tests/unit/test_startup_handler_report_holds_the_registry.py`: they
+    are about what the report says, and this one is about whether the
+    process making it shares a registry with the processes it reports on
+    — which is this file's subject.
+
+    Equality against the declared set and against both composition roots,
+    never non-emptiness. An empty registry answers identically for a
+    deployment that registers a step's handler and one that does not, and
+    a non-emptiness check is how that survived a test tier in the first
+    place.
+    """
+    reporting = _handler_names(REPORT_ROOT, tmp_path)
+    declared = _handler_names(DECLARED_ROOT, tmp_path)
+    api = _handler_names(HTTP_ROOT, tmp_path)
+    worker = _handler_names(WORKER_ROOT, tmp_path)
+
+    assert reporting == declared, (
+        f"the process that makes the startup report ({REPORT_ROOT}) does "
+        "not hold every handler this deployment answers for. Importing a "
+        "handler module is what registers it, so a process reporting on "
+        "the registry has to be one that populates it.\n"
+        f"{REPORT_ROOT}: {reporting}\n{DECLARED_ROOT}: {declared}"
+    )
+    assert reporting == api == worker, (
+        f"{REPORT_ROOT} resolves different step-handler names than the "
+        "processes it reports on. The start chain runs it to name the "
+        "`active` automated steps this deployment cannot resolve, so a "
+        "registry it does not share with them makes that report answer "
+        "for some other deployment: identical output whether or not this "
+        "one registers a step's handler, and so evidence about neither.\n"
+        f"{REPORT_ROOT}: {reporting}\n{HTTP_ROOT}: {api}\n"
+        f"{WORKER_ROOT}: {worker}"
+    )
