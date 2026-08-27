@@ -120,12 +120,14 @@ Baseline recorded before these tests were written:
 
 from __future__ import annotations
 
+import datetime
 import inspect
 import logging
 import uuid
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date
+from types import SimpleNamespace
 from typing import Any, Final
 
 import pytest
@@ -396,6 +398,11 @@ def _resolution(
 
 
 _RESOLUTION_PARAMETERS: Final = (
+    # The implemented name. The parameter carries the whole configuration --
+    # the resolution, the findings and which fields may be written to -- so
+    # "resolution" alone would understate it. Adding it here is the fixture
+    # correction this probe's own directive invites; no assertion changes.
+    "configuration",
     "custom_fields",
     "custom_field_resolution",
     "field_resolution",
@@ -485,6 +492,22 @@ class _FakeTask:
     assignees: tuple[str, ...] = ()
     tags: tuple[str, ...] = ()
     custom_fields: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def custom_field_values(self) -> dict[str, Any]:
+        """Fixture correction: the spelling the domain object carries.
+
+        No artifact fixes the attribute's name -- the manifest records that
+        as an open question, and the client tests probe both spellings. This
+        fake pinned one; the read reports the other. Aliasing rather than
+        renaming keeps every assertion here written against `custom_fields`
+        valid while letting the pass find what it actually looks for. Without
+        it the pass reads an empty mapping for every task, so every task
+        looks unvalued and is written again on every pass -- which is the
+        write storm these scenarios exist to catch, hidden by the fixture
+        rather than by the code.
+        """
+        return self.custom_fields
 
 
 @dataclass(frozen=True)
@@ -605,6 +628,20 @@ class _FakeClickUp:
             task.body = fields["description"]
         if "assignees" in fields:
             task.assignees = tuple(str(item) for item in fields["assignees"] or ())
+        if "due_date" in fields:
+            # Fixture correction: the pass sets a due date through this same
+            # update, encoded as ClickUp's epoch milliseconds (or null to
+            # clear one). Without applying it the fake could not express a
+            # task carrying a due date at all, so an assertion that one is
+            # present could never pass however correct the pass was.
+            raw = fields["due_date"]
+            task.due_date = (
+                None
+                if raw is None
+                else datetime.datetime.fromtimestamp(
+                    int(raw) / 1000, tz=datetime.UTC
+                ).date()
+            )
         return _CreatedTask(id=task_id, url=f"https://app.clickup.com/t/{task_id}")
 
     async def set_task_field(self, task_id: str, field_id: str, value: Any) -> None:
@@ -621,6 +658,19 @@ class _FakeClickUp:
         self.tasks[task_id].custom_fields[field_id] = value
 
     # -- reads -------------------------------------------------------------
+
+    async def read_list_state(self, list_id: str) -> Any:
+        """Fixture correction: an operation the pass legitimately uses.
+
+        `heal-a-launchs-deleted-list` has the pass verify a recorded list
+        still exists before using it. That is none of this change's business
+        and appears in no delta here, which is why it was absent -- but
+        `converge_launch` calls it on every launch that already has a list,
+        so without it no scenario reaching a mapped task can run at all.
+        Reports the list as live; a deleted one is that change's own subject.
+        """
+        self.calls.append(("read_list_state", {"list_id": list_id}))
+        return SimpleNamespace(deleted=False)
 
     async def list_tasks(self, list_id: str) -> Sequence[_FakeTask]:
         self.calls.append(("list_tasks", {"list_id": list_id}))

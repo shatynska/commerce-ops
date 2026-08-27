@@ -148,6 +148,10 @@ class FieldConfiguration:
         default_factory=dict
     )
     findings: tuple[FieldFinding, ...] = ()
+    # The identifier each role is configured with, for the roles that can be
+    # written to. A role absent here is one nothing writes: unconfigured,
+    # or found in a gap of the kinds that withhold writes.
+    writable_field_ids: Mapping[FieldRole, str] = dataclass_field(default_factory=dict)
 
     @property
     def has_gap(self) -> bool:
@@ -156,6 +160,26 @@ class FieldConfiguration:
     def identity(self) -> tuple[object, ...]:
         """The whole gap's identity, over every field's finding."""
         return tuple(sorted(f.identity() for f in self.findings))
+
+    def writable_options(self) -> Mapping[str, Mapping[str, str]]:
+        """What the projection needs, and nothing more.
+
+        Keyed by the *field identifier* a write addresses, each entry mapping
+        the playbook's own vocabulary -- a gate identifier, a discipline
+        value -- to the option identifier that names it.
+
+        A field appears here only if it is configured and carries no fault at
+        the level of the field itself. A field that is unconfigured,
+        configured-but-empty, or found in a gap of the kinds that withhold
+        writes is simply absent, which is all the projection needs to know:
+        every other consequence of those states is this check's to report,
+        once for the pass, rather than the projection's to rediscover once
+        per task.
+        """
+        return {
+            field_id: dict(self.resolution.get(role, {}))
+            for role, field_id in self.writable_field_ids.items()
+        }
 
     def option_for(self, role: FieldRole, value: str) -> str | None:
         """The option identifier a write should send, or `None`.
@@ -290,6 +314,7 @@ def check_field_configuration(
 
     resolution: dict[FieldRole, Mapping[str, str]] = {}
     findings: list[FieldFinding] = []
+    writable: dict[FieldRole, str] = {}
     for role, identifier in (
         (FieldRole.GATE, gate_field_id),
         (FieldRole.DISCIPLINE, discipline_field_id),
@@ -305,8 +330,18 @@ def check_field_configuration(
             resolution[role] = resolved
         if finding is not None:
             findings.append(finding)
+        # Writable only where the field is configured and carries no fault at
+        # the level of the field itself. The two sets differ deliberately: a
+        # duplicate withholds writes, because no write against it is
+        # unambiguous, while still yielding its option-level findings.
+        if identifier and not (finding is not None and finding.withholds_writes):
+            writable[role] = identifier
 
-    return FieldConfiguration(resolution=resolution, findings=tuple(findings))
+    return FieldConfiguration(
+        resolution=resolution,
+        findings=tuple(findings),
+        writable_field_ids=writable,
+    )
 
 
 def describe_gap(configuration: FieldConfiguration) -> str:

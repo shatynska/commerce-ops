@@ -28,6 +28,10 @@ import os
 from collections.abc import Sequence
 
 from commerce_ops.launch.application import record_step_outcome
+from commerce_ops.launch.application.field_configuration import (
+    FieldConfiguration,
+    check_field_configuration,
+)
 from commerce_ops.launch.domain.launch_playbook import PlaybookNotReadyError
 from commerce_ops.launch.infrastructure.driven.clickup_mapping import (
     ClickUpMappingRepository,
@@ -45,6 +49,7 @@ from commerce_ops.launch.infrastructure.driven.playbook_repository import (
     PlaybookRepository,
     ServedPlaybooks,
 )
+from commerce_ops.shared.domain.clickup import ClickUpFieldDefinition
 from commerce_ops.shared.infrastructure.driven import clickup_client as clickup
 from commerce_ops.shared.infrastructure.driven.database import session
 from commerce_ops.shared.infrastructure.driven.recurring_work import register_scheduled
@@ -138,6 +143,67 @@ async def _read_product_or_fail(product_id: object) -> object:
     return await read_product(product_id)  # type: ignore[arg-type]
 
 
+def _field_identifiers() -> tuple[str | None, str | None]:
+    """The two configured Custom Field identifiers, read by literal name.
+
+    Read straight from the environment rather than through a parsed
+    accessor: absent and present-but-empty must stay distinguishable here,
+    because the two mean different things -- absent is how a deployment
+    declines the capability and is answered with silence, while empty is
+    what a mis-rendered secret produces for a deployment that meant to opt
+    in, and is reported as a configuration gap.
+    """
+    return (
+        os.environ.get("CLICKUP_GATE_FIELD_ID"),
+        os.environ.get("CLICKUP_DISCIPLINE_FIELD_ID"),
+    )
+
+
+async def _read_field_configuration(folder_id: str | None) -> FieldConfiguration:
+    """What resolves and what is missing, for this pass.
+
+    No read is made where no launch folder is configured -- leaving *Each
+    launch is projected into its own ClickUp list* the sole authority on
+    that condition rather than opening a second one -- and none where
+    neither identifier is configured, since a deployment that named no field
+    has declined the capability. In both cases the empty-identifier finding
+    is still composed, because it is established by the configuration alone
+    and needs no network at all: the catch for a mis-rendered secret must
+    not depend on the very service whose configuration is in question.
+
+    A read that does not complete costs this pass its field values and
+    nothing else. It is a **reachability** fault, not a configuration gap,
+    and `runtime-configuration` requires the two to stay distinguishable --
+    reporting an unreachable ClickUp as two absent fields would deliver a
+    false repair instruction and then suppress the truth behind it.
+    """
+    gate_field_id, discipline_field_id = _field_identifiers()
+    if folder_id is None or (gate_field_id is None and discipline_field_id is None):
+        return check_field_configuration(
+            gate_field_id=gate_field_id,
+            discipline_field_id=discipline_field_id,
+            fields=None,
+        )
+    try:
+        fields: tuple[ClickUpFieldDefinition, ...] | None = await clickup.folder_fields(
+            folder_id
+        )
+    except Exception:
+        _logger.warning(
+            "the launch folder's Custom Fields could not be read; this pass "
+            "writes no Custom Field value and reports no configuration gap "
+            "derived from them, and every launch is still projected, "
+            "corrected and reconciled",
+            exc_info=True,
+        )
+        fields = None
+    return check_field_configuration(
+        gate_field_id=gate_field_id,
+        discipline_field_id=discipline_field_id,
+        fields=fields,
+    )
+
+
 @register_scheduled(
     name=TASK_NAME,
     schedule=SYNC_SCHEDULE,
@@ -175,6 +241,23 @@ async def reconcile_clickup_completions(timestamp: int) -> None:
             record_step_outcome, launches, ServedPlaybooks(playbook)
         )
 
+        # The Custom Field configuration, established **once, before the
+        # walk begins**, in the same phase as readiness. Checking once
+        # rather than per task is what makes the check complete: a gap is a
+        # property of the configuration, identical for every task of every
+        # launch, so discovering it only where a task happens to need it
+        # would leave a gate no launch has reached unchecked until one did.
+        #
+        # It sits after the stand-down deliberately -- a stood-down pass
+        # declines entirely and reaches ClickUp for nothing at all -- and
+        # before the launch loop, so it answers even on a pass with no
+        # active launch. That last is the whole reason folder scope was
+        # chosen over list scope: a list-scoped read could not answer when
+        # no launch exists, which is exactly when a fresh misconfiguration
+        # should still be found. It must not move behind an early return on
+        # an empty launch set.
+        configuration = (await _read_field_configuration(folder_id)).writable_options()
+
         _logger.info("ClickUp completion pass starting over %d launch(es)", len(active))
         failed: list[str] = []
         for launch in active:
@@ -195,6 +278,7 @@ async def reconcile_clickup_completions(timestamp: int) -> None:
                     read_product=_read_product_or_fail,
                     roster=read_people,
                     folder_id=folder_id,
+                    configuration=configuration,
                 )
                 await reconcile_launch(
                     launch=launch,
