@@ -61,7 +61,7 @@ pytest for unit/integration tests on the FastAPI layer and business logic, plus 
 Tests are split into three directory-based tiers, each mirroring the module/layer architecture above:
 
 - `tests/unit/<module>/<layer>/` — fast, mocked unit tests.
-- `tests/agents/<module>/` — deterministic LangGraph agent-graph tests (mocked/stubbed LLM responses); treated as unit-tier since they carry no network/IO cost.
+- `tests/agents/<subject>/` — deterministic LangGraph agent-graph tests (mocked/stubbed LLM responses); treated as unit-tier since they carry no network/IO cost. One directory per subject under test, named for where that subject lives, which may be more than one segment deep: `tests/agents/omni_agent/` for the graph in `omni_agent/application/`, `tests/agents/step_handlers/listing/` for the handler in `step_handlers/listing/`. It names the subject, not its full source path — neither example reproduces one.
 - `tests/integration/<module>/` — tests that touch real I/O (e.g. Postgres).
 
 `tests/unit` and `tests/agents` run at commit-time via a `pre-commit` hook; `tests/integration` runs at `pre-push` instead, to keep individual commits fast.
@@ -86,7 +86,7 @@ Tests are split into three directory-based tiers, each mirroring the module/laye
 
 commerce-ops is a modular monolith: one FastAPI app organized into domain modules as DDD bounded contexts, sharing one Postgres database. Each module follows a lightweight ports-and-adapters shape — domain layer (entities/value objects, no I/O) at the center, application layer (use cases, LangGraph agent graphs) around it, infrastructure layer (FastAPI routes, its own Slack adapter, the Amazon-first marketplace-adapter layer, Postgres repositories) on the outside, each module owning its own driving adapters. Tactical DDD patterns (aggregates, domain events) are adopted per module only as needed, not mandated everywhere. Slack is a first-class two-way interface (conversational + notifications/approvals) alongside the HTTP API, not a secondary add-on.
 
-A module's `application/__init__.py` (`__all__`-exported) is its only public surface, enforced by `import-linter`; `shared` is a Shared Kernel exception (same-or-lower matching layer, never the reverse). See `README.md`'s Architecture section for the full module-boundary contract, rationale, and alternatives considered.
+A module's `application/__init__.py` (`__all__`-exported) is its only public surface, enforced by `import-linter`; `shared` is a Shared Kernel exception (same-or-lower matching layer, never the reverse). `step_handlers/` is the third kind of top-level package after the bounded contexts and `shared`: it holds every step handler, grouped by the discipline its registered name starts with, and reaches `launch` only through that public surface, under one `import-linter` contract covering every handler present and future. A handler is a module until it earns being a package, and a package until it earns layers; a handler that is a package re-exports its registration from `__init__.py`, since `@register_step_handler` runs only when the module holding it is imported. See `README.md`'s Architecture section for the full module-boundary contract, rationale, and alternatives considered.
 
 ## Deployment and configuration
 

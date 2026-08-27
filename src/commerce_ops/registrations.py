@@ -52,8 +52,12 @@ from commerce_ops.shared.infrastructure.driving import (
 # the deployment, and equally what stops it distinguishing two roots that
 # disagree. `tests/unit/test_registrations_across_processes.py` is where
 # that is caught.
-from commerce_ops.subcategory_advisor.application import (
-    handler as _subcategory_advisor,
+#
+# Every handler lives under `commerce_ops.step_handlers`, grouped by the
+# discipline its name starts with, so this import path reads as the name
+# the step stores (`group-step-handlers`).
+from commerce_ops.step_handlers.listing import (
+    subcategory_advisor as _subcategory_advisor,
 )
 
 __all__ = ["HANDLER_MODULES", "JOB_MODULES", "register_all"]
