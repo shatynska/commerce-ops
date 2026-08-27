@@ -582,7 +582,15 @@ async def test_a_launch_without_a_list_gets_one() -> None:
     assert PRODUCT_NAME in name, (
         f"the list name does not carry the product name: {name!r}"
     )
-    assert str(PRODUCT_SKU) in name, f"the list name does not carry the SKU: {name!r}"
+    # The SKU as the catalog records it -- `PRODUCT_SKU.value`, never
+    # `str(PRODUCT_SKU)`. Asserting the latter is what let the name be
+    # composed out of the value object's repr for four live lists: the
+    # repr contains itself, so containment held while the name was
+    # wrong. The second assertion keeps that reading from returning.
+    assert PRODUCT_SKU.value in name, f"the list name does not carry the SKU: {name!r}"
+    assert "Sku(" not in name, (
+        f"the list name carries the SKU value object rather than its value: {name!r}"
+    )
 
     # SPECIFIED: the name comes from the catalog, through its public
     # surface -- the product identifier is opaque and never parsed.
