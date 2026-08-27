@@ -26,19 +26,32 @@ A model failure, and a response whose content is not a plain string, both
 surface. A masked failure here would not merely return a poor answer — it
 would reach a person as a recommendation to accept and become the evidence
 for a compliance-relevant decision.
+
+**The graph libraries are imported inside the functions that build a
+graph, and that is deliberate — do not tidy them back to the top.**
+Registering a step handler makes its name resolvable and must load nothing
+the handler needs in order to run (`launch-step-automation`). Registration
+is an import side effect, and `registrations.py` is the one list that
+causes those imports in every process consulting the registry, so a
+top-level `langgraph` or `langchain_openai` here is paid by processes that
+will never invoke this handler — the startup handler report among them —
+multiplied by every handler the deployment answers for.
+
+This is `handler.py`'s `_graph()` note one step earlier. That one defers
+*constructing* the model, because construction reads credentials; this
+defers *importing* it, because the import costs roughly two thousand
+modules. Same reasoning, one step apart.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, TypedDict
-
-from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import HumanMessage
-from langchain_openai import ChatOpenAI
-from langgraph.graph import END, START, StateGraph
+from typing import TYPE_CHECKING, Any, TypedDict
 
 from commerce_ops.launch.application import Blocked, Satisfied
+
+if TYPE_CHECKING:
+    from langchain_core.language_models import BaseChatModel
 
 __all__ = [
     "AdvisorState",
@@ -105,6 +118,12 @@ class Proposal:
 
 def build_graph(model: BaseChatModel) -> Any:
     """The graph over an injected model — the testable seam."""
+    # Imported here, not at module scope: registering this handler must not
+    # load what running it needs (`launch-step-automation`). `recommend` is
+    # nested below, so its closure carries `HumanMessage` and the import runs
+    # once per graph rather than once per invocation.
+    from langchain_core.messages import HumanMessage
+    from langgraph.graph import END, START, StateGraph
 
     def recommend(state: AdvisorState) -> dict[str, str]:
         prompt = _PROMPT.format(
@@ -132,6 +151,10 @@ def build_graph(model: BaseChatModel) -> Any:
 
 def build_production_graph() -> Any:
     """The graph the registered handler runs, over the configured model."""
+    # Imported here for the same reason as in `build_graph`: registration
+    # loads the handler's name, and nothing it needs in order to run.
+    from langchain_openai import ChatOpenAI
+
     return build_graph(ChatOpenAI(model="gpt-4o-mini"))
 
 

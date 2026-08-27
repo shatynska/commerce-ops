@@ -217,7 +217,11 @@ On the deploy host the same chain reaches healthy at ~26.5s, and that is what ma
 
 **The chain's own duration on the host has never been measured**, only bounded. `Started` → `Healthy` is the moment of the first *successful* probe, so it snaps up to the probe cadence and over-states the chain; on a failing deploy it is only a lower bound. Anything sized against it should be sized as a clearance, not a ratio.
 
-**Post-merge reading (task 4.4 of `let-the-start-chain-finish`)**: _not yet taken — record the first passing deploy's `Started` → `Healthy` figure here._ At or below 40s the shipped 60s window remains compliant; above 40s the window must grow and a follow-up change is owed. Expect ~36.5s on a pre-25.0 Docker engine, or nearer ~30s on 25.0+, where a 5s start-interval applies by default.
+**Post-merge reading (task 4.4 of `let-the-start-chain-finish`)**: taken from run [`33044226427`](https://github.com/shatynska/commerce-ops/actions/runs/33044226427) on 2026-08-27, the first passing deploy since `32958746253`. `Started` 05:59:43.659 → `Healthy` 06:00:16.164 = **32.50s**. The spec requires the window to exceed that by at least two probe intervals — 32.50 + 20 = 52.50s — and the window is 60s, so it is compliant with 7.5s to spare. **No follow-up is owed.**
+
+Two things that reading settles. The 6s step from the four-process chain's 26.50s to 32.50s is the cost of `seed_playbook` joining the chain, measured rather than inferred — it is what exhausted the old 5s window. And 32.50s sits nearer the ~30s prediction for a Docker 25.0+ engine (5s start-interval by default) than the ~36.5s one for an older engine, which is weak evidence the host runs 25.0 or later. Weak, not conclusive: compose's status polling sits between the probe and the reported timestamp, so the figure is not a clean probe tick. If the engine version ever matters, read it from the host rather than inferring it from this.
+
+The next step added to the start chain must re-take this reading. At 32.50s there is room for roughly one more step of this size before the 40s ceiling; a second would breach it.
 
 **Recorded in**: `let-the-start-chain-finish`'s `proposal.md` (Out of scope) and `design.md` (Context, Migration Plan).
 
