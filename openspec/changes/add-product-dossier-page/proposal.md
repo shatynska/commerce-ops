@@ -10,7 +10,9 @@ fields on every step.
 That produced content is retained and then goes dark.
 
 - **It is stored, permanently.** `automated_step_results` holds
-  `result_text` for every result, and its docstring is explicit —
+  `result_text` for every result that was *held for a decision* — a
+  terminal proposal on a step whose confirmation flag is true, the only
+  kind that reaches the table — and its docstring is explicit —
   "Settled rows are kept, never deleted ... what a person accepted, and
   when, is the record of a compliance-adjacent decision."
 - **It is readable exactly once.** `automation_confirmation.py` posts it
@@ -56,7 +58,23 @@ would be a permanent record on a temporary page.
   structure because both its consumers want text", and this change does
   not reopen it — it renders honestly what is stored rather than
   inventing structure the producers never wrote.
-- The admin header gains this surface.
+- **A product index** at `/admin/products`, listing every product the
+  caller's scope permits — SKU, name and lifecycle stage, which is what
+  `list_products` already answers — each row opening that product's
+  dossier. Retired products are set apart rather than interleaved, the
+  shape `roster-admin` established for deactivated people.
+
+  It exists because the dossier alone cannot be reached. The header names
+  the surfaces the session can reach *in one action*, and
+  `/admin/products/{product_id}` has no id-less form to name; nothing else
+  in the repository links here either. Shipping the dossier without an
+  index would reproduce exactly the defect `roster-admin`'s header
+  requirement was written to close — a page reachable only by someone who
+  already knows its URL.
+- **The admin header gains the product index**, which is the surface it
+  can name. The dossier itself is not a header entry: it is a page about
+  one product, reached from the index, and it carries the header as every
+  other admin page does.
 
 No **BREAKING** changes: no existing route, write or stored shape
 changes. One read is added to the automated-result repository.
@@ -65,10 +83,18 @@ changes. One read is added to the automated-result repository.
 
 ### New Capabilities
 
-- `product-dossier`: the product page — what it renders of the catalog's
-  product, what it renders of the produced record and in what order, how
-  a `voided` result is distinguished from a `rejected` one, that it is
-  addressable for a product with no launch, and that it is read-only.
+- `product-dossier`: the two product surfaces — what the index
+  enumerates and how it is ordered; and, for the dossier itself, what it
+  renders of the catalog's product, what it renders of the produced
+  record and in what order, how a `voided` result is distinguished from a
+  `rejected` one, what the record does **not** cover, that it is
+  addressable for a product with no launch, and that both are read-only.
+
+  Named for the dossier rather than `product-admin`, which the
+  one-capability-per-admin-surface shape would otherwise suggest: this
+  surface edits nothing, and `product-admin` sitting beside
+  `product-catalog` would read as the surface for editing products, which
+  it is emphatically not.
 
 ### Modified Capabilities
 
@@ -78,19 +104,38 @@ changes. One read is added to the automated-result repository.
   flow; this states that what is retained is legible afterwards, which is
   what makes "settled rows are kept, never deleted" worth more than
   storage.
+
 This change carries **no** `roster-admin` or `playbook-admin` delta, and
 that is deliberate rather than an omission. Both capabilities' header
-requirements are generalized by `add-launch-tracking-pages` to name every
-admin surface the session can reach, so once that change archives this
-page is already covered and needs no requirement of its own. Writing one
-here would be actively harmful: an OpenSpec `MODIFIED` block replaces a
-requirement wholesale, so a delta drafted against the pre-generalization
-text would silently delete the generalized wording on archive, and
-`openspec validate` would not object.
+requirements *already* oblige the header to name "the admin surfaces the
+session can reach" — that clause is in force today, not something
+`add-launch-tracking-pages` introduces. What that change generalizes is
+the trailing clause each requirement carries naming the *other* page as
+reachable in one action, which is pair-specific and which this change does
+not rely on: `product-dossier` states the index's reachability itself.
 
-`product-catalog` is deliberately **not** modified: the page reads
-`get_product_by_id` through the catalog's public surface and asks it for
-nothing it does not already answer. `launch-instance` is untouched — a
+So a header naming the product index satisfies both requirements as they
+stand. Writing a delta here would be actively harmful and never necessary:
+an OpenSpec `MODIFIED` block replaces a requirement wholesale, so one
+drafted here would silently delete wording it did not intend to touch —
+the generalized clause if written before that change lands, or that
+change's own additions if written after — and `openspec validate` would
+not object.
+
+`product-catalog` is deliberately **not** modified: both pages read
+`get_product_by_id` and `list_products` through the catalog's public
+surface and ask them for nothing they do not already answer. The index
+renders three of the four things `list_products` is required to answer;
+the fourth, the product identifier, is the row's link target rather than
+a column.
+
+One dossier field deserved checking rather than inferring, because
+`product-catalog`'s read requirement enumerates "identity, name, current
+stage, and stage-entry time" and does not name the **stage confirmer**.
+It is answered: `get_product_by_id` returns the `Product` aggregate, which
+carries `stage_confirmed_by` — `None` for a product still in
+`Development`, which is why the page states its absence rather than
+leaving it blank. No `product-catalog` delta is needed. `launch-instance` is untouched — a
 dossier is not a launch report.
 
 ## Impact
@@ -102,34 +147,72 @@ dossier is not a launch report.
 - `launch/application/` — the use case exposing that read behind the
   module's public surface, with the caller's `AccessScope` applied as
   every other product-keyed read applies it.
-- A new driving adapter and template for the page, shaped after
-  `playbook_admin.py` and riding the same admin-session guard.
+- A new driving adapter and two templates — the index and the dossier —
+  shaped after `playbook_admin.py` and riding the same admin-session
+  guard. It reads `list_products` and `get_product_by_id` through
+  `catalog.application`; `.importlinter`'s
+  `products-infrastructure-boundary` already permits that edge, forbidding
+  `catalog.domain` and `catalog.infrastructure` and not the public
+  surface, so no contract changes.
 - `shared/infrastructure/driving/templates/_admin_header.html` — the
   new surface.
+- `shared/infrastructure/driving/static/vocabulary.css` — the shared admin
+  vocabulary, which both pages load and neither may substitute with a
+  page-local block. Three things need rules there that no admin surface
+  has needed yet: a retired row set apart, an entry's state, and produced
+  text rendered with its line structure preserved by styling rather than
+  by markup.
 
 **Explicitly untouched**
 
 The automation pass, the confirmation flow, the decision use cases, and
 every stored shape. This change reads what already exists.
 
-**Open, to settle in design**
+**Settled since proposing**
 
-Whether the page is reachable by SKU as well as by product id. The Slack
-paths and the catalog both address products by SKU in practice, and an
-admin looking a product up knows its SKU rather than its generated
-identifier — but `get_product_by_sku` is a second read with its own
-scope check, and the launch list links by id regardless.
+The dossier is addressed by product id alone. `get_product_by_sku` exists
+and is cheap, but a route accepting either must decide what an identifier
+that could be both means, and that ambiguity becomes route semantics; an
+admin who knows only a SKU is asking to *look a product up*, which is the
+index's job rather than the address's.
 
 **Coordination**
 
 `add-launch-tracking-pages` proposes the launch list and detail pages,
-whose rows link here, and it owns the admin header's generalization for
-both capabilities that specify one — see *Modified Capabilities* for why
-this change carries no header delta of its own.
+and it owns the admin header's generalization for both capabilities that
+specify one — see *Modified Capabilities* for why this change carries no
+header delta of its own.
 
-**This change SHALL NOT archive before it.** The header requirements this
-page relies on are generalized there; archiving first would leave this
-surface named by a header requirement still written for two surfaces.
-Neither change blocks the other for review or implementation: this page
-is addressable and useful without the launch pages existing, and its own
-requirements stand alone.
+It does **not** *specify* a link from a launch row to this page: its
+`launch-admin` delta requires each row to offer "that launch's detail page
+in one action" and nothing further. Its prose says otherwise — it calls
+this "the product page this change's list rows link to" — so the two
+changes' records disagree, and it is the delta that was checked and the
+delta that governs. A launch row linking here is therefore a later
+change's business, and this change does not depend on one, which is the
+second reason the index exists.
+
+**This change may archive in either order, and carries no header delta in
+either case.** The constraint recorded when this change was proposed was
+stronger than the served specifications turn out to warrant, and re-reading
+them settles it.
+
+Both header requirements *already* oblige the header to name "the admin
+surfaces the session can reach" — that clause is in force today, in
+`roster-admin` and in `playbook-admin` alike. What is pair-specific in each
+is only the trailing clause naming the *other* page as reachable in one
+action, and the requirement titles. A header that also names the product
+index therefore satisfies both requirements as they stand, with no delta,
+today; and `product-dossier` carries the index's own reachability
+obligation, with its own scenario, rather than borrowing one.
+
+So there is nothing to sequence. Archiving first cannot delete the
+generalized wording, because this change writes no `MODIFIED` block;
+archiving second finds that wording already generalized and still needs
+none. The hazard the original constraint guarded against — a block drafted
+against pre-generalization text silently replacing the generalized wording
+— is avoided by writing no such block **at all**, unconditionally, which is
+what this change does and what its tasks check. Neither change blocks the
+other for review, implementation or archive: this page is addressable and
+useful without the launch pages existing, and its own requirements stand
+alone.
