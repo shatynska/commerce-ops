@@ -109,7 +109,18 @@ An uninterpretable value is reported as the payload carries it rather than as ab
 
 Task 7.10a checks the whole of it end to end: a second pass over an already-valued task must send no write.
 
-**Unmeasured, and deliberately so:** ClickUp's exact wire form for a drop-down value. The client owes the normalisation whatever that form turns out to be, so the requirement is written against the obligation rather than against the measurement, and task 2.4a takes the measurement before the normalisation is written rather than before the change is approved.
+**Measured 2026-08-27, and the mismatch is real.** ClickUp's wire form for a drop-down value is *not* the option identifier a write sends:
+
+```
+POST /task/{id}/field/{field_id}  {"value": "7ac255e6-…"}   → 200      (a uuid)
+GET  /task/{id}                   → custom_fields[].value = 3          (an int: orderindex)
+```
+
+So a caller comparing what a task carries against what it would write finds them different on every task, on every pass, forever — two writes per task per pass, each succeeding and changing nothing. This is the failure this decision exists to prevent, and it is invisible to a mocked test, which returns whatever the implementation expects.
+
+**The normalisation is possible from the payload alone**, so the requirement stands as written and the Risks entry below does not fire: each entry of a task's `custom_fields` carries its own `type_config.options`, each option carrying both `orderindex` and `id`. Mapping the reported integer to the option's identifier therefore needs no field definition obtained separately and no second request.
+
+**An unset drop-down omits the `value` key entirely** rather than reporting `0`. That distinction is load-bearing: `0` is a legitimate value — orderindex 0 is `commit` on the gate field — so a client that read absence as `0` would report every unvalued task as already carrying the first gate.
 
 ### Suppression gets its own table, keyed by the gap's content
 

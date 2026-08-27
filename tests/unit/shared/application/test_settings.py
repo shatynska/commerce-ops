@@ -78,6 +78,15 @@ OPTIONAL = frozenset(
         # admin for the startup seed; inert once the roster holds one.
         "BOOTSTRAP_ADMIN_IDENTITY",
         "CLICKUP_API_TOKEN",
+        # Added by record-gate-and-discipline-as-fields (tasks 1.1/1.2):
+        # the two Custom Fields a projected task's gate and discipline are
+        # recorded on, named by identifier so a rename in ClickUp cannot
+        # detach the system from them. Optional because absent is how a
+        # deployment declines the capability -- and typed `str | None`
+        # rather than `NonEmpty | None` there, because an empty value is a
+        # reported configuration gap rather than a settings fault.
+        "CLICKUP_DISCIPLINE_FIELD_ID",
+        "CLICKUP_GATE_FIELD_ID",
         # Added by configure-application-logging (tasks 2.4) -- this
         # transcribed set now spans more than one change.
         "LOG_LEVEL",

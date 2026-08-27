@@ -160,6 +160,22 @@ class Settings(BaseSettings):
     clickup_launch_folder_id: NonEmpty | None = None
     clickup_webhook_secret: NonEmpty | None = None
 
+    # Optional, and deliberately typed `str | None` rather than `NonEmpty |
+    # None` -- the same departure `LOG_LEVEL` makes below, for a related
+    # reason. `record-gate-and-discipline-as-fields` gives absent and
+    # present-but-empty *different* meanings: absent is how a deployment
+    # declines the capability and is answered with silence, while an empty
+    # value is what a mis-rendered secret produces for a deployment that
+    # meant to opt in, and is reported as a configuration gap by the pass.
+    # `NonEmpty` would collapse the distinction by refusing the empty value
+    # here, so the fault would surface as a settings error instead of the
+    # gap the check is written to report. Nothing validates or parses the
+    # identifier either: a malformed non-empty value must arrive at the
+    # pass and be reported as a field the folder does not include, not
+    # raise before the pass ever runs.
+    clickup_gate_field_id: str | None = None
+    clickup_discipline_field_id: str | None = None
+
     # Optional: the public URL the admin surface is reachable at, consumed
     # by `access`'s admin-link adapter to compose magic links (and, by its
     # scheme, to decide the session cookie's Secure flag). Absent, the

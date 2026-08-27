@@ -109,6 +109,14 @@ jobs:
       # `app` and `worker`) -- see add-products-store's proposal.md - Impact.
       # Both services receive the rest via this same rendered file.
       - name: Render .env
+        # The two Custom Field identifiers arrive as step `env` values rather
+        # than inline `${{ secrets… }}` substitutions because they are the
+        # only two lines rendered *conditionally*, and a conditional needs a
+        # shell variable to test. See the block below for why they are
+        # conditional at all.
+        env:
+          CLICKUP_GATE_FIELD_ID: ${{ secrets.CLICKUP_GATE_FIELD_ID }}
+          CLICKUP_DISCIPLINE_FIELD_ID: ${{ secrets.CLICKUP_DISCIPLINE_FIELD_ID }}
         run: |
           umask 077
           {
@@ -132,6 +140,33 @@ jobs:
             echo "CLICKUP_API_TOKEN=${{ secrets.CLICKUP_API_TOKEN }}"
             echo "CLICKUP_LAUNCH_FOLDER_ID=${{ secrets.CLICKUP_LAUNCH_FOLDER_ID }}"
             echo "CLICKUP_WEBHOOK_SECRET=${{ secrets.CLICKUP_WEBHOOK_SECRET }}"
+            # The two Custom Fields a projected task's gate and discipline are
+            # recorded on (record-gate-and-discipline-as-fields), named by
+            # identifier so a rename in ClickUp cannot detach the system from
+            # them.
+            #
+            # These two lines alone are rendered *conditionally*, and the
+            # departure is deliberate. That change gives absent and
+            # present-but-empty different meanings: an absent identifier is
+            # how a deployment declines the capability and is answered with
+            # silence, while an empty one is reported as a configuration gap
+            # -- which is what closes the BOOTSTRAP_ADMIN_IDENTITY shape
+            # mechanically instead of leaving it to a reviewer's eye. Rendered
+            # unconditionally like their neighbours, an unset secret would
+            # write `CLICKUP_GATE_FIELD_ID=` and a deployment that declined
+            # the capability would be reported as broken on every pass, with
+            # the documented rollback (unset both secrets) unable to restore
+            # silence. Declining is expressed by the line being absent.
+            #
+            # Written as `if`, not `[ -n "$X" ] && echo …`: the latter's
+            # non-zero status as the last command of this block would fail the
+            # step under `set -e`.
+            if [ -n "$CLICKUP_GATE_FIELD_ID" ]; then
+              echo "CLICKUP_GATE_FIELD_ID=$CLICKUP_GATE_FIELD_ID"
+            fi
+            if [ -n "$CLICKUP_DISCIPLINE_FIELD_ID" ]; then
+              echo "CLICKUP_DISCIPLINE_FIELD_ID=$CLICKUP_DISCIPLINE_FIELD_ID"
+            fi
             # The admin surface's public URL (add-playbook-admin-ui):
             # composes the /playbook-admin magic links, and its https
             # scheme turns on the session cookie's Secure flag. Declared
