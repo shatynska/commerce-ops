@@ -388,70 +388,71 @@ def _task_name(step: StepDefinition) -> str:
     return f"{step.name[:kept]}{tail}"
 
 
-GATE_TAG_PREFIX = "gate:"
-DISCIPLINE_TAG_PREFIX = "discipline:"
-
-_OWNED_TAG_PREFIXES = (GATE_TAG_PREFIX, DISCIPLINE_TAG_PREFIX)
-"""The two prefixes the system owns. A tag carrying neither belongs to
-whoever put it there and is never read, written or removed — a person
-labelling a task `urgent` is doing something this projection has no
-opinion about.
-
-Owning a prefix is what lets this change persist nothing: for the name,
-the body and the assignees the system must retain what it last wrote in
-order to tell an authored change from a person's edit, but an owned tag
-already on a task *is* that record."""
-
-
-def _step_tags(step: StepDefinition) -> tuple[str, ...]:
-    """The step's gate and discipline, as the tags standing for them."""
-    return (
-        f"{GATE_TAG_PREFIX}{step.gate}",
-        f"{DISCIPLINE_TAG_PREFIX}{step.discipline.value}",
-    )
-
-
-def _missing_tags(step: StepDefinition, carried: Sequence[str]) -> tuple[str, ...]:
-    """The step's own tags that the task does not already carry.
-
-    Only ever additive. A task carrying an owned tag that disagrees with
-    the step — a step re-gated after its task was made — keeps it: telling
-    that case from a person's own retagging needs retained state, which is
-    the machinery this change exists to avoid. See design.md, Decision 4.
-    """
-    present = set(carried)
-    return tuple(tag for tag in _step_tags(step) if tag not in present)
-
-
-async def _ensure_tags(
-    *, clickup: Any, task_id: str, step: StepDefinition, carried: Sequence[str]
+async def _ensure_field_values(
+    *,
+    clickup: Any,
+    task_id: str,
+    step: StepDefinition,
+    carried: Mapping[str, object],
+    configuration: Mapping[str, Mapping[str, str]],
 ) -> None:
-    """Add each of the step's tags the task lacks, one request per tag.
+    """Set each of the step's field values the task does not already carry.
 
-    A tag that cannot be set is reported and stepped over rather than
-    failing the pass: a task stating its work without its tags is a lesser
-    fault than a launch whose work is not projected at all, and
-    `scheduled-jobs` records only whether a run succeeded, so a failed run
-    would hide the gap behind a retry — the same trade `_clickup_users`
-    already makes for an assignee with no ClickUp account.
+    Unlike the name, the body and the assignees -- which a person may edit
+    and which no pass overwrites -- these two fields are single-valued and
+    wholly determined by the step, so a value disagreeing with it is drift
+    rather than a person's own meaning, and is **corrected**. That is what
+    lets a step moved to a different gate reach its task, which the tag
+    representation this replaces could not do.
+
+    `carried` comes from the `list_tasks` result the pass already fetched,
+    so a task already holding both of its values costs no request at all.
+    The comparison is well founded because the client reports an option's
+    value in the same representation a write of it sends.
+
+    Nothing is written for a field the configuration check found in a gap of
+    the kinds that withhold writes, and nothing for a value the step does
+    not resolve to -- never an approximation. Both are reported once for the
+    pass by the configuration check rather than once per task, which is the
+    per-task noise that check exists to replace.
+
+    A write that fails is reported and stepped over rather than failing the
+    pass: a task stating its work without these two values is a lesser fault
+    than a launch whose work is not projected at all, and `scheduled-jobs`
+    records only whether a run succeeded, so a failed run would hide the gap
+    behind a retry -- the same trade `_clickup_users` already makes for an
+    assignee with no ClickUp account.
     """
-    missing = _missing_tags(step, carried)
-    if not missing:
+    # The step's own two vocabulary values. Each configured field's option
+    # map is keyed by one vocabulary or the other, so looking up both against
+    # every field lands each value on the field that names it and nothing on
+    # the field that does not.
+    wanted = (step.gate, step.discipline.value)
+    desired: dict[str, str] = {}
+    for field_id, options in configuration.items():
+        for value in wanted:
+            option_id = options.get(value)
+            if option_id is not None:
+                desired[field_id] = option_id
+    if not desired:
         return
-    # Resolved before the try, deliberately: a client that has no such
-    # operation is a wiring fault and must surface as one. Swallowing it
-    # with the failures below would leave tags silently never written and
-    # nothing but a warning to say so.
-    add_tag = clickup.add_task_tag
-    for tag in missing:
+    # Resolved before the try, deliberately: a client with no such operation
+    # is a wiring fault and must surface as one. Swallowing it with the
+    # failures below would leave values silently never written and nothing
+    # but a warning to say so.
+    set_field = clickup.set_task_field
+    for field_id, option_id in desired.items():
+        if carried.get(field_id) == option_id:
+            continue
         try:
-            await add_tag(task_id, tag)
+            await set_field(task_id, field_id, option_id)
         except Exception:
             _logger.warning(
-                "step %s could not be tagged '%s' on ClickUp task %s; the task "
-                "keeps the tags it has and the pass continues",
+                "step %s could not be given its value on ClickUp Custom Field "
+                "%s of task %s; the task keeps the value it has, the task's "
+                "other field is still attempted, and the pass continues",
                 step.identifier,
-                tag,
+                field_id,
                 task_id,
                 exc_info=True,
             )
@@ -558,6 +559,7 @@ async def converge_launch(
     read_product: ProductReader,
     folder_id: str | None,
     roster: RosterReader = None,
+    configuration: Mapping[str, Mapping[str, str]] | None = None,
 ) -> None:
     """Drive ClickUp toward what this launch's schedule implies.
 
@@ -569,6 +571,12 @@ async def converge_launch(
     """
     if launch.current_gate == _GRADUATED_GATE:
         return
+
+    # Data, not a read: the configuration is established once per pass,
+    # before the walk begins, and threaded in. Defaulting to an empty one
+    # means a caller that does not supply it writes no field values at all,
+    # rather than reaching for ClickUp per launch.
+    configuration = {} if configuration is None else configuration
 
     steps = [step for step in playbook.served_steps if is_projectable(step)]
     list_id = await _ensure_list(
@@ -610,16 +618,17 @@ async def converge_launch(
                 mapping=mapping,
                 desired_assignees=_clickup_users(step, people, task_id=task_id),
             )
-            # Additive, and reading what the task already carries from the
-            # list read this pass already took — a task holding both of
-            # its tags costs no request at all. This is what carries the
-            # tags onto tasks projected before they existed, rather than
-            # leaving every in-flight launch as it is.
-            await _ensure_tags(
+            # Reading what the task already carries from the list read this
+            # pass already took — a task holding both of its values costs no
+            # request at all. This is what carries the values onto tasks
+            # projected before the fields existed, rather than leaving every
+            # in-flight launch as it is.
+            await _ensure_field_values(
                 clickup=clickup,
                 task_id=task_id,
                 step=step,
-                carried=getattr(task, "tags", ()),
+                carried=getattr(task, "custom_field_values", {}),
+                configuration=configuration,
             )
         else:
             composed_name = _task_name(step)
@@ -630,12 +639,21 @@ async def converge_launch(
                 name=composed_name,
                 description=composed_body,
                 assignees=list(assignees),
-                # Carried on the create itself: ClickUp accepts tags here
-                # but not on an update, so a new task costs no extra
-                # request for them.
-                tags=list(_step_tags(step)),
             )
             await mapping.record_task(launch.product_id, step.identifier, created.id)
+            # Given its values immediately, in this same pass rather than the
+            # next: deferring would leave every task of a launch's first pass
+            # unvalued until the pass after. Deliberately *not* carried on
+            # the create itself -- keeping them off the call that brings a
+            # step's work into being is what makes "a field fault costs the
+            # field values and nothing else" true without qualification.
+            await _ensure_field_values(
+                clickup=clickup,
+                task_id=created.id,
+                step=step,
+                carried={},
+                configuration=configuration,
+            )
             # Whenever the system writes a name, a body or an assignee
             # set, the retained value follows the write — creation
             # included.
