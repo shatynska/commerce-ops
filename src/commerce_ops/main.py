@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from fastapi import FastAPI
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from commerce_ops.access.application import verify_admin_session
+from commerce_ops.access.application import Person, list_people, verify_admin_session
 from commerce_ops.access.infrastructure.driven.roster_repository import (
     PostgresRoster,
 )
@@ -134,10 +134,46 @@ launch_playbook_admin.admin_sessions = access_admin_link.admin_sessions
 access_roster_admin.roster = roster
 access_roster_admin.admin_sessions = access_admin_link.admin_sessions
 
+
+class _RosterReader:
+    """Reads the roster for the automated-result decision controls.
+
+    A **reader**, not the store the admin pages get. Those hold one
+    collaborator serving two contracts -- `verify_admin_session` is typed
+    `RosterStore` and genuinely needs one -- so they take the store and
+    adapt it internally. This adapter has no second contract: resolving
+    the deciding Slack identity is the only thing it wants a roster for,
+    so it takes the reader and nothing else.
+
+    The store was handed over here unadapted once. `PostgresRoster`
+    answers `load()`/`save()`, the decision path reads `list_people()`,
+    and the probe that missed resolved it to "no such person" -- so every
+    accept and reject, by every identity, was refused as though the
+    roster did not carry the decider.
+
+    Near-identical to `worker.py._RosterReader`, deliberately: the two
+    composition roots are separate processes, neither may import the
+    other, and each is the only place in its own process permitted to
+    construct `access`'s store. A shared helper would need to live
+    outside both `.importlinter` containers, which is what a composition
+    root *is*.
+    """
+
+    async def list_people(self) -> tuple[Person, ...]:
+        # `roster` is resolved here, per call, rather than captured at
+        # construction. Binding it in `__init__` would seal the store in
+        # before any test could reach it, and the one test that proves
+        # this wiring works substitutes exactly there -- see
+        # `tests/unit/launch/infrastructure/driving/test_automated_decision_wiring.py`.
+        # (`worker.py`'s reader differs: it constructs a fresh
+        # `PostgresRoster()` per call and so has no global to resolve.)
+        return await list_people(roster=roster)
+
+
 # The accept/reject controls on an automated result resolve the deciding
-# Slack identity through the roster, and `launch` may not import access's
-# store — so the root hands it the same one the admin pages get.
-launch_automation_confirmation.read_people = roster
+# Slack identity through the roster. `launch` may not construct access's
+# store, so the root supplies the reader over it.
+launch_automation_confirmation.read_people = _RosterReader()
 
 
 async def _verify_admin_session(*, session_id: str) -> str | None:
