@@ -104,6 +104,11 @@ error is worse than one that answers it with identifiers.
 - **WHEN** several launch positions exist whose products are in launching stages, and the list is opened with no narrowing under a scope permitting all of them
 - **THEN** each is rendered as its own row, naming its product, current gate, launch date, at-risk state and awaiting-confirmation state
 
+#### Scenario: The list is evaluated as of the day it is rendered
+
+- **WHEN** the list is rendered on two dates, between which a launch's blocking step passes its due period unresolved
+- **THEN** that launch is not marked at risk on the earlier rendering and is marked at risk on the later one
+
 #### Scenario: A row opens its launch
 
 - **WHEN** the list is rendered
@@ -172,6 +177,11 @@ not what this requirement constrains.)*
 
 - **WHEN** the list is opened and no launch position the caller may see exists
 - **THEN** the page is rendered and states that no product is in launch
+
+#### Scenario: A narrowing's empty state governs when both apply
+
+- **WHEN** every enumerated launch is no longer in play and a narrowing is also active
+- **THEN** the page reports the narrowing as having matched nothing and offers to clear it, rather than reporting the filter-emptied state
 
 #### Scenario: A default view emptied by the filter says which state it is in
 
@@ -405,6 +415,11 @@ stands.
 - **WHEN** the same launch's detail page is rendered on two dates, between which a step's due period fully passes with the step unresolved
 - **THEN** the step is not marked overdue on the earlier rendering and is marked overdue on the later one
 
+#### Scenario: A step the report does not mark overdue is not rendered overdue
+
+- **WHEN** a step whose hazard permits only `Refused` has reached `Refused`, its due period has fully passed, and the report does not mark it overdue
+- **THEN** the page does not render it as overdue
+
 #### Scenario: An overdue step is marked
 
 - **WHEN** the launch report marks a step overdue
@@ -419,6 +434,11 @@ A launch whose journal holds nothing SHALL render the section saying so.
 A journal is empty for launches that predate it, and a section that
 vanished when empty would read as "nothing happened" on exactly those
 launches.
+
+#### Scenario: An entry names what occurred, when, and what caused it
+
+- **WHEN** a launch's journal holds an entry
+- **THEN** it is rendered naming what occurred, when it occurred, and what caused it
 
 #### Scenario: Entries render newest first
 

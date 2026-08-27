@@ -98,18 +98,28 @@ on the report rather than being re-derived from the playbook.
 The launch report SHALL carry, on each step entry, the gate the playbook
 attaches that step to, and SHALL name the gate sequence in its order.
 
-This is the fourth fact the report must carry for the same reason as the
-other three, and the only one of them the report does not carry today. A
-consumer presenting a launch shows where it stands in a sequence and
+A consumer presenting a launch shows where it stands in a sequence and
 which work belongs to which gate; without both facts on the report it
 must obtain the playbook and the gate framework itself, which is what
-this capability's governing principle forbids and what the three
-requirements above exist to avoid.
+this capability's governing principle forbids and what the requirements
+above exist to avoid.
 
 The sequence travels with the report rather than being looked up because
 a consumer that had to find it would need the gate framework, not merely
 the step set — a heavier dependency than the one already refused, and one
 that carries the gate *order* as well as the gate names.
+
+#### Scenario: A step entry carries its gate
+
+- **WHEN** a launch is read back or enumerated
+- **THEN** every step entry in the report SHALL carry the gate the playbook attaches that step to
+
+#### Scenario: The report names the gates in order
+
+- **WHEN** a launch is read back or enumerated
+- **THEN** the report SHALL name the gate sequence in its order, and the launch's current gate SHALL be one of them
+
+### Requirement: The launch report carries one entry per served step, in the served order
 
 The report SHALL carry one entry per served step, whether or not an
 outcome has been recorded for it, and those entries SHALL arrive in the
@@ -124,6 +134,10 @@ carries a position. And a report holding only the recorded steps could
 not distinguish a step nobody has touched from one recorded as not
 started, which is a distinction the recording provenance exists to make.
 
+Stated apart from the gate requirement above because neither obligation
+is about gates, and a later change touching one should not have to
+reproduce the other.
+
 #### Scenario: The report carries an entry for a step with no recorded outcome
 
 - **WHEN** a launch is read back and a served step has no recorded outcome
@@ -133,13 +147,3 @@ started, which is a distinction the recording provenance exists to make.
 
 - **WHEN** a launch is read back or enumerated
 - **THEN** the report's step entries SHALL be ordered by gate in the gate sequence's order, and within each gate by that gate's authored step order
-
-#### Scenario: A step entry carries its gate
-
-- **WHEN** a launch is read back or enumerated
-- **THEN** every step entry in the report SHALL carry the gate the playbook attaches that step to
-
-#### Scenario: The report names the gates in order
-
-- **WHEN** a launch is read back or enumerated
-- **THEN** the report SHALL name the gate sequence in its order, and the launch's current gate SHALL be one of them

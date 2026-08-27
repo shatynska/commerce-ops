@@ -112,8 +112,10 @@ field; every current construction site is inside `launch.application`.
   evaluation date — each gain one. The overdue requirement covers
   blocking and non-blocking steps alike and holds whether or not the
   launch is at risk, which is what the existing at-risk requirement does
-  not do. A fourth requirement places each step in its gate and names the
-  gate sequence, neither of which the report carries today.
+  not do. A fourth places each step in its gate and names the gate
+  sequence — the only two of the set the report does **not** carry today
+  — and a fifth states that it carries one entry per served step in the
+  served playbook's order, which it does carry and nothing requires.
 - `roster-admin`: its requirement *The page carries a header from which
   the other admin surface is reachable* is written for exactly two
   surfaces. A third makes that wording false rather than merely

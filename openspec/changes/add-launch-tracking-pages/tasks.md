@@ -57,7 +57,7 @@
 - [ ] 7.1 Run the tests derived from all four delta specs and confirm each scenario is observed. R5's two journal scenarios are observed once 4.8 unblocks — that is a sequencing note, not a licence to ship group 4 without them.
 - [ ] 7.2 Confirm in particular the four `launch-instance` scenarios that pin existing behaviour — *A step entry states whether it blocks*, *An overdue non-blocking step is reported overdue*, *The report carries an entry for a step with no recorded outcome*, *Step entries arrive in the served playbook's order*. These fail only if 1.4's premise is wrong, which is exactly why they are written.
 - [ ] 7.3 Exercise the restricted-scope and forbidden-launch scenarios with the **scope resolver alone** stubbed and the real enumeration behind it, asserting the rows rendered. Asserting only that the route passed the scope on establishes less than either scenario states.
-- [ ] 7.4 Exercise the render-date scenario across two dates, so a defaulted date fails.
+- [ ] 7.4 Exercise the render-date scenarios across two dates on **both** pages, so a defaulted date fails on each. The list and the detail page carry the obligation separately and each has its own scenario.
 - [ ] 7.4a Exercise the row and detail shaping without rendering a template, so "data shaping separable from markup" (`design.md` — Goals) is demonstrated rather than asserted. No delta requires it, so nothing derived from the specs will notice if the read model collapses back into the templates.
 - [ ] 7.5 Run `ruff check`, `ruff format --check`, `mypy`, `lint-imports`, and the unit + agents tier; run the integration tier before pushing.
 
