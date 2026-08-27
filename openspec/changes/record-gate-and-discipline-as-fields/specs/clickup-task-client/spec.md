@@ -113,7 +113,7 @@ The normalisation SHALL be performed from what the task payload itself carries. 
 - **AND** a caller comparing the two finds them equal
 
 ### Requirement: A failed ClickUp request is surfaced to the caller
-The system SHALL NOT catch or suppress a failure from ClickUp's API on any of its operations — creating or updating a task, creating a list, reading a list's tasks, adding a tag to a task, reading the Custom Fields available in a folder, or setting a Custom Field value on a task; a non-successful response, or the absence of any response, SHALL propagate to the caller as an error identifying the failure. The enumeration is exhaustive of the operations this capability offers, and an operation added to it later joins this rule rather than sitting outside it.
+The system SHALL NOT catch or suppress a failure from ClickUp's API on any of its operations — creating or updating a task, creating a list, reading a list's tasks, reading a list's own state, adding a tag to a task, reading the Custom Fields available in a folder, or setting a Custom Field value on a task; a non-successful response, or the absence of any response, SHALL propagate to the caller as an error identifying the failure. The enumeration is exhaustive of the operations this capability offers, and an operation added to it later joins this rule rather than sitting outside it.
 
 #### Scenario: ClickUp rejects a create request
 - **WHEN** ClickUp responds to a create-task request with a non-success status
@@ -130,6 +130,10 @@ The system SHALL NOT catch or suppress a failure from ClickUp's API on any of it
 #### Scenario: ClickUp rejects a read of a list's tasks
 - **WHEN** ClickUp responds to a request for a list's tasks with a non-success status
 - **THEN** the caller receives an error and no tasks
+
+#### Scenario: ClickUp rejects a read of a list's own state
+- **WHEN** ClickUp responds to a request for a list's own state with a non-success status
+- **THEN** the caller receives an error and no state
 
 #### Scenario: ClickUp is unreachable
 - **WHEN** any of the client's requests cannot reach ClickUp at all (a connection failure or timeout, with no response received)
