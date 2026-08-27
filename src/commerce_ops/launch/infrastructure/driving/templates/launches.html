@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Launches</title>
+  {# The same two files every other admin surface loads, from the same
+     shared guarded route, so a presentation fix reaches all of them
+     rather than some. This page carries no styling of its own. #}
+  <link rel="stylesheet" href="/admin/assets/pico.min.css">
+  <link rel="stylesheet" href="/admin/assets/vocabulary.css">
+</head>
+<body>
+{% with current = "launches" %}{% include "_admin_header.html" %}{% endwith %}
+<main class="container">
+  <h1>Launches</h1>
+
+  <form method="get" action="{{ page_path }}" class="narrowing">
+    <label>Gate
+      <select name="gate">
+        <option value="">All gates</option>
+        {% for g in gates %}
+        <option value="{{ g }}" {% if g == gate %}selected{% endif %}>{{ g }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>
+      <input type="checkbox" name="attention" value="1" {% if attention %}checked{% endif %}>
+      Needs attention
+    </label>
+    <button type="submit">Apply</button>
+  </form>
+
+  {% if reveal %}
+  <a class="reveal" href="{{ hide_href }}">Hide launches no longer in play</a>
+  {% else %}
+  <a class="reveal" href="{{ reveal_href }}">Show launches no longer in play</a>
+  {% endif %}
+
+  {% if not any_enumerated %}
+  <p class="empty">No product is in launch.</p>
+  {% elif narrowed and not rows and not revealed %}
+  <p class="empty">The narrowing matched nothing.
+    <a href="{{ page_path }}">Clear the narrowing</a>.
+  </p>
+  {% elif not any_in_play %}
+  <p class="empty">No launch is in play.
+    Use the “Show launches no longer in play” link above to see the others.
+  </p>
+  {% endif %}
+
+  {# Each row is ONE element carrying the launch's link and every fact
+     about it. A table would put the link in its own cell, and "the row"
+     would then be that cell rather than the line a reader sees -- the
+     facts would sit in siblings the row does not contain. #}
+  {% if rows %}
+  <ul class="launches">
+    {% for row in rows %}
+    <li class="launch-row">
+      <a class="launch-link" href="{{ row.detail_path }}#gate-{{ row.current_gate }}">{{ row.label }}</a>
+      <span class="product-id">{{ row.product_id }}</span>
+      <span class="gate">Gate {{ row.current_gate }}</span>
+      <span class="launch-date">
+        {% if row.launch_date %}{{ row.launch_date }}{% else %}No launch date{% endif %}
+      </span>
+      {% if row.at_risk %}<span class="mark at-risk">At risk</span>{% endif %}
+      {% if row.awaiting_confirmation %}<span class="mark awaiting">Awaiting confirmation</span>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+
+  {% if reveal %}
+  <section class="finished">
+    <h2>No longer in play</h2>
+    {% if not revealed %}
+    <p class="empty">No launch is out of play.</p>
+    {% else %}
+    <ul class="launches finished-launches">
+      {% for row in revealed %}
+      <li class="launch-row finished-row">
+        <a class="launch-link" href="{{ row.detail_path }}#gate-{{ row.current_gate }}">{{ row.label }}</a>
+        <span class="product-id">{{ row.product_id }}</span>
+        <span class="gate">Gate {{ row.current_gate }}</span>
+        <span class="launch-date">
+          {% if row.launch_date %}{{ row.launch_date }}{% else %}No launch date{% endif %}
+        </span>
+        <span class="mark finished">{% if row.retired %}Retired{% else %}Steady state{% endif %}</span>
+        {% if row.at_risk %}<span class="mark at-risk">At risk</span>{% endif %}
+        {% if row.awaiting_confirmation %}<span class="mark awaiting">Awaiting confirmation</span>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </section>
+  {% endif %}
+
+</main>
+</body>
+</html>

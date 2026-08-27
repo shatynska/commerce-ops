@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 
@@ -16,6 +16,7 @@ from commerce_ops.access.infrastructure.driving import (
     roster_admin as access_roster_admin,
 )
 from commerce_ops.catalog.application import register_product
+from commerce_ops.catalog.domain.product import Product
 from commerce_ops.catalog.infrastructure.driven.product_repository import (
     CatalogProductRepository,
 )
@@ -26,6 +27,9 @@ from commerce_ops.launch.infrastructure.driving import (
     clickup_webhook as launch_clickup_webhook,
 )
 from commerce_ops.launch.infrastructure.driving import (
+    launch_admin as launch_tracking_admin,
+)
+from commerce_ops.launch.infrastructure.driving import (
     playbook_admin as launch_playbook_admin,
 )
 from commerce_ops.launch.infrastructure.driving import (
@@ -34,7 +38,7 @@ from commerce_ops.launch.infrastructure.driving import (
 from commerce_ops.omni_agent.infrastructure.driving import slack as omni_agent_slack
 from commerce_ops.registrations import register_all
 from commerce_ops.shared.domain.identity import Asin, MarketplaceId, ProductId, Sku
-from commerce_ops.shared.infrastructure.driven.database import dispose_engine
+from commerce_ops.shared.infrastructure.driven.database import dispose_engine, session
 from commerce_ops.shared.infrastructure.driving import (
     admin_assets as shared_admin_assets,
 )
@@ -87,6 +91,7 @@ app.include_router(launch_slack_entry.router)
 app.include_router(access_admin_link.router)
 app.include_router(launch_playbook_admin.router)
 app.include_router(access_roster_admin.router)
+app.include_router(launch_tracking_admin.router)
 app.include_router(shared_admin_assets.router)
 
 
@@ -133,6 +138,34 @@ launch_playbook_admin.roster = roster
 launch_playbook_admin.admin_sessions = access_admin_link.admin_sessions
 access_roster_admin.roster = roster
 access_roster_admin.admin_sessions = access_admin_link.admin_sessions
+launch_tracking_admin.roster = roster
+launch_tracking_admin.admin_sessions = access_admin_link.admin_sessions
+
+
+class _RequestScopedCatalog:
+    """The catalog reads the launch-tracking pages make, each on its own
+    session.
+
+    Lives here for the reason `_register_catalog_product` below does:
+    `.importlinter` permits `launch.infrastructure` the catalog's public
+    surface and forbids it the catalog's infrastructure, so only the
+    composition root can build the store those reads run against. The
+    page holds the port; the root holds the repository.
+
+    Only `list` and `get_by_id` — the two reads the pages make. A page
+    that could write to the catalog would be a page this one is not.
+    """
+
+    async def list(self) -> Sequence[Product]:
+        async with session() as db_session:
+            return await CatalogProductRepository(db_session).list()
+
+    async def get_by_id(self, product_id: ProductId) -> Product | None:
+        async with session() as db_session:
+            return await CatalogProductRepository(db_session).get_by_id(product_id)
+
+
+launch_tracking_admin.catalog = _RequestScopedCatalog()
 
 # The accept/reject controls on an automated result resolve the deciding
 # Slack identity through the roster, and `launch` may not import access's
