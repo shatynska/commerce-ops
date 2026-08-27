@@ -8,13 +8,15 @@ an explicit act rather than something a deploy causes: whoever registers
 a handler is not necessarily whoever decides a step is ready to hold a
 gate.
 
-**No handler is registered yet, and that is the honest state.** Running an
-automated step is deliberately out of `redesign-step-fields`'s scope: this
-change lets a step *declare* a handler and refuses to activate one naming
-a handler the code does not register. Invoking it, and recording what it
-returns, is the automation runtime and belongs to its own change. Until
-then the registry is empty and the two seeded automated steps stay
-`in-development`, which the readiness report says out loud.
+**One handler is registered, and no step names it.** The runtime that
+invokes a handler and records what it returns shipped with
+`introduce-automation-runtime`, and `listing.subcategory_advisor`
+registers itself into this registry. What is absent is a step pointing at
+it: the seeded set is 352 `human` drafts (`seed-the-reference-step-set`),
+so `report_unregistered_handlers` has nothing to report on and the
+automation pass walks every launch resolving nothing. Reaching a first
+invocation is an authoring act -- a step made `automated` and `active`,
+carrying a brief and this handler's name -- never a deploy.
 """
 
 from __future__ import annotations
