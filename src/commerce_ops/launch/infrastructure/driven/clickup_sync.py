@@ -71,6 +71,14 @@ class MappingStore(Protocol):
 
     async def record_list(self, product_id: ProductId, list_id: str) -> None: ...
 
+    async def replace_list_discarding_tasks(
+        self,
+        product_id: ProductId,
+        list_id: str,
+        *,
+        spare: Sequence[str] = (),
+    ) -> None: ...
+
     async def task_for(self, product_id: ProductId, step_id: str) -> Any: ...
 
     async def tasks_for(self, product_id: ProductId) -> Sequence[Any]: ...
@@ -222,6 +230,54 @@ def _is_terminal(launch: Launch, step: StepDefinition) -> bool:
     recorded = progress.outcome
     kind = recorded if isinstance(recorded, type) else type(recorded)
     return kind in permissible_terminal_outcomes(step.hazard)
+
+
+def _settles_work(launch: Launch, step: StepDefinition) -> bool:
+    """Whether this step's recorded outcome settles its work — judged
+    without reference to the step's current hazard.
+
+    Deliberately not `_is_terminal`. That reading is hazard-relative, and a
+    hazard is authorable: a step recorded `Satisfied` and later re-authored
+    `prohibited-tactic` would stop reading as terminal, and the work would
+    become unfinished because the rules for finishing it changed. Re-
+    authoring cannot unfinish work already done, so this asks whether the
+    outcome settles work for *any* hazard — the shape `automation_pass`
+    already uses for the same reason.
+
+    Used only to decide which mappings a list replacement spares. The
+    projection guard stays hazard-relative and is untouched; the two
+    compose, because a step flipped to `prohibited-tactic` is not
+    projectable and the loop never reaches it, while on a revert the
+    spared mapping is still there for the guard to find.
+    """
+    progress = launch.progress_for(step.identifier)
+    if progress is None:
+        return False
+    recorded = progress.outcome
+    kind = recorded if isinstance(recorded, type) else type(recorded)
+    return any(kind in permissible_terminal_outcomes(hazard) for hazard in Hazard)
+
+
+def _steps_to_spare(launch: Launch, playbook: LaunchPlaybook) -> tuple[str, ...]:
+    """The steps whose mappings survive a list replacement.
+
+    Ranged over `authored_steps`, not `served_steps` and not the
+    projectable subset: mappings outlive all three filters, and a step can
+    leave the served set and return. Sparing only what the loop currently
+    iterates would discard the finished work of a step that is retired or
+    automated today, and hand it a fresh open task when it comes back.
+
+    A mapping whose step the playbook does not define at all is absent from
+    this set and so discarded with the rest. Nothing can re-project a step
+    that is not defined. That branch is defensive — `playbook-authoring`
+    forbids deleting a step, and a retired step is still authored — and
+    covers mappings older than the playbook's move into Postgres.
+    """
+    return tuple(
+        step.identifier
+        for step in playbook.authored_steps
+        if _settles_work(launch, step)
+    )
 
 
 def _due_date(launch: Launch, playbook: LaunchPlaybook, step_id: str) -> date | None:
@@ -521,7 +577,7 @@ async def converge_launch(
         clickup=clickup,
         read_product=read_product,
         folder_id=folder_id,
-        steps=steps,
+        playbook=playbook,
     )
     if list_id is None:
         return
@@ -605,12 +661,33 @@ async def _ensure_list(
     clickup: Any,
     read_product: ProductReader,
     folder_id: str | None,
-    steps: Sequence[StepDefinition],
+    playbook: LaunchPlaybook,
 ) -> str | None:
+    """The launch's ClickUp list, minting one where it has none and
+    replacing one ClickUp reports deleted.
+
+    The recorded list is verified before it is used, on every pass and
+    without condition. It has to be asked about *itself*: a deleted list
+    answers a read of its tasks successfully and empty, so the read the
+    pass already takes cannot tell it from a live list holding none. The
+    extra request is affordable — the pass runs every ten minutes and
+    already costs two reads per launch — and the rule is one sentence
+    rather than a two-step dance. See design.md, Decision 1.
+    """
     list_id = await mapping.list_id_for(launch.product_id)
+    replacing = False
     if list_id is not None:
-        return list_id
+        # Only ClickUp reporting the list deleted heals it. A failed read
+        # propagates and the launch's pass fails, because a failure is
+        # equally what a withdrawn permission or a mistaken identifier
+        # produces — see design.md, Decision 4.
+        if not (await clickup.read_list_state(list_id)).deleted:
+            return list_id
+        replacing = True
     if not folder_id:
+        # Reached by the healing path too: a launch whose list is gone
+        # needs one just as a launch that never had one does, and must
+        # not be handed its dead identifier back.
         raise ClickUpSyncError(
             f"launch for product '{launch.product_id.value}' needs a ClickUp "
             f"list, but no parent folder is configured "
@@ -621,7 +698,16 @@ async def _ensure_list(
     created = str(
         await clickup.create_list(folder_id=folder_id, name=_list_name(product))
     )
-    await mapping.record_list(launch.product_id, created)
+    if replacing:
+        # One operation, one commit: the replacement and the discard
+        # cannot come apart. Steps whose work is already finished keep
+        # their mappings, which is what stops the new list being filled
+        # with tasks for work already done.
+        await mapping.replace_list_discarding_tasks(
+            launch.product_id, created, spare=_steps_to_spare(launch, playbook)
+        )
+    else:
+        await mapping.record_list(launch.product_id, created)
     return created
 
 

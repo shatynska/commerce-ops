@@ -23,6 +23,24 @@ class ClickUpTask:
 
 
 @dataclass(frozen=True, slots=True)
+class ClickUpListState:
+    """A ClickUp list's own state, as a read of the list reports it.
+
+    Added by `heal-a-launchs-deleted-list`, which needs to tell a list that
+    still exists from one deleted in ClickUp. That cannot be told from the
+    list's *tasks*: a deleted list answers a read of them successfully and
+    empty, which is indistinguishable from a live list holding none.
+
+    Carries only `deleted`, because only `deleted` is judged. A list whose
+    state could not be read is not represented here at all — the read
+    raises instead, so absence of an answer can never be mistaken for an
+    answer of "not deleted".
+    """
+
+    deleted: bool
+
+
+@dataclass(frozen=True, slots=True)
 class ClickUpTaskState:
     """A ClickUp task as a *read* reports it, added by
     `add-clickup-completion-loop` for the launch completion loop.
