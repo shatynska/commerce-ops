@@ -1,13 +1,29 @@
 # launch-clickup-sync Specification
 
 ## Purpose
-The launch-clickup-sync capability keeps a launch's human work and ClickUp in agreement in both directions: the system projects each launch's active `human` steps into a dedicated ClickUp list — each task carrying the step's name, its description and the people responsible for it, with a due date derived from the launch schedule — and completion recorded in ClickUp flows back as recorded step outcomes, through webhook deliveries when they arrive and through a periodic reconciliation pass when they do not.
+The launch-clickup-sync capability keeps a launch's human work and ClickUp in agreement in both directions: the system projects each launch's active `human` steps into a dedicated ClickUp list — each task carrying the step's name, its description and the people responsible for it, with a due date derived from the launch schedule and tags naming the gate it belongs to and the discipline that owns it — and completion recorded in ClickUp flows back as recorded step outcomes, through webhook deliveries when they arrive and through a periodic reconciliation pass when they do not.
 
 ## Requirements
 
 ### Requirement: Each launch is projected into its own ClickUp list
 
-The system SHALL maintain one ClickUp list per launch, created inside a configured parent folder and named with the product's name and SKU as the catalog records them (the product identifier itself is opaque and never parsed for meaning), and SHALL record the association between the launch and its list. A launch whose list already exists SHALL NOT get a second one. A launch that has reached its final gate (`graduated`) SHALL NOT be projected or reconciled. When the parent folder is not configured, projection SHALL fail in a way the scheduled-work machinery observes as a failed run, rather than being silently skipped.
+The system SHALL maintain one ClickUp list per launch, created inside a configured parent folder and named with the product's name and SKU as the catalog records them (the product identifier itself is opaque and never parsed for meaning), and SHALL record the association between the launch and its list. A launch that has reached its final gate (`graduated`) SHALL NOT be projected or reconciled. When the parent folder is not configured, projection SHALL fail in a way the scheduled-work machinery observes as a failed run, rather than being silently skipped.
+
+Before a launch's projection uses a recorded list, once per pass, the system SHALL establish from ClickUp that the list still exists. A launch whose recorded list still exists SHALL NOT get a second one.
+
+A launch whose recorded list has been deleted in ClickUp SHALL be given a new one, and its task mappings SHALL be discarded together with the recorded list they belonged to, as one indivisible act: either the launch is left recorded against its old list with its mappings intact, or it is recorded against the new list with the discard applied. The indivisibility is of the *record*; a replacement list created in ClickUp before the record is written may be left with nothing naming it, and reclaiming such a list is not undertaken here. A task mapping names a task inside a particular list, so a mapping outliving that list records something the system knows to be untrue.
+
+**A mapping SHALL be exempt from that discard, and SHALL stand, where the playbook still defines its step and that step's recorded outcome is one that settles work** — `Satisfied`, `NotApplicable` or `Refused` — whether or not the step is one the launch is currently held to. Whether the outcome settles work SHALL be judged without reference to the step's current hazard: an outcome that settled the work when it was recorded is not unsettled by the step being re-authored afterwards, and the work does not become unfinished because the rules for finishing it changed. Such a mapping is not a stale record but a working one: it is what tells the projection that the step's work is finished, so that discarding it would re-project completed work as a fresh open task in the replacement list. The exemption reaches steps the launch is not currently held to because a step can leave the served set and return to it; its finished work must survive the round trip. A mapping whose step the playbook no longer defines at all SHALL be discarded with the rest, since nothing can re-project a step that is not defined. No sanctioned operation produces that state — a step is retired, never deleted, and a retired step is still defined — so this clause is defensive, covering mappings older than the playbook's move into Postgres and any left by an unsanctioned edit.
+
+This exemption is stated in terms of the launch's own state — whether the playbook defines the step, and whether its work is finished — and not in terms of how the projection loop reaches it.
+
+Replacing a list is the one thing that removes the mapping of a step the launch is no longer held to. A departed step whose work is unsettled loses its mapping here, notwithstanding the general rule that such a step leaves the completion loop with its mapping and task left standing — the task it named died with the list, so nothing stands to leave standing. Should that step return, it is projected afresh and observed afresh, so nothing that happened while it was away is replayed as a transition.
+
+The discard is an obligation in its own right and SHALL NOT be relied upon as the means by which steps re-project; a step whose work is unfinished re-projects because its task is absent from the launch's list, whether or not its mapping was discarded first.
+
+The deleted condition SHALL be established from what ClickUp reports about the list itself, and SHALL NOT be inferred from any failed request — neither from a failed write against the list nor from a failed read of it. A request failing with "not found" is also what a transient fault, a withdrawn permission or a mistaken identifier looks like, whereas ClickUp reporting the list as deleted is ClickUp stating the fact. Where the system cannot establish a recorded list's state, the launch SHALL fail its pass rather than be healed on the strength of the failure; a launch so failed is contained as any failing launch is.
+
+Completions already recorded against the deleted list's tasks SHALL stand. What a deletion ends is the ability to observe *further* transitions on tasks that no longer exist; the re-projected tasks begin unobserved, exactly as newly projected tasks do.
 
 A pass that stands down because the served playbook cannot hold a launch SHALL create nothing and write nothing, as the stand-down requirement specifies; that is a decline rather than the silent skip this requirement forbids, and it is recorded as a successful run.
 
@@ -19,18 +35,70 @@ A pass that stands down because the served playbook cannot hold a launch SHALL c
 
 #### Scenario: An existing list is not recreated
 
-- **WHEN** the reconciliation pass runs and the launch already has a recorded list
+- **WHEN** the reconciliation pass runs, the launch already has a recorded list, and ClickUp reports that list as existing
 - **THEN** no new list is created
+
+#### Scenario: A launch whose list was deleted gets a new one
+
+- **WHEN** the reconciliation pass runs and ClickUp reports the launch's recorded list as deleted
+- **THEN** a new list is created in the configured folder, named with the product's catalog name and SKU as any launch list is
+- **AND** the launch is recorded against the new list
+- **AND** the launch's task mappings are discarded, except those for playbook-defined steps whose recorded outcome is terminal
+
+#### Scenario: The replacement and the discard cannot come apart
+
+- **WHEN** the reconciliation pass replaces a launch's deleted list and the write of that replacement does not complete
+- **THEN** the launch is left recorded against its old list with its task mappings intact
+
+#### Scenario: Steps re-project into the replacement list
+
+- **WHEN** a launch's deleted list has been replaced and the reconciliation pass runs again
+- **THEN** every projectable step whose work is unfinished has a task in the new list
+- **AND** each such task begins unobserved, so its first completion is recorded as a transition
+
+#### Scenario: Finished work is not re-projected into the replacement list
+
+- **WHEN** a launch's deleted list is replaced and a projectable step's recorded outcome is already terminal
+- **THEN** no task is created for that step in the new list
+
+#### Scenario: Finished work of a step the launch is not held to survives the replacement
+
+- **WHEN** a launch's deleted list is replaced, a step's recorded outcome is terminal, and the playbook defines that step but the launch is not currently held to it
+- **THEN** its mapping is not discarded
+- **AND** no task is created for that step should the launch later be held to it again
+
+#### Scenario: A mapping for an undefined step is discarded
+
+- **WHEN** a launch's deleted list is replaced and a mapping names a step the playbook no longer defines
+- **THEN** that mapping is discarded with the rest
+
+#### Scenario: Outcomes recorded before the deletion are kept
+
+- **WHEN** a launch's deleted list is replaced and steps had outcomes recorded from tasks in that list
+- **THEN** those recorded outcomes are unchanged
+
+#### Scenario: A failed write is not read as a deletion
+
+- **WHEN** the reconciliation pass runs and a write against the launch's list fails with "not found" while ClickUp does not report the list as deleted
+- **THEN** no new list is created and no task mapping is discarded
+
+#### Scenario: A list whose state cannot be established is not healed
+
+- **WHEN** the reconciliation pass cannot establish the state of a launch's recorded list, because the request for it fails
+- **THEN** no new list is created and no task mapping is discarded
+- **AND** that launch's pass fails, rather than the failure being read as a deletion
 
 #### Scenario: A graduated launch is left alone
 
 - **WHEN** the reconciliation pass runs and a launch has reached `graduated`
 - **THEN** no list or task is created or updated for it and no outcome is recorded from it
+- **AND** its recorded list is not checked for existence
 
 #### Scenario: Missing folder configuration fails the run
 
 - **WHEN** the reconciliation pass runs, an active launch needs a list, and no parent folder is configured
 - **THEN** the pass reports failure rather than skipping the launch silently
+- **AND** this holds equally for a launch needing a list because ClickUp reports its recorded one deleted, which is not given its deleted list's identifier back
 
 ### Requirement: Task due dates derive from the launch schedule
 
@@ -157,7 +225,7 @@ A projected task SHALL be named with the step's **name**, then ` · ` (a space, 
 
 A projected task's body SHALL be the step's **description** where the step carries one. Where a step carries no description the system SHALL compose no body at all, and SHALL neither write nor rewrite the task's body — leaving whatever stands there. Composing an *empty* body instead would destroy work: a task projected before this change whose name was shortened carries the step's full former text in its body, written by the system and therefore matching its retained value, so a rule that rewrote it to empty would leave that task stating its work nowhere. The body is no longer a place the name overflows into: the step's own two fields map onto the task's two, which is what having them separate is for.
 
-A projected task SHALL be assigned to the step's assignees, each resolved to the ClickUp user the roster records for that person. Assignment SHALL be reconciled on later passes as well as at creation, so that a step whose assignees change reaches its task, and so that tasks projected before steps had assignees stop being unowned — which is the problem this field exists to solve, and solving it only for new work would leave every in-flight launch as it is. The system SHALL retain, with the mapping, the assignees it last set, exactly as it retains the name and the body it last composed. A person's own assignment change SHALL be respected the way an edited name or body is: where a task's assignees differ from what the system last set, the system SHALL NOT overwrite them. A mapping holding no retained assignees — every mapping made before this change — SHALL be treated as having last been set to nobody, so a task the system left unassigned heals to its step's assignees while one somebody has already assigned is treated as person-edited and left alone. Assignees are the one field where that reading is right: an unassigned task is the failure this projection exists to fix, so silence there is the system's own doing rather than an edit worth preserving. An assignee the roster carries without a ClickUp user id SHALL be skipped for assignment — the task is still created, still carries its remaining assignees, and the omission SHALL be reported as a warning-level application log record naming the step, the person and the task rather than silently dropped — the pass itself succeeds, since a failed run would hide a data gap behind a retry, and `scheduled-jobs` records only whether a run succeeded, so the run record is not where this can be carried.
+A projected task SHALL be assigned to the step's assignees, each resolved to the ClickUp user the roster records for that person. Assignment SHALL be reconciled on later passes as well as at creation, so that a step whose assignees change reaches its task, and so that tasks projected before steps had assignees stop being unowned — which is the problem this field exists to solve, and solving it only for new work would leave every in-flight launch as it is. The system SHALL retain, with the mapping, the assignees it last set, exactly as it retains the name and the body it last composed. A person's own assignment change SHALL be respected the way an edited name or body is: where a task's assignees differ from what the system last set, the system SHALL NOT overwrite them. A mapping holding no retained assignees — every mapping made before this change — SHALL be treated as having last been set to nobody, so a task the system left unassigned heals to its step's assignees while one somebody has already assigned is treated as person-edited and left alone. Assignees are the one *retained* field where that reading is right: an unassigned task is the failure this projection exists to fix, so silence there is the system's own doing rather than an edit worth preserving. The tag rule reaches the same reading by a different route and does not qualify it — it retains nothing at all, so absence there carries no claim about authorship either way (see *A projected task carries its step's gate and discipline as tags*). An assignee the roster carries without a ClickUp user id SHALL be skipped for assignment — the task is still created, still carries its remaining assignees, and the omission SHALL be reported as a warning-level application log record naming the step, the person and the task rather than silently dropped — the pass itself succeeds, since a failed run would hide a data gap behind a retry, and `scheduled-jobs` records only whether a run succeeded, so the run record is not where this can be carried.
 
 A task's name and body SHALL be set when the task is created, and the system SHALL retain, with the mapping, the name and the body it last composed for the task. On a later pass, when the step's current composition differs from what is retained, the system SHALL rewrite each of the task's name and its body to the current composition **only while that field in ClickUp still carries exactly what the system last wrote for it** — a field still carrying the system's own words follows the step's current wording, so an authored edit reaches the tasks it describes. A field that differs from its retained value has been edited by a person and SHALL NOT be rewritten by any pass, ever: a task's name, and a note a person keeps in its body, are things a person may legitimately edit, and a pass that restored the authored wording would silently discard their edit. The two fields are guarded independently — a person's body note does not freeze the name, nor a renamed task its body. Whenever the system writes a name or a body, it SHALL update that field's retained value to what it wrote.
 
@@ -457,3 +525,74 @@ The existing obligation that an unconfigured parent folder fails the run rather 
 
 - **WHEN** the completion pass runs, several active launches need lists, and no parent folder is configured
 - **THEN** each such launch is attempted and fails, rather than being skipped
+
+### Requirement: A projected task carries its step's gate and discipline as tags
+
+The system SHALL tag each projected task with the gate the step belongs to and the discipline that owns it, so that a launch list can be grouped and filtered along the two divisions the playbook is built on. The tags SHALL be named `gate:<gate identifier>` and `discipline:<discipline value>`, using the identifiers the playbook and the shared vocabulary already fix, so no second naming scheme has to be kept true to the first.
+
+The prefixes are what the system owns. A tag carrying neither prefix belongs to whoever put it there: it SHALL NOT be written or removed by any pass, and SHALL have no bearing on what any pass does — a person labelling a task `urgent` or `waiting-on-supplier` is doing something this projection has no opinion about. A pass necessarily *reads* every tag a task carries, since telling an owned tag from a foreign one is what the prefix is for; reading is not the thing forbidden here.
+
+Carrying the discipline as a tag does not reopen the task **name**, which SHALL continue to exclude it as the projection requirement specifies. That exclusion rests on name width — a single line a reader scans, where restating the discipline costs the wording the name exists to surface — and a tag spends none of it, while making the discipline filterable in a way a segment of the step identifier never was.
+
+A task SHALL be created carrying both of its step's tags. A tag SHALL NOT be required to exist before it is used: attaching a tag name to a task creates it in that task's space where it is not already there, so the system SHALL NOT maintain, seed, or verify any tag vocabulary of its own, and SHALL read and write nothing about a launch's space. The only tag operations are the ones that put a tag on a task. On a later pass, the system SHALL add either tag to a mapped task that does not carry it, so that tasks projected before this requirement existed gain their tags rather than the behaviour reaching only launches started afterwards — the same obligation the assignee requirement already carries, and for the same reason: a projection that fixed only future work would leave every in-flight launch as it is.
+
+The system SHALL NOT remove a tag from a task, and SHALL NOT replace one owned tag with another. Two consequences follow and are accepted rather than worked around:
+
+- A step moved to a different gate keeps the gate tag it was projected with. Correcting it would require deciding whether a person's own retagging is preserved or overruled, which this requirement deliberately does not settle.
+- A tag a person removes by hand stays removed only until the next pass, which adds it back, because the system retains nothing with which to tell "never added" from "added and then removed". A person therefore cannot keep a projected task untagged; that is the price of not policing tags in the other direction.
+
+Tagging SHALL follow the projection it belongs to and never run ahead of it. A task whose step has left the projection SHALL NOT be tagged, exactly as *A step that is not active leaves the loop* specifies and on every ground that requirement names — the step is not `active`, its kind is no longer `human`, or it carries the `prohibited-tactic` hazard. That requirement is referenced rather than paraphrased deliberately: it states that projection turns on three fields and that "a rule naming fewer would leave the rest undefined", so restating a subset here would reintroduce exactly the gap it was written to close. A step the served playbook does not define at all is likewise never tagged, on the projection requirement's own ground rather than that one's — it is not a step of the launch's obligations, so nothing projects or tags it. No tag is written while the passes have stood down, for the reason the stand-down requirement already gives. A launch that has reached `graduated` is not visited by any pass at all, as *Each launch is projected into its own ClickUp list* specifies, so its tasks are never tagged and never backfilled.
+
+No tagging failure SHALL fail the pass. Tagging follows the projection and never runs ahead of it, so a fault in the tag concern SHALL cost tags and nothing else — never the projection of a launch's work, and never the completion intake that travels on the same pass. Where setting a tag on a task fails, the pass SHALL continue, SHALL still attempt the task's other tag, and SHALL report the omission as a warning-level application log record naming the step, the tag and the task.
+
+This is the trade `scheduled-jobs` already forces: it records only whether a run succeeded, so a failed run would hide the gap behind a retry, and a warning log is where a tagging gap is visible. The accepted cost is that a backfill can stall behind runs recorded as succeeded — the same cost the assignee rule already accepts for an unresolvable person.
+
+A created task needs no separate rule: its tags travel inside the creation, and the two a step yields come from the closed gate and discipline vocabularies, whose form was measured accepted in a create body whether or not the tag already existed, so no tag failure arises for it to survive. A creation that fails does so on its own account and is handled as any creation failure is.
+
+#### Scenario: A newly projected task carries both tags
+
+- **WHEN** a task is projected for an `active` `human` step whose gate is `listable` and whose discipline is `listing`
+- **THEN** the created task carries the tags `gate:listable` and `discipline:listing`
+- **AND** no space-level tag request — no tag creation, and no read of a space's tags — is sent before or after the create
+
+#### Scenario: An existing untagged task gains its tags
+
+- **WHEN** a pass runs over a mapped task that was projected before tagging existed
+- **THEN** the task gains its step's `gate:` and `discipline:` tags
+
+#### Scenario: A task already carrying its tags is left alone
+
+- **WHEN** a pass runs over a mapped task already carrying both of its step's tags
+- **THEN** no tag write is sent for that task
+
+#### Scenario: A person's own tags are never touched
+
+- **WHEN** a pass runs over a mapped task carrying tags outside the `gate:` and `discipline:` prefixes
+- **THEN** those tags are left exactly as they stand
+
+#### Scenario: A step moved between gates keeps its original gate tag
+
+- **WHEN** a step whose task carries `gate:commit` is moved to the `listable` gate and a pass runs
+- **THEN** the task carries `gate:listable` in addition to `gate:commit`, and no tag is removed
+
+#### Scenario: A hand-removed tag is added back
+
+- **WHEN** a person removes a mapped task's `gate:` tag in ClickUp and the next pass runs
+- **THEN** the tag is added back to the task
+
+#### Scenario: A step that has left the projection is not tagged
+
+- **WHEN** a pass runs and a mapped task's step is not defined by the served playbook, or is not `active`, or is no longer of kind `human`, or carries the `prohibited-tactic` hazard
+- **THEN** no tag is written for that task
+
+#### Scenario: No tag is written during a stand-down
+
+- **WHEN** a pass stands down because the served playbook cannot hold a launch
+- **THEN** no tag is written to any task
+
+#### Scenario: A tag that cannot be set on a task is reported, not fatal
+
+- **WHEN** a pass adds a missing tag to a mapped task and that tag write fails
+- **THEN** the pass continues and still succeeds
+- **AND** the omission is reported as a warning naming the step, the tag and the task
+- **AND** the task's other missing tag is still added
