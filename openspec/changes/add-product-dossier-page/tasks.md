@@ -5,9 +5,9 @@
 
 ## 1. Tests derived from the delta specs
 
-- [ ] 1.1 Dispatch `ai-toolkit:openspec-test-writer` over both delta specs. Every scenario is new — this change introduces `product-dossier` whole and adds two requirements to `launch-step-automation` — so nothing is excluded as already covered
-- [ ] 1.2 Place them by the tier rules in `AGENTS.md`: the read's scenarios under `tests/unit/launch/application/`, the two pages' under `tests/unit/launch/infrastructure/driving/`, and the repository read's ordering and retention against a real database under `tests/integration/launch/`
-- [ ] 1.3 Record the baseline: run `uv run pytest` and confirm each new test fails for the reason the scenario states, not for a missing import or fixture
+- [x] 1.1 Dispatch `ai-toolkit:openspec-test-writer` over both delta specs. Every scenario is new — this change introduces `product-dossier` whole and adds two requirements to `launch-step-automation` — so nothing is excluded as already covered
+- [x] 1.2 Place them by the tier rules in `AGENTS.md`: the read's scenarios under `tests/unit/launch/application/`, the two pages' under `tests/unit/launch/infrastructure/driving/`, and the repository read's ordering and retention against a real database under `tests/integration/launch/`. **One deliberate departure**, taken and recorded: the two *retained record covers … and nothing else* scenarios sit in the driving tier instead, because each one's WHEN is a handler resolving a step — a test that seeded no row and read nothing back would assert nothing at all — so the pass must run, and the file reuses `test_automation_pass.py`'s harness
+- [x] 1.3 Record the baseline: run `uv run pytest` and confirm each new test fails for the reason the scenario states, not for a missing import or fixture
 
 ## 2. The read
 
