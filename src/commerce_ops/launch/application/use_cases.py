@@ -171,6 +171,12 @@ class ReportedStep:
     (`StepStatus` in the domain), and two things called the same on one
     module's surface is one more than the word can carry.
 
+    `name` and `gate` come from the served step definition, so a consumer
+    can render a step and group it under its gate without obtaining the
+    playbook — the arrangement `launch-instance`'s governing principle
+    exists to preserve, and the one `add-launch-tracking-pages` would
+    otherwise have had to break for the detail page's grouping alone.
+
     `discipline` and `blocking` come from the playbook; `overdue` folds
     "the due period has fully passed" together with "the step has not
     reached a terminal outcome its hazard permits". A reader outside this
@@ -180,6 +186,8 @@ class ReportedStep:
     """
 
     step_id: str
+    name: str
+    gate: str
     discipline: Discipline
     due_period: AnchorPeriod | None
     progress: StepProgress | None
@@ -189,13 +197,25 @@ class ReportedStep:
 
 @dataclass(frozen=True, slots=True)
 class LaunchReport:
-    """The launch's full state plus its derived schedule, as of a date."""
+    """The launch's full state plus its derived schedule, as of a date.
+
+    `gate_sequence` names the gates in order. It travels here rather than
+    being looked up because a consumer that had to find it would need the
+    gate *framework* — a heavier dependency than the step set it is
+    already spared, and one carrying the order as well as the names.
+
+    `steps` holds one entry per served step, recorded or not, in the
+    served playbook's own order: gate sequence order, then each gate's
+    authored order. Both are properties of the set `served_steps` hands
+    over, relied on by every consumer that lists a gate's steps.
+    """
 
     product_id: ProductId
     playbook_version: str
     current_gate: str
     launch_date: date | None
     steps: tuple[ReportedStep, ...]
+    gate_sequence: tuple[str, ...]
     at_risk: LaunchDateAtRisk | None
     awaiting_confirmation: bool
 
@@ -212,6 +232,8 @@ def _report_for(launch: Launch, playbook: LaunchPlaybook, as_of: date) -> Launch
         steps=tuple(
             ReportedStep(
                 step_id=step.identifier,
+                name=step.name,
+                gate=step.gate,
                 discipline=step.discipline,
                 due_period=launch.due_period_for(playbook, step.identifier),
                 progress=launch.progress_for(step.identifier),
@@ -220,6 +242,7 @@ def _report_for(launch: Launch, playbook: LaunchPlaybook, as_of: date) -> Launch
             )
             for step in playbook.served_steps
         ),
+        gate_sequence=tuple(gate.identifier for gate in playbook.gates),
         at_risk=launch.date_at_risk(playbook, as_of),
         awaiting_confirmation=launch.awaiting_confirmation(playbook),
     )
