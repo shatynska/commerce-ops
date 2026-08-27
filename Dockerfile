@@ -31,7 +31,32 @@ ENV UV_NO_SYNC=1
 # deployment. It also keeps uv out of the liveness signal -- each layer between
 # the probe and the HTTP request is another way to report the wrong thing.
 # (`worker` overrides this to `disable: true`, having no HTTP surface.)
-HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=3 \
+#
+# On the timing, which is a separate decision from the command above
+# (`let-the-start-chain-finish`):
+#
+# `--start-period` is the window in which a failing probe leaves the
+# container `starting` instead of counting towards `--retries`. The whole
+# CMD chain below runs inside it -- five processes before uvicorn binds a
+# port -- so this number is not about the probe, it is about the chain.
+# At 5s it was too small: the chain reached healthy at 26.50s on four
+# consecutive deploys, passing on its last permitted probe, and the
+# moment `seed_playbook` joined the chain it missed that probe and every
+# deploy failed on a container that was working.
+#
+# 60s is a floor sized against the start-to-healthy figure the deploy
+# reports on every run: the window must exceed the largest such figure
+# from the three most recent successful deploys by at least two probe
+# intervals. **Adding a step to the chain below obliges you to re-read
+# that figure and confirm this still holds** -- a step costs about one
+# probe tick on this host, which is exactly how the 5s window was
+# outgrown without anyone noticing.
+#
+# `--interval` and `--retries` are deliberately NOT the place to buy
+# start-up tolerance. They govern how fast a container that stops
+# answering *after* startup is pulled out; `--start-period` expires and
+# they do not. See the change's design.md for the rejected `--retries=9`.
+HEALTHCHECK --interval=10s --timeout=3s --start-period=60s --retries=3 \
     CMD /app/.venv/bin/python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
 
 EXPOSE 8000
