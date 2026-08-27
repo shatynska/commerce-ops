@@ -26,11 +26,15 @@ import functools
 import logging
 import os
 from collections.abc import Sequence
+from typing import Any
 
 from commerce_ops.launch.application import record_step_outcome
 from commerce_ops.launch.application.field_configuration import (
     FieldConfiguration,
     check_field_configuration,
+)
+from commerce_ops.launch.application.field_configuration import (
+    describe_gap as _describe_configuration,
 )
 from commerce_ops.launch.domain.launch_playbook import PlaybookNotReadyError
 from commerce_ops.launch.infrastructure.driven.clickup_mapping import (
@@ -42,6 +46,11 @@ from commerce_ops.launch.infrastructure.driven.clickup_sync import (
     converge_launch,
     reconcile_launch,
 )
+from commerce_ops.launch.infrastructure.driven.field_gap_suppression import (
+    clear_reported_field_gap,
+    record_field_gap_reported,
+    reported_field_gap,
+)
 from commerce_ops.launch.infrastructure.driven.launch_repository import (
     LaunchRepository,
 )
@@ -49,6 +58,7 @@ from commerce_ops.launch.infrastructure.driven.playbook_repository import (
     PlaybookRepository,
     ServedPlaybooks,
 )
+from commerce_ops.shared.application.ports import MonitoringNotifier
 from commerce_ops.shared.domain.clickup import ClickUpFieldDefinition
 from commerce_ops.shared.infrastructure.driven import clickup_client as clickup
 from commerce_ops.shared.infrastructure.driven.database import session
@@ -141,6 +151,162 @@ async def _read_product_or_fail(product_id: object) -> object:
             "`worker.py` supplies one after `register_all()`"
         )
     return await read_product(product_id)  # type: ignore[arg-type]
+
+
+# Injected by `worker.py` after `register_all()`, never at import and never as
+# a job argument -- the same shape the overdue check uses, and for the same
+# reasons: the runner passes only serializable values to a job, and the only
+# notifier this deployment has lives outside this module's own module. It is
+# `None` in the HTTP process, which registers this job module but never runs
+# it.
+notifier: MonitoringNotifier | None = None
+
+
+async def _deliver_configuration_report(message: str) -> bool:
+    """Post the configuration report, saying whether it actually arrived.
+
+    The return value decides whether suppression is written, so a delivery
+    that failed leaves the gap eligible to be reported on the next pass
+    rather than being silently suppressed -- the rule `scheduled-jobs`
+    already states for a continuing outage, borrowed here.
+
+    A failure to deliver never fails the run and never stops the pass:
+    delivery sits on the pre-walk path ahead of every launch, so a fault
+    there must no more stop a launch being projected than a fault in the
+    folder read does.
+    """
+    if notifier is None:
+        _logger.error(
+            "a ClickUp Custom Field configuration gap was found but no "
+            "monitoring notifier is configured; the report was not delivered"
+        )
+        return False
+    try:
+        await notifier.post_monitoring_message(message)
+    except Exception:
+        _logger.exception("failed to deliver a Custom Field configuration report")
+        return False
+    return True
+
+
+async def _restore_after_store_fault(db_session: Any) -> None:
+    """Put a shared store back in a state where the launches' writes record.
+
+    A failed access can leave a shared session unusable, so every launch
+    after it would write to ClickUp and lose the record of the write. The
+    restore is attempted before the first launch is attempted.
+
+    **A failure of the restore itself is deliberately not caught.** It
+    propagates, ending the walk and failing the run, because continuing
+    against a store that cannot record is worse than not continuing -- the
+    judgement `One launch's failure does not stop the other launches being
+    converged` already makes for a failed recovery between launches.
+    """
+    if db_session is None:
+        return
+    rollback = getattr(db_session, "rollback", None)
+    if rollback is None:
+        return
+    await rollback()
+
+
+async def _report_field_configuration(
+    configuration: FieldConfiguration, db_session: Any = None
+) -> None:
+    """Report a gap once, and lift the record when there is nothing to report.
+
+    Every access of the retained record is contained: it sits on the pre-walk
+    path ahead of every launch, so an uncaught fault here would abort the pass
+    before anything was projected -- a fault wholly inside this concern
+    costing the projection and completion intake of every launch, which the
+    guarantee this requirement makes forbids.
+
+    A failed **read** reports no gap on that pass: the system cannot then tell
+    a standing gap from a new one, and repeating a message already delivered
+    is worse than deferring one by a pass. A failed **write** after a
+    delivered report simply leaves the gap eligible again -- the report has
+    gone out and cannot be recalled.
+
+    Where the record shares a store with the writes the pass makes for each
+    launch, a failed access can leave that store unusable, so it is restored
+    before the first launch is attempted. **A failed restore is not
+    contained**: the walk ends and the run is recorded as failed, on the
+    ground `One launch's failure does not stop the other launches being
+    converged` gives for a failed recovery between launches, which this
+    extends to the pre-walk restore. Continuing would project launches whose
+    ClickUp writes could not be recorded -- writing to ClickUp and losing the
+    record of the write, which that requirement judges worse than stopping.
+    This is the one path on which a fault of this concern costs more than the
+    field values.
+    """
+    if not configuration.authoritative:
+        # Nothing could be established about the two fields -- the folder's
+        # fields could not be read, or no launch folder is configured. That
+        # says nothing about the configuration, so the record is left exactly
+        # as it stands: lifting it here would make a deployment whose
+        # reachability flaps re-report the same unrepaired gap every time it
+        # recovered, which is the flood the report-once rule exists to
+        # prevent, arriving by the other door. Any empty-identifier finding
+        # is still reported below, because it needs no read.
+        if not configuration.has_gap:
+            return
+    elif not configuration.has_gap:
+        # Repaired, or never broken. Lifting here is what makes a gap
+        # appearing again reportable rather than suppressed forever.
+        try:
+            await clear_reported_field_gap(db_session)
+        except Exception:
+            # Deliberately no restore here. The clear runs on a pass that
+            # found no gap, so nothing was reported and no later launch
+            # depends on it; and the record keeps its own session, so a
+            # failure here cannot leave the launches' store unusable. The
+            # restore belongs to the read and write paths, where a report is
+            # actually in flight.
+            _logger.warning(
+                "the ClickUp Custom Field gap record could not be cleared; a "
+                "later gap of the same content may go unreported until it "
+                "can be, and the pass continues",
+                exc_info=True,
+            )
+        return
+
+    identity = repr(configuration.identity())
+    try:
+        already = await reported_field_gap(db_session)
+    except Exception:
+        await _restore_after_store_fault(db_session)
+        _logger.warning(
+            "the ClickUp Custom Field gap record could not be read; this pass "
+            "reports no gap rather than risk repeating one already delivered, "
+            "and every launch is still projected, corrected and reconciled",
+            exc_info=True,
+        )
+        return
+    if already == identity:
+        # A *continuing* gap of unchanged content. Reported once, not on
+        # every pass: a wall of identical messages trains the team to ignore
+        # the channel, which costs more than the gap itself.
+        return
+
+    message = (
+        "ClickUp Custom Field configuration needs attention — a projected "
+        "task's gate and discipline cannot be fully recorded until it is "
+        "repaired. The launch's work is projected and its completions still "
+        "flow; only these two field values are affected.\n\n"
+        + _describe_configuration(configuration)
+    )
+    if not await _deliver_configuration_report(message):
+        return
+    try:
+        await record_field_gap_reported(identity, db_session)
+    except Exception:
+        await _restore_after_store_fault(db_session)
+        _logger.warning(
+            "a ClickUp Custom Field configuration gap was reported but the "
+            "record of it could not be written; the same gap will be reported "
+            "again on the next pass, and the pass continues",
+            exc_info=True,
+        )
 
 
 def _field_identifiers() -> tuple[str | None, str | None]:
@@ -256,7 +422,9 @@ async def reconcile_clickup_completions(timestamp: int) -> None:
         # no launch exists, which is exactly when a fresh misconfiguration
         # should still be found. It must not move behind an early return on
         # an empty launch set.
-        configuration = (await _read_field_configuration(folder_id)).writable_options()
+        field_configuration = await _read_field_configuration(folder_id)
+        await _report_field_configuration(field_configuration, db_session)
+        configuration = field_configuration.writable_options()
 
         _logger.info("ClickUp completion pass starting over %d launch(es)", len(active))
         failed: list[str] = []

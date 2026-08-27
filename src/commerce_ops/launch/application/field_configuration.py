@@ -114,6 +114,13 @@ class FieldFinding:
 
     role: FieldRole
     kinds: frozenset[GapKind]
+    # How a person finds this field in ClickUp. The identifier is what the
+    # deployment configured; the name is what the field carries. A report
+    # names both where it has them -- "which field" cannot be answered by the
+    # role alone, which is this system's word rather than anything visible in
+    # ClickUp.
+    field_id: str = ""
+    field_name: str = ""
     missing: tuple[str, ...] = ()
     duplicated: tuple[str, ...] = ()
     declared: tuple[str, ...] = ()
@@ -152,6 +159,17 @@ class FieldConfiguration:
     # written to. A role absent here is one nothing writes: unconfigured,
     # or found in a gap of the kinds that withhold writes.
     writable_field_ids: Mapping[FieldRole, str] = dataclass_field(default_factory=dict)
+    # Whether this is an *authoritative* account of the two fields. False
+    # where nothing could be established about them -- the folder's fields
+    # could not be read, or no launch folder is configured.
+    #
+    # Not the same as "no gap", and conflating the two is a real fault: an
+    # unauthoritative pass composes no findings, so a caller reading absence
+    # of findings as "repaired" would lift a standing suppression on every
+    # unreachable pass, and a deployment whose reachability flapped would
+    # re-report the same unrepaired gap every time it recovered. A withdrawal
+    # *is* authoritative: naming no field says something definite about them.
+    authoritative: bool = True
 
     @property
     def has_gap(self) -> bool:
@@ -222,7 +240,9 @@ def _assess(
 
     definition = definitions.get(identifier)
     if definition is None:
-        return {}, FieldFinding(role=role, kinds=frozenset({GapKind.ABSENT}))
+        return {}, FieldFinding(
+            role=role, kinds=frozenset({GapKind.ABSENT}), field_id=identifier
+        )
 
     kinds: set[GapKind] = set()
     if definition.uninterpretable:
@@ -249,7 +269,12 @@ def _assess(
         # The fault at the level of the field is the one to repair; the
         # option-level findings it would generate are its consequences.
         return {}, FieldFinding(
-            role=role, kinds=frozenset(kinds), declared=declared, duplicated=duplicated
+            role=role,
+            kinds=frozenset(kinds),
+            declared=declared,
+            duplicated=duplicated,
+            field_id=identifier,
+            field_name=definition.name,
         )
 
     by_name: dict[str, str] = {}
@@ -290,6 +315,8 @@ def _assess(
         duplicated=duplicated,
         declared=declared,
         order_observed=order_observed,
+        field_id=identifier,
+        field_name=definition.name,
     )
 
 
@@ -311,6 +338,13 @@ def check_field_configuration(
     definitions: Mapping[str, ClickUpFieldDefinition] = (
         {} if fields is None else {definition.id: definition for definition in fields}
     )
+
+    # A withdrawal is authoritative even though no read was made: a
+    # deployment naming no field has said something definite about the two,
+    # so a standing suppression is lifted rather than left for a later opt-in
+    # to meet in silence.
+    withdrawn = gate_field_id is None and discipline_field_id is None
+    authoritative = fields is not None or withdrawn
 
     resolution: dict[FieldRole, Mapping[str, str]] = {}
     findings: list[FieldFinding] = []
@@ -341,61 +375,82 @@ def check_field_configuration(
         resolution=resolution,
         findings=tuple(findings),
         writable_field_ids=writable,
+        authoritative=authoritative,
     )
 
 
 def describe_gap(configuration: FieldConfiguration) -> str:
     """The gap, as a message a person can act on.
 
-    Names every finding rather than the first, so one repair round closes
-    them all; names what the field *does* declare where an option is
-    missing, so a hand-typed mismatch is diagnosable rather than merely
-    reported; and names the order found where the order is wrong, so the
-    repair is a reordering someone can perform.
+    Three obligations, each from the requirement. Name **every** finding
+    rather than the first, so one repair round closes them all. Name what the
+    field *does* declare where an expected option is missing, so a hand-typed
+    mismatch is diagnosable rather than merely reported. And name the order
+    **found** where the order is wrong, so the repair is a reordering someone
+    can perform rather than a fault they have to reconstruct.
+
+    Two things the wording is careful about. A field is named by the
+    identifier the deployment configured and by the name it carries, never by
+    this system's own word for its role -- neither of those is visible in
+    ClickUp. And where options are merely *missing*, what the field declares
+    is listed **alphabetically** rather than in its declared sequence: a
+    sequence here would read as an order finding, which the requirement
+    withholds while options are missing.
     """
+
+    def _names(field: FieldFinding) -> str:
+        parts = [part for part in (field.field_name, field.field_id) if part]
+        return " / ".join(repr(part) for part in parts) or field.role.value
+
+    def _which(field: FieldFinding) -> str:
+        return f"the {field.role.value} field ({_names(field)})"
+
     lines: list[str] = []
     for finding in configuration.findings:
-        role = finding.role.value
         for kind in sorted(finding.kinds, key=lambda k: k.value):
             if kind is GapKind.EMPTY_IDENTIFIER:
                 lines.append(
-                    f"the {role} field is configured with no value "
-                    "(its identifier is present but empty, which is a "
-                    "rendering fault rather than a missing field)"
+                    f"the {finding.role.value} field is configured with no "
+                    "value: its identifier is present but empty, which is a "
+                    "rendering fault rather than a missing field"
                 )
             elif kind is GapKind.ABSENT:
                 lines.append(
-                    f"the {role} field's configured identifier is not among "
-                    "the launch folder's Custom Fields"
+                    f"{_which(finding)} is not among the launch folder's Custom Fields"
                 )
             elif kind is GapKind.UNINTERPRETABLE:
                 lines.append(
-                    f"the {role} field could not be interpreted "
-                    "(this is not the same as it declaring no options)"
+                    f"{_which(finding)} is uninterpretable — this is not the "
+                    "same as it declaring no options, and adding options "
+                    "would not repair it"
                 )
             elif kind is GapKind.WRONG_TYPE:
                 lines.append(
-                    f"the {role} field is not a drop-down, so it declares no "
-                    "ordered set of options for a value to be drawn from"
+                    f"{_which(finding)} is of the wrong type: it is not a "
+                    "drop-down, so it offers no single value drawn from a "
+                    "declared set of options"
                 )
             elif kind is GapKind.OPTIONLESS:
-                lines.append(f"the {role} field declares no options")
+                lines.append(f"{_which(finding)} declares no options")
             elif kind is GapKind.DUPLICATE_OPTION_NAME:
                 lines.append(
-                    f"the {role} field declares more than one option named "
+                    f"{_which(finding)} declares more than one option named "
                     + ", ".join(repr(name) for name in finding.duplicated)
+                    + " — no write against it would be unambiguous"
                 )
             elif kind is GapKind.MISSING_OPTIONS:
+                declared = ", ".join(repr(name) for name in sorted(finding.declared))
                 lines.append(
-                    f"the {role} field declares no option named "
+                    f"{_which(finding)} declares no option named "
                     + ", ".join(repr(name) for name in finding.missing)
                     + "; it declares "
-                    + (", ".join(repr(name) for name in finding.declared) or "nothing")
+                    + (declared or "nothing")
+                    + " (listed alphabetically)"
                 )
             elif kind is GapKind.WRONG_ORDER:
                 lines.append(
-                    "the gate field's options are not in the playbook's gate "
-                    "order; it declares "
+                    f"{_which(finding)} declares its options in a sequence "
+                    "that is not the playbook's; it declares "
                     + ", ".join(repr(name) for name in finding.order_observed)
                 )
     return "\n".join(f"- {line}" for line in lines)
