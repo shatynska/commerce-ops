@@ -25,7 +25,7 @@
 
 ## 5. Confirm against the deployment
 
-- [ ] 5.1 After merge and deploy, confirm `TestProductName0` receives a list and its steps project into it.
-- [ ] 5.2 Confirm `launch.clickup.completion_pass` records a success, moving `last_success` off `07:20:00Z` — the measurement `proposal.md` opens on, and the evidence the launch converged rather than being walked past.
-- [ ] 5.3 Confirm the replacement list's name carries the bare SKU, not the value object's repr — PR #81 ships that fix ahead of this change, and this launch's list is the only creation left to prove it on.
-- [ ] 5.4 Confirm no task was created for any step of that launch whose outcome was already recorded terminal.
+- [x] 5.1 After merge and deploy, confirm `TestProductName0` receives a list and its steps project into it.
+- [x] 5.2 Confirm `launch.clickup.completion_pass` records a success, moving `last_success` off `07:20:00Z` — the measurement `proposal.md` opens on, and the evidence the launch converged rather than being walked past.
+- [x] 5.3 Confirm the replacement list's name carries the bare SKU, not the value object's repr — PR #81 ships that fix ahead of this change, and this launch's list is the only creation left to prove it on.
+- [x] 5.4 Confirm no task was created for any step of that launch whose outcome was already recorded terminal.
