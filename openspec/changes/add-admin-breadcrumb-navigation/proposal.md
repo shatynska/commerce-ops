@@ -12,7 +12,7 @@ level is added.
 ## What Changes
 
 - Replace each page's own "Back to X" control with a shared breadcrumb trail
-  rendered beside its `<h1>`, naming every ancestor as a link and the current
+  rendered immediately above its `<h1>`, naming every ancestor as a link and the current
   page as the un-linked last segment (`Launches › TestProductName15 ›
   Journal`). Applies to `launch.html`, `edit.html`, `new.html`, and — newly —
   `product.html`, which carries no way back today.
