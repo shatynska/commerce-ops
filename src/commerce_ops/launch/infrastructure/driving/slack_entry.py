@@ -46,6 +46,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from commerce_ops.catalog.application import DuplicateSkuError
 from commerce_ops.launch.application import start_launch
 from commerce_ops.launch.domain.launch_playbook import PlaybookNotReadyError
+from commerce_ops.launch.infrastructure.driven.launch_journal_repository import (
+    LaunchJournalRepository,
+)
 from commerce_ops.launch.infrastructure.driven.launch_repository import (
     LaunchRepository,
 )
@@ -403,6 +406,7 @@ async def _register_and_start(submission: _Submission) -> None:
             playbook,
             product_id=product_id,
             launch_date=submission.launch_date,
+            journal=LaunchJournalRepository(db_session),
         )
 
 

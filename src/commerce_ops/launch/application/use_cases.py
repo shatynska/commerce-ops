@@ -21,6 +21,7 @@ reference is enforced where the record is kept.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from datetime import date
 
@@ -29,7 +30,21 @@ from commerce_ops.launch.application.errors import (
     GraduationStampError,
     LaunchNotFoundError,
 )
+from commerce_ops.launch.application.journal import (
+    KIND_ADVANCE_REFUSED,
+    KIND_GATE_APPROVAL_RECORDED,
+    KIND_GATE_OPENED,
+    KIND_LAUNCH_DATE_MOVED,
+    KIND_LAUNCH_GRADUATED,
+    KIND_LAUNCH_STARTED,
+    KIND_METRIC_ATTESTED,
+    KIND_STEP_OUTCOME_RECORDED,
+    JournalEntry,
+    JournalOccurrence,
+    compose,
+)
 from commerce_ops.launch.application.ports import (
+    LaunchJournal,
     LaunchStore,
     Playbooks,
     SteadyStateStamper,
@@ -37,6 +52,8 @@ from commerce_ops.launch.application.ports import (
 from commerce_ops.launch.domain.launch_playbook import AnchorPeriod, LaunchPlaybook
 from commerce_ops.launch.domain.launch_run import (
     GateApproval,
+    GateBlockedError,
+    GateOpened,
     Launch,
     LaunchDateAtRisk,
     LaunchEvent,
@@ -51,6 +68,52 @@ from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
 from commerce_ops.shared.domain.lifecycle_stage import SteadyState
 
+_logger = logging.getLogger(__name__)
+
+# The gate whose opening is graduation. Spelled here rather than imported
+# from the aggregate's private constant; `launch_run` keeps its own.
+_GRADUATION_GATE = "graduated"
+
+
+async def _journal(journal: LaunchJournal, occurrence: JournalOccurrence) -> None:
+    """Append one occurrence, and never let its failure reach the caller.
+
+    Containment is two things, not one (`launch-journal`, "A failed
+    append never fails the command it records, nor disturbs its work").
+    Catching the exception is the easy half. The half that is easy to
+    omit and impossible to do without is the **rollback**: a failed
+    INSERT leaves the session refusing every later statement, so a
+    command whose work continues past the append — most sharply the
+    catalog stamp a graduating advance performs — would fail on a
+    session the journal poisoned. That would be the journal breaking a
+    graduation: the exact outage this guarantee forbids, caused by the
+    mechanism meant to prevent it.
+
+    A rollback that itself raises is caught too. There is nothing
+    further this layer can do, and a journal must never be why a launch
+    command fails.
+    """
+    try:
+        await journal.append(occurrence)
+    except Exception:
+        _logger.exception(
+            "the launch journal could not record a '%s' occurrence for "
+            "product '%s'%s; the command stands, the occurrence is "
+            "unrecorded",
+            occurrence.kind,
+            occurrence.product_id.value,
+            f" (subject '{occurrence.subject_id}')" if occurrence.subject_id else "",
+        )
+        try:
+            await journal.rollback()
+        except Exception:
+            _logger.exception(
+                "rolling back after the failed journal append for product "
+                "'%s' failed as well; the work following this command may "
+                "fail on the same session",
+                occurrence.product_id.value,
+            )
+
 
 async def start_launch(
     launches: LaunchStore,
@@ -58,6 +121,7 @@ async def start_launch(
     *,
     product_id: ProductId,
     launch_date: date | None = None,
+    journal: LaunchJournal,
 ) -> tuple[LaunchEvent, ...]:
     """Start a launch for a catalog product, pinning the given playbook's
     version. The store rejects an unknown product or a second launch."""
@@ -65,6 +129,14 @@ async def start_launch(
         product_id=product_id, playbook=playbook, launch_date=launch_date
     )
     await launches.save(launch)
+    await _journal(
+        journal,
+        JournalOccurrence(
+            product_id=product_id,
+            kind=KIND_LAUNCH_STARTED,
+            details={"playbook_version": playbook.version},
+        ),
+    )
     return (started,)
 
 
@@ -76,6 +148,7 @@ async def record_step_outcome(
     step_id: str,
     outcome: StepOutcomeValue,
     provenance: Provenance,
+    journal: LaunchJournal,
 ) -> tuple[LaunchEvent, ...]:
     launch = await _existing(launches, product_id)
     playbook = playbooks.get(launch.playbook_version)
@@ -83,6 +156,25 @@ async def record_step_outcome(
         playbook, step_id=step_id, outcome=outcome, provenance=provenance
     )
     await launches.save(launch)
+    await _journal(
+        journal,
+        JournalOccurrence(
+            product_id=product_id,
+            kind=KIND_STEP_OUTCOME_RECORDED,
+            occurred_at=provenance.when,
+            actor=provenance.who,
+            source=provenance.source,
+            subject_id=step_id,
+            # Captured now, never re-resolved: the entry must stay
+            # readable after the step is renamed or retired.
+            subject_label=_step_name(playbook, step_id),
+            details={
+                "outcome": _outcome_name(outcome),
+                "reason": getattr(outcome, "reason", None),
+                "evidence": provenance.evidence,
+            },
+        ),
+    )
     return events
 
 
@@ -92,11 +184,29 @@ async def record_metric_attestation(
     *,
     product_id: ProductId,
     attestation: MetricAttestation,
+    journal: LaunchJournal,
 ) -> tuple[LaunchEvent, ...]:
     launch = await _existing(launches, product_id)
     playbook = playbooks.get(launch.playbook_version)
     events = launch.record_metric_attestation(playbook, attestation)
     await launches.save(launch)
+    await _journal(
+        journal,
+        JournalOccurrence(
+            product_id=product_id,
+            kind=KIND_METRIC_ATTESTED,
+            occurred_at=attestation.when,
+            actor=attestation.attester,
+            # The condition is the subject; the gate it was attested
+            # against travels in `details` (design.md Decision 4).
+            subject_id=attestation.metric_id.value,
+            subject_label=_threshold_for(playbook, attestation),
+            details={
+                "gate_id": attestation.gate_id,
+                "evidence": attestation.evidence,
+            },
+        ),
+    )
     return events
 
 
@@ -106,10 +216,27 @@ async def approve_gate(
     product_id: ProductId,
     gate_id: str,
     approval: GateApproval,
+    journal: LaunchJournal,
 ) -> tuple[LaunchEvent, ...]:
     launch = await _existing(launches, product_id)
     events = launch.approve_gate(gate_id, approval)
     await launches.save(launch)
+    await _journal(
+        journal,
+        JournalOccurrence(
+            product_id=product_id,
+            kind=KIND_GATE_APPROVAL_RECORDED,
+            occurred_at=approval.when,
+            actor=approval.approver,
+            # A gate's identifier is the whole of its label.
+            subject_id=gate_id,
+            subject_label=gate_id,
+            details={
+                "decision": approval.decision.value,
+                "posture": approval.posture.value if approval.posture else None,
+            },
+        ),
+    )
     return events
 
 
@@ -119,19 +246,75 @@ async def advance_gate(
     playbooks: Playbooks,
     stamp_steady_state: SteadyStateStamper,
     product_id: ProductId,
+    journal: LaunchJournal,
 ) -> tuple[LaunchEvent, ...]:
     """Advance the launch past its current gate. Opening `graduated`
     additionally stamps the catalog product steady-state — after the
     advanced launch is persisted, so a rejected stamp leaves the advance
-    standing."""
+    standing.
+
+    The journal append sits between the two, deliberately: appending
+    after the save means a contained failure can discard nothing of the
+    command's own work, and appending before the stamp is what makes the
+    guarantee "a failed append does not prevent the graduation stamp"
+    something a test can observe at all (design.md Decision 2).
+    """
     launch = await _existing(launches, product_id)
     playbook = playbooks.get(launch.playbook_version)
-    events = launch.advance_gate(playbook)
+    try:
+        events = launch.advance_gate(playbook)
+    except GateBlockedError as refused:
+        # The most diagnostic thing a launch produces, and the only
+        # record of it: unsatisfied conditions are recomputed from
+        # current state, so once satisfied nothing can establish that
+        # they ever blocked an advance, or when.
+        await _journal(
+            journal,
+            JournalOccurrence(
+                product_id=product_id,
+                kind=KIND_ADVANCE_REFUSED,
+                subject_id=refused.blocked.gate_id,
+                subject_label=refused.blocked.gate_id,
+                # Stored as the domain composes them — condition names,
+                # in a list, identifying a step by identifier. The one
+                # stated exception to labels-not-identifiers
+                # (design.md Decision 7).
+                details={"unsatisfied": list(refused.blocked.unsatisfied)},
+            ),
+        )
+        raise
     await launches.save(launch)
 
     graduated = next(
         (event for event in events if isinstance(event, LaunchGraduated)), None
     )
+    if graduated is not None:
+        await _journal(
+            journal,
+            JournalOccurrence(
+                product_id=product_id,
+                kind=KIND_LAUNCH_GRADUATED,
+                actor=graduated.approver,
+                subject_id=_GRADUATION_GATE,
+                subject_label=_GRADUATION_GATE,
+                details={"posture": graduated.posture.value},
+            ),
+        )
+    else:
+        opened = next(
+            event.gate_id for event in events if isinstance(event, GateOpened)
+        )
+        await _journal(
+            journal,
+            JournalOccurrence(
+                product_id=product_id,
+                kind=KIND_GATE_OPENED,
+                subject_id=opened,
+                subject_label=opened,
+                details={"standing_at": launch.current_gate},
+            ),
+        )
+
     if graduated is not None:
         try:
             await stamp_steady_state(
@@ -154,10 +337,23 @@ async def move_launch_date(
     *,
     product_id: ProductId,
     new_date: date,
+    journal: LaunchJournal,
 ) -> tuple[LaunchEvent, ...]:
     launch = await _existing(launches, product_id)
+    previous = launch.launch_date
     events = launch.move_launch_date(new_date)
     await launches.save(launch)
+    await _journal(
+        journal,
+        JournalOccurrence(
+            product_id=product_id,
+            kind=KIND_LAUNCH_DATE_MOVED,
+            details={
+                "previous": previous.isoformat() if previous else None,
+                "new": new_date.isoformat(),
+            },
+        ),
+    )
     return events
 
 
@@ -274,6 +470,62 @@ async def read_launches(
         for launch in await launches.list_all()
         if scope.permits(launch.product_id)
     )
+
+
+async def read_launch_journal(
+    journal: LaunchJournal,
+    *,
+    product_id: ProductId,
+    scope: AccessScope,
+) -> tuple[JournalEntry, ...]:
+    """One launch's journal, most recent first, worded at read time.
+
+    Three cases report the same empty journal, and they must stay
+    indistinguishable: a scope that does not permit the product, a
+    launch with nothing recorded — which every launch predating the
+    journal is in, for ever — and a product with no launch record at
+    all. Telling them apart would confirm the existence of a launch the
+    caller may not see, which is why `read_launch` reports absence the
+    same way.
+    """
+    if not scope.permits(product_id):
+        return ()
+    return tuple(compose(occurrence) for occurrence in await journal.read(product_id))
+
+
+def _step_name(playbook: LaunchPlaybook, step_id: str) -> str | None:
+    """The served playbook's name for a step, captured at the append.
+
+    `None` where the playbook no longer serves it — unreachable through
+    a recording, which the domain rejects for an unserved step, but the
+    journal must not be the thing that raises if it ever becomes
+    reachable.
+    """
+    for step in playbook.served_steps:
+        if step.identifier == step_id:
+            return step.name
+    return None
+
+
+def _threshold_for(
+    playbook: LaunchPlaybook, attestation: MetricAttestation
+) -> str | None:
+    """A metric condition's threshold text — its label, captured at the
+    append for the same reason a step's name is."""
+    for gate in playbook.gates:
+        if gate.identifier != attestation.gate_id:
+            continue
+        for condition in gate.metric_conditions:
+            if condition.metric_id == attestation.metric_id:
+                return condition.threshold
+    return None
+
+
+def _outcome_name(outcome: StepOutcomeValue) -> str:
+    """The outcome's own name — the type for the reason-less outcomes, the
+    instance's type for the reason-carrying ones (the domain's outcome
+    value convention)."""
+    return outcome.__name__ if isinstance(outcome, type) else type(outcome).__name__
 
 
 async def _existing(launches: LaunchStore, product_id: ProductId) -> Launch:

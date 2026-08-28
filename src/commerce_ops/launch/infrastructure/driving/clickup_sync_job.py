@@ -38,6 +38,9 @@ from commerce_ops.launch.infrastructure.driven.clickup_sync import (
     converge_launch,
     reconcile_launch,
 )
+from commerce_ops.launch.infrastructure.driven.launch_journal_repository import (
+    LaunchJournalRepository,
+)
 from commerce_ops.launch.infrastructure.driven.launch_repository import (
     LaunchRepository,
 )
@@ -172,7 +175,10 @@ async def reconcile_clickup_completions(timestamp: int) -> None:
             )
             return
         record = functools.partial(
-            record_step_outcome, launches, ServedPlaybooks(playbook)
+            record_step_outcome,
+            launches,
+            ServedPlaybooks(playbook),
+            journal=LaunchJournalRepository(db_session),
         )
 
         _logger.info("ClickUp completion pass starting over %d launch(es)", len(active))

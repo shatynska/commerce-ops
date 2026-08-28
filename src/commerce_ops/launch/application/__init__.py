@@ -25,6 +25,10 @@ from commerce_ops.launch.application.handler_registry import (
     StepHandlerRegistry,
     register_step_handler,
 )
+from commerce_ops.launch.application.journal import (
+    JournalEntry,
+    JournalOccurrence,
+)
 from commerce_ops.launch.application.playbook_authoring import (
     StaleStepSetError,
     StepRecord,
@@ -39,6 +43,7 @@ from commerce_ops.launch.application.playbook_authoring import (
     update_step,
 )
 from commerce_ops.launch.application.ports import (
+    LaunchJournal,
     LaunchStore,
     Playbooks,
     SteadyStateStamper,
@@ -50,6 +55,7 @@ from commerce_ops.launch.application.use_cases import (
     approve_gate,
     move_launch_date,
     read_launch,
+    read_launch_journal,
     read_launches,
     record_metric_attestation,
     record_step_outcome,
@@ -72,6 +78,9 @@ __all__ = [
     "Decision",
     "GraduationStampError",
     "InProgress",
+    "JournalEntry",
+    "JournalOccurrence",
+    "LaunchJournal",
     "LaunchNotFoundError",
     "LaunchReport",
     "LaunchStore",
@@ -100,6 +109,7 @@ __all__ = [
     "live_definitions",
     "move_launch_date",
     "read_launch",
+    "read_launch_journal",
     "read_launches",
     "record_metric_attestation",
     "record_step_outcome",

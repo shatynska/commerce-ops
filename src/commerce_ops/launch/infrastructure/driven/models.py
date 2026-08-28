@@ -20,6 +20,7 @@ from datetime import date, datetime
 from typing import Final
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     CheckConstraint,
     Date,
@@ -267,6 +268,82 @@ class LaunchMetricAttestation(Base):
         DateTime(timezone=True), nullable=False
     )
     evidence: Mapped[str] = mapped_column(String, nullable=False)
+
+
+LAUNCH_JOURNAL_KINDS: Final[tuple[str, ...]] = (
+    "launch-started",
+    "step-outcome-recorded",
+    "metric-attested",
+    "gate-approval-recorded",
+    "gate-opened",
+    "launch-graduated",
+    "launch-date-moved",
+    "advance-refused",
+)
+
+_JOURNAL_KIND_LIST = ", ".join(f"'{kind}'" for kind in LAUNCH_JOURNAL_KINDS)
+
+
+class LaunchJournalEntry(Base):
+    """One occurrence in a launch's append-only journal.
+
+    `launch-journal`: every command the launch context accepts appends
+    exactly one row here, and a refused advance appends one too. Rows are
+    **appended, never replaced or deleted** — a second recording against
+    the same step is a second row, which is the whole difference between
+    this table and the state it records.
+
+    `sequence` is the primary key because this table is about *order*
+    while every other launch table is about what it holds. Two entries
+    routinely name the same moment — a reconciliation pass recording
+    several steps with one timestamp is the ordinary case — so "most
+    recent first" has to be total, and a monotonic sequence gives that
+    for free.
+
+    `occurred_at` is the moment the entry *names*, not the moment of the
+    append: a recording's `Provenance.when`, an approval's or an
+    attestation's `when`. The five kinds whose command carries no
+    timestamp are stamped here from the database clock, because the
+    application layer holds no clock.
+
+    `details` is JSONB for the reason `playbook_steps.timing_anchor` is:
+    what every entry has in common is columns, and what distinguishes one
+    kind from another differs per kind and is read only by the composer
+    that already knows the kind.
+    """
+
+    __tablename__ = "launch_journal_entries"
+    __table_args__ = (
+        CheckConstraint(
+            f"kind IN ({_JOURNAL_KIND_LIST})",
+            name="ck_launch_journal_entries_kind_valid",
+        ),
+        Index("ix_launch_journal_entries_product_id", "product_id"),
+    )
+
+    sequence: Mapped[int] = mapped_column(
+        BigInteger, primary_key=True, autoincrement=True
+    )
+    product_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey(
+            "launch_positions.product_id",
+            name="fk_launch_journal_entries_product_id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+    )
+    occurred_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    kind: Mapped[str] = mapped_column(String, nullable=False)
+    actor: Mapped[str | None] = mapped_column(String, nullable=True)
+    source: Mapped[str | None] = mapped_column(String, nullable=True)
+    subject_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    subject_label: Mapped[str | None] = mapped_column(Text, nullable=True)
+    details: Mapped[dict[str, object]] = mapped_column(
+        JSONB, nullable=False, default=dict
+    )
 
 
 class PlaybookStep(Base):
