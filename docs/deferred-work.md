@@ -262,6 +262,29 @@ moved out of `active` between a result being produced and its decision.
 automated result appearing in production — whichever arrives first, check
 the corresponding case then rather than manufacturing it.
 
+### The sub-category advisor's supported path has never run
+
+`separate-the-verdict-from-the-prose`'s task 6.1 asked for a pass proposing
+`Satisfied` with a recommendation naming node, demands and alternative. It
+was not observable on 2026-08-28 and is recorded here rather than ticked.
+
+The deployment holds no product the advisor can classify. Both launches
+serving `lp.listing.007` are for products named `TestProductName13` and
+`TestProductName14` — names that describe no product, so a refusal is the
+correct answer and the supported branch has nothing to exercise it. Every
+live run so far has taken the refusal path.
+
+What this leaves untested **against a real model**: that the verdict line
+parses as `supported`, that the veto does not fire on a well-formed
+recommendation, and that `Satisfied` is proposed with a pending result
+delivered to Slack. All three are asserted in
+`tests/agents/step_handlers/listing/`, against stubs.
+
+**Trigger to close.** The first product registered with a name a model can
+classify — a real listing rather than a placeholder. Read the pass's result
+then: a pending result carrying a node path, its demands and a rejected
+alternative closes it.
+
 ### Small cleanups, not worth a change each
 
 Verified present at the time of writing; suitable for one chore commit.
