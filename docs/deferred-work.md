@@ -345,6 +345,102 @@ per-worktree database convention with a script that creates and migrates one,
 or the resolver refusing a URL that names the working database. The last is the
 one worth doing whether or not the others are.
 
+### Graduation cannot be triggered, and the persisted launch cannot say it happened
+
+`advance-gates-and-confirm-in-slack` wires the gate ratchet for the first seven
+gates and deliberately stops short of `graduated`. Two separate things block it,
+and the second is a defect rather than a scope decision.
+
+**Nothing can reach the graduation gate.** `graduated` authors metric
+conditions, and so do `stock-ready` and `phase-one-complete`. A metric condition
+is satisfied only by a recorded human attestation until live evaluation exists
+(`launch-instance`, domain-map slice 7), and `record_metric_attestation` has no
+surface — no route, no Slack handler, no job calls it. A launch therefore
+advances to `stock-ready` and stops. Wiring graduation before attestation has a
+surface would specify behaviour production cannot exercise.
+
+**The persisted launch cannot distinguish a graduated launch from one standing
+at the final gate.** `launch-instance`'s enumeration requirement states this as
+deliberate, and `LaunchRepository.list_all`'s docstring records the consequence:
+a launch waiting at `graduated` for its approval is exactly what a report wants
+to show, and the stored shape cannot tell it from one whose gate already opened.
+`Launch.__init__` sets `_graduated = False` on every rehydration, so the flag is
+process-local and does not survive a read.
+
+That gap is latent today because nothing advances gates. It stops being latent
+the moment something does, and it breaks in both directions:
+
+- A pass reading `list_active` never sees a launch standing at `graduated` —
+  `list_active` filters on `current_gate != 'graduated'` — so the graduation ask
+  can never be posted.
+- A pass reading `list_all` re-advances an already-graduated launch on every
+  run: `advance_gate`'s `self._graduated` guard is False after rehydration, the
+  gate's conditions are all still satisfied, so it re-opens `graduated`,
+  re-emits `LaunchGraduated`, and re-stamps the catalog. `product-catalog`
+  rejects the same-stage transition, which `launch-instance` requires to be
+  reported as "an error naming the manual catalog correction required" — a false
+  instruction to correct a correctly-stamped product, delivered on every pass.
+
+**So a future change owes three things together**, and they are one change
+because none of them is useful alone: a surface for `record_metric_attestation`,
+a persisted graduation marker on the launch, and the graduation ask itself — the
+five-posture approving choice, and carrying a refused catalog stamp back to the
+decider. The posture choice cannot be defaulted: `launch-instance` requires the
+approver to name it, because the system never chooses one.
+
+Note also that `InventoryOverride` is one of the five postures and
+`shared-vocabulary` marks it temporary — "a state a product must eventually
+leave" — with nothing in the launch process to leave it. Whether the graduation
+ask should offer it is an open question for that change, not a settled one.
+
+**Recorded in**: `advance-gates-and-confirm-in-slack`'s `design.md` (Non-Goals
+and Risks) and `proposal.md` (Impact). Found by `openspec-change-reviewer`
+during that change's spec review, 2026-08-28.
+
+### `LaunchRepository.save` overwrites the whole aggregate, with no optimistic concurrency
+
+`_update` sets `playbook_version`, `current_gate` and `launch_date` from the
+in-memory aggregate unconditionally, then `DELETE`s and re-inserts every row of
+all three child tables. There is no version column, no `WHERE` on prior state,
+and no lock: whichever writer commits last wins the entire launch record.
+
+Two writers already exist and neither takes a lock. `record_step_outcome` has
+four call sites — the ClickUp webhook, the ClickUp sync job (`*/10`), the
+automation pass (`*/15`) and the automation confirmation handler — each of which
+loads a launch, mutates it and saves the whole of it back. Today the visible cost
+is bounded: they mostly touch different steps, `current_gate` never moves, so a
+clobber loses at worst a concurrently-recorded step outcome that the next
+reconciliation pass re-records.
+
+**`advance-gates-and-confirm-in-slack` sharpens it**, because that change is what
+makes `current_gate` move. A recording path that loaded a launch before a gate
+crossing and saves after it writes the stale gate back — a launch going
+*backwards* through a sequence `launch-instance` requires to be monotonic, and a
+later pass re-crossing the gate and re-emitting `GateOpened` into the journal.
+
+That change accepts the window rather than closing it, and says why in its
+`design.md` Decision 11: the window is milliseconds wide, the next pass re-crosses
+within five minutes so it self-heals, and no gate in its scope has an external
+effect when re-crossed — `graduated`, the one that stamps the catalog, is
+excluded from it. Extending its advisory lock to the four recording sites would
+mean touching every one of them, which is precisely what that change's Decision 1
+exists to avoid.
+
+**The right fix belongs to the repository, not to a caller**: a version column
+checked on write, or a narrowed update that writes only what the command changed
+instead of the whole aggregate. It wants doing before the deferred graduation
+work lands, because `graduated` *does* have an external effect when re-crossed —
+it stamps the catalog product's lifecycle stage — so the self-healing argument
+that makes the window acceptable today expires exactly when that change ships.
+
+Related: *Repositories commit their own writes, so a caller cannot own a
+transaction*, above, is the same object's other structural defect, and both would
+sensibly be fixed together.
+
+**Recorded in**: `advance-gates-and-confirm-in-slack`'s `design.md` (Decision 11).
+Found by `openspec-change-reviewer` during that change's spec review and
+confirmed against `launch_repository.py`, 2026-08-28.
+
 ### Small cleanups, not worth a change each
 
 Verified present at the time of writing; suitable for one chore commit.
