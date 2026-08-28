@@ -291,6 +291,60 @@ classify — a real listing rather than a placeholder. Read the pass's result
 then: a pending result carrying a node path, its demands and a rejected
 alternative closes it.
 
+### The integration tier's local setup is per-clone, and fails open
+
+Three related gaps, all with one cause: the tier's database resolver does
+something other than what the person running it assumes, and says nothing.
+
+`tests/integration/conftest.py` resolves `DATABASE_URL`, then `.env.test`, then
+`.env`. If none resolves it **skips**, and `pre-push` reports
+`pytest (integration)... Passed` for a tier that never ran. Surveyed on
+2026-08-28:
+
+| Clone | `.env.test` names | |
+| --- | --- | --- |
+| `commerce-ops` | `commerce_ops_test` | shares a database |
+| `commerce-ops-launch-pages` | `commerce_ops_test` | shares the same one |
+| `commerce-ops-launch-journal` | `commerce_ops_launch_journal_test` | its own |
+| `commerce-ops-automated-step` | *none* | skips silently |
+| `commerce-ops-product-dossier` | *none* | skips silently |
+
+**The skip is configurable and deliberately left alone.**
+`COMMERCE_OPS_REQUIRE_DATABASE=1` turns it into a failure; CI sets it and
+`pre-push` does not, because the flag fires only when *no* URL resolves, so
+setting it would change behaviour for one population alone — a contributor with
+no local Postgres, "the one least able to act on the failure". That argument is
+sound for a project with contributors. It does not describe this one: the
+database runs continuously, and the two clones above are not a contributor
+without Postgres but a worktree nobody wrote a file into. Reversing the decision
+for this repository is a judgement, which is why it is deferred here rather than
+edited into the hook.
+
+**A shared test database is not safe for concurrent runs.** The tier writes
+freely and `test_scheduled_runs_freshness_cache.py` issues an unscoped
+`DELETE FROM known_work`. Two clones pointing at `commerce_ops_test` while two
+sessions push at once produce failures that read as defects and are not.
+`commerce-ops-launch-journal` already holds the shape worth standardising — one
+database per worktree on the same container, which costs a `CREATE DATABASE` and
+an `alembic upgrade head`, no second container and no second port.
+
+**Rung 3 can reach the working database.** `commerce-ops/.env` names
+`commerce_ops` — the database carrying 1880 launch positions — and is shadowed
+only by that clone's `.env.test`. Delete or rename one file and the tier falls
+through to it and runs that unscoped delete against real data, green. Nothing in
+the resolver refuses a URL naming the database the developer works in, though
+`.env.test` exists precisely to "keep the tier out of" it.
+
+**Recorded in**: `2026-08-25-verify-the-integration-tier`'s `design.md` — *A
+required-tier flag turns a skip into a failure — in CI only*, which argues the
+`pre-push` decision and the rung order. The survey above and the rung-3 hazard
+are recorded here first.
+
+**Trigger to close.** Any of the three moving: `pre-push` setting the flag, a
+per-worktree database convention with a script that creates and migrates one,
+or the resolver refusing a URL that names the working database. The last is the
+one worth doing whether or not the others are.
+
 ### Small cleanups, not worth a change each
 
 Verified present at the time of writing; suitable for one chore commit.
