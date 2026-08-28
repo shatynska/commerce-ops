@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
+from typing import Any
 
 from fastapi import FastAPI
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,6 +20,10 @@ from commerce_ops.catalog.application import register_product
 from commerce_ops.catalog.domain.product import Product
 from commerce_ops.catalog.infrastructure.driven.product_repository import (
     CatalogProductRepository,
+)
+from commerce_ops.launch.application import read_launch_journal
+from commerce_ops.launch.infrastructure.driven.launch_journal_repository import (
+    LaunchJournalRepository,
 )
 from commerce_ops.launch.infrastructure.driving import (
     automation_confirmation as launch_automation_confirmation,
@@ -170,6 +175,28 @@ class _RequestScopedCatalog:
         async with session() as db_session:
             return await CatalogProductRepository(db_session).get_by_id(product_id)
 
+
+async def _read_launch_journal(*, product_id: ProductId, scope: Any) -> Any:
+    """One launch's journal, on its own session, with the store bound.
+
+    The page holds a *read* and never a store, so it cannot append even
+    by accident and `launch.infrastructure` never sees which repository
+    answers -- the arrangement `catalog` already takes here. That is a
+    stronger guarantee than a read-only wrapper would give, and it needs
+    no wrapper: `LaunchJournal` requires `append` and `rollback` because
+    the write path uses them, and only the composition root has to
+    satisfy the whole port.
+
+    The use case applies the caller's scope, which is why it is passed
+    rather than assumed.
+    """
+    async with session() as db:
+        return await read_launch_journal(
+            LaunchJournalRepository(db), product_id=product_id, scope=scope
+        )
+
+
+launch_tracking_admin.read_journal = _read_launch_journal
 
 launch_tracking_admin.catalog = _RequestScopedCatalog()
 launch_product_dossier.catalog = _RequestScopedCatalog()

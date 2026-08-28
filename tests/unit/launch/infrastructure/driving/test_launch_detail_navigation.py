@@ -482,6 +482,7 @@ _SEAMS: Final[dict[str, tuple[str, ...]]] = {
     "roster": ("roster", "people", "roster_store", "read_roster"),
     "list_products": ("list_products", "products", "catalog_products"),
     "get_product_by_id": ("get_product_by_id", "product_by_id", "get_product"),
+    "read_journal": ("read_journal", "journal", "journal_entries"),
 }
 
 
@@ -547,6 +548,15 @@ def _world(monkeypatch: pytest.MonkeyPatch) -> _World:
     catalog = _Catalog(product)
     _install(monkeypatch, module, "list_products", catalog.list_products)
     _install(monkeypatch, module, "get_product_by_id", catalog.get_product_by_id)
+
+    # Stubbed empty, so the surface stays hermetic. `read_journal` was
+    # `None` when this file was written and reached nothing; it is wired
+    # to a real store now, so a detail page rendered without this reaches
+    # for a database.
+    async def _no_journal(*_args: Any, **_kwargs: Any) -> tuple[Any, ...]:
+        return ()
+
+    _install(monkeypatch, module, "read_journal", _no_journal)
     _render_on(monkeypatch, module, RENDER_DATE)
 
     assets = _assets_module()

@@ -132,9 +132,12 @@ playbooks: Any = None
 # the composition root can build the store the reads run against.
 roster: Any = None
 catalog: Any = None
-# Injected once `add-launch-journal` lands; until then the detail page
-# renders the empty-journal statement, which is also what a launch that
-# predates the journal will show for ever.
+# The journal *read*, injected by `main.py` after the app is built: a
+# callable taking the product and the caller's scope and answering that
+# launch's entries. Absent injection the page renders the empty-journal
+# statement, which is also what a launch predating the journal shows for
+# ever -- and what the read itself answers for a scope that does not
+# permit the product, deliberately indistinguishable from both.
 read_journal: Any = None
 admin_sessions: Any = None
 
@@ -444,7 +447,30 @@ def _gate_of(report: Any, line: StepLine) -> str:
     return ""
 
 
-def _detail_for(report: Any, product: Any) -> LaunchDetail:
+def _journal_lines(entries: Any) -> tuple[JournalLine, ...]:
+    """The journal as the page renders it, in the order the read gave it.
+
+    R5 requires the journal to render newest first, and puts that on the
+    render rather than on the read: the page sorts by the moment each
+    entry names instead of trusting the order it was handed. The store's
+    read already answers that way, so this is normally a no-op -- but the
+    obligation is the page's, and a page that only looks right because
+    its collaborator happened to be ordered is not meeting it.
+
+    Composes nothing: `what` and `cause` are worded at read time, and
+    carrying them across unchanged is what R5 requires each entry to name.
+    """
+    lines = [
+        JournalLine(what=entry.what, when=entry.when, cause=entry.cause)
+        for entry in entries or ()
+    ]
+    lines.sort(key=lambda line: line.when, reverse=True)
+    return tuple(lines)
+
+
+def _detail_for(
+    report: Any, product: Any, journal: tuple[JournalLine, ...] = ()
+) -> LaunchDetail:
     product_id = str(report.product_id.value)
     label, resolved = _label_for(product, product_id)
     gates = _gates_for(report)
@@ -456,8 +482,12 @@ def _detail_for(report: Any, product: Any) -> LaunchDetail:
         launch_date=report.launch_date,
         gates=gates,
         served_any=any(group.steps for group in gates),
-        journal=(),
-        journal_available=False,
+        journal=journal,
+        # Whether the store answered, not whether it answered anything. An
+        # empty journal is a fact about the launch; an absent store is a
+        # fact about the deployment, and the page must not present the
+        # second as the first.
+        journal_available=read_journal is not None,
     )
 
 
@@ -492,6 +522,26 @@ async def _playbook_port() -> Any:
 
 async def _scope_for(principal: str) -> Any:
     return await resolve_scope(roster, identity=principal)
+
+
+async def _journal_for(product_id: ProductId, scope: Any) -> tuple[JournalLine, ...]:
+    """The launch's journal, or nothing where the read is not wired.
+
+    `read_journal` is the read itself, bound to its store by the
+    composition root — not the store. The page asks for one launch's
+    entries under a scope and does not know what answers, the same shape
+    `list_products` and `get_product_by_id` take here.
+
+    **A failure is not swallowed.** The empty-journal statement this page
+    renders is a claim about the launch — that nothing is recorded — and
+    a read that raised has established no such thing. Turning an
+    unreadable journal into that sentence would put a false statement on
+    the page and hide the fault behind it, which is the substitution
+    `launch-step-automation` refuses elsewhere for the same reason.
+    """
+    if read_journal is None:
+        return ()
+    return _journal_lines(await read_journal(product_id=product_id, scope=scope))
 
 
 async def _products_by_id(scope: Any) -> tuple[dict[str, Any], bool]:
@@ -608,7 +658,11 @@ async def launch_detail(request: Request, product_id: str) -> HTMLResponse:
     except Exception:  # noqa: BLE001 — an unnameable product still renders
         product = None
 
+    journal = await _journal_for(identifier, scope)
+
     template = _TEMPLATES.get_template("launch.html")
     return HTMLResponse(
-        template.render(page_path=PAGE_PATH, launch=_detail_for(report, product))
+        template.render(
+            page_path=PAGE_PATH, launch=_detail_for(report, product, journal)
+        )
     )

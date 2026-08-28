@@ -84,10 +84,11 @@ catch:
   displayed" is read here, which is the same line
   `test_playbook_admin_presentation_vocabulary.py` drew for the same
   vocabulary.
-- The **journal** region, which the delta's region list excludes:
-  `read_journal` is `None` until `add-launch-journal` lands, so no entry
-  renders and there is nothing to style. What is asserted below is that
-  the empty-journal statement is still rendered and not hidden.
+- The **journal** region, which the delta's region list excludes. It was
+  written when `read_journal` was `None` and no entry could render;
+  `add-launch-journal` has since landed and the read is wired, so the
+  harness stubs it to answer emptily. What is asserted below is unchanged
+  — that the empty-journal statement is still rendered and not hidden.
 
 ## Expected first-run state
 
@@ -706,6 +707,7 @@ _SEAMS: Final[dict[str, tuple[str, ...]]] = {
     "roster": ("roster", "people", "roster_store", "read_roster"),
     "list_products": ("list_products", "products", "catalog_products"),
     "get_product_by_id": ("get_product_by_id", "product_by_id", "get_product"),
+    "read_journal": ("read_journal", "journal", "journal_entries"),
 }
 _PLAYBOOK_ROSTER_SEAMS: Final = ("roster", "read_roster", "people", "roster_reader")
 _PRODUCT_RETAINED_SEAMS: Final = (
@@ -830,6 +832,15 @@ def _world(monkeypatch: pytest.MonkeyPatch) -> _World:
     _install(monkeypatch, module, "roster", _roster_store())
     _install(monkeypatch, module, "list_products", catalog.list_products)
     _install(monkeypatch, module, "get_product_by_id", catalog.get_product_by_id)
+
+    # Stubbed empty, so the surface stays hermetic: the read is bound to a
+    # real store by the composition root, and a page rendered without this
+    # would reach for a database. What this file asserts about the journal
+    # is that the empty statement renders, which is what this produces.
+    async def _no_journal(*_args: Any, **_kwargs: Any) -> tuple[Any, ...]:
+        return ()
+
+    _install(monkeypatch, module, "read_journal", _no_journal)
     _render_on(monkeypatch, module, RENDER_DATE)
 
     monkeypatch.setattr(playbook_module, "steps", _seeded_steps())
