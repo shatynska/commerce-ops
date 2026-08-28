@@ -140,15 +140,22 @@ def test_exactly_the_declared_pieces_of_recurring_work_are_scheduled() -> None:
     cadence is scheduled and the other four are not. Asserted as an exact
     count as well as by name, so that scheduling some *other* recurring
     work without a spec to declare it also fails here.
+
+    The fifth member is `advance-gates-and-confirm-in-slack`'s
+    gate-progression pass, declared by `launch-gate-progression`'s *A
+    recurring pass advances every launch whose gate may open*. It is added
+    here by name as well as to the count, because a bare count is what this
+    test exists not to be.
     """
     registered = _registered_periodics()
 
     names = [entry.task.name.lower() for entry in registered]
-    assert len(registered) == 4, (
-        "expected exactly four scheduled pieces of recurring work -- the "
+    assert len(registered) == 5, (
+        "expected exactly five scheduled pieces of recurring work -- the "
         "daily cadence, `report-overdue-scheduled-runs`' hourly overdue "
-        "check, `add-clickup-completion-loop`' ClickUp completion pass, and "
-        "`introduce-automation-runtime`' step-automation resolution pass "
+        "check, `add-clickup-completion-loop`' ClickUp completion pass, "
+        "`introduce-automation-runtime`' step-automation resolution pass, "
+        "and `advance-gates-and-confirm-in-slack`' gate-progression pass "
         f"-- got {names}"
     )
     assert any("daily" in name for name in names), (
@@ -162,6 +169,9 @@ def test_exactly_the_declared_pieces_of_recurring_work_are_scheduled() -> None:
     )
     assert any("clickup" in name for name in names), (
         f"the ClickUp completion pass is not among the scheduled work: {names}"
+    )
+    assert any("gate" in name for name in names), (
+        f"the gate-progression pass is not among the scheduled work: {names}"
     )
 
 

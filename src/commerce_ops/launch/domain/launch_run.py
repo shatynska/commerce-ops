@@ -444,7 +444,7 @@ class Launch:
                 f"product '{self.product_id.value}' has already graduated"
             )
 
-        unsatisfied = self._unsatisfied_conditions(playbook)
+        unsatisfied = self.unsatisfied_conditions(playbook)
         if unsatisfied:
             raise GateBlockedError(
                 GateBlocked(
@@ -590,9 +590,24 @@ class Launch:
             for condition in gate.metric_conditions
         )
 
-    def _unsatisfied_conditions(self, playbook: LaunchPlaybook) -> list[str]:
+    def unsatisfied_conditions(self, playbook: LaunchPlaybook) -> list[str]:
         """Names of the current gate's unsatisfied conditions, the missing
-        approval included — empty exactly when the gate may open."""
+        approval included — empty exactly when the gate may open.
+
+        Public, and `advance-gates-and-confirm-in-slack` is the only reason
+        it is: a pass that advances launches must be able to ask whether a
+        gate may open *before* commanding the advance, because a refused
+        advance is journaled and a pass that commanded blindly would bury
+        the launch journal under its own refusals.
+
+        Deliberately the same computation `advance_gate` decides on, rather
+        than a second one alongside it. Two computations of "may this gate
+        open" are two things to keep in agreement, and the one place they
+        could disagree is the one place it matters.
+
+        A read: it inspects nothing a caller could not already reach
+        through the recorded outcomes, attestations and approvals, and it
+        changes nothing."""
         unsatisfied = self._unsatisfied_gate_conditions(playbook)
 
         if self._requires_confirmation(playbook):
@@ -606,7 +621,7 @@ class Launch:
     def _unsatisfied_gate_conditions(self, playbook: LaunchPlaybook) -> list[str]:
         """The same names, approval excluded — the gate's own conditions.
 
-        Separate from `_unsatisfied_conditions` because
+        Separate from `unsatisfied_conditions` because
         `awaiting_confirmation` asks precisely the question this answers:
         is everything *except* the human decision already satisfied?
         """

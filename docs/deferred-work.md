@@ -420,7 +420,7 @@ later pass re-crossing the gate and re-emitting `GateOpened` into the journal.
 
 That change accepts the window rather than closing it, and says why in its
 `design.md` Decision 11: the window is milliseconds wide, the next pass re-crosses
-within five minutes so it self-heals, and no gate in its scope has an external
+within ten minutes so it self-heals, and no gate in its scope has an external
 effect when re-crossed — `graduated`, the one that stamps the catalog, is
 excluded from it. Extending its advisory lock to the four recording sites would
 mean touching every one of them, which is precisely what that change's Decision 1

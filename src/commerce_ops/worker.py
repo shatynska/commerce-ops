@@ -50,7 +50,11 @@ from commerce_ops.launch.infrastructure.driven.playbook_repository import (
     PlaybookRepository,
     ServedPlaybooks,
 )
-from commerce_ops.launch.infrastructure.driving import automation_pass, clickup_sync_job
+from commerce_ops.launch.infrastructure.driving import (
+    automation_pass,
+    clickup_sync_job,
+    gate_confirmation,
+)
 from commerce_ops.registrations import register_all
 from commerce_ops.shared.infrastructure.driven.database import session
 from commerce_ops.shared.infrastructure.driving import overdue_check
@@ -107,6 +111,13 @@ clickup_sync_job.read_product = _read_catalog_product
 # ClickUp pass's: `launch` may not import catalog's store, and only this
 # module sits outside `.importlinter`'s containers.
 automation_pass.read_product = _read_catalog_product
+
+# The gate-progression pass asks about a gate by naming the product, so the
+# ask adapter needs the same catalog reader for the same reason: `launch`
+# may not import catalog's store, and only this module sits outside
+# `.importlinter`'s containers. Without it the ask still goes out, naming
+# the launch by identifier.
+gate_confirmation.read_product = _read_catalog_product
 
 
 class _RosterReader:
