@@ -1,0 +1,313 @@
+"""Driving adapter: the recurring pass that advances launch gates.
+
+Implements `launch-gate-progression`'s *A recurring pass advances every
+launch whose gate may open*, *The pass stands down while the playbook
+cannot hold a launch*, *One launch's failure does not stop the other
+launches being advanced*, *A gate awaiting only confirmation is asked
+about in Slack* and *A gate is asked about at most once a day*.
+
+Its own job rather than a rider on `automation_pass`: `scheduled-jobs`
+records only whether a run succeeded, so sharing one would make a
+gate-progression failure fail the automation run and leave neither run
+record saying which concern broke.
+
+The shape is `clickup_sync_job.py`'s, deliberately and in both halves --
+the stand-down as well as the containment. Readiness is established once,
+above the walk; a per-launch failure is contained, reported as it happens
+and named again in the aggregate that fails the run; a cancellation is
+left to propagate.
+
+**The lock is taken here, not in the use case.** `transaction()` is shared
+*infrastructure*, and no module's `application/` layer imports it. So this
+adapter opens the transaction and takes the product's advisory lock around
+`progress_launch`, and `gate_confirmation.py` does the same on the decision
+path. Between them that is what makes a gate crossing happen once.
+
+**The ask is posted outside the lock.** A delivery that hangs must never
+hold a launch against the decision path.
+"""
+
+from __future__ import annotations
+
+import datetime
+import logging
+from typing import Any
+
+from commerce_ops.launch.application import progress_launch
+from commerce_ops.launch.domain.launch_playbook import (
+    GATE_SEQUENCE,
+    PlaybookNotReadyError,
+)
+from commerce_ops.launch.infrastructure.driven.gate_ask_suppression import (
+    GateAskSuppressionRepository,
+)
+from commerce_ops.launch.infrastructure.driven.launch_advisory_lock import (
+    hold_launch_advance_lock,
+)
+from commerce_ops.launch.infrastructure.driven.launch_journal_repository import (
+    LaunchJournalRepository,
+)
+from commerce_ops.launch.infrastructure.driven.launch_repository import LaunchRepository
+from commerce_ops.launch.infrastructure.driven.playbook_repository import (
+    PlaybookRepository,
+)
+from commerce_ops.launch.infrastructure.driving.gate_confirmation import post_gate_ask
+from commerce_ops.shared.domain.identity import ProductId
+from commerce_ops.shared.infrastructure.driven.database import session, transaction
+from commerce_ops.shared.infrastructure.driven.recurring_work import register_scheduled
+
+__all__ = [
+    "ASK_COOL_OFF",
+    "PROGRESSION_SCHEDULE",
+    "PROGRESSION_TOLERANCE",
+    "TASK_NAME",
+    "GateAskSuppressionRepository",
+    "LaunchRepository",
+    "PlaybookRepository",
+    "gate_progression_pass",
+    "post_gate_ask",
+    "progress_launch",
+    "run_gate_progression_pass",
+    "session",
+    "transaction",
+]
+
+_logger = logging.getLogger(__name__)
+
+TASK_NAME = "launch.gates.progression_pass"
+
+_FINAL_GATE = GATE_SEQUENCE[-1]
+
+# Matching the ClickUp pass rather than beating it. `*/5` was the design's
+# first answer -- this is the cheapest pass in the system, and the interval
+# is what a person waits between a gate becoming ready and being asked about
+# it -- and `scheduled-jobs`' longest-gap computation refuses it: it walks
+# every occurrence over a 400-day horizon and caps that walk at 60,000, which
+# `*/5` exceeds (115,200) and `*/10` does not (57,600). The horizon is
+# load-bearing, so the schedule is what moves. Ten minutes is still the
+# fastest anything in this deployment runs.
+PROGRESSION_SCHEDULE = "*/10 * * * *"
+
+# `scheduled-jobs` requires a tolerance exceeding the longest gap between
+# consecutive runs; ten minutes here. Set far above that, and above the
+# worker's own liveness tolerance, so an absent worker becomes visible
+# before the work it failed to run does -- a merely delayed run must never
+# be reported overdue.
+PROGRESSION_TOLERANCE = datetime.timedelta(hours=6)
+
+# How long an ask stands before the same gate is put to a person again.
+# A module constant, never configuration: there is no per-deployment answer
+# to how often a person should be asked the same question, and a configured
+# value would owe the four obligations `AGENTS.md` places on every runtime
+# variable. The reasoning `automation_pass.COOL_OFF` records, for the same
+# shape of question.
+ASK_COOL_OFF = datetime.timedelta(hours=24)
+
+
+class GateProgressionPassError(RuntimeError):
+    """One or more launches could not be advanced, so the run failed.
+
+    Raised once, after the walk, naming every launch that failed rather
+    than only the first: containment governs which launches are attempted,
+    never whether a fault is visible.
+    """
+
+
+def _pass_failure(failed: list[str]) -> GateProgressionPassError:
+    return GateProgressionPassError(
+        "the gate-progression pass could not advance "
+        f"{len(failed)} launch(es): {', '.join(failed)}"
+    )
+
+
+async def _restore_after_store_fault(db_session: Any) -> None:
+    """Put a shared store back where the next launch's writes can record.
+
+    A failure of the restore itself is deliberately not caught here; the
+    caller chains it to the aggregate, because continuing against a store
+    that cannot record is worse than not continuing.
+    """
+    if db_session is None:
+        return
+    rollback = getattr(db_session, "rollback", None)
+    if rollback is None:
+        return
+    await rollback()
+
+
+async def _advance_one(
+    *,
+    product_id: ProductId,
+    playbook: Any,
+) -> Any:
+    """One launch's cascade, under its own transaction and advisory lock.
+
+    Its own transaction per launch, not one for the walk: a launch whose
+    cascade fails must leave the launches already advanced standing, and a
+    single transaction over the walk would discard them all.
+    """
+    async with transaction() as db_session:
+        await hold_launch_advance_lock(db_session, product_id)
+        return await progress_launch(
+            launches=LaunchRepository(db_session),
+            playbook=playbook,
+            product_id=product_id,
+            journal=LaunchJournalRepository(db_session),
+        )
+
+
+def _awaiting_gate(progressed: Any) -> str | None:
+    """The gate the cascade reported the launch waiting on, if any."""
+    if not getattr(progressed, "awaiting_confirmation", False):
+        return None
+    for name in ("awaiting_gate", "gate_id", "current_gate"):
+        gate = getattr(progressed, name, None)
+        if isinstance(gate, str) and gate:
+            # The final gate is never asked about. `list_active` already
+            # keeps such a launch out of the walk, and this keeps it out of
+            # the ask as well -- the exclusion is a property of the
+            # capability, not of which launches the pass happens to be
+            # handed.
+            return None if gate == _FINAL_GATE else gate
+    return None
+
+
+async def _ask_if_owed(
+    *,
+    product_id: ProductId,
+    gate_id: str,
+    db_session: Any,
+    now: datetime.datetime,
+) -> None:
+    """Post the ask unless this gate has been put to someone within the day.
+
+    Outside the advance lock, by construction: the caller has left the
+    transaction that held it before this is reached.
+
+    A failed delivery is reported and leaves the gate eligible for the next
+    pass, and does **not** fail the run. A Slack outage is not a fault of
+    the advancing this pass exists to do, and failing the run for it would
+    put the deployment into retry and overdue reporting for every pass the
+    outage lasts.
+    """
+    suppression = GateAskSuppressionRepository(db_session)
+    if await suppression.is_suppressed(
+        product_id, gate_id, now=now, cool_off=ASK_COOL_OFF
+    ):
+        return
+    try:
+        await post_gate_ask(product_id=product_id, gate_id=gate_id)
+    except Exception:
+        _logger.warning(
+            "gate progression: the confirmation ask for gate '%s' on product "
+            "%s could not be delivered; nothing is recorded, so the gate "
+            "stays eligible and the ask is attempted again on the next pass",
+            gate_id,
+            product_id.value,
+            exc_info=True,
+        )
+        return
+    # Recorded only after the delivery succeeded. Recording first and then
+    # failing to deliver would silence the gate for a day with nobody having
+    # been asked -- the mistake `field_gap_suppression` documents for its
+    # own row.
+    await suppression.record_delivery(product_id, gate_id, now)
+
+
+async def run_gate_progression_pass(now: datetime.datetime | None = None) -> None:
+    """Advance every launch whose gate may open, and ask about those that
+    await only a human decision.
+
+    The pass body, separate from the registration below so that what the
+    scheduler needs (a `timestamp` it supplies) stays out of what the pass
+    is: the clock is an argument here, defaulted rather than reached for,
+    which is what lets the walk be driven at a fixed moment.
+    """
+    now = now or datetime.datetime.now(tz=datetime.UTC)
+
+    async with session() as db_session:
+        # Readiness, established **once, before the walk begins**, rather
+        # than per launch: the served set is a property of the deployment,
+        # identical for every launch in this run.
+        try:
+            playbook = await PlaybookRepository(db_session).get("live")
+        except PlaybookNotReadyError as unready:
+            # An expected stage of a deployment being set up, not an
+            # outage. Recorded as a **succeeded** run: `scheduled-jobs`
+            # records only success or failure, and a failure would put a
+            # working deployment into retry and overdue reporting for
+            # something retrying cannot fix. The accepted cost is that a
+            # stood-down pass refreshes the work's last success, so this
+            # capability raises no signal of its own during a stand-down;
+            # the daily briefing names the unheld gates instead, on every
+            # run while it lasts.
+            _logger.info(
+                "gate-progression pass standing down: the playbook cannot "
+                "hold a launch (gates: %s)",
+                ", ".join(unready.unheld_gates),
+            )
+            return
+
+        launches = LaunchRepository(db_session)
+        # `list_active` already excludes a launch standing at the final
+        # gate, which is what keeps the graduation exclusion true of the
+        # walk as well as of the ask.
+        candidates = [launch.product_id for launch in await launches.list_active()]
+
+        _logger.info(
+            "gate-progression pass starting over %d launch(es)", len(candidates)
+        )
+        failed: list[str] = []
+        for product_id in candidates:
+            try:
+                progressed = await _advance_one(
+                    product_id=product_id, playbook=playbook
+                )
+                gate_id = _awaiting_gate(progressed)
+                if gate_id is not None:
+                    await _ask_if_owed(
+                        product_id=product_id,
+                        gate_id=gate_id,
+                        db_session=db_session,
+                        now=now,
+                    )
+            except Exception:
+                # `Exception`, not a curated list: a fault nobody predicted
+                # is exactly the one that must not starve the launches
+                # behind it. `BaseException` stays uncaught, so a cancelled
+                # worker stops walking rather than booking the cancellation
+                # against a product.
+                failed.append(product_id.value)
+                # Reported here as well as in the aggregate below: the
+                # aggregate is what fails the run, this is what makes the
+                # fault diagnosable, and a walk that failed on three
+                # launches says so three times.
+                _logger.warning(
+                    "gate-progression pass: the launch for product %s could "
+                    "not be advanced; it is left as it stands and the walk "
+                    "continues to the next launch",
+                    product_id.value,
+                    exc_info=True,
+                )
+                try:
+                    await _restore_after_store_fault(db_session)
+                except Exception as unrecoverable:
+                    # The recovery itself failing means the pass can no
+                    # longer reach a state in which the next launch's
+                    # writes could be recorded, so the walk ends and the
+                    # aggregate is chained to the reason it ended.
+                    raise _pass_failure(failed) from unrecoverable
+
+        if failed:
+            raise _pass_failure(failed)
+
+
+@register_scheduled(
+    name=TASK_NAME,
+    schedule=PROGRESSION_SCHEDULE,
+    tolerance=PROGRESSION_TOLERANCE,
+)
+async def gate_progression_pass(timestamp: int) -> None:
+    """The scheduled entry point. `timestamp` is the scheduler's, and the
+    pass has no use for it: the moment it works from is its own."""
+    await run_gate_progression_pass()

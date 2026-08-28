@@ -49,13 +49,18 @@ from commerce_ops.launch.application.ports import (
     Playbooks,
     SteadyStateStamper,
 )
-from commerce_ops.launch.domain.launch_playbook import AnchorPeriod, LaunchPlaybook
+from commerce_ops.launch.domain.launch_playbook import (
+    GATE_SEQUENCE,
+    AnchorPeriod,
+    LaunchPlaybook,
+)
 from commerce_ops.launch.domain.launch_run import (
     GateApproval,
     GateBlockedError,
     GateOpened,
     Launch,
     LaunchDateAtRisk,
+    LaunchError,
     LaunchEvent,
     LaunchGraduated,
     MetricAttestation,
@@ -556,3 +561,153 @@ async def _existing(launches: LaunchStore, product_id: ProductId) -> Launch:
     if launch is None:
         raise LaunchNotFoundError(f"product '{product_id.value}' has no launch record")
     return launch
+
+
+# ---------------------------------------------------------------------------
+# The cascade — `launch-gate-progression`
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class _PinnedPlaybook:
+    """The `Playbooks` port over one already-loaded definition.
+
+    `progress_launch` is handed the served playbook rather than a resolver
+    (`tasks.md` 3.4), so that the readiness the pass established once,
+    before its walk, is the readiness every launch in that walk is judged
+    against. `advance_gate` still wants the port, so the definition is
+    wrapped rather than the port re-plumbed.
+    """
+
+    playbook: LaunchPlaybook
+
+    def get(self, version: str) -> LaunchPlaybook:
+        # The version selects nothing, exactly as the live repository's own
+        # read documents: it is a launch's audit stamp, not a key.
+        return self.playbook
+
+
+@dataclass(frozen=True, slots=True)
+class LaunchProgressed:
+    """What one launch's cascade did, and what it left behind.
+
+    `awaiting_confirmation` and `current_gate` travel together so a caller
+    can decide whether an ask is owed without re-reading the launch — the
+    pass asks that of every launch it walks, and a second read per launch
+    would double the cost of the cheapest thing it does.
+    """
+
+    product_id: ProductId
+    events: tuple[LaunchEvent, ...]
+    current_gate: str
+    awaiting_confirmation: bool
+    crossed: tuple[str, ...]
+
+
+async def _graduation_is_out_of_scope(
+    product_id: ProductId, stage: object, *, confirmed_by: str
+) -> None:
+    """The stamper a caller gets when it supplies none.
+
+    Reaching it would mean the cascade crossed the final gate, which it
+    stops before doing. So this is a guard rather than a behaviour: it
+    fails loudly rather than stamping a catalog product under a change
+    that deliberately carries no graduation.
+    """
+    raise LaunchError(
+        f"the gate-progression cascade attempted to graduate product "
+        f"'{product_id.value}', which it stops short of by construction — "
+        f"see `advance-gates-and-confirm-in-slack` design.md, Decision 8"
+    )
+
+
+async def progress_launch(
+    *,
+    launches: LaunchStore,
+    playbook: LaunchPlaybook,
+    product_id: ProductId,
+    journal: LaunchJournal,
+    stamp_steady_state: SteadyStateStamper | None = None,
+) -> LaunchProgressed:
+    """Advance one launch as far as its recorded state permits.
+
+    Reads the launch itself, by identifier, rather than taking one a caller
+    loaded: the caller holds the product's advisory lock, and a launch
+    loaded before that lock could have been advanced by a decision in the
+    meantime — judging readiness from that copy would command a crossing
+    nobody judged.
+
+    **Asks before it commands.** A refused advance is journaled, and
+    unconditionally so; a cascade that commanded an advance for every
+    launch on every run would bury the launch journal under its own
+    refusals within days. So each iteration asks the launch whether its
+    current gate may open — the same computation `advance_gate` decides on,
+    so the two cannot disagree — and commands only where it says yes.
+
+    **Stops at the final gate.** The walk's launch set already excludes a
+    launch standing there, but a launch can *arrive* there mid-cascade,
+    which no filter applied before the walk can govern. Crossing it is
+    graduation, which this capability does not carry.
+
+    **A gate declining is the stop, not a failure.** The race the ask above
+    knowingly leaves open — a condition regressing between the read and the
+    command — surfaces as `GateBlockedError`. The crossings already made
+    were valid and stand, and the refusal `advance_gate` journaled on its
+    way out is the only record that the condition ever blocked an advance.
+    Any other exception propagates, to be contained by the caller.
+    """
+    playbooks = _PinnedPlaybook(playbook)
+    stamper = stamp_steady_state or _graduation_is_out_of_scope
+    final_gate = GATE_SEQUENCE[-1]
+
+    events: list[LaunchEvent] = []
+    crossed: list[str] = []
+
+    launch = await launches.get_by_product_id(product_id)
+    if launch is None:
+        # A launch deleted between the walk's read and the lock. A no-op
+        # rather than a contained failure: this deployment deletes launches
+        # by hand, and a run failed by one is a run retried and reported
+        # overdue for something already resolved.
+        _logger.info(
+            "gate progression: product %s has no launch record; nothing to advance",
+            product_id.value,
+        )
+        return LaunchProgressed(
+            product_id=product_id,
+            events=(),
+            current_gate="",
+            awaiting_confirmation=False,
+            crossed=(),
+        )
+
+    while True:
+        if launch.current_gate == final_gate:
+            break
+        if launch.unsatisfied_conditions(playbook):
+            break
+        try:
+            events.extend(
+                await advance_gate(
+                    launches=launches,
+                    playbooks=playbooks,
+                    stamp_steady_state=stamper,
+                    product_id=product_id,
+                    journal=journal,
+                )
+            )
+        except GateBlockedError:
+            # The read said the gate could open and the command found it
+            # could not. Everything crossed before this stands, and the
+            # refusal is already journaled.
+            break
+        crossed.append(launch.current_gate)
+        launch = await _existing(launches, product_id)
+
+    return LaunchProgressed(
+        product_id=product_id,
+        events=tuple(events),
+        current_gate=launch.current_gate,
+        awaiting_confirmation=launch.awaiting_confirmation(playbook),
+        crossed=tuple(crossed),
+    )

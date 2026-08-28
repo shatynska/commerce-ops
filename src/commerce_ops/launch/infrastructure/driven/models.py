@@ -536,3 +536,41 @@ class PlaybookStepSet(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
     version: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
+class LaunchGateAskSuppression(Base):
+    """When a launch's gate was last asked about, or last decided against.
+
+    At most one row per (launch, gate). It means "this gate has been put to
+    a person, and the day it was put has not yet elapsed" — the whole of
+    what `launch-gate-progression`'s once-a-day rule reads.
+
+    Two writers, deliberately, where `clickup_field_gap_suppression` has
+    one: a **delivery**, written only after the ask reaches Slack, and a
+    **rejection**, which delivers nothing but must start the day running
+    from the decision rather than from the ask that prompted it. So the
+    column is named for the moment, not for the delivery — a row may
+    record either.
+
+    A table rather than process state, for the reason its predecessor
+    records: a restart must not resume the flood the row exists to
+    prevent.
+
+    Not cascaded from `launch_positions` by choice. A launch deleted by
+    hand — this deployment does that (`delete-test-launches.sql`) — leaves
+    a row that no read can reach, since every read is keyed by a product
+    the walk found; a foreign key would instead make the deletion fail or
+    silently rewrite this table, and neither is worth a row nobody sees.
+    """
+
+    __tablename__ = "launch_gate_ask_suppression"
+    __table_args__ = (
+        CheckConstraint(
+            f"gate_id IN ({_GATE_LIST})",
+            name="ck_launch_gate_ask_suppression_gate_valid",
+        ),
+    )
+
+    product_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    gate_id: Mapped[str] = mapped_column(String, primary_key=True)
+    asked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

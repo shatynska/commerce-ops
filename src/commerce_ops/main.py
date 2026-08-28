@@ -32,6 +32,9 @@ from commerce_ops.launch.infrastructure.driving import (
     clickup_webhook as launch_clickup_webhook,
 )
 from commerce_ops.launch.infrastructure.driving import (
+    gate_confirmation as launch_gate_confirmation,
+)
+from commerce_ops.launch.infrastructure.driving import (
     launch_admin as launch_tracking_admin,
 )
 from commerce_ops.launch.infrastructure.driving import (
@@ -241,6 +244,14 @@ class _RosterReader:
 # Slack identity through the roster. `launch` may not construct access's
 # store, so the root supplies the reader over it.
 launch_automation_confirmation.read_people = _RosterReader()
+
+# The approve/reject controls on a launch gate resolve the deciding Slack
+# identity the same way. Its listeners are registered by importing it.
+#
+# No catalog reader here, deliberately: this process answers decisions, and
+# only the *ask* names the product. The worker composes those, so the reader
+# is injected there.
+launch_gate_confirmation.read_people = _RosterReader()
 
 
 async def _verify_admin_session(*, session_id: str) -> str | None:
