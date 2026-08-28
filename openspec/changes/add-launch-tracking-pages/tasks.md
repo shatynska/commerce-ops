@@ -63,7 +63,7 @@
 
 ## 8. Confirm against the deployment
 
-- [ ] 8.1 After merge and deploy, open `/admin/launches` from a fresh admin link and confirm the launches in play render with their gates, dates and attention marks, ordered by attention.
-- [ ] 8.2 Open a launch from a row — by clicking, not by typing the URL — and confirm the detail page serves, grouped by gate, landing on the current one. Confirm the journal renders newest-first, and that a launch predating the journal shows the empty-journal statement rather than an absent section — the one part of this change integrating with another.
-- [ ] 8.3 Confirm the reveal control shows launches no longer in play, marked and set apart, and that the header reaches the playbook and roster surfaces from both new pages and back.
+- [x] 8.1 After merge and deploy, open `/admin/launches` from a fresh admin link and confirm the launches in play render with their gates, dates and attention marks, ordered by attention.
+- [x] 8.2 Open a launch from a row — by clicking, not by typing the URL — and confirm the detail page serves, grouped by gate, landing on the current one. Confirm the journal renders newest-first, and that a launch predating the journal shows the empty-journal statement rather than an absent section — the one part of this change integrating with another.
+- [x] 8.3 Confirm the reveal control shows launches no longer in play, marked and set apart, and that the header reaches the playbook and roster surfaces from both new pages and back.
 - [ ] 8.4 Re-read `docs/deferred-work.md`'s *The admin stays server-rendered, in this repository*. Decision 2 closes the read-model half of that entry — "no read-model layer exists between the use cases and the templates" stops being true here. Correct or remove that paragraph; the file's own rule is that an entry which no longer holds is worse than no entry.
