@@ -41,6 +41,16 @@
 - [x] 4a.4 Pin the reading in tests written alongside the implementation — `test_launch_admin_last_completed.py`. Note in that file that this reverses the project's usual order, and why.
 - [ ] 4a.5 Before archive, have `openspec-change-reviewer` read this requirement against the capability. It is the one part of this change that skipped the review `AGENTS.md` binds, at the admin's direction; the skip is recorded in `design.md` — Decision 7.
 
+## 4b. The detail page's state treatment (added after review, at the admin's direction)
+
+- [x] 4b.1 Render each step's outcome as a tag and carry its state on the step's own element, so a gate can be read by treatment before it is read by word.
+- [x] 4b.2 Keep "recorded as not started" and "nothing recorded" distinguishable now that the treatment carries part of that distinction — different words, and a filled tag against an outlined one. The capability requires it; the treatment must not erase it.
+- [x] 4b.3 Render the outcome vocabulary's members as words rather than as `NotStarted`-style tokens, falling back to the raw name so a member added later renders instead of vanishing.
+- [x] 4b.4 Lay the step out in three columns — state, the step and what came of it, the fine print — with the middle column able to shrink (`minmax(0, …)`), so a several-sentence automated evidence wraps within a bound instead of widening the page. Never truncate it.
+- [x] 4b.5 Declare every new colour token in all three theme blocks — light `:root`, `prefers-color-scheme: dark`, and `[data-theme="dark"]`. Declaring them in the light block alone leaves them at light values on a dark ground, which is how this shipped to the admin's screen the first time.
+- [x] 4b.6 Remove the row fills after seeing them: the edge and the tag carry the state, and ten filled rows read as a warning rather than as a list. Delete the tint tokens rather than leaving colours nothing reads.
+- [ ] 4b.7 Before archive, have `openspec-change-reviewer` read this requirement too. Like 4a.5, it was added after the change's two review passes at the admin's direction, and its scenarios have no tests derived from the delta ahead of them — the existing detail suite is what currently covers them.
+
 ## 5. Verify against the specification
 
 - [x] 5.1 Run the tests derived from this change's delta spec and confirm each scenario is observed.

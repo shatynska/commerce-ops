@@ -89,6 +89,28 @@
   --mark-risk-ink: #fdeeee;
   --mark-risk-wash: #8c1d1d;
 
+  /* A step's state, as a tag and as the tint of the row carrying it. Graded
+     by what an admin does about it: done needs nothing, in flight needs
+     waiting, stuck needs acting on, and the two quiet states need reading.
+     Each is a dark wash carrying light ink, like every other mark; the row
+     tints are the palest wash of the same hue, so the row reads at a glance
+     without competing with the words on it. */
+  --state-done-ink: #eef7f0;
+  --state-done-wash: #256b3f;
+  --state-done-edge: #7fb494;
+
+  --state-active-ink: #fdf6e6;
+  --state-active-wash: #8a6a1f;
+  --state-active-edge: #cfb173;
+
+  --state-stuck-ink: #fdeeee;
+  --state-stuck-wash: #8c1d1d;
+  --state-stuck-edge: #d99a9a;
+
+  --state-idle-ink: #eef1f5;
+  --state-idle-wash: #5b6875;
+  --state-idle-edge: #b9c2cc;
+
   /* Pico's own scale, tightened: the admin surfaces are dense tables an
      admin scans, not prose. */
   --pico-font-family: var(--font-ui);
@@ -135,6 +157,25 @@
 
     --mark-flag-ink: #f2dfae;
     --mark-flag-wash: #5c4715;
+
+    --mark-risk-ink: #f5a9a9;
+    --mark-risk-wash: #6d2626;
+
+    --state-done-ink: #c9e8d5;
+    --state-done-wash: #1f5233;
+    --state-done-edge: #3f7f5a;
+
+    --state-active-ink: #f2dfae;
+    --state-active-wash: #5c4715;
+    --state-active-edge: #7d6a32;
+
+    --state-stuck-ink: #f5a9a9;
+    --state-stuck-wash: #6d2626;
+    --state-stuck-edge: #7d3a3a;
+
+    --state-idle-ink: #cdd8e6;
+    --state-idle-wash: #38465a;
+    --state-idle-edge: #48566a;
   }
 }
 
@@ -162,6 +203,25 @@
 
   --mark-flag-ink: #f2dfae;
   --mark-flag-wash: #5c4715;
+
+  --mark-risk-ink: #f5a9a9;
+  --mark-risk-wash: #6d2626;
+
+  --state-done-ink: #c9e8d5;
+  --state-done-wash: #1f5233;
+  --state-done-edge: #3f7f5a;
+
+  --state-active-ink: #f2dfae;
+  --state-active-wash: #5c4715;
+  --state-active-edge: #7d6a32;
+
+  --state-stuck-ink: #f5a9a9;
+  --state-stuck-wash: #6d2626;
+  --state-stuck-edge: #7d3a3a;
+
+  --state-idle-ink: #cdd8e6;
+  --state-idle-wash: #38465a;
+  --state-idle-edge: #48566a;
 }
 
 body {
@@ -891,6 +951,10 @@ tr.just-created > td:first-child {
    and the column key stops being a key to anything and is not rendered. This
    is the only breakpoint either surface carries. */
 @media (max-width: 46rem) {
+  .gate-group .step-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .launches .launch-row {
     grid-template-columns: minmax(0, 1fr);
     gap: var(--space-hair);
@@ -986,45 +1050,141 @@ section.finished .empty,
   font-weight: 700;
 }
 
+/* Three columns: the state, the step and what came of it, and the fine
+   print. The middle column is `minmax(0, 1fr)` so it takes the space left
+   over and -- crucially -- may SHRINK: without the `0` minimum a long
+   evidence paragraph would push the grid wider than the page. The third is
+   fixed, so the fine print never wins space from what is being read. */
 .gate-group .step-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
+  display: grid;
+  grid-template-columns: 9rem minmax(0, 1fr) 18rem;
+  align-items: start;
   gap: var(--space-tight) var(--space-snug);
   padding: var(--space-snug) 0;
   border-bottom: 1px solid var(--rule);
 }
 
+.gate-group .step-main,
+.gate-group .step-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-hair) var(--space-tight);
+  min-width: 0;
+}
+
 .gate-group .step-name {
-  flex: 1 1 16rem;
+  flex: 1 1 100%;
   font-weight: 600;
 }
 
-/* The identifier, discipline and provenance recede; the step's name, its due
-   period and its marks stay at reading weight. Receding is a smaller, quieter
-   ink — never `display: none`, and never quieter than the surface's ordinary
-   text, which is what the pages' negative obligation forbids. */
-.gate-group .step-id,
-.gate-group .discipline {
-  color: var(--ink-quiet);
+/* What came of the step, in the step's own column. An automated handler
+   writes several sentences here, so it wraps to its column's width and is
+   never truncated -- a fact this page renders may not be hidden, and an
+   ellipsis on the one field explaining a refusal is exactly that. */
+.gate-group .evidence {
+  flex: 1 1 100%;
+  color: var(--ink);
   font-size: var(--size-small);
-  white-space: nowrap;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+/* The identifier, discipline and due period recede; the step's name, its
+   outcome tag and its marks stay at reading weight. Receding is a smaller,
+   quieter ink — never `display: none`, and never quieter than the surface's
+   ordinary text, which is what the pages' negative obligation forbids. */
+.gate-group .step-id,
+.gate-group .discipline,
+.gate-group .due {
+  color: var(--ink-quiet);
+  font-size: var(--size-fine);
+}
+
+.gate-group .step-id {
+  flex: 1 1 100%;
+  overflow-wrap: anywhere;
 }
 
 .gate-group .step-id {
   font-family: var(--font-mono);
 }
 
-.gate-group .due {
+/* Who recorded it, from where and when -- the reason a recorded outcome can
+   be trusted, kept in the fine column at the fine scale. */
+.gate-group .outcome {
+  flex: 1 1 100%;
   color: var(--ink-quiet);
-  font-size: var(--size-small);
+  font-size: var(--size-fine);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+/* The outcome, as a tag leading its row. Same shape as `.mark` — a tag states
+   something and must not read as a control — and it leads rather than trails
+   so that a column of tags can be run down with one eye. */
+.gate-group .outcome-tag {
+  justify-self: start;
+  padding: 0 var(--space-tight);
+  border-radius: var(--pico-border-radius);
+  background: var(--state-idle-wash);
+  color: var(--state-idle-ink);
+  font-size: var(--size-fine);
+  line-height: 1.6;
+  text-align: center;
   white-space: nowrap;
 }
 
-/* The provenance is the longest fact on the row and the one most often read,
-   so it takes its own line beneath the rest rather than being truncated. */
-.gate-group .outcome {
-  flex: 1 1 100%;
-  color: var(--ink);
-  font-size: var(--size-small);
+/* The row itself carries the state on its left edge only -- no fill. The
+   edge and the tag are enough to scan a gate by, and filling ten rows with
+   colour makes the page read as a warning rather than as a list. Tried
+   filled, and it was too much. */
+.gate-group .step-row {
+  border-left: 3px solid transparent;
+  padding-left: var(--space-snug);
+}
+
+.gate-group .step-row.state-satisfied {
+  border-left-color: var(--state-done-edge);
+}
+
+.gate-group .step-row.state-satisfied .outcome-tag {
+  background: var(--state-done-wash);
+  color: var(--state-done-ink);
+}
+
+.gate-group .step-row.state-inprogress {
+  border-left-color: var(--state-active-edge);
+}
+
+.gate-group .step-row.state-inprogress .outcome-tag {
+  background: var(--state-active-wash);
+  color: var(--state-active-ink);
+}
+
+.gate-group .step-row.state-blocked,
+.gate-group .step-row.state-refused {
+  border-left-color: var(--state-stuck-edge);
+}
+
+.gate-group .step-row.state-blocked .outcome-tag,
+.gate-group .step-row.state-refused .outcome-tag {
+  background: var(--state-stuck-wash);
+  color: var(--state-stuck-ink);
+}
+
+/* Recorded as not started, and never recorded at all, are different facts —
+   the capability requires them to render distinguishably, and with the row
+   fills gone the tag and the edge are what carry that. The first is a
+   recorded outcome: filled grey tag, grey edge. The second is an absence:
+   an outlined tag, and no edge colour at all. They differ in word too. */
+.gate-group .step-row.state-notstarted,
+.gate-group .step-row.state-notapplicable {
+  border-left-color: var(--state-idle-edge);
+}
+
+.gate-group .step-row.state-unrecorded .outcome-tag {
+  border: 1px dashed var(--state-idle-edge);
+  background: transparent;
+  color: var(--ink-quiet);
 }

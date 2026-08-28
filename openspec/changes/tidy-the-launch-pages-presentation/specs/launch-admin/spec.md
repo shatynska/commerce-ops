@@ -289,3 +289,57 @@ differently for it.
 
 - **WHEN** the list is rendered
 - **THEN** the launches enumerated, their order and any active narrowing are what they would be without this column
+
+### Requirement: A step's outcome is rendered as a tag carrying its state
+
+The detail page SHALL render each step's outcome as a tag, and SHALL carry that
+step's state on the element holding the step, so that what has been done on a
+launch is readable by treatment before it is read by word. The states are the
+outcome vocabulary `launch-playbook` owns, plus the distinct state of nothing
+having been recorded at all.
+
+A step recorded as not started and a step with no recorded outcome SHALL remain
+distinguishable, which this capability already requires and which the treatment
+must therefore carry rather than erase: the two SHALL differ in the words they
+render **and** in the treatment their tag receives. A single grey shared by both
+would satisfy neither.
+
+The outcome vocabulary's members are class names — `NotStarted`, `InProgress` —
+and SHALL be rendered as the words an admin uses rather than as those tokens. A
+member the page does not know SHALL render under its own name rather than
+disappearing: an unrecognised outcome is a fact, and a blank where one belongs
+is the failure this surface exists to prevent.
+
+Every fact the page renders about a recorded step — the recorder, the source,
+the recording time and the evidence — SHALL still be rendered. Evidence written
+by an automated handler runs to several sentences, and SHALL be laid out within
+a bounded measure rather than across the page's full width, and SHALL NOT be
+truncated: an ellipsis on the one field explaining why a step was refused
+suppresses exactly the fact a reader came for. Rendering the recording time at
+a coarser precision than it is stored is not suppression, and is permitted.
+
+#### Scenario: An outcome renders as a tag carrying its state
+
+- **WHEN** a launch's detail page renders a step with a recorded outcome
+- **THEN** that outcome is rendered as a tag, and the element holding the step carries that outcome's state
+
+#### Scenario: Unrecorded stays distinguishable from not started
+
+- **WHEN** a detail page renders a step recorded as not started and a step with nothing recorded
+- **THEN** the two render different words
+- **AND** their tags receive different treatment
+
+#### Scenario: An outcome renders as words, not as its token
+
+- **WHEN** a detail page renders a step whose outcome is `NotStarted`
+- **THEN** the rendered outcome reads as words rather than as the vocabulary's token
+
+#### Scenario: An unknown outcome still renders
+
+- **WHEN** a detail page renders a step whose outcome the page has no wording for
+- **THEN** the outcome is rendered under its own name rather than omitted
+
+#### Scenario: Long evidence is bounded, not truncated
+
+- **WHEN** a detail page renders a step whose evidence runs to several sentences
+- **THEN** the whole of that evidence is present in the response

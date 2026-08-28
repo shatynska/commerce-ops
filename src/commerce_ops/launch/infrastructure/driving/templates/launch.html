@@ -11,6 +11,18 @@
   <link rel="stylesheet" href="/admin/assets/vocabulary.css">
 </head>
 <body>
+{# The outcome vocabulary is `launch-playbook`'s, and its members are class
+   names -- `NotStarted`, `InProgress`. Rendered as they come they read as
+   code; this maps them to the words an admin uses, and falls back to the
+   raw name so a member added later renders rather than disappearing. #}
+{% set OUTCOME_LABELS = {
+     "Satisfied": "Satisfied",
+     "NotStarted": "Not started",
+     "InProgress": "In progress",
+     "Blocked": "Blocked",
+     "Refused": "Refused",
+     "NotApplicable": "Not applicable",
+   } %}
 {% with current = "launches" %}{% include "_admin_header.html" %}{% endwith %}
 <main class="container">
   <h1>{{ launch.label }}</h1>
@@ -44,25 +56,50 @@
       {{ group.identifier }}{% if group.current %} — current gate{% endif %}
     </li>
     {% for step in group.steps %}
-    <li class="step-row">
-      <span class="step-name">{{ step.name }}</span>
-      <span class="step-id">{{ step.step_id }}</span>
-      <span class="discipline">{{ step.discipline }}</span>
-      {# Stated only when true: "Does not block" contains the word the
-         mark is read by, so the negative form made the mark
-         unfalsifiable. #}
-      {% if step.blocking %}<span class="mark blocking">Blocks its gate</span>{% endif %}
-      <span class="due">
-        {% if step.due_from or step.due_to %}Due {{ step.due_from }}–{{ step.due_to }}
-        {% else %}No due period{% endif %}
+    {# The step's state drives both its tag and the row's own tint, so what
+       has been done is readable by colour before anything is read by word.
+
+       `unrecorded` is its own state, never folded into `notstarted`: nothing
+       having been recorded and something having been recorded as not started
+       are different facts, and only the second names who said so. The
+       capability requires them to render distinguishably, so they differ in
+       word AND in treatment rather than sharing a grey. #}
+    {% set state = step.outcome|lower if step.recorded else 'unrecorded' %}
+    {# Three columns: what state the step is in, what it is and what came of
+       it, and the fine print. An automated handler's evidence runs to several
+       sentences, so it is given a column with a bound rather than the row's
+       full width -- a paragraph set the width of the page cannot be read.
+
+       The step's identifier sits in the third column and its name in the
+       second, deliberately: the row is the smallest element carrying both, so
+       "the row" stays the line a reader sees. #}
+    <li class="step-row state-{{ state }}">
+      <span class="outcome-tag">{{ OUTCOME_LABELS.get(step.outcome, step.outcome) if step.recorded else 'Unrecorded' }}</span>
+      <span class="step-main">
+        <span class="step-name">{{ step.name }}</span>
+        {# Stated only when true: "Does not block" contains the word the
+           mark is read by, so the negative form made the mark
+           unfalsifiable. #}
+        {% if step.blocking %}<span class="mark blocking">Blocks its gate</span>{% endif %}
+        {% if step.overdue %}<span class="mark overdue">Overdue</span>{% endif %}
+        {% if step.recorded %}<span class="evidence">{{ step.evidence }}</span>{% endif %}
       </span>
-      <span class="outcome">
+      {# Every fact the page rendered before is still rendered, the recorder,
+         the source and the recording time included -- moved into the fine
+         column, never dropped. #}
+      <span class="step-meta">
+        <span class="step-id">{{ step.step_id }}</span>
+        <span class="discipline">{{ step.discipline }}</span>
+        <span class="due">
+          {% if step.due_from or step.due_to %}Due {{ step.due_from }}–{{ step.due_to }}
+          {% else %}No due period{% endif %}
+        </span>
         {% if step.recorded %}
-          {{ step.outcome }} — recorded by {{ step.recorded_by }}
-          ({{ step.source }}) at {{ step.recorded_at }}: {{ step.evidence }}
-        {% else %}Unrecorded{% endif %}
+        <span class="outcome">recorded by {{ step.recorded_by }}
+          ({{ step.source }})
+          at {{ step.recorded_at.strftime('%Y-%m-%d %H:%M') }}</span>
+        {% endif %}
       </span>
-      {% if step.overdue %}<span class="mark overdue">Overdue</span>{% endif %}
     </li>
     {% endfor %}
   </ul>
