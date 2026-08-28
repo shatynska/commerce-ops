@@ -151,8 +151,10 @@ per absent mark. The admin asked for columns: a list of twenty launches is
 scanned by comparing one fact down the page, not by reading any row end to end.
 
 The objection was answerable rather than right. The marks now share **one**
-cell, so a row is always exactly five columns however many marks it carries,
-and the placeholder problem disappears.
+cell, so a row is always exactly as many columns as the header names however
+many marks it carries, and the placeholder problem disappears. That count grew
+from four to five when the last-completed column landed (Decision 7); the
+arithmetic is "one cell per named column, marks included", not a fixed number.
 
 Each row is its **own** grid declaring the same track sizes, rather than the
 list being one grid whose cells are the rows' children. Columns align either
@@ -273,6 +275,65 @@ delta ahead of it (`test_launch_admin_last_completed.py`), which is the reverse
 of this project's order and is why they are in a file of their own rather than
 folded into the derived suites.
 
+### 8. The detail page's state treatment
+
+An admin reading a gate of ten steps could not see what had been done without
+reading every row. Each step now carries its state twice: a tag naming the
+outcome, and a colour on the row's left edge.
+
+*The row fill was tried and removed.* Filling each row with a pale wash of its
+state colour made a gate read as a warning rather than as a list. The edge and
+the tag carry it; the tint tokens are deleted rather than left as colours
+nothing reads.
+
+*Not started and unrecorded must stay apart.* The capability requires it — only
+one of them names who said so. The row fill had been carrying part of that
+distinction, so removing it could have erased a guarantee silently. They now
+differ in word, in marker (`state-notstarted` against `state-unrecorded`) and in
+tag treatment, filled against outlined.
+
+*Three columns, middle one shrinkable.* `minmax(0, 1fr)` — the `0` is the whole
+point. Without it a 325-character evidence paragraph from an automated handler
+pushes the grid wider than the page, which is the defect an admin reported. The
+fine column is fixed so metadata never wins space from what is being read, and
+evidence is never truncated: an ellipsis on the one field explaining a refusal
+suppresses exactly what the reader came for.
+
+*Labels are mapped in the template.* The outcome vocabulary's members are class
+names and read as code. The mapping falls back to the raw name, so a member
+added later renders rather than vanishing — the vocabulary is closed at six
+today, which is exactly why the fallback cannot be exercised through the domain
+and is stated as an obligation on the mapping itself.
+
+*Tokens go in all three theme blocks.* Declared in the light `:root` alone, as
+they first were, they keep light values on a dark ground while Pico correctly
+darkens everything around them. This shipped to the admin's screen once and is
+the shape of mistake worth remembering, not just the instance.
+
+### 9. The way back, and the gate a reader navigated to
+
+The header cannot be the way back **as things stand**: both pages must identify
+the launch surface as the one being viewed, so `Launches` renders as a position
+rather than a link, and the requirement that the header reach *the other*
+surfaces says nothing about the list, which is the same surface. Whether a
+header entry could also link to its own index is a template question; this
+change does not settle it, and takes the control the authoring surfaces already
+use — one riding the title, as `edit.html`'s "Back to the table" does.
+
+The offer returns to the plain list rather than restoring the reader's
+narrowing. Deliberate: an admin leaving a launch is leaving the narrowing that
+found it as often as not, and a control that silently reinstates a filter is
+harder to understand than one that plainly returns.
+
+*The gate distinction is a stylesheet obligation, and had to be restated as
+one.* It was first written as page behaviour — "a detail page opened at a gate
+other than the one the launch stands at" — which describes a request that cannot
+exist: the entry followed is a URL fragment, and fragments never reach a server,
+so the response is identical either way. No scenario over a response could
+observe it. It now binds the served stylesheet, which a response can carry, with
+the visual claim sent to deployment inspection. This is the pattern the change's
+first and third requirements already use twice.
+
 ## Risks / Trade-offs
 
 - **A shared stylesheet edit reaches the playbook and roster surfaces** → Every
@@ -306,10 +367,11 @@ folded into the derived suites.
   where this change is actually judged.
 - **Archive order** → Stated as a task with the reason attached, because the
   failure is silent.
-- **One requirement in this change was never independently reviewed** → The
-  last-completed column, at the admin's explicit direction under time pressure.
-  Its reading is pinned by tests and stated in the delta, but no second pair of
-  eyes has read it against the capability. Worth a look before archive.
+- **Four requirements were added after the change's two review passes** → The
+  last-completed column, the outcome-tag treatment, the way back to the list and
+  the gate distinction, each at the admin's explicit direction under time
+  pressure. A third reviewer pass has since read all four and required changes;
+  those are folded in. What no derived test yet covers is recorded in task 4b.7.
 
 ## Open Questions
 

@@ -55,10 +55,23 @@ they read badly. Three defects were found by looking at them:
   gains styling of its own. The journal region is left alone: `read_journal` is
   `None` until `add-launch-journal` lands, so the detail page renders only the
   empty-journal statement and there is no entry to style or to look at.
-- Nothing about what either page **enumerates, serves, orders or refuses**
-  changes. No fact is removed from the detail page, no row leaves the list, no
-  route or query contract changes beyond the checkbox-to-select substitution
-  above, and both surfaces stay read-only.
+- The list gains a **last-completed** column: the step whose completion was
+  recorded most recently, and when. This is new behaviour rather than
+  presentation — it adds a fact to a row — and the fact comes from the launch
+  report the list already reads, so no further read, port or migration.
+- The detail page renders each step's **outcome as a tag** and carries the
+  step's state on the step's own element, laid out in three columns so an
+  automated handler's several-sentence evidence wraps within a bound instead of
+  setting the row the width of the page.
+- The detail page **offers the way back to the list**, which nothing previously
+  obliged: the header identifies the launch surface as the one being viewed, and
+  the list is that same surface, so no requirement covered it. The gate a reader
+  navigated to is distinguished from the gate the launch stands at.
+- Nothing about what either page **enumerates, orders or refuses** changes. No
+  fact is removed from the detail page, no row leaves the list, no route or
+  query contract changes beyond the checkbox-to-select substitution above, and
+  both surfaces stay read-only. The list's read model gains one field, named
+  above.
 
 ## Capabilities
 
@@ -68,28 +81,36 @@ None.
 
 ### Modified Capabilities
 
-- `launch-admin`: the presentation the surfaces are already required to inherit
-  is given its own requirements — the narrowing presented as one bar of peer
+- `launch-admin`: **seven** requirements. Three were reviewed before
+  implementation and give the presentation the surfaces are already required to
+  inherit its own rules — the narrowing presented as one bar of peer
   controls rather than full-width stacked ones, a row read as a row, and the
   raw product identifier confined to the fallback the capability already scopes
-  it to.
+  it to. Four were added **after** those three had been reviewed, at the admin's
+  direction: the last-completed column, the outcome-tag treatment, the way back
+  to the list, and the distinction between the gate a reader navigated to and
+  the gate a launch stands at.
 
   **This capability has no spec in `openspec/specs/` yet.** It is introduced by
   `add-launch-tracking-pages`, which is merged and deployed but not archived —
   it is itself blocked behind `add-launch-journal`. So this change's delta is
   written as ADDED requirements, and it must not archive before
   `add-launch-tracking-pages` does. Archiving first would create
-  `openspec/specs/launch-admin/spec.md` holding three presentation requirements
-  and none of the capability they presuppose, and `openspec validate` would not
+  `openspec/specs/launch-admin/spec.md` holding this change's requirements and
+  none of the capability they presuppose, and `openspec validate` would not
   object.
 
 ## Impact
 
 - `src/commerce_ops/launch/infrastructure/driving/templates/launches.html` — the
   narrowing bar, the identifier fallback, row markers.
-- `src/commerce_ops/launch/infrastructure/driving/templates/launch.html` — no
-  edit. Its gate groups and step rows already carry the markers the third
-  requirement asks for; what that page gains is rules in the stylesheet.
+- `src/commerce_ops/launch/infrastructure/driving/templates/launch.html` — the
+  step row restructured into three columns, the outcome rendered as a marked
+  tag, the state carried on the step's own element, and the control back to the
+  list.
+- `src/commerce_ops/launch/infrastructure/driving/launch_admin.py` — the list's
+  read model gains the most recently recorded completion, chosen from the report
+  the page already reads.
 - `src/commerce_ops/shared/infrastructure/driving/static/vocabulary.css` — rules
   for the launch surfaces' regions, beside the ones the other surfaces already
   carry. **Five** admin surfaces load this stylesheet — the step list, the
@@ -101,4 +122,5 @@ None.
   `<select>`'s selected option, so the checkbox-to-select substitution is
   absorbed rather than breaking them. What they gain is the tests derived from
   this change's own scenarios.
-- No route, no use case, no read model, no migration, no dependency.
+- No route, no use case, no migration, no dependency. One read-model field, as
+  above.
