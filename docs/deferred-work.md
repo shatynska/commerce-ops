@@ -345,6 +345,64 @@ per-worktree database convention with a script that creates and migrates one,
 or the resolver refusing a URL that names the working database. The last is the
 one worth doing whether or not the others are.
 
+### A step cannot say when it may start, so gate-8 work runs during gate 1
+
+Nothing in the step set governs *when* a step becomes eligible. `blocking`
+says what a gate waits for before opening — an exit condition — and no field
+says what a step waits for before starting.
+
+The two consumers therefore start everything at once, and each has exactly
+one gate check, both of them the same one:
+
+- `automation_pass._walk_launch` returns early only when the launch is at
+  `graduated`; otherwise it invokes **every** `active` automated step's
+  handler, whatever gate that step belongs to.
+- `clickup_sync.py` projects **every** `active` human step into the launch's
+  ClickUp list on the first pass, so a new launch's list opens with all
+  eight gates of work in it.
+
+**Observed in production**, and this is what prompted recording it: a launch
+standing at `commit` had `listing.subcategory_advisor` — a `listable`-gate
+step, gate 3 — re-recorded at 10:00, 10:15 and 10:30, one journal entry per
+automation pass. It runs six gates early, and repeats, because the outcome it
+records is not terminal so each pass proposes it again.
+
+**Marking such a step `blocking` does not help**, and is the natural wrong
+guess. `blocking` feeds `conditions_for_gate`, `_unheld_gates` and
+`date_at_risk` and nothing else; it would add an obligation to `listable`
+while leaving the handler firing exactly as often.
+
+**The shape the work wants**, settled in conversation and recorded here
+because the conversation is not where it will be looked for: two independent
+authored fields on a step rather than one enum —
+
+- `starts_at_gate` — wait until the launch reaches this step's own gate;
+- `after_step` — wait until a named step is satisfied.
+
+Two fields because all four combinations are meaningful, including both at
+once ("once we are in `listable`, and once the photos are approved"). The
+default must be neither, matching today's behaviour, or the migration
+freezes every launch.
+
+It drags in rules a first cut should not skip: cycle detection (`after_step`
+makes the set a graph), a rule for a dependency pointing at a later gate, and
+a rule for one pointing at a non-`active` step. That last must be a
+**write-time** refusal and never a load-time one — a load rule would make
+retiring a step render every stored playbook unloadable, which is the mistake
+`serve-only-a-ready-playbook` was written to undo.
+
+Naming needs care: `blocking` (a gate's exit condition) and the `Blocked`
+step outcome already coexist in `launch.html` twelve lines apart. A third
+sense of "blocked" would make the surface unreadable; prefer *starts when*.
+
+**Unblocked as of `advance-gates-and-confirm-in-slack` (2026-08-28).** It was
+unsafe before that change: gate-released steps against a `current_gate` that
+never advanced would have frozen every launch permanently. Gates move now.
+
+**Recorded in**: `advance-gates-and-confirm-in-slack`'s `proposal.md`
+(Impact) and `design.md` (Non-Goals), now under
+`openspec/changes/archive/2026-08-28-advance-gates-and-confirm-in-slack/`.
+
 ### Graduation cannot be triggered, and the persisted launch cannot say it happened
 
 `advance-gates-and-confirm-in-slack` wires the gate ratchet for the first seven
