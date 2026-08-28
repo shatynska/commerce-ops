@@ -82,6 +82,6 @@
 
 ## 7. Sequencing
 
-- [ ] 7.1 Do not archive this change before `add-launch-tracking-pages` archives. That change introduces `launch-admin`, is merged and deployed but unarchived, and is itself blocked behind `add-launch-journal`. Archiving this one first creates `openspec/specs/launch-admin/spec.md` holding this change's requirements and none of the capability they presuppose, and `openspec validate` will not object.
-- [ ] 7.2 Merge this change unarchived, as `add-launch-tracking-pages` itself did (PR #89). `AGENTS.md` makes the archive the last commit before a merge; that rule cannot be met while the chain ahead is unarchived, and `add-launch-journal` does not yet exist as a change directory at all, so the chain's release is indefinite. Record the exception on the PR rather than leaving the next reader to rediscover it.
+- [x] 7.1 Do not archive this change before `add-launch-tracking-pages` archives. **Gate lifted.** That change archived in #102, which folded its deltas into `openspec/specs/` and gave `launch-admin` a served spec — so this change's ADDED requirements now extend a capability that exists, which is exactly what this task existed to wait for.
+- [x] 7.2 Merge this change unarchived, as `add-launch-tracking-pages` itself did (PR #89). **Done, historically.** The change merged unarchived across #96, #97, #99, #101, #103 and #106, each recording the exception on its own PR, because the chain ahead was unarchived throughout. With #102 that constraint is gone and this change archives normally.
 - [x] 7.3 Confirm no other in-flight change carries a `launch-admin` delta that would be written against this change's wording, the way `add-launch-tracking-pages` checks its neighbours for header deltas.
