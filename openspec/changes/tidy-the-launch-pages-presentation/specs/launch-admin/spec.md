@@ -237,3 +237,55 @@ SHALL be confirmed by direct inspection of the rendered page.
 
 - **WHEN** the served stylesheet is read
 - **THEN** no selector this change adds selects `finished`, `gate`, `launch-date`, `empty` or `current` unqualified
+
+### Requirement: The list names the completion recorded most recently
+
+Each row SHALL name the step on that launch whose completion was recorded
+most recently, and when it was recorded. A launch on which nothing has been
+completed SHALL say so rather than rendering an empty cell: an empty cell reads
+as a fact the page failed to fetch, and at the first gate having completed
+nothing is the ordinary case.
+
+"Most recently" is by **recording time**, not by the playbook's order. The two
+disagree whenever a completion is backfilled — a step finished weeks ago but
+recorded today leads, though later steps are already done — and the recording
+reading is chosen because the column answers what most recently *happened* on a
+launch, not how far along it has got. A list read for "where does this stand"
+is read for recent activity.
+
+Only a `Satisfied` outcome SHALL count. Every outcome is recorded with the same
+provenance, so taking the latest recording of any outcome would let a step
+recorded as blocked read as the launch's latest completion.
+
+Where two completions carry the same recording time, the report's own order
+SHALL break the tie — the authored order `launch-playbook` obliges — so the
+column never orders itself by chance.
+
+This fact comes from the launch report the list already reads. The page issues
+no further read to obtain it, and no launch is enumerated, ordered or narrowed
+differently for it.
+
+#### Scenario: The most recently recorded completion is named
+
+- **WHEN** a listed launch has two completed steps recorded at different times
+- **THEN** its row names the one recorded later, and when it was recorded
+
+#### Scenario: Recording time governs, not playbook order
+
+- **WHEN** a listed launch has a completion recorded today for a step earlier in the playbook than one recorded last week
+- **THEN** its row names the step recorded today
+
+#### Scenario: Only a completion counts
+
+- **WHEN** a listed launch's most recent recording is an outcome other than completion, over an earlier completion
+- **THEN** its row names the earlier completion, not the more recent recording
+
+#### Scenario: A launch with nothing completed says so
+
+- **WHEN** a listed launch has no completed step
+- **THEN** its row states that nothing has been completed, rather than rendering an empty cell
+
+#### Scenario: The column does not change what is listed
+
+- **WHEN** the list is rendered
+- **THEN** the launches enumerated, their order and any active narrowing are what they would be without this column

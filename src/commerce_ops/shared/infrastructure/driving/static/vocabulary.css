@@ -79,6 +79,16 @@
   --mark-flag-ink: #fdf6e6;
   --mark-flag-wash: #8a6a1f;
 
+  /* An at-risk date and a gate awaiting confirmation are the two facts the
+     launch list is ordered by, so they are the two an admin scans for. Graded
+     by urgency in the colours that already mean it: red for the date that is
+     slipping, amber for the gate waiting on someone. Both are dark washes
+     carrying light ink, like every other mark -- a mark states something and
+     must not read as a control, which a pale tinted pill beside a button
+     does. */
+  --mark-risk-ink: #fdeeee;
+  --mark-risk-wash: #8c1d1d;
+
   /* Pico's own scale, tightened: the admin surfaces are dense tables an
      admin scans, not prose. */
   --pico-font-family: var(--font-ui);
@@ -441,8 +451,17 @@ td small {
 }
 
 /*
- * The narrowing bar: the filter and the retired toggle on one line, right
- * aligned, at the smallest scale on the page. Both narrow the same set.
+ * The narrowing bar: the filter and the toggle beside it on one line, right
+ * aligned, at the smallest scale on the page.
+ *
+ * Two consumers now — the step list, whose toggle shows retired steps, and the
+ * launch list, whose toggle reveals launches no longer in play. This block
+ * used to say "both narrow the same set". That is true of the steps page and
+ * false of the launches page, where the reveal control is deliberately NOT a
+ * narrowing: `launch-admin` reads it as a third state, distinct from an empty
+ * enumeration and from a narrowing that matched nothing, and an admin acts
+ * differently on each. What both toggles have in common is narrower than
+ * "narrowing": each governs which set the filter beside it applies within.
  */
 .narrowing-bar {
   display: flex;
@@ -772,4 +791,240 @@ tr.just-created > td:first-child {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   font-family: var(--font-mono, monospace);
+}
+
+/* ---------------------------------------------------------------------------
+ * The launch surfaces: the list's rows, and the detail page's gates and steps
+ *
+ * These pages shipped inheriting a vocabulary that said nothing about them.
+ * Of everything the two render, this file matched only `mark` and
+ * `form.narrowing` — so a row's attention marks were legible and every other
+ * fact on it ran together as one line of prose.
+ *
+ * Every selector here is scoped. Both templates reuse a class name for two
+ * unrelated things — `finished` is the revealed section AND the mark on a
+ * revealed row; `gate` is a row's gate fact AND an entry in the gate sequence;
+ * `launch-date` and `empty` each name two things across the two pages — so an
+ * unscoped rule reaches a fact it was never meant to touch, and quieting a
+ * mark is the one thing this vocabulary may not do.
+ *
+ * `current` is the name that escapes these pages entirely: the gate sequence's
+ * current entry, and the shared header's current surface, which EVERY admin
+ * surface renders. It is only ever written here as `.gate-sequence .current`.
+ * ------------------------------------------------------------------------ */
+
+/* The list reads as a table: four columns, aligned down the page, because an
+   admin scanning twenty launches is comparing one fact across rows rather than
+   reading any row end to end.
+
+   Each row is its own grid rather than the list being one grid of cells. Every
+   row declares the SAME track sizes, so the columns line up regardless -- and
+   the row stays one element that holds every fact about its launch, which the
+   markup exists to guarantee and which `display: contents` on the row would
+   destroy. It is not a `<table>` for the same reason: a table puts the launch's
+   link in a cell, and "the row" becomes that cell rather than the line a reader
+   sees.
+
+   The marks share the fourth cell, so a row is always exactly four columns
+   however many marks it carries. */
+.launches {
+  margin: 0 0 var(--space-loose);
+  padding: 0;
+  list-style: none;
+}
+
+.launches .launch-row,
+.launches .launch-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) 8rem minmax(0, 13rem) 7rem minmax(0, 1fr);
+  align-items: baseline;
+  gap: var(--space-tight) var(--space-snug);
+  padding: var(--space-snug) 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+/* Names the columns. Quiet and small: it is a key to the rows, never a row. */
+.launches .launch-heading {
+  padding-bottom: var(--space-tight);
+  border-bottom: 2px solid var(--rule);
+  color: var(--ink-faint);
+  font-size: var(--size-fine);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.launches .launch-link {
+  font-weight: 600;
+}
+
+.launches .gate,
+.launches .launch-date {
+  color: var(--ink-quiet);
+  font-size: var(--size-small);
+  white-space: nowrap;
+}
+
+/* What last happened, at the quiet weight of a supporting fact: it explains
+   the row rather than identifying it. The stamp beneath is quieter still. */
+.launches .last-completed {
+  color: var(--ink-quiet);
+  font-size: var(--size-small);
+}
+
+.launches .last-completed small {
+  display: block;
+  color: var(--ink-faint);
+  font-size: var(--size-fine);
+}
+
+/* The marks cell. `flex-wrap` so a launch carrying both marks stacks them
+   inside its own cell rather than widening the column for every other row. */
+.launches .marks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-hair);
+}
+
+/* Below the width four columns need, the grid would overflow the viewport
+   sideways -- so the row falls back to the stacked reading, one fact per line,
+   and the column key stops being a key to anything and is not rendered. This
+   is the only breakpoint either surface carries. */
+@media (max-width: 46rem) {
+  .launches .launch-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-hair);
+  }
+
+  .launches .launch-heading {
+    display: none;
+  }
+}
+
+/* An at-risk date reads red, a gate awaiting confirmation amber -- the two
+   bands the list is ordered by, in the colours that already grade them. Scoped
+   to the list: `at-risk` and `awaiting` are this surface's names, and the
+   `overdue` and `blocking` marks on the detail page keep the neutral wash so
+   that a step's facts do not compete with a launch's state.
+
+   Colour only, on marks that are rendered whatever colour they carry. Nothing
+   here hides a mark or renders one quieter than the surface's ordinary text. */
+.launches .mark.at-risk {
+  background: var(--mark-risk-wash);
+  color: var(--mark-risk-ink);
+}
+
+.launches .mark.awaiting {
+  background: var(--mark-flag-wash);
+  color: var(--mark-flag-ink);
+}
+
+/* The revealed set, set apart from the bands rather than merely following
+   them. `section.finished` — never a bare `.finished`, which is also the mark
+   on a revealed row. */
+section.finished {
+  margin-top: var(--space-loose);
+  padding-top: var(--space-snug);
+  border-top: 2px solid var(--rule);
+}
+
+section.finished > h2 {
+  font-size: 1.05rem;
+  color: var(--ink-quiet);
+}
+
+.launches.finished-launches .launch-link {
+  font-weight: 400;
+}
+
+/* An answer the page is giving, not an absence of one. */
+main.container > .empty,
+section.finished .empty,
+.gate-group .empty {
+  color: var(--ink-quiet);
+  font-size: var(--size-small);
+}
+
+/* The gate sequence: the launch's position, holding no step. */
+.gate-sequence {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-tight);
+  margin: 0 0 var(--space-loose);
+  padding: 0;
+  list-style: none;
+}
+
+.gate-sequence .gate {
+  padding: 0 var(--space-tight);
+  border-radius: var(--pico-border-radius);
+  background: var(--field);
+  font-size: var(--size-small);
+}
+
+.gate-sequence .current {
+  background: var(--mark-flag-wash);
+}
+
+.gate-sequence .current > a {
+  color: var(--mark-flag-ink);
+  font-weight: 600;
+}
+
+/* A gate and the steps it holds. */
+.gate-group {
+  margin: 0 0 var(--space-loose);
+  padding: 0;
+  list-style: none;
+}
+
+.gate-group .gate-heading {
+  padding: var(--space-tight) 0;
+  border-bottom: 2px solid var(--rule);
+  color: var(--ink);
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.gate-group .step-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-tight) var(--space-snug);
+  padding: var(--space-snug) 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.gate-group .step-name {
+  flex: 1 1 16rem;
+  font-weight: 600;
+}
+
+/* The identifier, discipline and provenance recede; the step's name, its due
+   period and its marks stay at reading weight. Receding is a smaller, quieter
+   ink — never `display: none`, and never quieter than the surface's ordinary
+   text, which is what the pages' negative obligation forbids. */
+.gate-group .step-id,
+.gate-group .discipline {
+  color: var(--ink-quiet);
+  font-size: var(--size-small);
+  white-space: nowrap;
+}
+
+.gate-group .step-id {
+  font-family: var(--font-mono);
+}
+
+.gate-group .due {
+  color: var(--ink-quiet);
+  font-size: var(--size-small);
+  white-space: nowrap;
+}
+
+/* The provenance is the longest fact on the row and the one most often read,
+   so it takes its own line beneath the rest rather than being truncated. */
+.gate-group .outcome {
+  flex: 1 1 100%;
+  color: var(--ink);
+  font-size: var(--size-small);
 }

@@ -50,7 +50,10 @@ What shapes the approach:
 - No design-token change. The vocabulary's spacing, ink and scale variables are
   used as they stand; nothing here introduces a new one unless a rule genuinely
   has no existing token to reach for.
-- No responsive breakpoint work, no build step, no asset. *The presentation
+- No responsive breakpoint work **beyond the single breakpoint Decision 4
+  requires**: a five-column grid that overflows the viewport sideways on a
+  narrow screen is a defect this change would have introduced, not one it
+  inherited. Nothing else responsive. No build step, no asset. *The presentation
   assets stay behind the admin guard and need no build step* binds this change
   as it binds the vocabulary it extends.
 - Not the roster page, not the steps page, not the product dossier pages.
@@ -139,7 +142,36 @@ predates this change. Rejected — the change's whole claim is that the bar read
 as one control, and a control that discards half its own state on submission
 does not.
 
-### 4. Rows are flex lines, not a grid, and not a table
+### 4. Rows are aligned columns — each row its own grid, same tracks
+
+**Revised after the admin looked at the rendered page.** This decision first
+read "flex lines, not a grid", rejecting column alignment on the grounds that
+the marks are stated only when true, so a grid would need a placeholder cell
+per absent mark. The admin asked for columns: a list of twenty launches is
+scanned by comparing one fact down the page, not by reading any row end to end.
+
+The objection was answerable rather than right. The marks now share **one**
+cell, so a row is always exactly five columns however many marks it carries,
+and the placeholder problem disappears.
+
+Each row is its **own** grid declaring the same track sizes, rather than the
+list being one grid whose cells are the rows' children. Columns align either
+way; this way the row stays one element holding every fact about its launch,
+which is what the markup exists to guarantee.
+
+A `<table>` and `display: contents` were reconsidered and rejected again, for
+the reasons below — both destroy that guarantee, and the table additionally
+breaks the inherited suite, whose helpers locate a row as the smallest element
+holding exactly one detail link. Under a table that is the `<td>`, so a row's
+marks would sit outside the row those tests read.
+
+The one breakpoint either surface carries falls out of this: below the width
+five columns need, the row stacks one fact per line and the column key is not
+rendered. Four fixed columns on a phone scroll the page sideways, which is a
+worse defect than the one this change set out to fix. See the amended
+Non-Goals.
+
+### 4a. Superseded: rows are flex lines, not a grid, and not a table
 
 `.launch-row` and `.step-row` become `display: flex; flex-wrap: wrap;
 align-items: baseline` with a gap, the naming element taking the free space and
@@ -215,6 +247,32 @@ archive to be the last commit before a merge, and `add-launch-tracking-pages`
 itself merged unarchived under exactly this constraint (PR #89). This change
 merges the same way, and archives in order once the chain clears.
 
+### 7. The last-completed column, added after review at the admin's direction
+
+The admin asked for the list to name each launch's most recently completed
+step. This is **new behaviour**, not presentation: `launch-admin` enumerates
+what a row names, and this adds to that list. It was raised as such, along with
+the reading it turns on, and the admin directed that it be folded into this
+change and that the change reviewer and test writer **not** be re-run for it.
+That is recorded here rather than left implicit, because it is the one part of
+this change that did not pass the workflow `AGENTS.md` binds, and a reader
+comparing the delta against the review history will otherwise find a
+requirement no review covers.
+
+The data is already in hand: the launch report the list reads carries each
+step's outcome and the provenance of its recording, so the column costs no
+further read, no port and no migration.
+
+"Last" is by recording time rather than playbook order. Both readings were put
+to the admin with the case where they disagree — a backfilled completion — and
+recording time was chosen: the column answers what most recently happened, not
+how far along the launch has got.
+
+Tests were written alongside the implementation rather than derived from the
+delta ahead of it (`test_launch_admin_last_completed.py`), which is the reverse
+of this project's order and is why they are in a file of their own rather than
+folded into the derived suites.
+
 ## Risks / Trade-offs
 
 - **A shared stylesheet edit reaches the playbook and roster surfaces** → Every
@@ -248,6 +306,10 @@ merges the same way, and archives in order once the chain clears.
   where this change is actually judged.
 - **Archive order** → Stated as a task with the reason attached, because the
   failure is silent.
+- **One requirement in this change was never independently reviewed** → The
+  last-completed column, at the admin's explicit direction under time pressure.
+  Its reading is pinned by tests and stated in the delta, but no second pair of
+  eyes has read it against the capability. Worth a look before archive.
 
 ## Open Questions
 
