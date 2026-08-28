@@ -121,7 +121,9 @@ _SESSION_COOKIE: Final = "admin_session"
 _SESSION_VALUE: Final = "a-verified-admin-session"
 
 #: INVENTED: how each admin surface is named in a header.
-_ROSTER_WORDS: Final = ("roster", "people", "person")
+# "user"/"users" since the header calls this surface Users; the page
+# itself still says Roster, and both readings must locate it.
+_ROSTER_WORDS: Final = ("roster", "people", "person", "user", "users")
 _PLAYBOOK_WORDS: Final = ("playbook", "step", "steps")
 _LAUNCH_WORDS: Final = ("launch", "launches", "product")
 

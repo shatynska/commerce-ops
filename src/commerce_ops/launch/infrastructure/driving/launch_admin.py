@@ -185,6 +185,12 @@ class LaunchRow:
     in_play: bool
     retired: bool
     detail_path: str
+    # The most recently recorded completion, and when it was recorded.
+    # Defaulted so that a row can still be constructed without one -- a
+    # launch on which nothing has been completed yet is the ordinary case
+    # at the first gate, not a degenerate one.
+    last_completed: str | None = None
+    last_completed_at: datetime | None = None
 
     @property
     def band(self) -> int:
@@ -280,6 +286,44 @@ def _label_for(product: Any, product_id: str) -> tuple[str, bool]:
     return str(sku or name or product_id), True
 
 
+def _last_completed(report: Any) -> tuple[str | None, datetime | None]:
+    """The step whose completion was recorded most recently, and when.
+
+    "Last" is by RECORDING time, not by the playbook's order: the question
+    the column answers is what most recently happened on this launch. The
+    two disagree when a completion is backfilled -- a step finished weeks
+    ago but recorded today leads, though later steps are already done --
+    and that is the reading chosen, because a list read for "where does
+    this stand" is read for recent activity.
+
+    Only `Satisfied` counts. The other outcomes are recorded with the same
+    provenance, so taking the latest recording of any outcome would let a
+    step recorded as blocked read as the launch's latest completion.
+
+    Ties are broken by the report's own order, which `launch-playbook`
+    obliges to be the authored one, so two completions recorded in the
+    same instant do not order themselves by chance.
+    """
+    best_name: str | None = None
+    best_when: datetime | None = None
+    for entry in getattr(report, "steps", ()):
+        progress = getattr(entry, "progress", None)
+        if progress is None:
+            continue
+        recorded = progress.outcome
+        name = (
+            recorded.__name__ if isinstance(recorded, type) else type(recorded).__name__
+        )
+        if name != "Satisfied":
+            continue
+        when = getattr(getattr(progress, "provenance", None), "when", None)
+        if when is None:
+            continue
+        if best_when is None or when >= best_when:
+            best_name, best_when = entry.name, when
+    return best_name, best_when
+
+
 def _stage_of(product: Any) -> str:
     stage = getattr(product, "stage", None)
     return type(stage).__name__.lower() if stage is not None else ""
@@ -295,6 +339,7 @@ def _rows_for(
         label, resolved = _label_for(product, product_id)
         stage = _stage_of(product)
         retired = stage.startswith("retired")
+        last_name, last_when = _last_completed(report)
         # An unresolved product is treated as in play: the filter fails
         # toward showing, never toward silence, which is `briefing`'s rule
         # for the same judgement on the same data.
@@ -311,6 +356,8 @@ def _rows_for(
                 in_play=in_play,
                 retired=retired,
                 detail_path=f"{PAGE_PATH}/{product_id}",
+                last_completed=last_name,
+                last_completed_at=last_when,
             )
         )
     return tuple(rows)

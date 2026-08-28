@@ -33,11 +33,16 @@
      later is named by the header rather than left unreachable from the
      pages that predate it. #}
   <nav class="container" aria-label="Admin surfaces">
+    {# Ordered as the work is: the catalog first, then the launches driven from
+       it, then the playbook those launches run on, and the people last. The
+       `key` and the path are unchanged -- only the order they are listed in
+       and the roster's label, which now reads `Users`, the word the admin who
+       uses this header calls those people by. #}
     {% for key, path, label in [
-         ("playbook", "/admin/playbook", "Playbook steps"),
-         ("roster", "/admin/roster", "Roster"),
-         ("launches", "/admin/launches", "Launches"),
          ("products", "/admin/products", "Products"),
+         ("launches", "/admin/launches", "Launches"),
+         ("playbook", "/admin/playbook", "Playbook steps"),
+         ("roster", "/admin/roster", "Users"),
        ] %}
       {% if key == current %}
     <span class="admin-surface current" aria-current="page">{{ label }}</span>
