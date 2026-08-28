@@ -51,6 +51,9 @@ from commerce_ops.launch.infrastructure.driven.field_gap_suppression import (
     record_field_gap_reported,
     reported_field_gap,
 )
+from commerce_ops.launch.infrastructure.driven.launch_journal_repository import (
+    LaunchJournalRepository,
+)
 from commerce_ops.launch.infrastructure.driven.launch_repository import (
     LaunchRepository,
 )
@@ -404,7 +407,10 @@ async def reconcile_clickup_completions(timestamp: int) -> None:
             )
             return
         record = functools.partial(
-            record_step_outcome, launches, ServedPlaybooks(playbook)
+            record_step_outcome,
+            launches,
+            ServedPlaybooks(playbook),
+            journal=LaunchJournalRepository(db_session),
         )
 
         # The Custom Field configuration, established **once, before the

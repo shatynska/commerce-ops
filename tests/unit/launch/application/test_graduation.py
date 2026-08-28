@@ -64,7 +64,11 @@ from typing import Any, Final
 import pytest
 
 from commerce_ops.catalog.domain.product import StageTransitionError
-from commerce_ops.launch.application import GraduationStampError, advance_gate
+from commerce_ops.launch.application import (
+    GraduationStampError,
+    JournalOccurrence,
+    advance_gate,
+)
 from commerce_ops.launch.domain.launch_playbook import (
     Gate,
     GateOpening,
@@ -257,6 +261,29 @@ class FakeStamper:
         self.calls.append((product_id, stage, confirmed_by))
 
 
+class CollectingJournal:
+    """The launch journal `add-launch-journal` made a required argument.
+
+    Deliberately absent from the shared log: what this file's ordering
+    assertion is about is that the stamp follows the save, and the
+    journal append sits between them without being either. What the
+    journal records is `test_launch_journal_appends.py`'s subject, not
+    this file's.
+    """
+
+    def __init__(self) -> None:
+        self.appended: list[JournalOccurrence] = []
+
+    async def append(self, occurrence: JournalOccurrence) -> None:
+        self.appended.append(occurrence)
+
+    async def read(self, product_id: ProductId) -> tuple[JournalOccurrence, ...]:
+        return tuple(self.appended)
+
+    async def rollback(self) -> None:
+        return None
+
+
 async def test_graduation_stamps_the_product_with_the_approvers_chosen_posture() -> (
     None
 ):
@@ -280,6 +307,7 @@ async def test_graduation_stamps_the_product_with_the_approvers_chosen_posture()
         playbooks=FakePlaybooks(playbook),
         stamp_steady_state=stamp,
         product_id=PRODUCT_ID,
+        journal=CollectingJournal(),
     )
 
     # SPECIFIED: a `LaunchGraduated` occurrence is reported.
@@ -324,6 +352,7 @@ async def test_a_rejected_stage_stamp_leaves_the_advance_standing() -> None:
             playbooks=FakePlaybooks(playbook),
             stamp_steady_state=stamp,
             product_id=PRODUCT_ID,
+            journal=CollectingJournal(),
         )
 
     # SPECIFIED: the error names the manual catalog correction required —

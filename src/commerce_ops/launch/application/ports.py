@@ -14,6 +14,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Protocol
 
+from commerce_ops.launch.application.journal import JournalOccurrence
 from commerce_ops.launch.domain.launch_playbook import LaunchPlaybook
 from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.shared.domain.identity import ProductId
@@ -28,6 +29,29 @@ class LaunchStore(Protocol):
     async def save(self, launch: Launch) -> None: ...
 
     async def list_all(self) -> Sequence[Launch]: ...
+
+
+class LaunchJournal(Protocol):
+    """The append-only record of what happened to a launch.
+
+    Separate from `LaunchStore` on purpose: that port persists the
+    launch's *current state*, this one its history, and keeping the two
+    apart is the distinction `launch-journal` exists to draw. Every
+    journaled command takes one, required rather than defaulted, so that
+    a composing adapter cannot omit journaling silently (design.md
+    Decision 1).
+
+    `rollback` is part of the port because containment needs it: a
+    failed append leaves the session unusable for the work that follows
+    the command, and catching the exception without unwinding would let
+    the journal break a graduation (design.md Decision 3).
+    """
+
+    async def append(self, occurrence: JournalOccurrence) -> None: ...
+
+    async def read(self, product_id: ProductId) -> Sequence[JournalOccurrence]: ...
+
+    async def rollback(self) -> None: ...
 
 
 class Playbooks(Protocol):

@@ -41,6 +41,9 @@ from commerce_ops.launch.application import (
 from commerce_ops.launch.infrastructure.driven.automated_results import (
     AutomatedResultRepository,
 )
+from commerce_ops.launch.infrastructure.driven.launch_journal_repository import (
+    LaunchJournalRepository,
+)
 from commerce_ops.launch.infrastructure.driven.launch_repository import LaunchRepository
 from commerce_ops.launch.infrastructure.driven.playbook_repository import (
     PlaybookRepository,
@@ -216,7 +219,10 @@ async def _handle_decision(body: dict[str, Any], accept: bool) -> str:
                 launches=launches,
                 playbook=playbook,
                 record_outcome=functools.partial(
-                    record_step_outcome, launches, ServedPlaybooks(playbook)
+                    record_step_outcome,
+                    launches,
+                    ServedPlaybooks(playbook),
+                    journal=LaunchJournalRepository(db_session),
                 ),
                 product_id=ProductId(str(product_id)),
                 step_id=str(step_id),
