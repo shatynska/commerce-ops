@@ -1200,3 +1200,69 @@ section.finished .empty,
   background: transparent;
   color: var(--ink-quiet);
 }
+
+/* The journal, as a table -- one row per entry, the entry's category
+   carried on the row as a `category-<value>` marker (`launch-admin`
+   delta, "structure-the-launch-journal-table"). Same left-edge-only
+   convention as `.step-row` above, and the same reason: a column of
+   rows is scanned by an edge of colour, not by a filled background. */
+.journal-entries {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.journal-entries th {
+  text-align: left;
+  color: var(--ink-quiet);
+  font-size: var(--size-fine);
+  font-weight: 400;
+  padding: var(--space-tight) var(--space-snug);
+}
+
+.journal-entries td {
+  padding: var(--space-tight) var(--space-snug);
+  vertical-align: top;
+  font-size: var(--size-fine);
+}
+
+.journal-entries td.label {
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.journal-entries td.when {
+  white-space: nowrap;
+  color: var(--ink-quiet);
+}
+
+.journal-entries tr {
+  border-left: 3px solid transparent;
+  border-bottom: 1px solid var(--state-idle-edge);
+}
+
+/* Progression: the launch moving forward under its own steam. Same
+   token as a satisfied step. */
+.journal-entries tr.category-progression {
+  border-left-color: var(--state-done-edge);
+}
+
+/* Judgment: someone affirmed something -- an approval, an attestation.
+   Same token as a step being actively worked. */
+.journal-entries tr.category-judgment {
+  border-left-color: var(--state-active-edge);
+}
+
+/* Blocked: the one category a reader scans for -- a refusal, a rejected
+   approval, a step recorded Blocked or Refused. Same token as a stuck
+   step, and the only category that also tints its row, so it is legible
+   without reading the row's words (design.md, "the whole point is to
+   let a reader spot trouble without reading every sentence"). */
+.journal-entries tr.category-blocked {
+  border-left-color: var(--state-stuck-edge);
+  background: color-mix(in srgb, var(--state-stuck-wash) 8%, transparent);
+}
+
+/* Admin: a date moved. Neither progress nor a decision nor trouble. */
+.journal-entries tr.category-admin {
+  border-left-color: var(--state-idle-edge);
+}
