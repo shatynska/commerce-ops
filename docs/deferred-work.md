@@ -88,6 +88,8 @@ That collides with `launch-entry`'s "Registration and start are atomic", whose s
 
 Until then, any *new* caller needing two writes to land together must use `transaction()`, not `session()` — and every other caller still relies on its repository to commit.
 
+**A second dependent, added by `add-launch-journal` (2026-08-28):** `LaunchJournal.rollback`. The launch use cases roll the shared session back when a journal append fails, so that the command's remaining work — most sharply the catalog steady-state stamp a graduating advance performs — runs on a usable session. That rollback discards nothing of the command's own persistence *only because* `LaunchRepository.save` has already committed by the time the append is reached. Make those repositories commit-neutral and the same rollback throws the command's own write away, violating the requirement it exists to uphold (`launch-journal`, "A failed append never fails the command it records, nor disturbs its work"). The R6 tests in `tests/unit/launch/application/test_launch_journal_containment.py` go red if it happens; fix the append site in `use_cases._journal` in the same change.
+
 **Verified against Postgres** (2026-08-24): `tests/integration/launch/test_slack_entry_start.py` passes, including the scenario that forces the launch start to fail after a real catalog write and asserts nothing survives and the SKU stays free for resubmission.
 
 **Recorded in**: `start-launch-from-slack`'s `design.md` (Decision 3); the workaround is documented on `transaction()` itself.

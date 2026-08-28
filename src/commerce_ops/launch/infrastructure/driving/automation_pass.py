@@ -52,6 +52,9 @@ from commerce_ops.launch.domain.launch_run import Launch, Provenance
 from commerce_ops.launch.infrastructure.driven.automated_results import (
     AutomatedResultRepository,
 )
+from commerce_ops.launch.infrastructure.driven.launch_journal_repository import (
+    LaunchJournalRepository,
+)
 from commerce_ops.launch.infrastructure.driven.launch_repository import (
     LaunchRepository,
 )
@@ -439,7 +442,10 @@ async def resolve_automated_steps(timestamp: int) -> None:
         # against the same served set, whatever version stamp it recorded.
         playbook = await PlaybookRepository(db_session).get("live")
         record = functools.partial(
-            record_step_outcome, launches, ServedPlaybooks(playbook)
+            record_step_outcome,
+            launches,
+            ServedPlaybooks(playbook),
+            journal=LaunchJournalRepository(db_session),
         )
         await run_automation_pass(
             launches=launches,

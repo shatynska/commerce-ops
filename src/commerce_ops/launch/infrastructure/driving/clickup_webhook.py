@@ -50,6 +50,9 @@ from commerce_ops.launch.infrastructure.driven.clickup_sync import (
     is_projectable,
     transition_outcome,
 )
+from commerce_ops.launch.infrastructure.driven.launch_journal_repository import (
+    LaunchJournalRepository,
+)
 from commerce_ops.launch.infrastructure.driven.launch_repository import (
     LaunchRepository,
 )
@@ -226,6 +229,7 @@ async def receive_clickup_event(request: Request) -> Response:
         await record_step_outcome(
             launches,
             ServedPlaybooks(playbook),
+            journal=LaunchJournalRepository(db_session),
             product_id=mapped.product_id,
             step_id=mapped.step_id,
             outcome=outcome,
