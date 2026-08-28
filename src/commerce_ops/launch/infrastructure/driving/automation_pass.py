@@ -52,6 +52,9 @@ from commerce_ops.launch.domain.launch_run import Launch, Provenance
 from commerce_ops.launch.infrastructure.driven.automated_results import (
     AutomatedResultRepository,
 )
+from commerce_ops.launch.infrastructure.driven.automated_step_backoff import (
+    AutomatedStepBackoffRepository,
+)
 from commerce_ops.launch.infrastructure.driven.launch_journal_repository import (
     LaunchJournalRepository,
 )
@@ -63,6 +66,7 @@ from commerce_ops.launch.infrastructure.driven.playbook_repository import (
     ServedPlaybooks,
 )
 from commerce_ops.launch.infrastructure.driving import automation_confirmation
+from commerce_ops.shared.application.ports import MonitoringNotifier
 from commerce_ops.shared.domain.identity import ProductId
 from commerce_ops.shared.infrastructure.driven.database import session
 from commerce_ops.shared.infrastructure.driven.recurring_work import register_scheduled
@@ -71,7 +75,9 @@ __all__ = [
     "AUTOMATION_SCHEDULE",
     "AUTOMATION_TOLERANCE",
     "COOL_OFF",
+    "REPEAT_COOL_OFF",
     "TASK_NAME",
+    "notifier",
     "read_product",
     "resolve_automated_steps",
     "run_automation_pass",
@@ -89,6 +95,15 @@ _AUTOMATED_SOURCE = "automated"
 # every runtime variable. Without it, one rejection buys a fresh handler
 # run every pass forever, and a Slack message each time.
 COOL_OFF = datetime.timedelta(hours=24)
+
+# After a handler repeats the non-terminal outcome the step already
+# carries. Its own constant rather than a reuse of `COOL_OFF`: the two
+# answer different questions — a person disagreed, versus a machine
+# repeated itself — and sharing one would mean a later change to either
+# silently moving the other. Same value today, and a fixed property of
+# the system rather than a configured one, for the reason the rejection
+# cool-off already records.
+REPEAT_COOL_OFF = datetime.timedelta(hours=24)
 
 TASK_NAME = "launch.automation.resolution_pass"
 
@@ -110,6 +125,14 @@ AUTOMATION_TOLERANCE = datetime.timedelta(hours=6)
 # as a job argument. `None` in the HTTP process, which registers this
 # module but never runs the job.
 read_product: Callable[..., Awaitable[Any]] | None = None
+
+# The channel a stuck step is reported to, injected the same way and for
+# the same reason `clickup_sync_job.notifier` is: the runner passes only
+# serializable values to a job, and the only notifier this deployment has
+# lives outside this module. `None` in the HTTP process — and a stuck-step
+# report then logs at error rather than vanishing, since a step nobody can
+# resolve is exactly what must not go unmentioned.
+notifier: MonitoringNotifier | None = None
 
 
 def _is_terminal_for(step: StepDefinition, outcome: Any) -> bool:
@@ -133,6 +156,72 @@ def _automated_steps(playbook: LaunchPlaybook) -> tuple[StepDefinition, ...]:
     )
 
 
+class BackoffStoreUnrestorable(RuntimeError):
+    """The shared store could not be restored after a contained backoff
+    fault, so the walk ended.
+
+    `launch-step-automation`: a pass that walked on against a store it
+    cannot restore would persist nothing while reporting success, which
+    is worse than stopping. The same judgement `_restore_after_store_fault`
+    records for the ClickUp pass.
+    """
+
+
+def _outcome_kind(outcome: Any) -> type:
+    """The outcome's kind, which is what a repeat is judged on.
+
+    Never the value: `Blocked` is a frozen dataclass whose equality
+    includes its reason, and an LLM-backed handler rewords its reason on
+    every call — so `==` would find no two blocks alike, the cool-off
+    would engage never, and the rule would appear to work while changing
+    nothing (`launch-step-automation`, "disregarding any reason either
+    carries").
+    """
+    return outcome if isinstance(outcome, type) else type(outcome)
+
+
+def _row_kind(row: Any) -> Any:
+    for name in ("noted_kind", "outcome_kind", "outcome", "kind", "noted_outcome"):
+        held = getattr(row, name, None)
+        if held is not None:
+            return held
+    return None
+
+
+def _row_moment(row: Any) -> datetime.datetime | None:
+    for name in ("noted_at", "when"):
+        held = getattr(row, name, None)
+        if isinstance(held, datetime.datetime):
+            return held
+    return None
+
+
+def _row_reported(row: Any) -> bool:
+    for name in ("reported_at", "reported", "has_been_reported"):
+        held = getattr(row, name, None)
+        if held is not None and held is not False:
+            return True
+    return False
+
+
+def _governs(row: Any, launch: Launch, step: StepDefinition) -> bool:
+    """Whether this row still speaks for the step.
+
+    **Lifting is lazy, not swept.** A row whose noted kind is not the kind
+    of the step's currently recorded outcome governs nothing — neither the
+    cool-off nor the report suppression — so nothing has to remember to
+    delete it. That is what lets `automation_confirmation`, which records
+    for these same steps, stay untouched: every recording surface gets
+    this right by doing nothing.
+    """
+    if row is None:
+        return False
+    progress = launch.progress_for(step.identifier)
+    if progress is None:
+        return False
+    return bool(_row_kind(row) == _outcome_kind(progress.outcome))
+
+
 async def run_automation_pass(
     *,
     launches: Any,
@@ -142,9 +231,17 @@ async def run_automation_pass(
     record_outcome: Callable[..., Awaitable[Any]],
     read_product: Callable[..., Awaitable[Any]],
     deliver: Callable[..., Awaitable[Any]],
+    backoff: Any,
+    notifier: Any,
     now: datetime.datetime,
 ) -> None:
-    """Deliver what is waiting, then resolve what is open."""
+    """Deliver what is waiting, then resolve what is open.
+
+    `backoff` and `notifier` are required rather than defaulted, for the
+    reason `add-launch-journal` made its own port required: a defaulted
+    collaborator is one a composing adapter can forget silently, and the
+    feature then does nothing while every test still passes.
+    """
     active: Sequence[Launch] = await launches.list_active()
 
     await _deliver_waiting(
@@ -164,6 +261,8 @@ async def run_automation_pass(
             record_outcome=record_outcome,
             read_product=read_product,
             deliver=deliver,
+            backoff=backoff,
+            notifier=notifier,
             now=now,
         )
 
@@ -225,6 +324,8 @@ async def _walk_launch(
     record_outcome: Callable[..., Awaitable[Any]],
     read_product: Callable[..., Awaitable[Any]],
     deliver: Callable[..., Awaitable[Any]],
+    backoff: Any,
+    notifier: Any,
     now: datetime.datetime,
 ) -> None:
     if launch.current_gate == "graduated":
@@ -232,7 +333,40 @@ async def _walk_launch(
 
     product: Any = None
     for step in _automated_steps(playbook):
-        if not await _is_open(launch=launch, step=step, results=results, now=now):
+        if _is_settled(launch, step):
+            continue
+
+        row, row_ok = await _contained(
+            backoff=backoff,
+            what="reading the backoff record",
+            launch=launch,
+            step=step,
+            call=lambda step=step: backoff.read(launch.product_id, step.identifier),  # type: ignore[misc]
+        )
+        governs = row_ok and _governs(row, launch, step)
+        noted_at = _row_moment(row) if governs else None
+        cooled = noted_at is not None and now - noted_at < REPEAT_COOL_OFF
+
+        # A step already cooled off is not invoked, so its report cannot
+        # ride along with an invocation. It is owed one all the same
+        # whenever the last pass could not deliver it — a failed delivery,
+        # or a read that could not say whether it had been delivered.
+        if cooled and not _row_reported(row):
+            if product is None:
+                product = await read_product(launch.product_id)
+            await _report_stuck_step(
+                launch=launch,
+                step=step,
+                produced=_recorded_result(launch, step),
+                backoff=backoff,
+                notifier=notifier,
+                product=product,
+                now=now,
+            )
+
+        if not await _is_open(
+            launch=launch, step=step, results=results, cooled=cooled, now=now
+        ):
             continue
 
         handler = _resolve(handlers, step, launch)
@@ -244,6 +378,11 @@ async def _walk_launch(
         # cost no catalog reads at all.
         if product is None:
             product = await read_product(launch.product_id)
+
+        # Read before the handler runs and before `_settle` replaces it:
+        # a repeat is the proposed outcome against the one *already*
+        # recorded.
+        carried = launch.progress_for(step.identifier)
 
         resolution = await _invoke(
             handler=handler, step=step, launch=launch, product=product, now=now
@@ -262,12 +401,221 @@ async def _walk_launch(
             now=now,
         )
 
+        await _note_repeat(
+            launch=launch,
+            step=step,
+            carried=carried,
+            resolution=resolution,
+            already_reported=governs and _row_reported(row),
+            row_ok=row_ok,
+            backoff=backoff,
+            notifier=notifier,
+            product=product,
+            now=now,
+        )
+
+
+def _recorded_result(launch: Launch, step: StepDefinition) -> str:
+    """What the handler produced, as the recording kept it.
+
+    `_settle` records a non-terminal outcome with `evidence=resolution.result`,
+    so the produced text is on the launch's own record — which is what
+    lets a pass report a step it did not invoke.
+    """
+    progress = launch.progress_for(step.identifier)
+    if progress is None:
+        return ""
+    return progress.provenance.evidence
+
+
+async def _note_repeat(
+    *,
+    launch: Launch,
+    step: StepDefinition,
+    carried: Any,
+    resolution: StepResolution,
+    already_reported: bool,
+    row_ok: bool,
+    backoff: Any,
+    notifier: Any,
+    product: Any,
+    now: datetime.datetime,
+) -> None:
+    """Note a handler repeating itself, and report the step the first time.
+
+    A repeat is established from *two* recordings, never predicted from
+    one: whether a handler has more to say is not knowable without asking
+    it, so a step reporting a non-terminal outcome for the first time
+    stays eligible. That deliberately spends one further invocation on a
+    step that turns out to be stuck, which is exactly what distinguishes
+    it from a step that is progressing.
+    """
+    outcome = resolution.outcome
+    if _is_terminal_for(step, outcome) or _is_any_terminal(outcome):
+        return
+    if carried is None:
+        return
+    kind = _outcome_kind(outcome)
+    if kind is not _outcome_kind(carried.outcome):
+        return
+
+    _, noted = await _contained(
+        backoff=backoff,
+        what="noting a repeat in the backoff record",
+        launch=launch,
+        step=step,
+        call=lambda: backoff.note(launch.product_id, step.identifier, kind, now),
+    )
+    # Reporting degrades toward *silence*, the opposite of invocation: a
+    # pass that could not read the row cannot know whether this step has
+    # already been reported, and a report that cannot be recorded as
+    # delivered cannot be delivered *once*. Attempting one anyway would
+    # turn a store outage into a message every fifteen minutes — the
+    # repetition the report-once rule exists to prevent. Nothing is lost:
+    # the step is reported on the first pass that can read the row again.
+    if not (row_ok and noted) or already_reported:
+        return
+
+    await _report_stuck_step(
+        launch=launch,
+        step=step,
+        produced=resolution.result,
+        backoff=backoff,
+        notifier=notifier,
+        product=product,
+        now=now,
+    )
+
+
+def _stuck_step_message(
+    *, launch: Launch, step: StepDefinition, produced: str, product: Any
+) -> str:
+    named = getattr(product, "name", None) or getattr(product, "sku", None)
+    return (
+        f"An automated launch step has stopped making progress — "
+        f"'{step.name}' ({step.identifier}) on "
+        f"{named or launch.product_id}. Its handler reported the same "
+        f"thing twice running, so it will not be asked again for a day. "
+        f"It needs something a person can supply.\n\n"
+        f"What the handler produced:\n{produced}"
+    )
+
+
+async def _report_stuck_step(
+    *,
+    launch: Launch,
+    step: StepDefinition,
+    produced: str,
+    backoff: Any,
+    notifier: Any,
+    product: Any,
+    now: datetime.datetime,
+) -> None:
+    """Report the step, then record that it was reported — in that order.
+
+    The stamp is written only after a delivery succeeds. Recording first
+    and then failing to deliver would silence the step for exactly as
+    long as it stays stuck, since the row is lifted by the step *moving*
+    and not by Slack recovering.
+    """
+    if notifier is None:
+        _logger.error(
+            "automation pass: step '%s' on product '%s' has stopped making "
+            "progress but no monitoring notifier is configured; the report "
+            "was not delivered",
+            step.identifier,
+            launch.product_id,
+        )
+        return
+    message = _stuck_step_message(
+        launch=launch, step=step, produced=produced, product=product
+    )
+    try:
+        await notifier.post_monitoring_message(message)
+    except Exception:
+        _logger.warning(
+            "automation pass: could not report that step '%s' on product "
+            "'%s' has stopped making progress; nothing is recorded as "
+            "reported and the next pass tries again",
+            step.identifier,
+            launch.product_id,
+            exc_info=True,
+        )
+        return
+    await _contained(
+        backoff=backoff,
+        what="stamping the backoff record as reported",
+        launch=launch,
+        step=step,
+        call=lambda: backoff.mark_reported(launch.product_id, step.identifier, now),
+    )
+
+
+async def _contained(
+    *,
+    backoff: Any,
+    what: str,
+    launch: Launch,
+    step: StepDefinition,
+    call: Callable[[], Awaitable[Any]],
+) -> tuple[Any, bool]:
+    """Run one backoff-record access, containing a fault.
+
+    Returns `(value, ok)`. A failure is logged, the shared store is
+    restored, and `ok` is False — the caller then degrades in whichever
+    direction *it* degrades, which is not the same direction for both
+    callers (see `_is_open` and `_report_stuck_step`).
+
+    The restore is the part that is easy to omit and impossible to do
+    without. This record is touched per step *inside* the walk, so a
+    failed statement left unrestored makes every later `record_outcome`
+    in the pass fail — the pass writing nothing while reporting success.
+    That is `c8bca97`'s fault in a worse place than the one it was fixed
+    for. Where the restore itself fails there is nothing left to do but
+    stop, which `BackoffStoreUnrestorable` does.
+    """
+    try:
+        return await call(), True
+    except Exception:
+        _logger.warning(
+            "automation pass: %s failed for step '%s' on product '%s'; the "
+            "step is treated as it would have been before the repeat "
+            "cool-off existed, and the pass continues",
+            what,
+            step.identifier,
+            launch.product_id,
+            exc_info=True,
+        )
+    try:
+        await backoff.rollback()
+    except Exception as unrestorable:
+        raise BackoffStoreUnrestorable(
+            f"the backoff record's store could not be restored after {what} "
+            f"failed for step '{step.identifier}' on product "
+            f"'{launch.product_id}'; the pass ends here rather than walk on "
+            f"against a store that cannot record"
+        ) from unrestorable
+    return None, False
+
 
 async def _is_open(
-    *, launch: Launch, step: StepDefinition, results: Any, now: datetime.datetime
+    *,
+    launch: Launch,
+    step: StepDefinition,
+    results: Any,
+    cooled: bool,
+    now: datetime.datetime,
 ) -> bool:
-    """The three conditions the requirement names, in one place."""
+    """The four conditions the requirement names, in one place.
+
+    `cooled` — the fourth — is decided by the caller rather than read
+    here, because the same row also decides whether the step is owed a
+    report, and reading it twice per step would double the cost of the
+    cheapest thing this pass does.
+    """
     if _is_settled(launch, step):
+        return False
+    if cooled:
         return False
     if await results.pending_for(launch.product_id, step.identifier) is not None:
         # A step awaiting a person is not a step awaiting more work, and a
@@ -455,5 +803,7 @@ async def resolve_automated_steps(timestamp: int) -> None:
             record_outcome=record,
             read_product=_read_product_or_fail,
             deliver=automation_confirmation.deliver_pending_result,
+            backoff=AutomatedStepBackoffRepository(db_session),
+            notifier=notifier,
             now=datetime.datetime.now(datetime.UTC),
         )
