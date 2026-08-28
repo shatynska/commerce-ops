@@ -256,15 +256,22 @@ class JournalLine:
     by ClickUp user id — `_actor_names`), and left as the raw value
     otherwise.
 
+    `subject` is the page's own narrowing of `JournalEntry.subject` to
+    what its column is named for: a gate or a step (`_gate_or_step`).
+    `metric-attested`'s subject is a metric condition, neither a gate
+    nor a step, so it carries `None` here -- that condition text renders
+    as part of `detail` instead.
+
     `detail` is this page's own composed phrase, built from
     `JournalEntry`'s per-kind raw fields (`outcome`, `decision`,
     `gate_id`, ...) — the page tried a column per fact and then two
     columns (`detail`/`note`) and settled on one short readable phrase,
     the same shape the page's original composed `what` sentence had,
-    minus the subject clause (`subject` already has its own column, so
-    repeating it here would duplicate that column). Composition the page
-    performs, the same way it already composes `who`, not a fact
-    `journal.py` stores or exposes as its own field (`_journal_detail`)."""
+    minus the subject clause for every kind except `metric-attested`
+    (`subject` already has its own column for the others, so repeating
+    it here would duplicate that column). Composition the page performs,
+    the same way it already composes `who`, not a fact `journal.py`
+    stores or exposes as its own field (`_journal_detail`)."""
 
     when: Any
     label: str
@@ -502,6 +509,21 @@ def _who(actor: str | None, actor_names: dict[str, str]) -> str | None:
     return actor_names.get(actor, actor)
 
 
+def _gate_or_step(entry: Any) -> str | None:
+    """`subject` where it names a gate or a step -- every kind except
+    `metric-attested`, whose subject is the metric condition being
+    attested, not a gate or a step. That condition text is folded into
+    `_journal_detail` instead, so this column stays true to its name.
+
+    `gate_id` is unique to `metric-attested` among this entry's fields,
+    so its presence is what distinguishes the one kind this column
+    excludes."""
+    if entry.gate_id is not None:
+        return None
+    subject = entry.subject
+    return None if subject is None else str(subject)
+
+
 def _journal_detail(entry: Any) -> str | None:
     """A short, readable phrase describing what this entry recorded,
     composed from its per-kind facts.
@@ -510,8 +532,11 @@ def _journal_detail(entry: Any) -> str | None:
     fact, then two columns (a primary fact plus an explanatory one), and
     now one composed phrase -- the same shape the page's original
     composed `what` sentence had, minus the subject clause, since
-    `subject` already has its own column and repeating it here would
-    duplicate that column.
+    `subject` already has its own column (the gate/step column,
+    `_gate_or_step`) and repeating it here would duplicate that column.
+    The one exception is `metric-attested`, whose subject is not a gate
+    or a step and so has no column of its own -- its condition text is
+    composed in here instead.
 
     Dispatches on which raw field is populated rather than on `kind`,
     since each field belongs to exactly one or two kinds already — the
@@ -529,7 +554,9 @@ def _journal_detail(entry: Any) -> str | None:
         decided = f"{entry.decision} decision recorded"
         return f"{decided}, posture '{entry.posture}'" if entry.posture else decided
     if entry.gate_id is not None:
-        attested = f"attested on the {entry.gate_id} gate"
+        attested = (
+            f"the condition '{entry.subject}' attested on the {entry.gate_id} gate"
+        )
         return f"{attested} — {entry.evidence}" if entry.evidence else attested
     if entry.standing_at is not None:
         return f"opened; the launch now stands at {entry.standing_at}"
@@ -557,15 +584,16 @@ def _journal_lines(
     obligation is the page's, and a page that only looks right because
     its collaborator happened to be ordered is not meeting it.
 
-    Composes `who` and `detail`; every other field is carried across
-    unchanged, which is what R5 requires each entry to name.
+    Composes `who`, `subject` (`_gate_or_step`) and `detail`; every other
+    field is carried across unchanged, which is what R5 requires each
+    entry to name.
     """
     lines = [
         JournalLine(
             when=entry.when,
             label=entry.label,
             category=entry.category,
-            subject=entry.subject,
+            subject=_gate_or_step(entry),
             source=entry.source,
             who=_who(entry.actor, actor_names),
             detail=_journal_detail(entry),

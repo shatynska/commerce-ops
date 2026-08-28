@@ -428,9 +428,11 @@ stands.
 
 ### Requirement: A launch's detail page renders its journal, newest first
 
-The detail page SHALL render the launch's journal as a table, with the most recent entry first, a row for each entry carrying its label, its subject, its source, who recorded it, when it occurred, and a detail. Detail is this page's own composed phrase, built from `launch-journal`'s per-kind fact fields (`playbook_version`, `outcome`, `reason`, `evidence`, `gate_id`, `decision`, `posture`, `standing_at`, `previous_date`, `new_date`, `unsatisfied`) — the page tried a column per fact, then two columns, and settled on one short readable phrase per entry, the shape closest to how a reader actually wants to scan a kind-specific fact. The phrase SHALL NOT restate the subject, which already has its own column.
+The detail page SHALL render the launch's journal as a table, with the most recent entry first, a row for each entry carrying its label, a gate/step, its source, who recorded it, when it occurred, and a detail. The gate/step column SHALL carry the entry's subject where that subject names a gate or a step, and SHALL be empty otherwise — a `metric-attested` entry's subject is the metric condition being attested, neither a gate nor a step, so it carries no gate/step and that condition text is instead part of the row's detail. Detail is this page's own composed phrase, built from `launch-journal`'s per-kind fact fields (`playbook_version`, `outcome`, `reason`, `evidence`, `gate_id`, `decision`, `posture`, `standing_at`, `previous_date`, `new_date`, `unsatisfied`, and — for `metric-attested` alone — the condition text otherwise excluded from gate/step) — the page tried a column per fact, then two columns, and settled on one short readable phrase per entry, the shape closest to how a reader actually wants to scan a kind-specific fact. The phrase SHALL NOT restate a subject that already has its own gate/step column.
 
 Where an entry's `actor` matches a person the roster carries — by that person's roster identifier or by their ClickUp user id — the page SHALL render the person's name rather than the raw identifier; where it matches neither, the page SHALL render the raw value rather than omitting it or failing.
+
+Where an entry carries no source, the page SHALL render its source column as `system` rather than as an absence — `system` names that no channel was recorded for the occurrence, independently of whether the entry names an actor: a graduating entry carries a known approver and still no recorded source, and SHALL still read `system` in that column without implying the approver is unknown, since `who` renders that fact in its own column regardless.
 
 The presentation SHALL be observable in the rendered response — each row SHALL carry the marker `category-` followed by the entry's category, one of `category-progression`, `category-judgment`, `category-blocked`, `category-admin`, matching the standard `A step's outcome is rendered as a tag carrying its state` already holds for this page's other markers: the literal tokens are given because they are what a test is derived from. The markers are a necessary condition, not a sufficient one — that the categories are visually distinguished from one another SHALL be confirmed by direct inspection of the rendered page.
 
@@ -453,8 +455,18 @@ A launch whose journal holds nothing SHALL render the section saying so. A journ
 
 #### Scenario: A detail phrase does not restate the subject
 
-- **WHEN** a launch's journal holds an entry carrying a subject
-- **THEN** its row's detail column does not repeat that subject — the subject is read from its own column instead
+- **WHEN** a launch's journal holds an entry carrying a subject that names a gate or a step
+- **THEN** its row's detail column does not repeat that subject — the subject is read from its own gate/step column instead
+
+#### Scenario: A metric condition is not a gate or a step
+
+- **WHEN** a launch's journal holds a `metric-attested` entry
+- **THEN** its row's gate/step column is empty, and its detail column names the attested condition alongside the gate it was attested against
+
+#### Scenario: A sourceless entry's source column says system
+
+- **WHEN** a launch's journal holds an entry carrying no source
+- **THEN** its row's source column reads `system`, whether or not that entry names an actor
 
 #### Scenario: A known actor resolves to their name by roster identifier
 

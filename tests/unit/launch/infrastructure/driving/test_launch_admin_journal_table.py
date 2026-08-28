@@ -746,16 +746,16 @@ def test_an_entry_names_when_it_occurred_and_shows_subject_source_who(
     )
 
 
-def test_a_kind_specific_fact_renders_in_its_own_column(
+def test_a_kinds_facts_are_composed_into_the_row_detail_phrase(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Scenario: A kind-specific fact renders in its own column.
+    """Scenario: A kind's facts are composed into the row's detail
+    phrase.
 
     WHEN a launch's journal holds a `step-outcome-recorded` entry
     carrying an outcome and a reason
-    THEN its row shows the outcome and the reason each in their own
-    column, neither folded into a sentence with the other or with any
-    other column.
+    THEN its row's detail column shows a phrase naming both, without a
+    further column for the second.
     """
     outcome = "Blocked"
     reason = "waiting on brand guidelines, uniquely-marked-reason"
@@ -777,6 +777,88 @@ def test_a_kind_specific_fact_renders_in_its_own_column(
         f"the journal entry does not show its outcome: {text!r}"
     )
     assert reason in text, f"the journal entry does not show its reason: {text!r}"
+
+
+def test_a_detail_phrase_does_not_restate_the_subject(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Scenario: A detail phrase does not restate the subject.
+
+    WHEN a launch's journal holds an entry carrying a subject
+    THEN its row's detail column does not repeat that subject -- the
+    subject is read from its own column instead.
+    """
+    subject = "Write the listing copy, uniquely-marked-subject"
+    entry = _entry(
+        kind="step-outcome-recorded",
+        when=datetime(2027, 3, 2, 10, 30, tzinfo=UTC),
+        label="Outcome",
+        category="progression",
+        subject=subject,
+        outcome="Satisfied",
+    )
+    world = _world(monkeypatch, journal_entries=(entry,))
+
+    html = _detail_html(world.surface, world.product.id)
+
+    row = _journal_row(html, subject)
+    detail_cell = next(
+        element
+        for element in _elements(row)
+        if "detail" in element.attrs.get("class", "")
+    )
+    assert subject not in _all_text(detail_cell), (
+        f"the detail column restates the subject {subject!r}: "
+        f"{_all_text(detail_cell)!r}"
+    )
+
+
+def test_metric_attesteds_condition_is_not_a_gate_or_step(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A `metric-attested` entry's subject is the condition being
+    attested -- not a gate or a step -- so the gate/step column SHALL
+    leave it out, and the condition text SHALL instead be part of the
+    row's composed detail phrase alongside the gate it was attested
+    against.
+
+    Not a scenario named in the delta spec (which speaks of `subject`
+    generically); DERIVED from the spec's own description of `_gate_or_step`
+    excluding `metric-attested` and folding its condition into `detail`.
+    """
+    condition = "conversion rate >= 2%, uniquely-marked-condition"
+    gate = "commit"
+    entry = _entry(
+        kind="metric-attested",
+        when=datetime(2027, 3, 2, 10, 30, tzinfo=UTC),
+        label="Attestation",
+        category="judgment",
+        subject=condition,
+        gate_id=gate,
+    )
+    world = _world(monkeypatch, journal_entries=(entry,))
+
+    html = _detail_html(world.surface, world.product.id)
+
+    row = _journal_row(html, condition)
+    subject_cell = next(
+        element
+        for element in _elements(row)
+        if "subject" in element.attrs.get("class", "")
+    )
+    # SPECIFIED (this refinement): the gate/step column leaves the
+    # condition out -- it names neither a gate nor a step.
+    assert _all_text(subject_cell).strip() in ("", "—"), (
+        f"the gate/step column shows the metric condition, which is "
+        f"neither a gate nor a step: {_all_text(subject_cell)!r}"
+    )
+    # SPECIFIED: the condition and the gate it was attested against both
+    # appear, in the detail column.
+    text = _all_text(row)
+    assert condition.lower() in text, (
+        f"the row does not show the attested condition: {text!r}"
+    )
+    assert gate in text, f"the row does not show the gate attested against: {text!r}"
 
 
 def test_journal_entries_render_newest_first(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -993,4 +1075,49 @@ def test_an_entrys_who_column_resolves_a_known_actor_by_clickup_user_id(
     assert clickup_id not in text, (
         f"the journal shows the raw ClickUp id {clickup_id!r} instead of "
         f"(or alongside) the resolved name: {text!r}"
+    )
+
+
+def test_a_sourceless_entrys_source_column_says_system(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An entry naming no source (one of the four command-caused kinds:
+    `launch-started`, `gate-opened`, `advance-refused`, `launch-date-moved`)
+    SHALL render the source column as `system` rather than an
+    absence-shaped dash -- distinct from `who`, which stays a dash for
+    the same entry, since `system` names where an occurrence arrived
+    from, not who acted (`launch-graduated` carries a known approver but
+    still no recorded source, and would misread if the same word were
+    used for both).
+
+    Not a scenario named in the delta spec (which does not fix this
+    wording); DERIVED from review feedback naming this word choice.
+    """
+    entry = _entry(
+        kind="launch-started",
+        when=datetime(2027, 3, 2, 10, 30, tzinfo=UTC),
+        label="Start",
+        category="progression",
+        playbook_version="v-uniquely-marked-version",
+    )
+    world = _world(monkeypatch, journal_entries=(entry,))
+
+    html = _detail_html(world.surface, world.product.id)
+
+    row = _journal_row(html, "v-uniquely-marked-version")
+    source_cell = next(
+        element
+        for element in _elements(row)
+        if "source" in element.attrs.get("class", "")
+    )
+    who_cell = next(
+        element for element in _elements(row) if "who" in element.attrs.get("class", "")
+    )
+    assert _all_text(source_cell).strip() == "system", (
+        f"the source column for a sourceless entry does not say 'system': "
+        f"{_all_text(source_cell)!r}"
+    )
+    assert _all_text(who_cell).strip() in ("", "—"), (
+        f"the who column for an actorless entry is not a plain absence: "
+        f"{_all_text(who_cell)!r}"
     )
