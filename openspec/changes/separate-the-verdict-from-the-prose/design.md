@@ -64,6 +64,18 @@ A phrase list used only to withhold has the failure mode of having no list: it m
 
 **That argument covers a refusal detector and nothing else, so the veto is a refusal detector and nothing else.** An earlier draft extended the same clause to a recommendation that does not meet the first requirement — no node path, no demands, no rejected alternative. That trigger keys on the *absence* of expected content rather than the presence of a refusal, which inverts its failure mode: it fires on well-formed recommendations it does not recognise. And that misfire is not the table's one-pass cost, because it is deterministic — the same prompt over the same product yields prose of the same shape, so the step would be blocked on every pass rather than retried successfully on the next. Extending the veto that way would have smuggled an unsound trigger in under a sound one's argument.
 
+### Decision 1b — The verdict travels as a labelled first line, stripped before the recommendation is stored
+
+Settled during implementation; the artifacts fixed that the verdict is a value in state and left open how it gets there. A chat model answers with one string, so something has to carry it.
+
+The model is asked to begin with `Verdict: supported` or `Verdict: unsupported`, and the graph node takes that line off the front before writing `recommendation`. **The verdict line is not part of the recommendation.** A person reading the Slack decision message or the product dossier sees the prose and nothing else, which is what Decision 1 objected to about sentinel tokens — it is not the token that was wrong, it was the token reaching the reader.
+
+This is what makes "the recommendation reaches the reader whole" and "the verdict is a separate value" both true at once. It also means the model's raw answer and the stored recommendation are no longer the same string, which three existing tests compare directly; their stubs change, their assertions do not.
+
+**Alternative considered — structured output or a tool call**, carrying the verdict outside the content so nothing is parsed or stripped. Cleaner, and the right shape eventually. Rejected for now on scope: it changes what `build_graph` requires of an injected model, so every stub in the existing suite would have to be rewritten. It is also the same move *Non-Goals* parks for the completeness obligation — "have the model report the three elements as values, the way it now reports the verdict" — so building it here would half-do the larger change rather than complete this one. When completeness is wanted, both arrive together.
+
+**Alternative considered — leave the line in the recommendation.** No existing test changes, and no parsing subtlety. Rejected because it puts machine scaffolding in front of a person, contradicting Decision 1 to save a three-line fixture change.
+
 ### Decision 2 — Absent or unreadable resolves to unsupported
 
 Not symmetric, deliberately, and the asymmetry is what makes this a fail-safe rather than a preference:
@@ -94,6 +106,8 @@ That is a test-quality change, not a scope addition: a test that asserts the mec
 **The model may not report the verdict reliably** → This is the objection the sentinel-token option failed on, so it has to be answered rather than waved past. It is materially weaker here: asking for a classification as its own answer is a smaller ask than asking for an exact token inside prose, and Decision 2 makes the failure mode safe rather than silent — an omitted verdict leaves the step live instead of proposing a false `Satisfied`.
 
 **A verdict reporting support while its own prose refuses** → Closed by Decision 1a, and worth naming as the failure this design first missed. An earlier draft of this document called the residual "unchanged from today"; that was wrong. Today a refusal containing one of the four markers is caught, so removing the matcher without a replacement would have been a regression for exactly the case the change was written about. The veto restores it. It does **not** widen it: an earlier draft of this change extended the same clause to a recommendation failing the first requirement, and that trigger was removed for the reason Decision 1a's final paragraph gives — it keys on absent content rather than a present refusal, so it fires on well-formed prose it fails to recognise, deterministically, every pass. The completeness obligation is parked in *Non-Goals*, not folded in here.
+
+**The verdict line is not parsed** — `Verdict : supported`, `**Verdict:** supported`, or the model simply omitting it → Resolves to *no verdict reported*, so the step is `Blocked` with the reason naming the omission and stays live for the next pass. Safe by construction rather than by the parse being robust, which is Decision 2 doing the job it exists for: the parse failing costs a pass, and cannot produce a false `Satisfied`. Worth watching after deploy (task 6.1) — a parse that never matches would present as an advisor that classifies nothing while recording "no verdict reported" against every launch.
 
 **The veto over-fires on a rejected alternative described as unsupportable** → The one way this change can block a step the advisor could have resolved, and deterministic rather than one-pass when it happens, for the reason Decision 1a gives. Bounded by the delta's carve-out, which is normative and carries its own scenario, and by task 3.1a. A detector reusing the deleted marker list unchanged would trip it, which is why task 5.4 checks the symbols are gone rather than merely unreferenced.
 

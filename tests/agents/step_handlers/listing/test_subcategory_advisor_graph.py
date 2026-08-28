@@ -110,7 +110,7 @@ PRODUCT_NAME: Final = "Bamboo Cutting Board with Juice Groove"
 OTHER_PRODUCT_NAME: Final = "Stainless Steel Insulated Water Bottle, 750 ml"
 MARKETPLACE: Final = "ATVPDKIKX0DER"
 
-SUPPORTED_ANSWER: Final = (
+SUPPORTED_RECOMMENDATION: Final = (
     "Proposed node: Home & Kitchen > Kitchen & Dining > Kitchen Utensils "
     "& Gadgets > Cutting Boards.\n"
     "Demands: FDA food-contact material declaration; country-of-origin "
@@ -120,7 +120,14 @@ SUPPORTED_ANSWER: Final = (
     "obligation and would understate this product's compliance surface."
 )
 
-OTHER_SUPPORTED_ANSWER: Final = (
+#: What the model actually answers: the verdict line the system reads,
+#: then the recommendation the person reads. The advisor stores only the
+#: second (design.md Decision 1b), so a test asserting the recommendation
+#: "reaches the reader whole" compares against the recommendation, never
+#: against this.
+SUPPORTED_ANSWER: Final = "Verdict: supported\n\n" + SUPPORTED_RECOMMENDATION
+
+OTHER_SUPPORTED_RECOMMENDATION: Final = (
     "Proposed node: Sports & Outdoors > Outdoor Recreation > Camping & "
     "Hiking > Hydration & Filtration > Water Bottles.\n"
     "Demands: FDA food-contact declaration; Prop 65 warning for "
@@ -129,12 +136,21 @@ OTHER_SUPPORTED_ANSWER: Final = (
     "Mugs, which reads as a coffee product and misses the outdoor intent."
 )
 
-# INVENTED — the single most likely correction point in this file. See the
-# module docstring: how the advisor recognises its own inability to
-# support a node choice is unstated by the artifacts.
+OTHER_SUPPORTED_ANSWER: Final = (
+    "Verdict: supported\n\n" + OTHER_SUPPORTED_RECOMMENDATION
+)
+
+# The refusal, as the advisor now reports one: a verdict line the system
+# reads, and prose the person reads. The prose deliberately contains none
+# of the four substrings the deleted matcher searched for -- it is the
+# production wording that defeated that matcher -- so this test asserts
+# the requirement rather than the mechanism
+# (`separate-the-verdict-from-the-prose`, tasks 4.1 and 4.2).
 _UNSUPPORTED_ANSWER: Final = (
-    "I cannot support a node choice for this product and marketplace: "
-    "the category structure gives no confident answer."
+    "Verdict: unsupported\n"
+    "\n"
+    "To give an accurate reply I would need specific details about this "
+    "item; without them I cannot confidently assign a sub-category node."
 )
 
 # `launch-playbook`'s non-terminal outcomes — the three the advisor may
@@ -453,7 +469,7 @@ def test_a_recommendation_is_readable_as_it_stands() -> None:
     assert recommendation.strip()
     # SPECIFIED: readable *as it stands* — the model's own prose reaches
     # the reader whole, not summarised, truncated or re-encoded.
-    for line in SUPPORTED_ANSWER.splitlines():
+    for line in SUPPORTED_RECOMMENDATION.splitlines():
         assert line.strip() in recommendation
 
 
@@ -479,7 +495,7 @@ def test_a_supported_choice_proposes_satisfaction() -> None:
     # would leave the person with nothing to weigh.
     text = _text_of(proposal)
     assert text.strip()
-    for line in SUPPORTED_ANSWER.splitlines():
+    for line in SUPPORTED_RECOMMENDATION.splitlines():
         assert line.strip() in text
 
 
@@ -582,7 +598,10 @@ def test_two_invocations_do_not_share_context() -> None:
         assert PRODUCT_NAME not in str(message.content)
         assert first not in str(message.content)
 
-    assert second == OTHER_SUPPORTED_ANSWER or OTHER_SUPPORTED_ANSWER in second
+    assert (
+        second == OTHER_SUPPORTED_RECOMMENDATION
+        or OTHER_SUPPORTED_RECOMMENDATION in second
+    )
 
 
 def test_two_invocations_for_the_same_product_are_independent() -> None:
