@@ -610,3 +610,41 @@ def test_a_surface_added_later_is_named_by_the_roster_header(
         f"the roster page's header offers no live link to {launch_path!r}, so "
         "a surface added later is left unreachable from a page that predates it"
     )
+
+
+#: See the launch-side twin of this test for why the path assertion, not
+#: the wording, is what discriminates here.
+_PRODUCT_WORDS: Final = ("products", "product")
+
+
+def test_the_product_index_is_named_by_the_header(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Scenario: The index is reachable from another admin surface.
+
+    WHEN an existing admin surface is rendered
+    THEN its header offers the product index in one action.
+
+    Both capabilities or neither: generalizing the header on one side
+    alone would leave the product surface reachable from the playbook
+    page and not from the roster, which is the asymmetry the
+    generalization exists to close.
+    """
+    from commerce_ops.launch.infrastructure.driving import (
+        product_dossier as product_module,
+    )
+
+    surfaces = _app(monkeypatch)
+    playbook_path = _shortest_get_route(playbook_module.router)
+    product_path = _shortest_get_route(product_module.router)
+
+    header = _header_of(_tree(_roster_html(surfaces)), other_path=playbook_path)
+
+    assert _names(header, _PRODUCT_WORDS), (
+        "the roster page's header does not name the product surface: "
+        f"{_flat(_all_text(header))[:300]!r}"
+    )
+    assert _offers_in_one_action(header, product_path), (
+        f"the roster page's header offers no live link to {product_path!r}, so "
+        "a surface added later is left unreachable from a page that predates it"
+    )
