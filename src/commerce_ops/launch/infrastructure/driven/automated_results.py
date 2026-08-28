@@ -106,6 +106,33 @@ class AutomatedResultRepository:
         )
         return await self._session.get(AutomatedStepResult, identifier)
 
+    async def for_product(self, product_id: ProductId) -> list[AutomatedStepResult]:
+        """Every row retained for a product, newest first.
+
+        The first read here that serves a *record* rather than the
+        decision loop: no state filter, no step filter, and no knowledge
+        of access scope — a row in every state, for a step the playbook
+        may no longer define, for a launch that may have graduated. What
+        may be seen is the use case's business, as it is for every other
+        read in this module.
+
+        `id` breaks the tie because `produced_at` alone does not order
+        totally: two results produced within one pass can share it, and a
+        database is free to return equal keys in any order, so an
+        unchanged page could re-render with its entries swapped. The
+        identifier carries no meaning and is never presented — it is here
+        so the order is a function of the data.
+        """
+        result = await self._session.execute(
+            select(AutomatedStepResult)
+            .where(AutomatedStepResult.product_id == uuid.UUID(product_id.value))
+            .order_by(
+                AutomatedStepResult.produced_at.desc(),
+                AutomatedStepResult.id.desc(),
+            )
+        )
+        return list(result.scalars().all())
+
     async def undelivered(self) -> list[AutomatedStepResult]:
         result = await self._session.execute(
             select(AutomatedStepResult)

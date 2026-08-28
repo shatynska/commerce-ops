@@ -753,3 +753,45 @@ def test_a_surface_added_later_is_named_by_the_header(
             f"{launch_path!r}, so a surface added later is left unreachable "
             "from a page that predates it"
         )
+
+
+#: The product surfaces this repository's `add-product-dossier-page` adds.
+#: `product` alone would also match the launch surface's own wording, so
+#: the path assertion below is what actually discriminates.
+_PRODUCT_WORDS: Final = ("products", "product")
+
+
+def test_the_product_index_is_named_by_the_header(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Scenario: The index is reachable from another admin surface.
+
+    WHEN an existing admin surface is rendered
+    THEN its header offers the product index in one action.
+
+    Placed here, beside `playbook-admin`'s own tests, rather than only
+    under `product-dossier`: a test derived from that capability's delta
+    alone renders the *new* pages and so cannot catch the surface being
+    absent from the header the *existing* pages carry. Removing the
+    header's product row leaves every product-dossier test passing, which
+    is exactly the asymmetry this closes.
+    """
+    from commerce_ops.launch.infrastructure.driving import (
+        product_dossier as product_module,
+    )
+
+    surfaces = _app(monkeypatch)
+    roster_path = _shortest_get_route(roster_module.router)
+    product_path = _shortest_get_route(product_module.router)
+
+    for page, html in _served_pages(surfaces).items():
+        header = _header_of(_tree(html), other_path=roster_path)
+        assert _names(header, _PRODUCT_WORDS), (
+            f"the {page}'s header does not name the product surface: "
+            f"{_flat(_all_text(header))[:300]!r}"
+        )
+        assert _offers_in_one_action(header, product_path), (
+            f"the {page}'s header offers no live link to the product index at "
+            f"{product_path!r}, so a surface added later is left unreachable "
+            "from a page that predates it"
+        )

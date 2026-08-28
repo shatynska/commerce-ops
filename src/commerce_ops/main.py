@@ -33,6 +33,9 @@ from commerce_ops.launch.infrastructure.driving import (
     playbook_admin as launch_playbook_admin,
 )
 from commerce_ops.launch.infrastructure.driving import (
+    product_dossier as launch_product_dossier,
+)
+from commerce_ops.launch.infrastructure.driving import (
     slack_entry as launch_slack_entry,
 )
 from commerce_ops.omni_agent.infrastructure.driving import slack as omni_agent_slack
@@ -92,6 +95,7 @@ app.include_router(access_admin_link.router)
 app.include_router(launch_playbook_admin.router)
 app.include_router(access_roster_admin.router)
 app.include_router(launch_tracking_admin.router)
+app.include_router(launch_product_dossier.router)
 app.include_router(shared_admin_assets.router)
 
 
@@ -140,6 +144,8 @@ access_roster_admin.roster = roster
 access_roster_admin.admin_sessions = access_admin_link.admin_sessions
 launch_tracking_admin.roster = roster
 launch_tracking_admin.admin_sessions = access_admin_link.admin_sessions
+launch_product_dossier.roster = roster
+launch_product_dossier.admin_sessions = access_admin_link.admin_sessions
 
 
 class _RequestScopedCatalog:
@@ -166,6 +172,7 @@ class _RequestScopedCatalog:
 
 
 launch_tracking_admin.catalog = _RequestScopedCatalog()
+launch_product_dossier.catalog = _RequestScopedCatalog()
 
 
 class _RosterReader:

@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Products</title>
+  {# The same two files every other admin surface loads, from the same
+     shared guarded route, so a presentation fix reaches all of them
+     rather than some. This page carries no styling of its own. #}
+  <link rel="stylesheet" href="/admin/assets/pico.min.css">
+  <link rel="stylesheet" href="/admin/assets/vocabulary.css">
+</head>
+<body>
+{% with current = "products" %}{% include "_admin_header.html" %}{% endwith %}
+<main class="container">
+  <h1>Products</h1>
+
+  {% if not rows %}
+  {# Named, not blank: an empty region reads as a page that failed to
+     load rather than as a catalog with nothing in it. #}
+  <p class="nothing-to-show">No products are visible to you.</p>
+  {% else %}
+  <table>
+    <thead>
+      <tr><th>SKU</th><th>Name</th><th>Stage</th></tr>
+    </thead>
+    <tbody>
+      {# Retired products follow the rest and are marked, rather than
+         being interleaved with them -- `roster-admin`'s shape for
+         deactivated people, and for the same reason: a discontinued
+         product is still worth reaching and is never what an admin is
+         looking for first. The ordering is the row model's `group`, so
+         the SKU sort applies within each group rather than across the
+         page; the two rules cannot both hold otherwise. #}
+      {% for row in rows %}
+      <tr class="{% if row.retired %}product-retired{% endif %}">
+        <td>
+          {# Un-boosted for the reason `_admin_header.html` records:
+             `hx-boost` is inherited from `<body>`, so htmx would swap the
+             dossier into this page's body and discard the new page's own
+             body attributes. #}
+          <a href="{{ row.dossier_path }}" hx-boost="false">{{ row.sku }}</a>
+        </td>
+        <td>{{ row.name }}</td>
+        <td>{{ row.stage }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</main>
+</body>
+</html>

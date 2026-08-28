@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ dossier.identity.sku }}</title>
+  <link rel="stylesheet" href="/admin/assets/pico.min.css">
+  <link rel="stylesheet" href="/admin/assets/vocabulary.css">
+</head>
+<body>
+{# The dossier carries the header but is not a named entry in it: it is a
+   page about one product and has no address the header could name. #}
+{% with current = "product-dossier" %}{% include "_admin_header.html" %}{% endwith %}
+<main class="container">
+  {% set it = dossier.identity %}
+  <h1>{{ it.name }}</h1>
+
+  <section class="product-identity">
+    <dl>
+      <dt>SKU</dt><dd>{{ it.sku }}</dd>
+      <dt>Name</dt><dd>{{ it.name }}</dd>
+      <dt>Marketplace</dt><dd>{{ it.marketplace }}</dd>
+      {# An absent value is stated, never left blank: a blank reads as
+         data the page failed to load rather than as a fact about the
+         product. A product has no ASIN until its listing exists, and a
+         product still in `Development` has no stage confirmer at all --
+         `product-catalog` stamps that stage by definition rather than by
+         a human decision, so the empty confirmer is the common case. #}
+      <dt>ASIN</dt>
+      <dd>{% if it.asin %}{{ it.asin }}{% else %}<span class="not-recorded">No ASIN recorded</span>{% endif %}</dd>
+      <dt>Lifecycle stage</dt><dd>{{ it.stage }}</dd>
+      <dt>Entered that stage</dt>
+      <dd>
+        {% if it.stage_entered_at %}{{ it.stage_entered_at.date().isoformat() }}
+        {% else %}<span class="not-recorded">Not recorded</span>{% endif %}
+      </dd>
+      <dt>Stage confirmed by</dt>
+      <dd>
+        {% if it.stage_confirmed_by %}{{ it.stage_confirmed_by }}
+        {% else %}<span class="not-recorded">No person confirmed this stage</span>{% endif %}
+      </dd>
+    </dl>
+  </section>
+
+  {# The container names what this record holds. Only a terminal proposal
+     on a step whose confirmation flag is true is retained; everything
+     else is recorded against the launch and never reaches here. A page
+     offering this as the complete automated history would be wrong in a
+     way its reader cannot detect, and most wrong for a product whose
+     automated steps all need no confirmation. #}
+  <section class="retained-for-decision">
+    <h2>Results retained for a decision</h2>
+    <p>Everything below was produced by an automated step and held for a
+      person to accept or reject. Results needing no confirmation, and
+      steps reporting no progress, are recorded against the launch and do
+      not appear here.</p>
+
+    {% if not dossier.entries %}
+    <p class="nothing-produced">Nothing has been produced for this product.</p>
+    {% else %}
+    <ol class="produced-record">
+      {# In the order the read answered them. The page reorders nothing:
+         the tiebreak that makes that order total is the read's, and this
+         page never sees the row identifier it turns on. #}
+      {% for entry in dossier.entries %}
+      <li class="record-entry {{ entry.marker }}{% if not entry.named %} step-unnamed{% endif %}">
+        <h3>{{ entry.step_name }}</h3>
+        <dl>
+          <dt>Step</dt><dd>{{ entry.step_id }}</dd>
+          <dt>Handler</dt><dd>{{ entry.handler }}</dd>
+          <dt>Proposed</dt><dd>{{ entry.proposed_outcome }}</dd>
+          <dt>Produced</dt><dd>{{ entry.produced_at.date().isoformat() }}</dd>
+          <dt>Outcome of the decision</dt><dd>{{ entry.label }}</dd>
+          {# A withdrawn entry shows no decider, because none is recorded:
+             voiding refuses a decision rather than making one, and naming
+             somebody here would attribute a judgement they never made. #}
+          {% if entry.decided_by %}
+          <dt>Decided by</dt><dd>{{ entry.decided_by }}</dd>
+          <dt>Decided</dt>
+          <dd>{% if entry.decided_at %}{{ entry.decided_at.date().isoformat() }}{% endif %}</dd>
+          {% endif %}
+        </dl>
+        {# Autoescaped, and its line structure kept by styling rather than
+           by markup: this is model output stored verbatim, and the page
+           must not become the place it is first interpreted. #}
+        <p class="produced-text">{{ entry.result_text }}</p>
+      </li>
+      {% endfor %}
+    </ol>
+    {% endif %}
+  </section>
+</main>
+</body>
+</html>

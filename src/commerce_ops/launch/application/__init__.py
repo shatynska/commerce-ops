@@ -45,6 +45,11 @@ from commerce_ops.launch.application.ports import (
     Playbooks,
     SteadyStateStamper,
 )
+from commerce_ops.launch.application.retained_results import (
+    RetainedResult,
+    RetainedResults,
+    read_retained_results,
+)
 from commerce_ops.launch.application.use_cases import (
     LaunchReport,
     ReportedStep,
@@ -82,6 +87,8 @@ __all__ = [
     "Playbooks",
     "Refused",
     "ReportedStep",
+    "RetainedResult",
+    "RetainedResults",
     "RosterReader",
     "Satisfied",
     "StaleStepSetError",
@@ -105,6 +112,7 @@ __all__ = [
     "move_launch_date",
     "read_launch",
     "read_launches",
+    "read_retained_results",
     "record_metric_attestation",
     "record_step_outcome",
     "register_step_handler",
