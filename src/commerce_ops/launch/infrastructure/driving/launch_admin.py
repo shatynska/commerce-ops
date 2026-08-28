@@ -256,18 +256,15 @@ class JournalLine:
     by ClickUp user id — `_actor_names`), and left as the raw value
     otherwise.
 
-    `detail` and `note` are this page's own consolidation of
+    `detail` is this page's own composed phrase, built from
     `JournalEntry`'s per-kind raw fields (`outcome`, `decision`,
-    `gate_id`, ...) into two columns rather than one per fact — a table
-    with a column for every fact `raw-out-the-journal-columns` first
-    tried was too wide to read. `detail` is the one fact that most
-    identifies what a kind of entry carries (an outcome, a decision, a
-    gate, a moved date's before/after, ...); `note` is the explanatory
-    text beside it (a reason, evidence, a graduating approval's posture)
-    where the entry carries one, joined with an em dash where it carries
-    two (`_detail`, `_note`) — composition the page performs, the same
-    way it already composes `who`, not a fact `journal.py` stores or
-    exposes as its own field."""
+    `gate_id`, ...) — the page tried a column per fact and then two
+    columns (`detail`/`note`) and settled on one short readable phrase,
+    the same shape the page's original composed `what` sentence had,
+    minus the subject clause (`subject` already has its own column, so
+    repeating it here would duplicate that column). Composition the page
+    performs, the same way it already composes `who`, not a fact
+    `journal.py` stores or exposes as its own field (`_journal_detail`)."""
 
     when: Any
     label: str
@@ -276,7 +273,6 @@ class JournalLine:
     source: str | None
     who: str | None
     detail: str | None
-    note: str | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -506,48 +502,46 @@ def _who(actor: str | None, actor_names: dict[str, str]) -> str | None:
     return actor_names.get(actor, actor)
 
 
-def _optional_str(value: Any) -> str | None:
-    return None if value is None else str(value)
-
-
 def _journal_detail(entry: Any) -> str | None:
-    """The one fact that most identifies what this entry carries.
+    """A short, readable phrase describing what this entry recorded,
+    composed from its per-kind facts.
+
+    The page's third attempt at rendering these facts: a column per
+    fact, then two columns (a primary fact plus an explanatory one), and
+    now one composed phrase -- the same shape the page's original
+    composed `what` sentence had, minus the subject clause, since
+    `subject` already has its own column and repeating it here would
+    duplicate that column.
 
     Dispatches on which raw field is populated rather than on `kind`,
     since each field belongs to exactly one or two kinds already — the
     order matters only where two kinds share a field (`decision` and
     `posture`: an approving `gate-approval-recorded` carries both, and
-    `decision` takes this column so a graduating approval's posture
-    still has somewhere to go, in `_journal_note`)."""
+    `decision` takes the lead clause, folding posture in alongside it,
+    so a graduating approval's posture still has somewhere to go)."""
     if entry.playbook_version is not None:
-        return _optional_str(entry.playbook_version)
+        return f"started against playbook version {entry.playbook_version}"
     if entry.outcome is not None:
-        return _optional_str(entry.outcome)
+        recorded = f"recorded {entry.outcome}"
+        extra = entry.reason or entry.evidence
+        return f"{recorded} — {extra}" if extra else recorded
     if entry.decision is not None:
-        return _optional_str(entry.decision)
+        decided = f"{entry.decision} decision recorded"
+        return f"{decided}, posture '{entry.posture}'" if entry.posture else decided
     if entry.gate_id is not None:
-        return _optional_str(entry.gate_id)
+        attested = f"attested on the {entry.gate_id} gate"
+        return f"{attested} — {entry.evidence}" if entry.evidence else attested
     if entry.standing_at is not None:
-        return _optional_str(entry.standing_at)
+        return f"opened; the launch now stands at {entry.standing_at}"
     if entry.previous_date is not None or entry.new_date is not None:
-        return f"{entry.previous_date or '—'} → {entry.new_date}"
+        if entry.previous_date is None:
+            return f"set to {entry.new_date}"
+        return f"moved from {entry.previous_date} to {entry.new_date}"
     if entry.unsatisfied:
-        return ", ".join(str(item) for item in entry.unsatisfied)
+        named = ", ".join(str(item) for item in entry.unsatisfied)
+        return f"refused, waiting on: {named}"
     if entry.posture is not None:
-        return _optional_str(entry.posture)
-    return None
-
-
-def _journal_note(entry: Any) -> str | None:
-    """The explanatory text beside `_journal_detail`, where the entry
-    carries one -- a reason and/or evidence joined with an em dash where
-    it carries both, mirroring how the page's earlier composed `what`
-    joined the same two facts."""
-    parts = [str(part) for part in (entry.reason, entry.evidence) if part]
-    if parts:
-        return " — ".join(parts)
-    if entry.decision is not None and entry.posture is not None:
-        return _optional_str(entry.posture)
+        return f"graduated, steady-state posture '{entry.posture}'"
     return None
 
 
@@ -563,8 +557,8 @@ def _journal_lines(
     obligation is the page's, and a page that only looks right because
     its collaborator happened to be ordered is not meeting it.
 
-    Composes `who`, `detail` and `note`; every other field is carried
-    across unchanged, which is what R5 requires each entry to name.
+    Composes `who` and `detail`; every other field is carried across
+    unchanged, which is what R5 requires each entry to name.
     """
     lines = [
         JournalLine(
@@ -575,7 +569,6 @@ def _journal_lines(
             source=entry.source,
             who=_who(entry.actor, actor_names),
             detail=_journal_detail(entry),
-            note=_journal_note(entry),
         )
         for entry in entries or ()
     ]

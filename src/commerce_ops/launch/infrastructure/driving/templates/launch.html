@@ -123,7 +123,7 @@
         <tr>
           <th>Kind</th><th>Subject</th>
           <th>Source</th><th>Who</th><th>When</th>
-          <th>Detail</th><th>Note</th>
+          <th>Detail</th>
         </tr>
       </thead>
       <tbody>
@@ -135,7 +135,6 @@
           <td class="who">{{ entry.who or '—' }}</td>
           <td class="when">{{ entry.when.strftime('%Y-%m-%d %H:%M %Z') }}</td>
           <td class="detail">{{ entry.detail or '—' }}</td>
-          <td class="note">{{ entry.note or '—' }}</td>
         </tr>
         {% endfor %}
       </tbody>

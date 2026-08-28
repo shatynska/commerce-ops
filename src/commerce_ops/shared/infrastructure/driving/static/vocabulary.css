@@ -1232,8 +1232,7 @@ section.finished .empty,
 
 .journal-entries td.subject,
 .journal-entries td.source,
-.journal-entries td.who,
-.journal-entries td.detail {
+.journal-entries td.who {
   white-space: nowrap;
 }
 

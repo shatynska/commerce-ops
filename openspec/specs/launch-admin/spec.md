@@ -428,7 +428,7 @@ stands.
 
 ### Requirement: A launch's detail page renders its journal, newest first
 
-The detail page SHALL render the launch's journal as a table, with the most recent entry first, a row for each entry carrying its label, its subject, its source, who recorded it, when it occurred, a detail and a note. Detail and note are this page's own consolidation of `launch-journal`'s per-kind fact fields (`playbook_version`, `outcome`, `reason`, `evidence`, `gate_id`, `decision`, `posture`, `standing_at`, `previous_date`, `new_date`, `unsatisfied`) into two columns rather than one per fact — a column for every fact makes for a table too wide to read at a glance. Detail SHALL carry the one fact that most identifies what the entry's kind concerns (an outcome, a decision, the gate a metric was attested against, a moved date's before and after, ...); note SHALL carry the explanatory text beside it where the entry carries one (a reason, evidence, a graduating approval's posture), joined by an em dash where it carries two. A fact the entry does not carry SHALL render as an explicit absence rather than an empty-looking cell indistinguishable from a fault.
+The detail page SHALL render the launch's journal as a table, with the most recent entry first, a row for each entry carrying its label, its subject, its source, who recorded it, when it occurred, and a detail. Detail is this page's own composed phrase, built from `launch-journal`'s per-kind fact fields (`playbook_version`, `outcome`, `reason`, `evidence`, `gate_id`, `decision`, `posture`, `standing_at`, `previous_date`, `new_date`, `unsatisfied`) — the page tried a column per fact, then two columns, and settled on one short readable phrase per entry, the shape closest to how a reader actually wants to scan a kind-specific fact. The phrase SHALL NOT restate the subject, which already has its own column.
 
 Where an entry's `actor` matches a person the roster carries — by that person's roster identifier or by their ClickUp user id — the page SHALL render the person's name rather than the raw identifier; where it matches neither, the page SHALL render the raw value rather than omitting it or failing.
 
@@ -446,20 +446,15 @@ A launch whose journal holds nothing SHALL render the section saying so. A journ
 - **WHEN** a launch's journal holds an entry carrying a subject, a source and an actor
 - **THEN** its row shows each in its own column, and none of the three is folded into a sentence with another
 
-#### Scenario: A kind's primary fact renders as the row's detail
+#### Scenario: A kind's facts are composed into the row's detail phrase
 
-- **WHEN** a launch's journal holds a `step-outcome-recorded` entry carrying an outcome
-- **THEN** its row's detail column shows that outcome
+- **WHEN** a launch's journal holds a `step-outcome-recorded` entry carrying an outcome and a reason
+- **THEN** its row's detail column shows a phrase naming both, without a further column for the second
 
-#### Scenario: A kind's explanatory fact renders as the row's note
+#### Scenario: A detail phrase does not restate the subject
 
-- **WHEN** a launch's journal holds a `step-outcome-recorded` entry carrying a reason
-- **THEN** its row's note column shows that reason
-
-#### Scenario: A detail and a note carrying two facts are joined, not tabulated further
-
-- **WHEN** a launch's journal holds a `step-outcome-recorded` entry carrying both a reason and evidence
-- **THEN** its row's note column shows both, joined by an em dash, rather than adding a further column for the second
+- **WHEN** a launch's journal holds an entry carrying a subject
+- **THEN** its row's detail column does not repeat that subject — the subject is read from its own column instead
 
 #### Scenario: A known actor resolves to their name by roster identifier
 
