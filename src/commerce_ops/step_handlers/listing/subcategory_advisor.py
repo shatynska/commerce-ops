@@ -355,9 +355,17 @@ async def advise_sub_category(context: StepContext) -> StepResolution:
     records nothing for a step it could not evaluate.
     """
     product = context.product
+    # Read through the value, not over the object carrying it. `str()` on a
+    # `MarketplaceId` yields its repr, so the model was being asked about a
+    # marketplace named `MarketplaceId(value='ATVPDKIKX0DER')` -- and the
+    # refusal reason recorded on the launch named it too, since `propose`
+    # interpolates this one value into both. `name` needs no unwrapping: it
+    # is a plain `str`, which is why the line below it was correct while
+    # this one was not.
+    marketplace = getattr(product, "marketplace_id", "")
     proposal = propose(
         product_name=str(getattr(product, "name", "")),
-        marketplace=str(getattr(product, "marketplace_id", "")),
+        marketplace=str(getattr(marketplace, "value", marketplace)),
         graph=_graph(),
     )
     return StepResolution(outcome=proposal.outcome, result=proposal.result)
