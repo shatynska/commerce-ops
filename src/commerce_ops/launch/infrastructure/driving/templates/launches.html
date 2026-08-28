@@ -119,7 +119,7 @@
          empty cell reads as a fact the page failed to fetch. #}
       <span class="last-completed">
         {% if row.last_completed %}{{ row.last_completed }}
-        <small>recorded {{ row.last_completed_at.date() }}</small>
+        <small>recorded {{ row.last_completed_at.strftime('%Y-%m-%d %H:%M %Z') }}</small>
         {% else %}<small>Nothing completed yet</small>{% endif %}
       </span>
     </li>
@@ -155,7 +155,7 @@
         <span class="gate">{{ row.current_gate }}</span>
         <span class="last-completed">
           {% if row.last_completed %}{{ row.last_completed }}
-          <small>recorded {{ row.last_completed_at.date() }}</small>
+          <small>recorded {{ row.last_completed_at.strftime('%Y-%m-%d %H:%M %Z') }}</small>
           {% else %}<small>Nothing completed yet</small>{% endif %}
         </span>
       </li>
