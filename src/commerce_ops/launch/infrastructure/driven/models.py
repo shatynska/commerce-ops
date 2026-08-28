@@ -346,6 +346,58 @@ class LaunchJournalEntry(Base):
     )
 
 
+class AutomatedStepBackoff(Base):
+    """One automated step that has stopped making progress.
+
+    `launch-step-automation`: a handler repeating the non-terminal outcome
+    its step already carries is asked no further questions for a
+    cool-off, and the step is reported once. **One row carries both
+    decisions** — they key on the same thing and are lifted by the same
+    event, and two tables would need the same writes and could disagree.
+
+    `noted_kind` is what makes lifting *lazy*. A row whose kind is not
+    that of the step's currently recorded outcome governs nothing, so
+    nothing has to remember to delete it — which is what lets
+    `automation_confirmation`, which also records outcomes for these
+    steps, stay untouched. Every recording surface gets this right by
+    doing nothing.
+
+    The kind, not the outcome: `Blocked` carries a reason, and an
+    LLM-backed handler rewords it on every call, so a value comparison
+    would find no two blocks alike and the cool-off would engage never.
+
+    `reported_at` is stamped only after a report has actually been
+    delivered — the `clickup_field_gap_suppression` discipline, for the
+    same reason: this row is lifted by the step *moving*, not by Slack
+    recovering, so stamping before delivery would silence the step for
+    exactly as long as it stays stuck.
+    """
+
+    __tablename__ = "automated_step_backoff"
+    __table_args__ = (
+        CheckConstraint(
+            f"noted_kind IN ({_OUTCOME_LIST})",
+            name="ck_automated_step_backoff_noted_kind_valid",
+        ),
+    )
+
+    product_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey(
+            "launch_positions.product_id",
+            name="fk_automated_step_backoff_product_id",
+            ondelete="CASCADE",
+        ),
+        primary_key=True,
+    )
+    step_id: Mapped[str] = mapped_column(String, primary_key=True)
+    noted_kind: Mapped[str] = mapped_column(String, nullable=False)
+    noted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    reported_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+
 class PlaybookStep(Base):
     """One stored step of the live launch playbook.
 

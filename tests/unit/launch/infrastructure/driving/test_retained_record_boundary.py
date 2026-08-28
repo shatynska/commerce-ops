@@ -450,6 +450,30 @@ def _pass_entry() -> Any:
     )
 
 
+class _InertBackoff:
+    """The repeat-backoff record, holding nothing — added when
+    `cool-off-a-repeatedly-blocked-step` made it a required collaborator.
+    A read finding no row is the pre-change world, so nothing this file
+    asserts changes."""
+
+    async def read(self, *args: Any, **kwargs: Any) -> None:
+        return None
+
+    async def note(self, *args: Any, **kwargs: Any) -> None:
+        return None
+
+    async def mark_reported(self, *args: Any, **kwargs: Any) -> None:
+        return None
+
+    async def rollback(self) -> None:
+        return None
+
+
+class _InertNotifier:
+    async def post_monitoring_message(self, message: str) -> None:
+        return None
+
+
 async def _run_pass(collaborators: _Collaborators) -> Any:
     entry = _pass_entry()
     supplied: dict[str, Any] = {
@@ -460,6 +484,8 @@ async def _run_pass(collaborators: _Collaborators) -> Any:
         "record_outcome": collaborators.recorder,
         "read_product": collaborators.catalog,
         "deliver": collaborators.delivery,
+        "backoff": _InertBackoff(),
+        "notifier": _InertNotifier(),
         "now": NOW,
     }
     accepted = set(inspect.signature(entry).parameters)

@@ -15,7 +15,11 @@ running*:
   the contract type has no place to put provenance — is asserted in
   `tests/unit/launch/application/test_step_handler_contract.py`.
 - *A non-terminal outcome is recorded directly and never held for a
-  decision* — both scenarios.
+  decision* — its recording scenario in full, and the *first* half of
+  *A step reporting no progress is reconsidered on the next pass*, which
+  `cool-off-a-repeatedly-blocked-step` narrowed to the changed-outcome
+  case. The repeat case, and the cool-off that now follows it, are in
+  `test_automation_pass_repeat_backoff.py`.
 - *A terminal outcome the step's hazard forbids is a handler fault, not a
   recording* — its one scenario.
 - *An unregistered handler is reported and skipped, never fatal* — its
@@ -620,6 +624,29 @@ def _pass_entry() -> Any:
     )
 
 
+class _InertBackoff:
+    """A backoff record that holds nothing and fails at nothing."""
+
+    async def read(self, *args: Any, **kwargs: Any) -> None:
+        return None
+
+    async def note(self, *args: Any, **kwargs: Any) -> None:
+        return None
+
+    async def mark_reported(self, *args: Any, **kwargs: Any) -> None:
+        return None
+
+    async def rollback(self) -> None:
+        return None
+
+
+class _InertNotifier:
+    """A monitoring notifier nothing in this file exercises."""
+
+    async def post_monitoring_message(self, message: str) -> None:
+        return None
+
+
 async def _run_pass(collaborators: _Collaborators, *, now: datetime = NOW) -> Any:
     """INVENTED call shape — the single correction point."""
     entry = _pass_entry()
@@ -631,6 +658,13 @@ async def _run_pass(collaborators: _Collaborators, *, now: datetime = NOW) -> An
         "record_outcome": collaborators.recorder,
         "read_product": collaborators.catalog,
         "deliver": collaborators.delivery,
+        # Added by `cool-off-a-repeatedly-blocked-step`, which made both
+        # required. Inert on purpose: `read` finding no row is the
+        # pre-change world, so every assertion in this file still
+        # observes what it observed before. The repeat cool-off has its
+        # own file.
+        "backoff": _InertBackoff(),
+        "notifier": _InertNotifier(),
         "now": now,
     }
     accepted = set(inspect.signature(entry).parameters)
@@ -1026,11 +1060,19 @@ async def test_a_reasonless_non_terminal_outcome_is_recorded_directly_too(
 
 async def test_a_step_reporting_no_progress_is_reconsidered_on_the_next_pass() -> None:
     """Scenario: A step reporting no progress is reconsidered on the next
-    pass.
+    pass — the case where nothing was recorded to repeat against.
 
-    WHEN a handler proposes a non-terminal outcome for a step, and a
-    later pass runs
+    WHEN a handler proposes a non-terminal outcome that differs from the
+    one the step already carries, and a later pass runs
     THEN the handler is invoked again for that step.
+
+    Re-attributed by `cool-off-a-repeatedly-blocked-step`, which narrowed
+    this scenario: a handler *repeating* the outcome the step carries now
+    cools the step off instead. Nothing here changed, because nothing
+    here was ever the repeat case — this file's recorder never writes to
+    the launch, so the step carries no outcome on either pass and both
+    are the first-outcome case the scenario still covers. The repeat and
+    its cool-off live in `test_automation_pass_repeat_backoff.py`.
     """
     handler = _ScriptedHandler(
         StepResolution(outcome=Blocked("no confident node"), result="still nothing")

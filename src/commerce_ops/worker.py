@@ -71,6 +71,10 @@ overdue_check.notifier = slack_notifier
 # channel, and `launch` reaches that channel through the same port rather than
 # by importing the module that owns it.
 clickup_sync_job.notifier = slack_notifier
+# The stuck-step report, for the same reason again: a step whose handler
+# has stopped making progress needs a person, and this is how `launch`
+# reaches the team's channel without importing the module that owns it.
+automation_pass.notifier = slack_notifier
 
 # Scheduled work is not a person: the daily briefing addresses the whole
 # team and the ClickUp sync names a list for every launch, so neither
