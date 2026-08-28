@@ -64,12 +64,12 @@
 
 ## 10. Ship
 
-- [ ] 10.1 Commit the work in small, reviewable commits, running the relevant verification before each (AGENTS.md — small, reviewable commits).
-- [ ] 10.2 `openspec archive add-launch-journal --yes` as the last commit before the merge.
+- [x] 10.1 Commit the work in small, reviewable commits, running the relevant verification before each (AGENTS.md — small, reviewable commits).
+- [x] 10.2 `openspec archive add-launch-journal --yes` as the last commit before the merge.
 - [ ] 10.3 Open the pull request and merge; merging to `main` is what deploys.
 
 ## 11. Hand over to `add-launch-tracking-pages`
 
-- [ ] 11.1 Tell that change which seam name landed. It stubs this read at one of `read_journal` / `journal` / `read_launch_journal` / `journal_entries` (`test_launch_admin_detail.py::_JOURNAL_SEAM_NAMES`) — `read_launch_journal` is in that list, so its three blocked tests unblock without a rename.
-- [ ] 11.2 Confirm for it that an entry carries a **cause**, which its `tasks.md` 4.8 requires checking before building the section, and that the read model's `what` / `when` / `cause` match the shape it stubbed.
+- [x] 11.1 Tell that change which seam name landed. It stubs this read at one of `read_journal` / `journal` / `read_launch_journal` / `journal_entries` (`test_launch_admin_detail.py::_JOURNAL_SEAM_NAMES`) — `read_launch_journal` is in that list, so its three blocked tests unblock without a rename.
+- [x] 11.2 Confirm for it that an entry carries a **cause**, which its `tasks.md` 4.8 requires checking before building the section, and that the read model's `what` / `when` / `cause` match the shape it stubbed.
 - [ ] 11.3 Expect its **two** `xfail(strict=True)` journal tests to start failing as soon as this merges — that is what strict is for, and the marker comes off in that change, not this one. Its third journal test, *An empty journal says so*, carries no marker and passes already: a launch with no journal renders the empty-journal statement whether the journal exists or not, which is what a launch predating the journal shows for ever (its own `test-manifest.md` records this). All three are **blocked**; only two are xfailed.
