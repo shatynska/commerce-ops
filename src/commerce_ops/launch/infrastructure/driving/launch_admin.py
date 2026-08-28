@@ -250,6 +250,8 @@ class JournalLine:
     what: str
     when: Any
     cause: str
+    label: str
+    category: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -457,11 +459,18 @@ def _journal_lines(entries: Any) -> tuple[JournalLine, ...]:
     obligation is the page's, and a page that only looks right because
     its collaborator happened to be ordered is not meeting it.
 
-    Composes nothing: `what` and `cause` are worded at read time, and
-    carrying them across unchanged is what R5 requires each entry to name.
+    Composes nothing: `what`, `cause`, `label` and `category` are worded
+    at read time, and carrying them across unchanged is what R5 requires
+    each entry to name.
     """
     lines = [
-        JournalLine(what=entry.what, when=entry.when, cause=entry.cause)
+        JournalLine(
+            what=entry.what,
+            when=entry.when,
+            cause=entry.cause,
+            label=entry.label,
+            category=entry.category,
+        )
         for entry in entries or ()
     ]
     lines.sort(key=lambda line: line.when, reverse=True)

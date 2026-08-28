@@ -118,13 +118,21 @@
     {% if not launch.journal %}
     <p class="empty">Nothing is recorded in this launch's journal.</p>
     {% else %}
-    <ol class="journal-entries">
-      {% for entry in launch.journal %}
-      <li><span class="what">{{ entry.what }}</span>
-        <span class="when">{{ entry.when }}</span>
-        <span class="cause">{{ entry.cause }}</span></li>
-      {% endfor %}
-    </ol>
+    <table class="journal-entries">
+      <thead>
+        <tr><th>Kind</th><th>What</th><th>When</th><th>Cause</th></tr>
+      </thead>
+      <tbody>
+        {% for entry in launch.journal %}
+        <tr class="category-{{ entry.category }}">
+          <td class="label">{{ entry.label }}</td>
+          <td class="what">{{ entry.what }}</td>
+          <td class="when">{{ entry.when }}</td>
+          <td class="cause">{{ entry.cause }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
     {% endif %}
   </section>
 </main>

@@ -79,12 +79,19 @@ class JournalOccurrence:
 @dataclass(frozen=True, slots=True)
 class JournalEntry:
     """One entry as a reader gets it: what occurred, when, and what
-    caused it — the wording composed from the stored facts."""
+    caused it — the wording composed from the stored facts.
+
+    `label` and `category` are composed here too, the same way `what`
+    and `cause` are: a short name for the kind, and one of four coarse
+    groupings (`progression`, `judgment`, `blocked`, `admin`) a reader
+    scans a table by. Neither is stored."""
 
     kind: str
     what: str
     when: datetime
     cause: str
+    label: str
+    category: str
 
 
 def _detail(occurrence: JournalOccurrence, key: str) -> object | None:
@@ -148,6 +155,71 @@ def _what(occurrence: JournalOccurrence) -> str:
     return f"an occurrence of kind '{kind}' was recorded"
 
 
+#: A short, fixed label per journal kind — what a table's kind column
+#: shows in place of the raw kind string. One entry per `JOURNAL_KINDS`
+#: member; `_label` matches exhaustively, raising on an unmapped kind
+#: rather than falling through, mirroring the discipline `JOURNAL_KINDS`'
+#: own check constraint applies at the schema level (design.md Risks).
+_KIND_LABEL: Final[Mapping[str, str]] = {
+    KIND_LAUNCH_STARTED: "Start",
+    KIND_STEP_OUTCOME_RECORDED: "Outcome",
+    KIND_METRIC_ATTESTED: "Attestation",
+    KIND_GATE_APPROVAL_RECORDED: "Approval",
+    KIND_GATE_OPENED: "Gate Opened",
+    KIND_LAUNCH_GRADUATED: "Graduation",
+    KIND_LAUNCH_DATE_MOVED: "Date Moved",
+    KIND_ADVANCE_REFUSED: "Refusal",
+}
+
+
+def _label(occurrence: JournalOccurrence) -> str:
+    try:
+        return _KIND_LABEL[occurrence.kind]
+    except KeyError:
+        raise ValueError(
+            f"no label mapped for journal kind '{occurrence.kind}'"
+        ) from None
+
+
+def _is_rejecting(occurrence: JournalOccurrence) -> bool:
+    """Whether a `gate-approval-recorded` occurrence carries a rejecting
+    decision, as opposed to an approving one."""
+    return _detail(occurrence, "decision") == "rejecting"
+
+
+def _is_blocked_outcome(occurrence: JournalOccurrence) -> bool:
+    """Whether a `step-outcome-recorded` occurrence names an outcome that
+    reads as trouble — `Blocked` or `Refused` — as opposed to one of the
+    domain's other four `StepOutcome` names."""
+    return _detail(occurrence, "outcome") in ("Blocked", "Refused")
+
+
+def _category(occurrence: JournalOccurrence) -> str:
+    """One of four coarse groupings a reader scans a table by.
+
+    A pure function of `kind`, except for the two kinds that can carry a
+    negative outcome: `gate-approval-recorded` (blocked where rejecting)
+    and `step-outcome-recorded` (blocked where `Blocked`/`Refused`) —
+    design.md Decisions, "the whole point is to let a reader spot
+    trouble without reading every sentence." Matched exhaustively, same
+    discipline as `_label`.
+    """
+    kind = occurrence.kind
+    if kind == KIND_LAUNCH_DATE_MOVED:
+        return "admin"
+    if kind == KIND_ADVANCE_REFUSED:
+        return "blocked"
+    if kind == KIND_GATE_APPROVAL_RECORDED:
+        return "blocked" if _is_rejecting(occurrence) else "judgment"
+    if kind == KIND_METRIC_ATTESTED:
+        return "judgment"
+    if kind == KIND_STEP_OUTCOME_RECORDED:
+        return "blocked" if _is_blocked_outcome(occurrence) else "progression"
+    if kind in (KIND_LAUNCH_STARTED, KIND_GATE_OPENED, KIND_LAUNCH_GRADUATED):
+        return "progression"
+    raise ValueError(f"no category rule for journal kind '{kind}'")
+
+
 #: How to name the command that produced an occurrence naming nobody.
 #: Four of the eight kinds are in this position — the use case is simply
 #: never told who asked (design.md Decision 4, "Which kinds carry an
@@ -195,4 +267,6 @@ def compose(occurrence: JournalOccurrence) -> JournalEntry:
         what=_what(occurrence),
         when=occurrence.occurred_at,
         cause=_cause(occurrence),
+        label=_label(occurrence),
+        category=_category(occurrence),
     )
