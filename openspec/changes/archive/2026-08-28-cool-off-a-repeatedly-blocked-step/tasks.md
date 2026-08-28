@@ -49,7 +49,7 @@
 
 ## 7. Observe it on the deployment, after the merge
 
-The two products blocking every fifteen minutes are the fixture that makes this change's effect visible. This group runs after the merge, so nothing here is recorded in this change's own archived artifacts.
+The two products blocking every fifteen minutes are the fixture that makes this change's effect visible. This group runs after the merge — after this change is archived, since the archive is the last commit before the merge — so nothing here gates the archive. The observation is nonetheless ticked off here, against the archived change, with the evidence in its own commit message: that is what `docs: record the launch pages confirmed against the deployment` (949415e) established, and a confirmation kept in one place beats a confirmation kept nowhere. A check that fails here is a newly-found defect and earns its own change; it does not reopen this one.
 
 - [x] 7.1 Read the journal an hour after the deploy: each stuck step should have at most one further `step-outcome-recorded` entry, then nothing. Before the change the same hour produced eight.
 - [x] 7.2 Confirm exactly one report per stuck step arrived in the monitoring channel, not one per pass.
