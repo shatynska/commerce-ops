@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ journal.label }} — Journal</title>
+  {# The same two files every other admin surface loads, from the same
+     shared guarded route, so a presentation fix reaches all of them
+     rather than some. This page carries no styling of its own. #}
+  <link rel="stylesheet" href="/admin/assets/pico.min.css">
+  <link rel="stylesheet" href="/admin/assets/vocabulary.css">
+</head>
+<body>
+{% with current = "launches" %}{% include "_admin_header.html" %}{% endwith %}
+<main class="container">
+  {# This launch's journal, split out of the detail page's own body onto
+     its own page (`add-admin-breadcrumb-navigation`) — reached from the
+     detail page's descendants region, and named the launch's second
+     ancestor here in the same trail that page's own breadcrumb starts.
+     Its current segment ("Journal") is this page's `<h1>` — see
+     `_breadcrumb.html`. #}
+  <div class="page-head">
+    {% include "_breadcrumb.html" %}
+  </div>
+
+  {% if not journal.entries %}
+  <p class="empty">Nothing is recorded in this launch's journal.</p>
+  {% else %}
+  <ol class="journal-entries">
+    {% for entry in journal.entries %}
+    <li><span class="what">{{ entry.what }}</span>
+      <span class="when">{{ entry.when }}</span>
+      <span class="cause">{{ entry.cause }}</span></li>
+    {% endfor %}
+  </ol>
+  {% endif %}
+</main>
+</body>
+</html>

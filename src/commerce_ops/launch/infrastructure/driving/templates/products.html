@@ -13,7 +13,14 @@
 <body>
 {% with current = "products" %}{% include "_admin_header.html" %}{% endwith %}
 <main class="container">
-  <h1>Products</h1>
+  {# `.page-head` — the same title container every other admin page
+     uses, breadcrumb-carrying pages included — so the space below a
+     title is one rule shared everywhere, not a spacing accident of
+     whichever element happens to follow a bare `<h1>` on this one
+     page. #}
+  <div class="page-head">
+    <h1>Products</h1>
+  </div>
 
   {% if not rows %}
   {# Named, not blank: an empty region reads as a page that failed to
@@ -34,14 +41,15 @@
          page; the two rules cannot both hold otherwise. #}
       {% for row in rows %}
       <tr class="{% if row.retired %}product-retired{% endif %}">
+        <td class="identity"><code>{{ row.sku }}</code></td>
         <td>
           {# Un-boosted for the reason `_admin_header.html` records:
              `hx-boost` is inherited from `<body>`, so htmx would swap the
              dossier into this page's body and discard the new page's own
-             body attributes. #}
-          <a href="{{ row.dossier_path }}" hx-boost="false">{{ row.sku }}</a>
+             body attributes. The name, not the SKU: an admin scans this
+             list for a product by what it's called, not by its code. #}
+          <a href="{{ row.dossier_path }}" hx-boost="false">{{ row.name }}</a>
         </td>
-        <td>{{ row.name }}</td>
         <td>{{ row.stage }}</td>
       </tr>
       {% endfor %}

@@ -13,7 +13,14 @@
 {% with current = "product-dossier" %}{% include "_admin_header.html" %}{% endwith %}
 <main class="container">
   {% set it = dossier.identity %}
-  <h1>{{ it.name }}</h1>
+  {# The way back to the index, which the dossier carried no way back
+     to before (`add-admin-breadcrumb-navigation`): it is not named in
+     the header above, so nothing else on the page offered it. The
+     trail's current segment is this page's `<h1>` — see
+     `_breadcrumb.html`. #}
+  <div class="page-head">
+    {% include "_breadcrumb.html" %}
+  </div>
 
   <section class="product-identity">
     <dl>

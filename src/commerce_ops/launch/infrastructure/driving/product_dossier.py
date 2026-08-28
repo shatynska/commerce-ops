@@ -420,10 +420,12 @@ async def product_dossier(request: Request, product_id: str) -> HTMLResponse:
     names = await _step_names()
     entries = tuple(_entry_for(result, names) for result in retained or ())
 
+    identity = _identity_for(product)
     template = _TEMPLATES.get_template("product.html")
     return HTMLResponse(
         template.render(
             page_path=PAGE_PATH,
-            dossier=Dossier(identity=_identity_for(product), entries=entries),
+            dossier=Dossier(identity=identity, entries=entries),
+            breadcrumb=[("Products", PAGE_PATH), (identity.name, None)],
         )
     )

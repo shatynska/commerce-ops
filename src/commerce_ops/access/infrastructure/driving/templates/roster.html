@@ -20,7 +20,11 @@
 <body>
 {% with current = "roster" %}{% include "_admin_header.html" %}{% endwith %}
 <main class="container">
-  <h1>Users</h1>
+  {# `.page-head` — the same title container every other admin page uses,
+     so the space below a title is one rule shared everywhere. #}
+  <div class="page-head">
+    <h1>Users</h1>
+  </div>
 
 {% if faults %}
   <article class="faults">

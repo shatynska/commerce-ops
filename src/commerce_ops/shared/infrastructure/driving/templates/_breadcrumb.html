@@ -1,0 +1,34 @@
+{#
+  The breadcrumb trail an admin detail, edit or create surface carries,
+  naming its ancestors as links and itself as the current, un-linked,
+  last segment (`add-admin-breadcrumb-navigation`).
+
+  Included inside the page's own `page-head`, alongside the descendants
+  region on the right, in the slot a page-local `<h1>` used to occupy —
+  the trail's own current segment renders as the page's `<h1>` now (see
+  `.breadcrumb-current` below), so a page including this carries no
+  separate title of its own.
+
+  `breadcrumb` is a list of `(label, href)` pairs. Every pair but the
+  last carries an `href` and renders as a link; the last pair's `href` is
+  `None` and renders as the page's own `<h1>` — the trail's current
+  segment. A page that carries no breadcrumb (every top-level list)
+  passes nothing at all, and this partial renders nothing in return; such
+  a page keeps its own literal `<h1>`.
+
+  `breadcrumb_unboost` is optional and defaults to unset: set it only
+  where the page's own `<body>` is itself boosted and the destination is
+  a different admin surface's page whose own `<body>` is not — `new.html`
+  is the one page today in that position, the same reason its own
+  (pre-breadcrumb) `Cancel` control carried `hx-boost="false"` rather
+  than relying on `<body>`.
+#}
+{% if breadcrumb %}
+<nav class="breadcrumb" aria-label="Breadcrumb">
+  {%- for label, href in breadcrumb %}
+  {%- if href %}<a href="{{ href }}"{% if breadcrumb_unboost %} hx-boost="false"{% endif %}>{{ label }}</a><span class="breadcrumb-sep" aria-hidden="true">›</span>
+  {%- else %}<h1 class="breadcrumb-current">{{ label }}</h1>
+  {%- endif %}
+  {%- endfor %}
+</nav>
+{% endif %}

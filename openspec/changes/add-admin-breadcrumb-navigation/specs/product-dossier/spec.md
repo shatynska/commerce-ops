@@ -2,10 +2,11 @@
 
 ### Requirement: The dossier offers the way back to the product index
 
-The dossier SHALL carry a breadcrumb trail immediately above its title, naming the
-product index as a link and the product itself as the current,
-un-linked, segment. Following the index link SHALL reach the index in
-one action, without scripting, as the index renders with no narrowing
+The dossier SHALL carry a breadcrumb trail naming the product index as a
+link and the product itself as the current, un-linked, segment — the
+current segment rendered as the page's own title, so the page carries no
+separate title beside it. Following the index link SHALL reach the index
+in one action, without scripting, as the index renders with no narrowing
 active.
 
 The dossier carries no way back today: it identifies no admin surface as

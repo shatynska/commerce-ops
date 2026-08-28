@@ -2,10 +2,11 @@
 
 ### Requirement: A launch's detail page offers the way back to the list
 
-The detail page SHALL carry a breadcrumb trail immediately above its title, naming
-the launch list as a link and the launch itself as the current,
-un-linked, segment. Following the list link SHALL reach the list in one
-action, without scripting.
+The detail page SHALL carry a breadcrumb trail naming the launch list as
+a link and the launch itself as the current, un-linked, segment — the
+current segment rendered as the page's own title, so the page carries no
+separate title beside it. Following the list link SHALL reach the list
+in one action, without scripting.
 
 The header does not serve this today and is not obliged to. Both pages are
 required to identify the launch surface as the one being viewed, so the header
@@ -193,9 +194,10 @@ is what states there is nothing recorded.
 
 ### Requirement: A launch's journal page carries a breadcrumb to the list and to its launch
 
-The journal page SHALL carry a breadcrumb trail immediately above its title naming,
-in order, the launch list and the launch itself, each as a link, with the
-journal page named last as the current, un-linked, segment. The list
+The journal page SHALL carry a breadcrumb trail naming, in order, the
+launch list and the launch itself, each as a link, with the journal page
+named last as the current, un-linked, segment — rendered as the page's
+own title, so the page carries no separate title beside it. The list
 link SHALL reach the list as it renders with no narrowing and nothing
 revealed, for the reason the detail page's own list link does. The
 launch link SHALL reach that launch's detail page.

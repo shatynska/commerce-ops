@@ -19,10 +19,11 @@ already requires.
 ### Requirement: The edit and create surfaces carry a breadcrumb to the step table
 
 The edit surface and the create surface SHALL each carry a breadcrumb
-trail immediately above their title, naming the step table as a link and the
-surface itself as the current, un-linked, segment — `Playbook steps`
-naming the table on the create surface, and the step's own name on the
-edit surface. Following the table link SHALL carry forward whatever
+trail naming the step table as a link and the surface itself as the
+current, un-linked, segment — `Playbook steps` naming the table on the
+create surface, and the step's own name on the edit surface — rendered
+as the surface's own title, so it carries no separate title beside it.
+Following the table link SHALL carry forward whatever
 narrowing was active when the admin left the table, so returning from an
 edit or an abandoned create lands where the admin left rather than on an
 unnarrowed table.

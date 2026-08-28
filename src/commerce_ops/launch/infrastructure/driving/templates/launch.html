@@ -25,14 +25,21 @@
    } %}
 {% with current = "launches" %}{% include "_admin_header.html" %}{% endwith %}
 <main class="container">
-  {# The way back to the list. The header cannot be it: this page identifies
-     the launch surface as the one being viewed, which `launch-admin` requires,
-     so the header renders `Launches` as a position rather than as a link and
-     there was no way back to the list at all. The authoring surfaces solve the
-     same problem the same way, with a control riding the title. #}
+  {# The way back to the list, and the way down into this launch's own
+     pages, are two different controls now: the breadcrumb trail (whose
+     own current segment is this page's `<h1>` — see `_breadcrumb.html`)
+     and the descendants region beside it (`add-admin-breadcrumb-
+     navigation`). Journal is the first — and, for now, only —
+     descendant. #}
   <div class="page-head">
-    <h1>{{ launch.label }}</h1>
-    <a href="{{ page_path }}" role="button" class="row-action quiet">Back to the launches</a>
+    {% include "_breadcrumb.html" %}
+    {% if descendants %}
+    <nav class="page-head-descendants">
+      {% for label, href in descendants %}
+      <a href="{{ href }}" class="row-action">{{ label }}</a>
+      {% endfor %}
+    </nav>
+    {% endif %}
   </div>
   <p class="launch-date">
     {% if launch.launch_date %}Launch date {{ launch.launch_date }}{% else %}No launch date{% endif %}
@@ -58,75 +65,64 @@
      holding them, and the `id` a reader lands on would sit on an
      ancestor rather than on the group itself. #}
   {% for group in launch.gates %}
-  <ul class="gate-group" id="gate-{{ group.identifier }}"
+  <section class="gate-group" id="gate-{{ group.identifier }}"
       {% if group.current %}aria-current="step"{% endif %}>
-    <li class="gate-heading">
-      {{ group.identifier }}{% if group.current %} — current gate{% endif %}
-    </li>
-    {% for step in group.steps %}
-    {# The step's state drives both its tag and the row's own tint, so what
-       has been done is readable by colour before anything is read by word.
+    <h2 class="gate-name">{{ group.identifier }}</h2>
+    {% if group.steps %}
+    <table>
+      <thead>
+        <tr><th>status</th><th>name</th><th>id</th><th>discipline</th><th>facts</th><th>due</th><th>outcome</th></tr>
+      </thead>
+      <tbody>
+        {% for step in group.steps %}
+        {# The step's state drives both its row's left edge and the marker
+           on the row itself, so what has been done is readable by colour
+           before anything is read by word — the tag beside it states the
+           same fact in words, plainly, rather than as a second coloured
+           badge repeating the edge.
 
-       `unrecorded` is its own state, never folded into `notstarted`: nothing
-       having been recorded and something having been recorded as not started
-       are different facts, and only the second names who said so. The
-       capability requires them to render distinguishably, so they differ in
-       word AND in treatment rather than sharing a grey. #}
-    {% set state = step.outcome|lower if step.recorded else 'unrecorded' %}
-    {# Three columns: what state the step is in, what it is and what came of
-       it, and the fine print. An automated handler's evidence runs to several
-       sentences, so it is given a column with a bound rather than the row's
-       full width -- a paragraph set the width of the page cannot be read.
-
-       The step's identifier sits in the third column and its name in the
-       second, deliberately: the row is the smallest element carrying both, so
-       "the row" stays the line a reader sees. #}
-    <li class="step-row state-{{ state }}">
-      <span class="outcome-tag">{{ OUTCOME_LABELS.get(step.outcome, step.outcome) if step.recorded else 'Unrecorded' }}</span>
-      <span class="step-main">
-        <span class="step-name">{{ step.name }}</span>
-        {# Stated only when true: "Does not block" contains the word the
-           mark is read by, so the negative form made the mark
-           unfalsifiable. #}
-        {% if step.blocking %}<span class="mark blocking">Blocks its gate</span>{% endif %}
-        {% if step.overdue %}<span class="mark overdue">Overdue</span>{% endif %}
-        {% if step.recorded %}<span class="evidence">{{ step.evidence }}</span>{% endif %}
-      </span>
-      {# Every fact the page rendered before is still rendered, the recorder,
-         the source and the recording time included -- moved into the fine
-         column, never dropped. #}
-      <span class="step-meta">
-        <span class="step-id">{{ step.step_id }}</span>
-        <span class="discipline">{{ step.discipline }}</span>
-        <span class="due">
-          {% if step.due_from or step.due_to %}Due {{ step.due_from }}–{{ step.due_to }}
-          {% else %}No due period{% endif %}
-        </span>
-        {% if step.recorded %}
-        <span class="outcome">recorded by {{ step.recorded_by }}
-          ({{ step.source }})
-          at {{ step.recorded_at.strftime('%Y-%m-%d %H:%M %Z') }}</span>
-        {% endif %}
-      </span>
-    </li>
-    {% endfor %}
-  </ul>
-  {% endfor %}
-
-  <section class="journal">
-    <h2>Journal</h2>
-    {% if not launch.journal %}
-    <p class="empty">Nothing is recorded in this launch's journal.</p>
-    {% else %}
-    <ol class="journal-entries">
-      {% for entry in launch.journal %}
-      <li><span class="what">{{ entry.what }}</span>
-        <span class="when">{{ entry.when }}</span>
-        <span class="cause">{{ entry.cause }}</span></li>
-      {% endfor %}
-    </ol>
+           `unrecorded` is its own state, never folded into `notstarted`: nothing
+           having been recorded and something having been recorded as not started
+           are different facts, and only the second names who said so. The
+           capability requires them to render distinguishably, so they differ in
+           word AND in treatment rather than sharing a grey. #}
+        {% set state = step.outcome|lower if step.recorded else 'unrecorded' %}
+        <tr class="step-row state-{{ state }}">
+          <td><span class="outcome-tag">{{ OUTCOME_LABELS.get(step.outcome, step.outcome) if step.recorded else 'Unrecorded' }}</span></td>
+          <td class="step-name">{{ step.name }}</td>
+          <td class="identity"><code>{{ step.step_id }}</code></td>
+          <td>{{ step.discipline }}</td>
+          {# Stated only when true: "Does not block" contains the word the
+             mark is read by, so the negative form made the mark
+             unfalsifiable. #}
+          <td>
+            {%- if step.blocking %}<span class="mark blocking">Blocks its gate</span>{% endif %}
+            {%- if step.overdue %}<span class="mark overdue">Overdue</span>{% endif -%}
+          </td>
+          <td class="due">
+            {%- if step.due_from or step.due_to %}Due {{ step.due_from }}–{{ step.due_to }}
+            {%- else %}No due period{% endif -%}
+          </td>
+          {# An automated handler's evidence runs to several sentences, so it
+             is given a column with a bound rather than the row's full width
+             -- a paragraph set the width of the page cannot be read. Every
+             fact the page rendered before is still rendered, the recorder,
+             the source and the recording time included -- never dropped. #}
+          <td class="evidence">
+            {%- if step.recorded %}
+            <span class="evidence-text">{{ step.evidence }}</span>
+            <span class="outcome-provenance">recorded by {{ step.recorded_by }}
+              ({{ step.source }})
+              at {{ step.recorded_at.strftime('%Y-%m-%d %H:%M %Z') }}</span>
+            {%- endif -%}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
     {% endif %}
   </section>
+  {% endfor %}
 </main>
 </body>
 </html>

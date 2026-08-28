@@ -85,10 +85,14 @@ catch:
   `test_playbook_admin_presentation_vocabulary.py` drew for the same
   vocabulary.
 - The **journal** region, which the delta's region list excludes. It was
-  written when `read_journal` was `None` and no entry could render;
-  `add-launch-journal` has since landed and the read is wired, so the
-  harness stubs it to answer emptily. What is asserted below is unchanged
-  — that the empty-journal statement is still rendered and not hidden.
+  written when `read_journal` was `None` and no entry could render, then
+  `add-launch-journal` landed and the read was wired, and this file
+  asserted the empty-journal statement was still rendered on the detail
+  page and not hidden. `add-admin-breadcrumb-navigation` has since moved
+  the journal off the detail page onto its own — `launch-admin`'s
+  REMOVED requirement records the move — so that assertion is gone from
+  here; the equivalent check on the journal page itself lives in
+  `test_launch_journal_page.py`, which this file does not duplicate.
 
 ## Expected first-run state
 
@@ -914,16 +918,20 @@ def _shortest_get_route(router: Any) -> str:
 
 
 def _parameterised_get_route(router: Any) -> str:
+    # A second single-parameter GET route (the launch journal page
+    # `add-admin-breadcrumb-navigation` adds) is excluded by name, so this
+    # locator survives once that route exists alongside this one.
     candidates = [
         str(route.path)
         for route in router.routes
         if getattr(route, "path", None)
         and "GET" in (getattr(route, "methods", None) or set())
         and str(route.path).count("{") == 1
+        and "journal" not in str(route.path).lower()
     ]
     assert len(candidates) == 1, (
         f"{router!r} exposes {len(candidates)} GET routes taking one path "
-        "parameter; exactly one is expected"
+        "parameter and not mentioning 'journal'; exactly one is expected"
     )
     return str(candidates[0])
 
@@ -1197,6 +1205,18 @@ def _gate_sequence(html: str) -> _Node:
 
 
 def _gate_group(html: str, gate: str) -> _Node:
+    """The smallest *addressable* element holding every step of `gate` and
+    no step of another gate.
+
+    Correction point: since the gate's steps now render inside a `<table>`
+    (`add-admin-breadcrumb-navigation`'s launch-page redesign), an
+    un-addressed `<tbody>` also holds exactly one gate's steps and is
+    strictly smaller than the `id`/class-carrying element wrapping it —
+    the smallest *candidate*, but not the region the vocabulary rule
+    below (or `launch-admin`'s own fragment-landing requirement) is about.
+    Filtering to `id`-carrying candidates first is what keeps this locator
+    finding the group the page actually addresses, on either shape.
+    """
     mine = [step.identifier for step in PLAYBOOK.steps_for_gate(gate)]
     theirs = [step_id for step_id in SERVED_ORDER if step_id not in mine]
     candidates = [
@@ -1205,12 +1225,14 @@ def _gate_group(html: str, gate: str) -> _Node:
         if all(_holds(element, step_id) for step_id in mine)
         and not any(_holds(element, other) for other in theirs)
     ]
-    if not candidates:
+    addressable = [element for element in candidates if element.attrs.get("id")]
+    if not addressable:
         pytest.fail(
-            f"no element holds exactly the steps of gate {gate!r} ({mine}) "
-            "without holding another gate's — correct `_gate_group`"
+            f"no addressable (`id`-carrying) element holds exactly the steps "
+            f"of gate {gate!r} ({mine}) without holding another gate's — "
+            "correct `_gate_group`"
         )
-    return min(candidates, key=_size)
+    return min(addressable, key=_size)
 
 
 def _step_row_of(html: str, step_id: str) -> _Node:
@@ -1860,18 +1882,6 @@ def test_no_fact_is_lost_to_the_vocabulary(monkeypatch: pytest.MonkeyPatch) -> N
             ),
         )
     )
-    checks.append(
-        (
-            "the empty-journal statement",
-            _bearing(
-                detail_root,
-                _WORDS["empty_journal"],
-                "empty-journal statement",
-                "the detail page",
-            ),
-        )
-    )
-
     for description, element in checks:
         # SPECIFIED: the fact is present in the response — `_bearing`
         # fails by name where it is not.

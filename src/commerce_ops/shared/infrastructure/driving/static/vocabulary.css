@@ -52,6 +52,18 @@
   --field: #f4f6f8;
   --surface: #ffffff;
 
+  /* The one hue nothing else on this page uses — every other accent is
+     already claimed (amber for a flagged mark, green/amber/red for a
+     step's state, slate for an identifier) — so a link stays visually
+     distinct from all of them rather than borrowing a colour that
+     already means something else. Lighter and more sky-blue than Pico's
+     own primary (`#0172ad`) — that value is *also* the Add step
+     button's own fill, so plain link text in it read as the same colour
+     as a button rather than as its own accent. Still checked against
+     white at roughly 5.9:1, comfortably past WCAG AA's 4.5:1 for body
+     text — a lighter value still than this failed that check. */
+  --link: #0369a1;
+
   --danger-ink: #8c1d1d;
   --danger-rule: #d99a9a;
   --danger-wash: #fdf3f3;
@@ -140,6 +152,8 @@
     --rule: #3a4552;
     --field: #212a35;
     --surface: #18202a;
+
+    --link: #38bdf8;
 
     --danger-ink: #f5a9a9;
     --danger-rule: #7d3a3a;
@@ -387,12 +401,6 @@ th.reorder {
   white-space: nowrap;
 }
 
-th.reorder {
-  color: var(--ink-faint);
-  font-size: var(--size-fine);
-  font-weight: 400;
-}
-
 td.reorder form {
   display: block;
   margin: 0;
@@ -438,14 +446,56 @@ td.actions select {
   padding-right: calc(var(--space-loose) + var(--space-snug));
 }
 
+/* Not underlined by default — this is an app's own navigation, not
+   prose, and a permanent line under every link read as noisier than the
+   surface needed. `var(--link)` rather than Pico's own primary blue: a
+   colour this palette does not already use anywhere else, so "this is
+   clickable" stays legible against the marks, states and identifiers
+   that each claim a hue of their own. Underlined on hover, so a link is
+   still identifiable on interaction. Every more specific rule already on
+   this page (`.breadcrumb a`, `.row-action`, `.launch-link`, the admin
+   header's own surfaces) still wins on specificity, so this only reaches
+   the links none of those touch. */
+a {
+  color: var(--link);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
 table {
   font-size: var(--size-small);
 }
 
 th,
 td {
-  padding: var(--space-tight) var(--space-snug);
+  padding: var(--space-snug);
   vertical-align: middle;
+}
+
+/* A column name, not a fact: faint, normal weight and lowercase rather
+   than Pico's own bold, dark, as-typed default, which read as louder
+   than the rows of data it only labels. One rule for every admin table
+   (the playbook steps table, the product index, the roster) —
+   `.launches .launch-heading`, below, is styled to match, since a
+   `<ul>`/`<li>` grid can't be reached by this selector. */
+th {
+  color: var(--ink-faint);
+  font-weight: 400;
+  text-transform: lowercase;
+}
+
+/* Pico triples its header border's width inside a `<thead>`
+   (`thead th,thead td{--pico-border-width:0.1875rem}`) — a heavier line
+   under the column names than the ones between rows, which is the one
+   place these tables still disagreed with `.launches .launch-heading`'s
+   own thin one. Reset back to the root's own width so every row border
+   on the page, header included, reads the same. */
+thead th,
+thead td {
+  --pico-border-width: 0.0625rem;
 }
 
 td small {
@@ -484,6 +534,91 @@ td small {
 }
 
 /* ---------------------------------------------------------------------------
+ * The breadcrumb trail, inside the page head
+ * ------------------------------------------------------------------------ */
+
+/* `inline-flex`, not `flex`: a `<nav>` is block-level by default, and
+   `.page-head`'s own flex context only shrinks a flex ITEM to its
+   content when the item itself does not insist on filling a line —
+   `display: flex` alone still renders as a full-width block wherever
+   this partial is included outside a flex container, which is why an
+   early version of this rule rendered as a bar spanning the screen. */
+.breadcrumb {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-snug);
+}
+
+/* The vocabulary's own body size — an ancestor link reads as ordinary
+   page text, not as fine print (too quiet beside a heading) and not
+   sized to compete with the current segment either. Semibold, not the
+   current segment's full weight, so the two still read as different
+   positions in the trail. */
+.breadcrumb a {
+  font-size: var(--size-body);
+  font-weight: 600;
+  color: var(--ink-quiet);
+  text-decoration: none;
+}
+
+.breadcrumb a:hover {
+  color: var(--ink);
+  text-decoration: underline;
+}
+
+.breadcrumb-sep {
+  font-size: var(--size-body);
+  color: var(--ink-faint);
+}
+
+/* One heading style for every admin page, whether its title is a plain
+   `<h1>` (a top-level list, with no ancestor to name) or the breadcrumb
+   trail's own current segment (`.breadcrumb-current`, on a page reached
+   from one) — the same approach either way, a top-level page is simply
+   one whose trail happens to hold no ancestors. Sized down from Pico's
+   own `2rem` default so it sits closer to the ancestor links' size
+   above it on a page that has them, without the two heading kinds
+   looking like two different vocabularies on the pages that don't. */
+main.container h1 {
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+/* Only the breadcrumb's own current segment is capped — a top-level
+   page's plain `<h1>` ("Launches", "Products") is always this file's own
+   short word, never a step's or a product's own name, which can run
+   long. Wraps onto a second line rather than truncating: nothing about a
+   page's own title should read as a guess at what the rest of it says. */
+.breadcrumb-current {
+  max-width: 32rem;
+  overflow-wrap: break-word;
+}
+
+/* Every section heading (Pico's own `<h2>` defaults to bold) reads as
+   semibold instead, the same weight the page's own `<h1>` reads at
+   above, rather than sitting a full step heavier than the title over it. */
+main.container h2 {
+  font-size: 1.15rem;
+  font-weight: 600;
+}
+
+/* A gate's own name, heading the steps served there on the playbook
+   steps page. Significantly smaller than Pico's `1.75rem` h2 default —
+   this repeats once per gate down a long page, and at that size and
+   weight it read as louder than the page's own title above it. Matches
+   `.gate-group .gate-heading`'s own size — the launch detail page's
+   equivalent heading — so a gate reads the same size wherever it's
+   named. */
+.gate-name {
+  margin: var(--space-loose) 0 var(--space-snug);
+  font-size: var(--size-body);
+  font-weight: 600;
+}
+
+/* ---------------------------------------------------------------------------
  * The page head, and the narrowing beside it
  * ------------------------------------------------------------------------ */
 
@@ -494,20 +629,48 @@ td small {
   flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
-  gap: var(--space-snug);
-  margin-bottom: var(--space-loose);
-}
-
-.page-head h1 {
-  margin: 0;
+  gap: calc(var(--space-loose) * 1.5);
+  margin-bottom: calc(var(--space-loose) * 1.5);
 }
 
 /* The page's own affirmative control keeps Pico's primary treatment — it
    is not one of a step row's peer actions, and the vocabulary's grey would
    bury the one thing an admin comes here to do. */
+/* Same box as `.page-head-descendants .row-action` (the Journal button) —
+   same padding, font-size and weight — so the two read as the same kind
+   of control at the same scale. Background, text and border colour are
+   deliberately left to Pico's own primary-button treatment rather than
+   copied from `.row-action` too: this is the page's one affirmative
+   control, and it has to stay the most eye-catching thing in the row
+   even at the same size as everything beside it. */
 .page-head-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-tight) var(--space-loose);
+  border-radius: var(--pico-border-radius);
+  font-size: var(--size-small);
   font-weight: 600;
+  line-height: 1.2;
   white-space: nowrap;
+}
+
+/* A detail page's own children, in the slot the page's back link used to
+   occupy before the breadcrumb trail took over "the way back"
+   (`add-admin-breadcrumb-navigation`). Plain `.row-action` rather than
+   its `quiet` modifier — a descendant is an offer to go somewhere new
+   rather than a way back, and reads better as a small menu item (its
+   own filled background and border) than as flat, quiet text easy to
+   miss beside the trail's now-larger current segment. */
+.page-head-descendants {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-tight);
+}
+
+.page-head-descendants .row-action {
+  font-size: var(--size-small);
+  padding: var(--space-tight) var(--space-loose);
 }
 
 /*
@@ -527,7 +690,7 @@ td small {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: center;
   gap: var(--space-tight);
   margin-bottom: var(--space-loose);
 }
@@ -586,7 +749,7 @@ form.narrowing fieldset {
 
 .admin-header {
   margin-bottom: var(--space-loose);
-  border-bottom: 1px solid var(--rule);
+  border-bottom: var(--pico-border-width) solid var(--pico-muted-border-color);
 }
 
 .admin-header nav {
@@ -625,7 +788,7 @@ form.authoring legend {
   padding: 0;
   color: var(--ink);
   font-size: 1.05rem;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 form.authoring fieldset {
@@ -896,26 +1059,43 @@ tr.just-created > td:first-child {
 .launches .launch-row,
 .launches .launch-heading {
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) 8rem minmax(0, 13rem) 7rem minmax(0, 1fr);
+  grid-template-columns: 7rem minmax(0, 1.2fr) 8rem minmax(0, 13rem) 7rem minmax(0, 1fr);
   align-items: baseline;
   gap: var(--space-tight) var(--space-snug);
   padding: var(--space-snug) 0;
-  border-bottom: 1px solid var(--rule);
+  /* Pico's own table-border tokens, matching every other admin table's
+     row border — thin and the same muted shade, not this file's own
+     more saturated `--rule`. */
+  border-bottom: var(--pico-border-width) solid var(--pico-muted-border-color);
+  /* The same size every other admin table's cells read at (`table`,
+     above) — a `<ul>`/`<li>` grid isn't reached by that selector, so a
+     row here rendered at the page's own larger body size instead, and
+     read taller and heavier than a playbook step's or a product's row. */
+  font-size: var(--size-small);
 }
 
-/* Names the columns. Quiet and small: it is a key to the rows, never a row. */
+/* Names the columns. Faint, normal weight and lowercase, matching the
+   `th` rule every other admin table's real header row carries — a
+   `<ul>`/`<li>` grid can't be reached by that selector, so the same
+   treatment is repeated here by hand. */
 .launches .launch-heading {
   padding-bottom: var(--space-tight);
-  border-bottom: 2px solid var(--rule);
   color: var(--ink-faint);
-  font-size: var(--size-fine);
-  font-weight: 600;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
+  font-size: var(--size-small);
+  font-weight: 400;
+  text-transform: lowercase;
+}
+
+/* The SKU column — the same `nowrap` treatment `td.identity` gives a
+   playbook step's own identifier column, repeated here for the reason
+   every other rule on this list already is: nothing here is a `<table>`
+   for the shared selector to reach. */
+.launches .identity {
+  white-space: nowrap;
 }
 
 .launches .launch-link {
-  font-weight: 600;
+  font-weight: 400;
 }
 
 .launches .gate,
@@ -989,16 +1169,15 @@ tr.just-created > td:first-child {
 section.finished {
   margin-top: var(--space-loose);
   padding-top: var(--space-snug);
-  border-top: 2px solid var(--rule);
+  /* Pico's own table-border tokens, matching every other divider on the
+     page — thin and the same muted shade, not this file's own more
+     saturated `--rule` at twice the width. */
+  border-top: var(--pico-border-width) solid var(--pico-muted-border-color);
 }
 
 section.finished > h2 {
   font-size: 1.05rem;
   color: var(--ink-quiet);
-}
-
-.launches.finished-launches .launch-link {
-  font-weight: 400;
 }
 
 /* An answer the page is giving, not an absence of one. */
@@ -1040,143 +1219,85 @@ section.finished .empty,
    without moving the launch -- and with only the current gate marked, an
    admin who clicked `listable` and saw `commit` still lit reasonably read
    the amber as "selected" rather than as "where this launch stands". The two
-   now carry different treatments: amber names the position, this outline
-   names where you are looking. */
-.gate-group:target {
-  outline: 2px solid var(--mark-flag-wash);
-  outline-offset: var(--space-tight);
+   carry different treatments: amber (`.gate-sequence .current`, above) names
+   the position; this one — the same accent every link on the page already
+   uses — names where you are looking.
+
+   The gate's own name, not an indent or a border: `launch-admin`'s own
+   requirement is that the served stylesheet carry *some* rule
+   distinguishing the two, confirmed by direct inspection, so this can
+   change shape but not disappear without revisiting that requirement
+   itself. Colour on the one word a reader is already looking at reads at
+   least as clearly as a shifted margin did. */
+.gate-group:target .gate-name {
+  color: var(--link);
 }
 
-/* A gate and the steps it holds. */
+/* A gate and the steps it holds — a `<section>` around a real `<table>`
+   now (`add-admin-breadcrumb-navigation`'s launch-page redesign), the
+   same shape the playbook steps page's own gate sections already use.
+   `.gate-name`'s own rule, defined once for that page, is reused here
+   rather than repeated: one heading style for a gate's name, wherever a
+   gate is named. */
 .gate-group {
   margin: 0 0 var(--space-loose);
-  padding: 0;
-  list-style: none;
 }
 
-.gate-group .gate-heading {
-  padding: var(--space-tight) 0;
-  border-bottom: 2px solid var(--rule);
+/* What came of the step, in its own column. An automated handler writes
+   several sentences here, so it is bounded and wraps within that bound
+   rather than running the table wider than the page — a fact this page
+   renders may not be hidden, and an ellipsis on the one field explaining
+   a refusal is exactly that. */
+.gate-group td.evidence {
+  max-width: 22rem;
+}
+
+.gate-group .evidence-text {
+  display: block;
   color: var(--ink);
-  font-size: 1.05rem;
-  font-weight: 700;
+  overflow-wrap: anywhere;
 }
 
-/* Three columns: the state, the step and what came of it, and the fine
-   print. The middle column is `minmax(0, 1fr)` so it takes the space left
-   over and -- crucially -- may SHRINK: without the `0` minimum a long
-   evidence paragraph would push the grid wider than the page. The third is
-   fixed, so the fine print never wins space from what is being read. */
-.gate-group .step-row {
-  display: grid;
-  grid-template-columns: 9rem minmax(0, 1fr) 18rem;
-  align-items: start;
-  gap: var(--space-tight) var(--space-snug);
-  padding: var(--space-snug) 0;
-  border-bottom: 1px solid var(--rule);
+/* Who recorded it, from where and when -- the reason a recorded outcome
+   can be trusted, kept at the fine scale beneath the evidence it backs. */
+.gate-group .outcome-provenance {
+  display: block;
+  margin-top: var(--space-hair);
+  color: var(--ink-quiet);
+  font-size: var(--size-fine);
+  overflow-wrap: anywhere;
 }
 
-.gate-group .step-main,
-.gate-group .step-meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--space-hair) var(--space-tight);
-  min-width: 0;
-}
-
-.gate-group .step-name {
-  flex: 1 1 100%;
+.gate-group td.step-name {
   font-weight: 600;
 }
 
-/* What came of the step, in the step's own column. An automated handler
-   writes several sentences here, so it wraps to its column's width and is
-   never truncated -- a fact this page renders may not be hidden, and an
-   ellipsis on the one field explaining a refusal is exactly that. */
-.gate-group .evidence {
-  flex: 1 1 100%;
-  color: var(--ink);
-  font-size: var(--size-small);
-  line-height: 1.45;
-  overflow-wrap: anywhere;
-}
-
-/* The identifier, discipline and due period recede; the step's name, its
-   outcome tag and its marks stay at reading weight. Receding is a smaller,
-   quieter ink — never `display: none`, and never quieter than the surface's
-   ordinary text, which is what the pages' negative obligation forbids. */
-.gate-group .step-id,
-.gate-group .discipline,
-.gate-group .due {
-  color: var(--ink-quiet);
-  font-size: var(--size-fine);
-}
-
-.gate-group .step-id {
-  flex: 1 1 100%;
-  overflow-wrap: anywhere;
-}
-
-.gate-group .step-id {
-  font-family: var(--font-mono);
-}
-
-/* Who recorded it, from where and when -- the reason a recorded outcome can
-   be trusted, kept in the fine column at the fine scale. */
-.gate-group .outcome {
-  flex: 1 1 100%;
-  color: var(--ink-quiet);
-  font-size: var(--size-fine);
-  line-height: 1.45;
-  overflow-wrap: anywhere;
-}
-
 /* The outcome, as a tag leading its row. Same shape as `.mark` — a tag states
-   something and must not read as a control — and it leads rather than trails
-   so that a column of tags can be run down with one eye. */
+   something and must not read as a control. */
 .gate-group .outcome-tag {
-  justify-self: start;
+  display: inline-block;
   padding: 0 var(--space-tight);
   border-radius: var(--pico-border-radius);
   background: var(--state-idle-wash);
   color: var(--state-idle-ink);
   font-size: var(--size-fine);
   line-height: 1.6;
-  text-align: center;
   white-space: nowrap;
 }
 
-/* The row itself carries the state on its left edge only -- no fill. The
-   edge and the tag are enough to scan a gate by, and filling ten rows with
-   colour makes the page read as a warning rather than as a list. Tried
-   filled, and it was too much. */
-.gate-group .step-row {
-  border-left: 3px solid transparent;
-  padding-left: var(--space-snug);
-}
-
-.gate-group .step-row.state-satisfied {
-  border-left-color: var(--state-done-edge);
-}
-
+/* The state, carried by the tag alone now — no left-edge accent beside
+   it. The tag's own colour already differs by state, which is what
+   "readable by treatment" rests on; the row itself carries the `state-`
+   marker this requirement's scenario asserts, whether or not that
+   marker drives a treatment of its own. */
 .gate-group .step-row.state-satisfied .outcome-tag {
   background: var(--state-done-wash);
   color: var(--state-done-ink);
 }
 
-.gate-group .step-row.state-inprogress {
-  border-left-color: var(--state-active-edge);
-}
-
 .gate-group .step-row.state-inprogress .outcome-tag {
   background: var(--state-active-wash);
   color: var(--state-active-ink);
-}
-
-.gate-group .step-row.state-blocked,
-.gate-group .step-row.state-refused {
-  border-left-color: var(--state-stuck-edge);
 }
 
 .gate-group .step-row.state-blocked .outcome-tag,
@@ -1186,15 +1307,9 @@ section.finished .empty,
 }
 
 /* Recorded as not started, and never recorded at all, are different facts —
-   the capability requires them to render distinguishably, and with the row
-   fills gone the tag and the edge are what carry that. The first is a
-   recorded outcome: filled grey tag, grey edge. The second is an absence:
-   an outlined tag, and no edge colour at all. They differ in word too. */
-.gate-group .step-row.state-notstarted,
-.gate-group .step-row.state-notapplicable {
-  border-left-color: var(--state-idle-edge);
-}
-
+   the capability requires them to render distinguishably. They differ in
+   word, and in the tag's own treatment: the first is a recorded outcome
+   (filled grey tag), the second an absence (outlined, no fill). */
 .gate-group .step-row.state-unrecorded .outcome-tag {
   border: 1px dashed var(--state-idle-edge);
   background: transparent;
