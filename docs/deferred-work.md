@@ -237,6 +237,29 @@ The admin surface — the steps page and the roster today, a launch-products pag
 
 **Recorded in**: this entry. Unlike its neighbours it has no change behind it — it was settled in exploration on 2026-08-27, and this file is the primary record until a change takes it up.
 
+### Three `product-dossier` behaviours no deployment has yet exercised
+
+`add-product-dossier-page`'s section 9 confirmed what the deployment could
+show on 2026-08-28 and named what it could not. Three cases have no data to
+render, and none is a defect:
+
+| Case | Why it could not be observed | Where it is asserted |
+|---|---|---|
+| A retired product set apart on the index | Two products exist, neither retired | `test_product_index_page.py` — *Setting apart outranks the SKU sort* |
+| A graduated launch's dossier | No launch has reached `graduated` | `test_product_dossier_page.py` — *A graduated launch does not remove the dossier* |
+| An `accepted`, `rejected` or `voided` entry | One retained result existed, and it was `pending` | `test_product_dossier_page.py` — one scenario per state |
+
+The last is the one worth re-checking when data allows, because it is where
+a wrong label misattributes a decision: a `voided` entry must read as
+*withdrawn* and carry no decider, never as *rejected*. Reaching the three
+settled states costs at least the 24-hour rejection cool-off
+(`automation_pass.py`'s `COOL_OFF`), and `voided` additionally needs a step
+moved out of `active` between a result being produced and its decision.
+
+**Trigger to close.** A retired product, a graduated launch, or a settled
+automated result appearing in production — whichever arrives first, check
+the corresponding case then rather than manufacturing it.
+
 ### Small cleanups, not worth a change each
 
 Verified present at the time of writing; suitable for one chore commit.
