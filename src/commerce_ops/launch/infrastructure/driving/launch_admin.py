@@ -251,21 +251,32 @@ class GateGroup:
 class JournalLine:
     """One journal entry as the detail page renders it.
 
-    `subject`, `source` and `who` are the raw facts, rendered as their
-    own columns rather than folded into a sentence — `cause`'s composed
-    "recorded by X from Y" is deliberately not carried here, since `who`
-    and `source` already give a reader those two facts directly. `who`
-    is the entry's `actor`, resolved against the roster to a display name
-    where it names a known person, and left as the raw value otherwise
-    (`_actor_names`)."""
+    `who` is the entry's `actor`, resolved against the roster to a
+    display name where it names a known person (by roster identifier or
+    by ClickUp user id — `_actor_names`), and left as the raw value
+    otherwise.
 
-    what: str
+    `detail` and `note` are this page's own consolidation of
+    `JournalEntry`'s per-kind raw fields (`outcome`, `decision`,
+    `gate_id`, ...) into two columns rather than one per fact — a table
+    with a column for every fact `raw-out-the-journal-columns` first
+    tried was too wide to read. `detail` is the one fact that most
+    identifies what a kind of entry carries (an outcome, a decision, a
+    gate, a moved date's before/after, ...); `note` is the explanatory
+    text beside it (a reason, evidence, a graduating approval's posture)
+    where the entry carries one, joined with an em dash where it carries
+    two (`_detail`, `_note`) — composition the page performs, the same
+    way it already composes `who`, not a fact `journal.py` stores or
+    exposes as its own field."""
+
     when: Any
     label: str
     category: str
     subject: str | None
     source: str | None
     who: str | None
+    detail: str | None
+    note: str | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -464,8 +475,12 @@ def _gate_of(report: Any, line: StepLine) -> str:
 
 
 async def _actor_names(roster: Any) -> dict[str, str]:
-    """Roster identifier -> display name, for resolving a journal entry's
-    `actor` to a human name.
+    """Every identifier a journal entry's `actor` might carry, mapped to
+    the person's display name: a Slack-sourced entry's `actor` is a
+    roster identifier (`Person.identifier`), a ClickUp-sourced one is
+    that person's `clickup_user_id` (`clickup_webhook`'s `_status_change`,
+    `raw-out-the-journal-columns`). Both map into one dict, since the two
+    identifier spaces do not collide in practice.
 
     Empty where the roster is unavailable or unreadable, the same
     fail-quiet fallback `_label_for` uses for an unresolved product: an
@@ -477,13 +492,63 @@ async def _actor_names(roster: Any) -> dict[str, str]:
         people = await list_people(roster=roster)
     except Exception:  # noqa: BLE001 — an unreadable roster still renders raw ids
         return {}
-    return {person.identifier: person.display_name for person in people}
+    names: dict[str, str] = {}
+    for person in people:
+        names[person.identifier] = person.display_name
+        if person.clickup_user_id:
+            names[person.clickup_user_id] = person.display_name
+    return names
 
 
 def _who(actor: str | None, actor_names: dict[str, str]) -> str | None:
     if actor is None:
         return None
     return actor_names.get(actor, actor)
+
+
+def _optional_str(value: Any) -> str | None:
+    return None if value is None else str(value)
+
+
+def _journal_detail(entry: Any) -> str | None:
+    """The one fact that most identifies what this entry carries.
+
+    Dispatches on which raw field is populated rather than on `kind`,
+    since each field belongs to exactly one or two kinds already — the
+    order matters only where two kinds share a field (`decision` and
+    `posture`: an approving `gate-approval-recorded` carries both, and
+    `decision` takes this column so a graduating approval's posture
+    still has somewhere to go, in `_journal_note`)."""
+    if entry.playbook_version is not None:
+        return _optional_str(entry.playbook_version)
+    if entry.outcome is not None:
+        return _optional_str(entry.outcome)
+    if entry.decision is not None:
+        return _optional_str(entry.decision)
+    if entry.gate_id is not None:
+        return _optional_str(entry.gate_id)
+    if entry.standing_at is not None:
+        return _optional_str(entry.standing_at)
+    if entry.previous_date is not None or entry.new_date is not None:
+        return f"{entry.previous_date or '—'} → {entry.new_date}"
+    if entry.unsatisfied:
+        return ", ".join(str(item) for item in entry.unsatisfied)
+    if entry.posture is not None:
+        return _optional_str(entry.posture)
+    return None
+
+
+def _journal_note(entry: Any) -> str | None:
+    """The explanatory text beside `_journal_detail`, where the entry
+    carries one -- a reason and/or evidence joined with an em dash where
+    it carries both, mirroring how the page's earlier composed `what`
+    joined the same two facts."""
+    parts = [str(part) for part in (entry.reason, entry.evidence) if part]
+    if parts:
+        return " — ".join(parts)
+    if entry.decision is not None and entry.posture is not None:
+        return _optional_str(entry.posture)
+    return None
 
 
 def _journal_lines(
@@ -498,20 +563,19 @@ def _journal_lines(
     obligation is the page's, and a page that only looks right because
     its collaborator happened to be ordered is not meeting it.
 
-    Composes nothing beyond resolving `who`: `what`, `label`, `category`,
-    `subject` and `source` are worded or carried at read time already,
-    and passing them across unchanged is what R5 requires each entry to
-    name.
+    Composes `who`, `detail` and `note`; every other field is carried
+    across unchanged, which is what R5 requires each entry to name.
     """
     lines = [
         JournalLine(
-            what=entry.what,
             when=entry.when,
             label=entry.label,
             category=entry.category,
             subject=entry.subject,
             source=entry.source,
             who=_who(entry.actor, actor_names),
+            detail=_journal_detail(entry),
+            note=_journal_note(entry),
         )
         for entry in entries or ()
     ]

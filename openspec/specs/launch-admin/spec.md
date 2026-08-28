@@ -428,32 +428,52 @@ stands.
 
 ### Requirement: A launch's detail page renders its journal, newest first
 
-The detail page SHALL render the launch's journal as a table, with the most recent entry first, each row naming the entry's label, its subject, what occurred, when, its source, and who recorded it — as separate raw facts, not composed into a sentence: an entry's `subject`, `source` and `actor` (`launch-journal`) SHALL each render in their own column, so a reader can read who did something or where it came from without reading a sentence about it. A fact the entry does not carry (a kind with no subject, no source, or no actor) SHALL render as an explicit absence rather than an empty-looking cell indistinguishable from a fault.
+The detail page SHALL render the launch's journal as a table, with the most recent entry first, a row for each entry carrying its label, its subject, its source, who recorded it, when it occurred, a detail and a note. Detail and note are this page's own consolidation of `launch-journal`'s per-kind fact fields (`playbook_version`, `outcome`, `reason`, `evidence`, `gate_id`, `decision`, `posture`, `standing_at`, `previous_date`, `new_date`, `unsatisfied`) into two columns rather than one per fact — a column for every fact makes for a table too wide to read at a glance. Detail SHALL carry the one fact that most identifies what the entry's kind concerns (an outcome, a decision, the gate a metric was attested against, a moved date's before and after, ...); note SHALL carry the explanatory text beside it where the entry carries one (a reason, evidence, a graduating approval's posture), joined by an em dash where it carries two. A fact the entry does not carry SHALL render as an explicit absence rather than an empty-looking cell indistinguishable from a fault.
 
-Where an entry's `actor` is a roster identifier, the page SHALL render the person's name rather than the raw identifier; where it does not resolve against the roster, the page SHALL render the raw value rather than omitting it or failing.
+Where an entry's `actor` matches a person the roster carries — by that person's roster identifier or by their ClickUp user id — the page SHALL render the person's name rather than the raw identifier; where it matches neither, the page SHALL render the raw value rather than omitting it or failing.
 
 The presentation SHALL be observable in the rendered response — each row SHALL carry the marker `category-` followed by the entry's category, one of `category-progression`, `category-judgment`, `category-blocked`, `category-admin`, matching the standard `A step's outcome is rendered as a tag carrying its state` already holds for this page's other markers: the literal tokens are given because they are what a test is derived from. The markers are a necessary condition, not a sufficient one — that the categories are visually distinguished from one another SHALL be confirmed by direct inspection of the rendered page.
 
 A launch whose journal holds nothing SHALL render the section saying so. A journal is empty for launches that predate it, and a section that vanished when empty would read as "nothing happened" on exactly those launches.
 
-#### Scenario: An entry names what occurred and when
+#### Scenario: An entry names when it occurred
 
 - **WHEN** a launch's journal holds an entry
-- **THEN** it is rendered naming what occurred and when it occurred
+- **THEN** its row shows the moment it occurred, in its own column
 
 #### Scenario: An entry's row shows its subject, source and who recorded it as separate facts
 
 - **WHEN** a launch's journal holds an entry carrying a subject, a source and an actor
 - **THEN** its row shows each in its own column, and none of the three is folded into a sentence with another
 
-#### Scenario: A known actor resolves to their name
+#### Scenario: A kind's primary fact renders as the row's detail
 
-- **WHEN** an entry's `actor` is the identifier of a person the roster carries
+- **WHEN** a launch's journal holds a `step-outcome-recorded` entry carrying an outcome
+- **THEN** its row's detail column shows that outcome
+
+#### Scenario: A kind's explanatory fact renders as the row's note
+
+- **WHEN** a launch's journal holds a `step-outcome-recorded` entry carrying a reason
+- **THEN** its row's note column shows that reason
+
+#### Scenario: A detail and a note carrying two facts are joined, not tabulated further
+
+- **WHEN** a launch's journal holds a `step-outcome-recorded` entry carrying both a reason and evidence
+- **THEN** its row's note column shows both, joined by an em dash, rather than adding a further column for the second
+
+#### Scenario: A known actor resolves to their name by roster identifier
+
+- **WHEN** an entry's `actor` is the roster identifier of a person the roster carries
+- **THEN** the row shows that person's name rather than the raw identifier
+
+#### Scenario: A known actor resolves to their name by ClickUp user id
+
+- **WHEN** an entry's `actor` is the ClickUp user id of a person the roster carries
 - **THEN** the row shows that person's name rather than the raw identifier
 
 #### Scenario: An unresolvable actor renders as its raw value
 
-- **WHEN** an entry's `actor` does not match any person the roster carries
+- **WHEN** an entry's `actor` does not match any person the roster carries, by either identifier
 - **THEN** the row shows the raw actor value rather than omitting it
 
 #### Scenario: An entry's row shows its label and carries its category marker

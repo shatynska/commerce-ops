@@ -121,8 +121,9 @@
     <table class="journal-entries">
       <thead>
         <tr>
-          <th>Kind</th><th>Subject</th><th>What</th><th>When</th>
-          <th>Source</th><th>Who</th>
+          <th>Kind</th><th>Subject</th>
+          <th>Source</th><th>Who</th><th>When</th>
+          <th>Detail</th><th>Note</th>
         </tr>
       </thead>
       <tbody>
@@ -130,10 +131,11 @@
         <tr class="category-{{ entry.category }}">
           <td class="label">{{ entry.label }}</td>
           <td class="subject">{{ entry.subject or '—' }}</td>
-          <td class="what">{{ entry.what }}</td>
-          <td class="when">{{ entry.when.strftime('%Y-%m-%d %H:%M %Z') }}</td>
           <td class="source">{{ entry.source or '—' }}</td>
           <td class="who">{{ entry.who or '—' }}</td>
+          <td class="when">{{ entry.when.strftime('%Y-%m-%d %H:%M %Z') }}</td>
+          <td class="detail">{{ entry.detail or '—' }}</td>
+          <td class="note">{{ entry.note or '—' }}</td>
         </tr>
         {% endfor %}
       </tbody>

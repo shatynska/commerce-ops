@@ -416,11 +416,11 @@ async def test_entries_naming_the_same_moment_report_the_later_append_first(
     assert len(at_the_same_moment) == 2
     # SPECIFIED: the later of two simultaneous entries is reported first.
     first, second = at_the_same_moment
-    assert _normalised(STEP_B_NAME) in _normalised(first.what), (
+    assert _normalised(STEP_B_NAME) in _normalised(first.subject or ""), (
         f"the later-appended entry must be reported first; the first "
-        f"reported was {first.what!r}"
+        f"reported names subject {first.subject!r}"
     )
-    assert _normalised(STEP_A_NAME) in _normalised(second.what)
+    assert _normalised(STEP_A_NAME) in _normalised(second.subject or "")
 
 
 # ---------------------------------------------------------------------------
@@ -469,16 +469,19 @@ async def test_improved_wording_reaches_entries_already_appended(
 ) -> None:
     """Scenario: Improved wording reaches entries already appended.
 
-    WHEN the wording composed for a kind of occurrence changes, and a
-    launch's journal holding an entry of that kind from before the change
-    is read
-    THEN that entry reads with the new wording.
+    WHEN the label or category rule composed for a kind of occurrence
+    changes, and a launch's journal holding an entry of that kind from
+    before the change is read
+    THEN that entry reads with the new label or category.
 
     Read as `tasks.md` 1.2 directs — a test about *where* composition
-    happens, not about a particular sentence. It holds exactly when the
-    stored row holds no sentence and the read composes one from the row's
-    facts: the composer is then the only source of wording, so improving
-    it improves every row already written.
+    happens, not about a particular sentence. `raw-out-the-journal-columns`
+    removed the composed `what`/`cause` sentence this test originally
+    checked; `label` and `category` are the fields still composed at read
+    time (every other field is now a raw pass-through of a stored fact),
+    so this holds exactly when the stored row holds neither and the read
+    composes them from the row's facts: the composer is then the only
+    source, so improving it improves every row already written.
     """
     product_id = await registered_product_id()
     await _start_and_record(sessions, product_id, ((STEP_A, FIRST_AT),))
@@ -498,16 +501,31 @@ async def test_improved_wording_reaches_entries_already_appended(
     values = [str(value) for value in row.values() if value is not None]
     values.extend(str(value) for value in row["details"].values())
 
-    # SPECIFIED: nothing in the row is the sentence the read composed.
-    assert composed.what
+    # SPECIFIED: nothing in the row is the label or category the read
+    # composed.
+    assert composed.label
+    assert composed.category
     for value in values:
-        assert composed.what not in value, (
-            f"the stored value {value!r} carries the composed wording "
-            f"{composed.what!r}; wording must be composed at read time"
+        assert composed.label not in value, (
+            f"the stored value {value!r} carries the composed label "
+            f"{composed.label!r}; the label must be composed at read time"
         )
-    # SPECIFIED, the other half: the wording is composed from the row's
-    # own facts, so a later composer can phrase this same row differently.
-    assert _normalised(STEP_A_NAME) in _normalised(composed.what)
+        assert composed.category not in value, (
+            f"the stored value {value!r} carries the composed category "
+            f"{composed.category!r}; the category must be composed at "
+            f"read time"
+        )
+    # SPECIFIED, the other half: the category is composed from the row's
+    # own outcome fact (a `Satisfied` recording composes `progression`;
+    # `test_launch_journal_categorization.py` exercises the same rule
+    # composing `blocked` for `Blocked`/`Refused`), so a later composer
+    # can categorize this same row differently.
+    assert row["details"].get("outcome") == "Satisfied", (
+        "fixture premise: `_start_and_record` records a Satisfied outcome"
+    )
+    assert composed.category == "progression"
+    # The subject is still the step's own captured name, unworded.
+    assert _normalised(STEP_A_NAME) in _normalised(composed.subject or "")
 
 
 # ---------------------------------------------------------------------------

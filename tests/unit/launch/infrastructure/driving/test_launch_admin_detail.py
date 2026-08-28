@@ -1678,22 +1678,22 @@ def test_an_overdue_step_is_marked(monkeypatch: pytest.MonkeyPatch) -> None:
 # ===========================================================================
 
 
-def test_a_journal_entry_names_what_occurred_when_and_what_caused_it(
+def test_a_journal_entry_names_when_it_occurred_and_shows_subject_source_who(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Scenario: An entry names what occurred, when, and what caused it.
+    """Scenario: An entry names when it occurred / shows its subject,
+    source and who recorded it as separate facts.
 
     WHEN a launch's journal holds an entry
-    THEN it is rendered naming what occurred, when it occurred, its
-    source, and who recorded it -- `structure-the-launch-journal-table`'s
-    follow-on refinement splits the page's rendered `cause` sentence into
-    these two raw columns, so "what caused it" is checked as source and
-    actor rather than as a composed sentence.
+    THEN it is rendered naming when it occurred, and shows its subject,
+    its source, and who recorded it, each in its own column --
+    `raw-out-the-journal-columns` removed the page's earlier composed
+    `what`/`cause` columns entirely in favour of these raw ones.
     """
     world = _world(monkeypatch)
     seam = _journal_seam(world.surface.module)
-    occurred = "the commit gate was approved"
     when = datetime(2027, 3, 2, 10, 30, tzinfo=UTC)
+    subject = "commit"
     source = "slack"
     actor = "an-actor-not-on-the-roster"
 
@@ -1703,15 +1703,24 @@ def test_a_journal_entry_names_what_occurred_when_and_what_caused_it(
                 "_Entry",
                 (),
                 {
-                    "what": occurred,
                     "when": when,
-                    "cause": "an approval recorded by Helen in Slack",
                     "kind": "approval",
                     "label": "Approval",
                     "category": "judgment",
-                    "subject": "commit",
+                    "subject": subject,
                     "source": source,
                     "actor": actor,
+                    "playbook_version": None,
+                    "outcome": None,
+                    "reason": None,
+                    "evidence": None,
+                    "gate_id": None,
+                    "decision": "approving",
+                    "posture": None,
+                    "standing_at": None,
+                    "previous_date": None,
+                    "new_date": None,
+                    "unsatisfied": (),
                 },
             )(),
         )
@@ -1721,17 +1730,16 @@ def test_a_journal_entry_names_what_occurred_when_and_what_caused_it(
     html = _detail_html(world.surface, world.product.id)
 
     text = _all_text(_tree(html))
-    # SPECIFIED: naming what occurred...
-    assert occurred in text, f"the journal entry does not name what occurred: {text!r}"
-    # ...when it occurred...
+    # SPECIFIED: when it occurred...
     assert _renders_date(_tree(html), when.date()), (
         f"the journal entry does not name when it occurred: {text!r}"
     )
-    # ...and what caused it -- its source and who recorded it, each in
-    # their own column.
-    assert source in text, f"the journal entry does not name its source: {text!r}"
+    # ...and its subject, source and who recorded it, each in its own
+    # column.
+    assert subject in text, f"the journal entry does not show its subject: {text!r}"
+    assert source in text, f"the journal entry does not show its source: {text!r}"
     assert actor.lower() in text, (
-        f"the journal entry does not name who recorded it: {text!r}"
+        f"the journal entry does not show who recorded it: {text!r}"
     )
 
 
@@ -1759,15 +1767,24 @@ def test_journal_entries_render_newest_first(
                 "_Entry",
                 (),
                 {
-                    "what": mark,
                     "when": moment,
-                    "cause": "a recorded outcome",
                     "kind": "step-outcome-recorded",
                     "label": "Outcome",
                     "category": "progression",
                     "subject": None,
                     "source": None,
                     "actor": None,
+                    "playbook_version": None,
+                    "outcome": mark,
+                    "reason": None,
+                    "evidence": None,
+                    "gate_id": None,
+                    "decision": None,
+                    "posture": None,
+                    "standing_at": None,
+                    "previous_date": None,
+                    "new_date": None,
+                    "unsatisfied": (),
                 },
             )()
             for mark, moment in zip(marks, moments, strict=True)
