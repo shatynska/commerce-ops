@@ -197,7 +197,12 @@ be caught by inspection.
 
 The rules SHALL live in the shared stylesheet with every other admin rule, and
 neither page SHALL gain styling of its own. No selector this change adds SHALL
-match an element rendered by any other admin surface loading that stylesheet —
+match an element rendered by any other admin surface loading that stylesheet,
+**save for a rule whose declarations are custom properties only** — a block
+that defines `--tokens` and sets no rendered property changes nothing on a
+surface that never reads them, and the theme blocks every token in this
+vocabulary is declared in are exactly that. The obligation is about what a
+rule *renders*, not about what it matches —
 which today is the step list, the roster page, the product index and the product
 dossier, and tomorrow is whatever is added next.
 
@@ -258,8 +263,25 @@ provenance, so taking the latest recording of any outcome would let a step
 recorded as blocked read as the launch's latest completion.
 
 Where two completions carry the same recording time, the report's own order
-SHALL break the tie — the authored order `launch-playbook` obliges — so the
-column never orders itself by chance.
+SHALL break the tie, and the **latest** such step in that order SHALL win — the
+authored order `launch-playbook` obliges, and naming the direction is what makes
+this a rule rather than a preference. Same-instant ties are ordinary rather than
+exotic: one automated pass records several outcomes at once.
+
+Only `Satisfied` counts, which excludes the terminal outcomes `Refused` and
+`NotApplicable` as well as the unresolved ones. That is deliberate: the column
+answers what has been *completed*, and a step refused or ruled inapplicable was
+resolved without being completed. A launch whose only resolved steps are those
+therefore states that nothing has been completed, which is accurate rather than
+a gap.
+
+The row SHALL name the step by its **name**, never by its identifier — the
+identifier is opaque, and this capability already keeps opaque identifiers off a
+row that resolved. The recording time SHALL be rendered no coarser than the
+minute and SHALL carry the zone it is read in, so that a time near a day
+boundary cannot be read as the wrong day. The fact is drawn from the served step
+set the report carries, so a completion recorded against a step since retired is
+not named — the same boundary every other consumer of that report works within.
 
 This fact comes from the launch report the list already reads. The page issues
 no further read to obtain it, and no launch is enumerated, ordered or narrowed
@@ -277,8 +299,17 @@ differently for it.
 
 #### Scenario: Only a completion counts
 
-- **WHEN** a listed launch's most recent recording is an outcome other than completion, over an earlier completion
-- **THEN** its row names the earlier completion, not the more recent recording
+- **WHEN** a listed launch has one step completed earlier and a **different** step whose most recent recording is an outcome other than completion
+- **THEN** its row names the completed step, not the more recently recorded one
+
+*(Two steps, deliberately: re-recording a step replaces its stored outcome and
+its provenance together, so one step cannot hold both an earlier completion and
+a later non-completion.)*
+
+#### Scenario: A tie is broken in a stated direction
+
+- **WHEN** two of a launch's steps are completed and recorded at the same instant
+- **THEN** its row names the later of the two in the report's order, on every rendering
 
 #### Scenario: A launch with nothing completed says so
 
@@ -310,24 +341,66 @@ member the page does not know SHALL render under its own name rather than
 disappearing: an unrecognised outcome is a fact, and a blank where one belongs
 is the failure this surface exists to prevent.
 
-Every fact the page renders about a recorded step — the recorder, the source,
-the recording time and the evidence — SHALL still be rendered. Evidence written
+The treatment SHALL be observable in the rendered response, and the literal
+tokens are given because they are what a test is derived from, as this delta's
+first requirement already does for the narrowing bar: the outcome's tag carries
+the marker `outcome-tag`, and the element holding the step carries `state-`
+followed by the outcome's own name lowercased — `state-satisfied`,
+`state-blocked` — with a step carrying no recorded outcome carrying
+`state-unrecorded`. That last is the marker the distinction above rests on: the
+two states carry different markers, and never one shared marker.
+
+Every fact the capability requires the detail page to render about a step SHALL
+still be rendered — its name, its identifier, its owning discipline, whether it
+blocks, its due period, whether it is overdue, its recorded outcome and that
+recording's provenance. This requirement re-lays them out; it removes none, and
+the capability's own list governs rather than any shorter list restated here.
+Evidence written
 by an automated handler runs to several sentences, and SHALL be laid out within
 a bounded measure rather than across the page's full width, and SHALL NOT be
 truncated: an ellipsis on the one field explaining why a step was refused
-suppresses exactly the fact a reader came for. Rendering the recording time at
-a coarser precision than it is stored is not suppression, and is permitted.
+suppresses exactly the fact a reader came for.
+
+The recording time MAY be rendered at a coarser precision than it is stored, and
+SHALL be rendered no coarser than the minute and SHALL carry the zone it is read
+in. Dropping microseconds loses nothing a reader wanted; dropping the zone
+changes which day an instant near a boundary belongs to, which is a fact and not
+a precision. The permission is bounded here because unbounded it licenses a year.
+
+The marks a launch carries SHALL name what they are about. "Awaiting
+confirmation" is a fact about the launch's current **gate** — `launch-instance`
+holds it true even after a *rejecting* decision, since a rejection leaves the
+gate still waiting on one — and read bare beside a step recorded `Blocked` it
+was reported as a contradiction by the admin who first read it. It is not one;
+the two are different facts about different things, and the wording SHALL say
+whose. The same holds for the launch date's own mark.
+
+What can be read from a response is the markers, the words, and that no fact was
+dropped. That the tag and the edge are legible, that the measure is bounded, and
+that a gate can be read at a glance SHALL be confirmed by direct inspection of
+the rendered page.
 
 #### Scenario: An outcome renders as a tag carrying its state
 
 - **WHEN** a launch's detail page renders a step with a recorded outcome
-- **THEN** that outcome is rendered as a tag, and the element holding the step carries that outcome's state
+- **THEN** the outcome is rendered within an element carrying `outcome-tag`
+- **AND** the element holding that step carries `state-` followed by the outcome's own name lowercased
 
 #### Scenario: Unrecorded stays distinguishable from not started
 
 - **WHEN** a detail page renders a step recorded as not started and a step with nothing recorded
 - **THEN** the two render different words
-- **AND** their tags receive different treatment
+- **AND** the first carries `state-notstarted` while the second carries `state-unrecorded`
+
+#### Scenario: A mark names what it is about
+
+- **WHEN** the list renders a launch whose gate awaits confirmation and whose date is at risk
+- **THEN** each mark names the thing it is a fact about, rather than naming the state alone
+
+#### Scenario: A recording time keeps its zone
+
+- **WHEN** either page renders the time an outcome was recorded
+- **THEN** that time is rendered no coarser than the minute and carries the zone it is read in
 
 #### Scenario: An outcome renders as words, not as its token
 
@@ -336,8 +409,14 @@ a coarser precision than it is stored is not suppression, and is permitted.
 
 #### Scenario: An unknown outcome still renders
 
-- **WHEN** a detail page renders a step whose outcome the page has no wording for
+- **WHEN** the page is asked to render an outcome for which it holds no wording
 - **THEN** the outcome is rendered under its own name rather than omitted
+
+*(The vocabulary is closed at six members, so this case is not reachable through
+the domain today. It is stated as an obligation on the page's own mapping —
+exercised at the mapping, not through a launch — because the day it becomes
+reachable is the day a member is added, and a blank where an outcome belongs is
+the failure this surface exists to prevent.)*
 
 #### Scenario: Long evidence is bounded, not truncated
 
@@ -348,25 +427,46 @@ a coarser precision than it is stored is not suppression, and is permitted.
 
 The detail page SHALL offer the launch list in one action, without scripting.
 
-The header cannot serve this. Both pages are required to identify the launch
-surface as the one being viewed, so the header renders `Launches` as a position
-rather than as a link — and the requirement that the header make *the other*
-admin surfaces reachable says nothing about the list an admin arrived from,
-because the list is the same surface. The result was a page with no way back to
-it, which is the gap this closes.
+The header does not serve this today and is not obliged to. Both pages are
+required to identify the launch surface as the one being viewed, so the header
+renders `Launches` as a position rather than as a link — and the requirement
+that the header make *the other* admin surfaces reachable says nothing about the
+list an admin arrived from, because the list is the same surface. Nothing
+therefore obliged a way back, and there was none. Whether a header entry could
+also link to its own surface's index is a template question this requirement
+does not settle; what it settles is that the page offers the list.
 
-The gate sequence SHALL distinguish the gate the launch stands at from a gate
-the reader has merely navigated to. Every entry in the sequence is an anchor
-into its own gate's steps, so following one moves the page without moving the
-launch; marking only the current gate leaves that mark reading as "the entry you
-selected" when the two differ.
+The offer SHALL reach the list as the list renders with no narrowing and nothing
+revealed. Carrying the reader's narrowing back is a defensible alternative and
+is deliberately not chosen: an admin leaving a launch is leaving the narrowing
+that found it as often as not, and a control that silently restores a filter is
+harder to understand than one that plainly returns.
 
 #### Scenario: The list is reachable from a launch's detail page
 
 - **WHEN** a launch's detail page is rendered
 - **THEN** it offers the launch list in one action, without scripting
 
-#### Scenario: The current gate is not the gate navigated to
+### Requirement: The gate a reader navigated to is distinct from the gate the launch stands at
 
-- **WHEN** a detail page is opened at a gate other than the one the launch stands at
-- **THEN** the gate the launch stands at and the gate navigated to are distinguished from one another
+The gate sequence SHALL distinguish the gate the launch stands at from a gate
+the reader has merely navigated to. Every entry in the sequence is an anchor into
+its own gate's steps, so following one moves the page without moving the launch;
+marking only the current gate leaves that mark reading as "the entry you
+selected" when the two differ, which is how the admin who first read the page
+read it.
+
+This is a **stylesheet** obligation and is stated as one. Which entry a reader
+followed is a URL fragment, and a fragment is never sent to a server: the
+response is identical whichever entry was followed, so no scenario over a
+response can observe it. What a response *can* carry is the stylesheet it loads,
+and that is where the obligation is placed — the served stylesheet SHALL carry a
+rule for the navigated-to gate group distinct from the rule marking the current
+gate. That the two read as different at a glance SHALL be confirmed by direct
+inspection of the rendered page.
+
+#### Scenario: The stylesheet distinguishes the two
+
+- **WHEN** the served stylesheet is read
+- **THEN** it carries a rule that applies to the gate group a reader has navigated to
+- **AND** that rule is distinct from the one marking the gate the launch stands at

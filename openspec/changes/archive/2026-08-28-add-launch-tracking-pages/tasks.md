@@ -38,7 +38,9 @@
   so a page computing overdue itself would mark it overdue forever. Render a step with no recorded outcome distinguishably from one recorded not-started.
 - [x] 4.6 Pass the render date here too, per 3.3 — `read_launch` takes `as_of` as `read_launches` does.
 - [x] 4.7 State that a recorded outcome for a step the served playbook no longer holds is not rendered, and render the no-served-steps case as the gate sequence plus a statement, not as silently empty groups.
-- [ ] 4.8 **Blocked on `add-launch-journal`.** Render the journal newest-first, each entry naming what occurred, when and what caused it, with an empty journal saying so. Before building it, confirm that change's read actually carries a cause — R5 requires it and nothing in `openspec/specs/` guarantees it yet.
+- [x] 4.8 ~~**Blocked on `add-launch-journal`.**~~ **Unblocked by #94 and done.** Render the journal newest-first, each entry naming what occurred, when and what caused it, with an empty journal saying so. The cause was confirmed first, as this task required: `launch-journal`'s served requirement obliges each reported entry to name "what occurred, when it occurred, and what caused it", so the read carries one.
+
+  Three notes on how it landed. The page **sorts** newest-first rather than trusting the read's order — R5 puts the obligation on the render, and the two tests hand entries oldest-first precisely so passing cannot be arrival order. The seam is the *read*, bound to its store by the composition root, so the page never holds a journal it could append to. And an unreadable journal is **not** swallowed into an empty one: "Nothing is recorded in this launch's journal" is a claim about the launch, and a read that raised has established no such thing.
 
 ## 5. The admin header, across three capabilities
 
@@ -49,7 +51,7 @@
 ## 6. Boundaries and sequencing
 
 - [x] 6.1 Confirm `.importlinter`'s `products-infrastructure-boundary` permits `launch.infrastructure → catalog.application` before writing the adapter. `design.md` marks this unverified. If it does not, add an exemption in the shape the contract already carries for the `access` edges — do not widen the contract further.
-- [ ] 6.2 Do not archive this change before `add-launch-journal`. Archiving first folds R5 into `openspec/specs/` naming a capability with no spec, and `openspec validate` will not object.
+- [x] 6.2 Do not archive this change before `add-launch-journal`. Archiving first folds R5 into `openspec/specs/` naming a capability with no spec, and `openspec validate` will not object. **Lifted**: that change merged as #94 and archived, so `openspec/specs/launch-journal/` exists and R5 names a capability that is served.
 - [x] 6.3 Confirm `add-product-dossier-page` still carries no `roster-admin` or `playbook-admin` header delta before either change archives. A delta there written against the pre-generalization text would silently replace the generalized wording.
 
 ## 7. Verify against the specification
@@ -66,4 +68,4 @@
 - [x] 8.1 After merge and deploy, open `/admin/launches` from a fresh admin link and confirm the launches in play render with their gates, dates and attention marks, ordered by attention.
 - [x] 8.2 Open a launch from a row — by clicking, not by typing the URL — and confirm the detail page serves, grouped by gate, landing on the current one. Confirm the journal renders newest-first, and that a launch predating the journal shows the empty-journal statement rather than an absent section — the one part of this change integrating with another.
 - [x] 8.3 Confirm the reveal control shows launches no longer in play, marked and set apart, and that the header reaches the playbook and roster surfaces from both new pages and back.
-- [ ] 8.4 Re-read `docs/deferred-work.md`'s *The admin stays server-rendered, in this repository*. Decision 2 closes the read-model half of that entry — "no read-model layer exists between the use cases and the templates" stops being true here. Correct or remove that paragraph; the file's own rule is that an entry which no longer holds is worse than no entry.
+- [x] 8.4 Re-read `docs/deferred-work.md`'s *The admin stays server-rendered, in this repository*. Decision 2 closes the read-model half of that entry — "no read-model layer exists between the use cases and the templates" stops being true here. Correct or remove that paragraph; the file's own rule is that an entry which no longer holds is worse than no entry. **Corrected rather than removed**: the read-model advice was taken by `launch_admin.py` and `product_dossier.py` and is recorded as taken, while the half that still holds — `playbook_admin.py`'s 1403 lines and its `dict[str, Any]` view model — is kept and scoped to that surface. One number went the wrong way and is now stated: `_require_admin` stood in three copies when the entry was written and stands in **five**, one per admin surface.
