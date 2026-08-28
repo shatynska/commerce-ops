@@ -5,11 +5,14 @@ See `proposal.md` — *Why*. Only what shapes the approach follows.
 `advise_sub_category` reads its two inputs off the resolved product:
 
 ```python
-product_name=str(getattr(product, "name", "")),
-marketplace=str(getattr(product, "marketplace_id", "")),
+proposal = propose(
+    product_name=str(getattr(product, "name", "")),
+    marketplace=str(getattr(product, "marketplace_id", "")),
+    graph=_graph(),
+)
 ```
 
-`name` is a plain `str`, so the first line is a no-op and correct by accident. `marketplace_id` is a `MarketplaceId` — `@dataclass(frozen=True, slots=True)` with a single `value: str` and no `__str__` — so the second yields `MarketplaceId(value='ATVPDKIKX0DER')`.
+`name` is a plain `str`, so the first argument is a no-op and correct by accident. `marketplace_id` is a `MarketplaceId` — `@dataclass(frozen=True, slots=True)` with a single `value: str` and no `__str__` — so the second yields `MarketplaceId(value='ATVPDKIKX0DER')`.
 
 The same shape occurs safely elsewhere. `product_dossier.py` reads `getattr(product.sku, "value", product.sku)`, which unwraps the object where there is one and passes a bare string through unchanged. That is the idiom this repository already has; the advisor simply does not use it.
 
