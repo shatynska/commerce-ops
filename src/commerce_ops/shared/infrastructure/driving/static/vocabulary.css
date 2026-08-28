@@ -1035,6 +1035,18 @@ section.finished .empty,
   font-weight: 600;
 }
 
+/* The gate an admin jumped to, which is NOT the gate the launch stands at.
+   Every entry in the sequence is an anchor, so clicking one moves the page
+   without moving the launch -- and with only the current gate marked, an
+   admin who clicked `listable` and saw `commit` still lit reasonably read
+   the amber as "selected" rather than as "where this launch stands". The two
+   now carry different treatments: amber names the position, this outline
+   names where you are looking. */
+.gate-group:target {
+  outline: 2px solid var(--mark-flag-wash);
+  outline-offset: var(--space-tight);
+}
+
 /* A gate and the steps it holds. */
 .gate-group {
   margin: 0 0 var(--space-loose);

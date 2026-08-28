@@ -109,8 +109,8 @@
          and the columns line up down the list. A mark is still stated only
          when true, so this cell is empty on a launch carrying neither. #}
       <span class="marks">
-        {% if row.at_risk %}<span class="mark at-risk">At risk</span>{% endif %}
-        {% if row.awaiting_confirmation %}<span class="mark awaiting">Awaiting confirmation</span>{% endif %}
+        {% if row.at_risk %}<span class="mark at-risk">Date at risk</span>{% endif %}
+        {% if row.awaiting_confirmation %}<span class="mark awaiting">Gate awaiting confirmation</span>{% endif %}
       </span>
       <span class="gate">{{ row.current_gate }}</span>
       {# The completion recorded most recently -- what last happened on this
@@ -149,8 +149,8 @@
         </span>
         <span class="marks">
           <span class="mark finished">{% if row.retired %}Retired{% else %}Steady state{% endif %}</span>
-          {% if row.at_risk %}<span class="mark at-risk">At risk</span>{% endif %}
-          {% if row.awaiting_confirmation %}<span class="mark awaiting">Awaiting confirmation</span>{% endif %}
+          {% if row.at_risk %}<span class="mark at-risk">Date at risk</span>{% endif %}
+          {% if row.awaiting_confirmation %}<span class="mark awaiting">Gate awaiting confirmation</span>{% endif %}
         </span>
         <span class="gate">{{ row.current_gate }}</span>
         <span class="last-completed">
