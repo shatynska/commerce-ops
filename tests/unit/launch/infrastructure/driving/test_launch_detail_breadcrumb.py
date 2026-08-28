@@ -875,6 +875,8 @@ def test_the_journal_is_reachable_from_a_launchs_detail_page(
                     "when": datetime(2027, 3, 2, 10, 30, tzinfo=UTC),
                     "cause": "an approval recorded by Helen in Slack",
                     "kind": "approval",
+                    "label": "Approval",
+                    "category": "judgment",
                 },
             )(),
         )

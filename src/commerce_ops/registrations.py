@@ -35,6 +35,9 @@ from commerce_ops.launch.infrastructure.driving import (
 from commerce_ops.launch.infrastructure.driving import (
     clickup_sync_job as _clickup_sync_job,
 )
+from commerce_ops.launch.infrastructure.driving import (
+    gate_progression_job as _gate_progression_job,
+)
 from commerce_ops.shared.infrastructure.driving import (
     overdue_check as _overdue_check,
 )
@@ -66,6 +69,7 @@ JOB_MODULES: tuple[ModuleType, ...] = (
     _daily_briefing_job,
     _automation_pass,
     _clickup_sync_job,
+    _gate_progression_job,
     _overdue_check,
 )
 

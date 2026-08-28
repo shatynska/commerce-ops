@@ -1077,7 +1077,14 @@ def test_a_journal_entry_names_what_occurred_when_and_what_caused_it(
             type(
                 "_Entry",
                 (),
-                {"what": occurred, "when": when, "cause": cause, "kind": "approval"},
+                {
+                    "what": occurred,
+                    "when": when,
+                    "cause": cause,
+                    "kind": "approval",
+                    "label": "Approval",
+                    "category": "judgment",
+                },
             )(),
         )
 
@@ -1121,7 +1128,14 @@ def test_journal_entries_render_newest_first(monkeypatch: pytest.MonkeyPatch) ->
             type(
                 "_Entry",
                 (),
-                {"what": mark, "when": moment, "cause": "a recorded outcome"},
+                {
+                    "what": mark,
+                    "when": moment,
+                    "cause": "a recorded outcome",
+                    "kind": "step-outcome-recorded",
+                    "label": "Outcome",
+                    "category": "progression",
+                },
             )()
             for mark, moment in zip(marks, moments, strict=True)
         )
