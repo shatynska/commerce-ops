@@ -43,8 +43,8 @@
 
 ## 6. Ship
 
-- [ ] 6.1 Commit in small, reviewable commits, running the relevant verification before each. Note that the pre-commit hooks run `mypy .` and the whole `tests/unit` tree, so a tests-only commit cannot be green — tests and implementation land together, as `add-launch-journal` recorded.
-- [ ] 6.2 `openspec archive cool-off-a-repeatedly-blocked-step --yes` as the last commit before the merge.
+- [x] 6.1 Commit in small, reviewable commits, running the relevant verification before each. Note that the pre-commit hooks run `mypy .` and the whole `tests/unit` tree, so a tests-only commit cannot be green — tests and implementation land together, as `add-launch-journal` recorded.
+- [x] 6.2 `openspec archive cool-off-a-repeatedly-blocked-step --yes` as the last commit before the merge.
 - [ ] 6.3 Open the pull request and merge; merging to `main` is what deploys.
 
 ## 7. Observe it on the deployment, after the merge
