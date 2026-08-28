@@ -51,6 +51,23 @@ _RECORD = text(
 _CLEAR = text("DELETE FROM clickup_field_gap_suppression WHERE id IS TRUE")
 
 
+async def _savepoint(db_session: Any) -> Any:
+    """A nested transaction, where the session offers one.
+
+    Every statement here runs inside a SAVEPOINT so that a failure unwinds
+    only this record's own work. Without it a failed statement poisons the
+    whole transaction on PostgreSQL, and since this record shares the
+    session the pass uses for each launch, that would make every write after
+    it fail -- a fault in the *reporting* of a configuration gap costing the
+    projection of every launch, which the requirement forbids outright.
+
+    Returns `None` where the session offers no nested transaction, so a
+    caller can still run the statement directly.
+    """
+    begin_nested = getattr(db_session, "begin_nested", None)
+    return None if begin_nested is None else begin_nested()
+
+
 async def reported_field_gap(db_session: Any) -> str | None:
     """The content of the gap last reported, or `None` where none stands.
 
@@ -61,7 +78,12 @@ async def reported_field_gap(db_session: Any) -> str | None:
     makes the requirement's premise true by construction, since the record
     genuinely shares the store the launches' writes use.
     """
-    result = await db_session.execute(_READ)
+    nested = await _savepoint(db_session)
+    if nested is None:
+        result = await db_session.execute(_READ)
+    else:
+        async with nested:
+            result = await db_session.execute(_READ)
     row = result.first()
     return None if row is None else str(row[0])
 
@@ -73,13 +95,16 @@ async def record_field_gap_reported(identity: str, db_session: Any) -> None:
     a gap whose content changed has already been reported under the new
     content by the time this runs, and the row must follow it.
     """
-    await db_session.execute(
-        _RECORD,
-        {
-            "identity": identity,
-            "reported_at": datetime.datetime.now(tz=datetime.UTC),
-        },
-    )
+    parameters = {
+        "identity": identity,
+        "reported_at": datetime.datetime.now(tz=datetime.UTC),
+    }
+    nested = await _savepoint(db_session)
+    if nested is None:
+        await db_session.execute(_RECORD, parameters)
+    else:
+        async with nested:
+            await db_session.execute(_RECORD, parameters)
     # Each repository in this project commits its own write; a caller needing
     # two to land together uses `transaction()`, which turns these into
     # savepoints rather than transaction boundaries.
@@ -102,5 +127,10 @@ async def clear_reported_field_gap(db_session: Any) -> None:
     the flood the report-once rule exists to prevent, arriving by the other
     door.
     """
-    await db_session.execute(_CLEAR)
+    nested = await _savepoint(db_session)
+    if nested is None:
+        await db_session.execute(_CLEAR)
+    else:
+        async with nested:
+            await db_session.execute(_CLEAR)
     await db_session.commit()
