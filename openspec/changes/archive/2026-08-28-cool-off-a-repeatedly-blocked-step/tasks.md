@@ -51,7 +51,7 @@
 
 The two products blocking every fifteen minutes are the fixture that makes this change's effect visible. This group runs after the merge, so nothing here is recorded in this change's own archived artifacts.
 
-- [ ] 7.1 Read the journal an hour after the deploy: each stuck step should have at most one further `step-outcome-recorded` entry, then nothing. Before the change the same hour produced eight.
-- [ ] 7.2 Confirm exactly one report per stuck step arrived in the monitoring channel, not one per pass.
-- [ ] 7.3 Confirm `/health/scheduled-runs` still reports the automation pass as succeeding — backing off must not have turned a working pass into a failing one.
+- [x] 7.1 Read the journal an hour after the deploy: each stuck step should have at most one further `step-outcome-recorded` entry, then nothing. Before the change the same hour produced eight.
+- [x] 7.2 Confirm exactly one report per stuck step arrived in the monitoring channel, not one per pass.
+- [x] 7.3 Confirm `/health/scheduled-runs` still reports the automation pass as succeeding — backing off must not have turned a working pass into a failing one.
 - [ ] 7.4 Twenty-four hours on, confirm the cool-off expired and each step was asked exactly once more, and that **no second report arrived**. Reporting is lifted by the step moving, not by the cool-off expiring — a step stuck for a week is one message, not seven. A second report here is a defect, not a success.
