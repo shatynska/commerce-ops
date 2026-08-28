@@ -23,15 +23,28 @@
 #}
 <header class="admin-header">
   {# `container` is Pico's own width constraint, so the header lines up with
-     the page's `<main class="container">` rather than running to the edge. #}
+     the page's `<main class="container">` rather than running to the edge.
+
+     Driven from one list rather than a branch per surface: with two
+     surfaces a two-way `if` was legible, and a third made "every surface
+     names every other" something a reader had to verify by counting
+     branches. Adding a fourth is now one row here, which is what
+     `playbook-admin` and `roster-admin` both require -- a surface added
+     later is named by the header rather than left unreachable from the
+     pages that predate it. #}
   <nav class="container" aria-label="Admin surfaces">
-    {% if current == "playbook" %}
-    <span class="admin-surface current" aria-current="page">Playbook steps</span>
-    <a class="admin-surface" href="/admin/roster" hx-boost="false">Roster</a>
-    {% else %}
-    <a class="admin-surface" href="/admin/playbook">Playbook steps</a>
-    <span class="admin-surface current" aria-current="page">Roster</span>
-    {% endif %}
+    {% for key, path, label in [
+         ("playbook", "/admin/playbook", "Playbook steps"),
+         ("roster", "/admin/roster", "Roster"),
+         ("launches", "/admin/launches", "Launches"),
+         ("products", "/admin/products", "Products"),
+       ] %}
+      {% if key == current %}
+    <span class="admin-surface current" aria-current="page">{{ label }}</span>
+      {% else %}
+    <a class="admin-surface" href="{{ path }}" hx-boost="false">{{ label }}</a>
+      {% endif %}
+    {% endfor %}
   </nav>
 </header>
 {# Where a failed write is reported, and the behaviour that reports it —

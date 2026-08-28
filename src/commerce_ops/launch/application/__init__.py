@@ -30,9 +30,11 @@ from commerce_ops.launch.application.journal import (
     JournalOccurrence,
 )
 from commerce_ops.launch.application.playbook_authoring import (
+    RosterReader,
     StaleStepSetError,
     StepRecord,
     StepSetStore,
+    UnreadableRosterError,
     authored_definitions,
     change_step_status,
     create_step,
@@ -47,6 +49,11 @@ from commerce_ops.launch.application.ports import (
     LaunchStore,
     Playbooks,
     SteadyStateStamper,
+)
+from commerce_ops.launch.application.retained_results import (
+    RetainedResult,
+    RetainedResults,
+    read_retained_results,
 )
 from commerce_ops.launch.application.use_cases import (
     LaunchReport,
@@ -89,6 +96,9 @@ __all__ = [
     "Playbooks",
     "Refused",
     "ReportedStep",
+    "RetainedResult",
+    "RetainedResults",
+    "RosterReader",
     "Satisfied",
     "StaleStepSetError",
     "SteadyStateStamper",
@@ -99,6 +109,7 @@ __all__ = [
     "StepRecord",
     "StepResolution",
     "StepSetStore",
+    "UnreadableRosterError",
     "UnregisteredHandler",
     "accept_automated_result",
     "advance_gate",
@@ -111,6 +122,7 @@ __all__ = [
     "read_launch",
     "read_launch_journal",
     "read_launches",
+    "read_retained_results",
     "record_metric_attestation",
     "record_step_outcome",
     "register_step_handler",

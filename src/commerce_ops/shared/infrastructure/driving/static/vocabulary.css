@@ -722,3 +722,54 @@ tr.just-created > td:first-child {
   border-left: 3px solid var(--fresh-rule);
   background: var(--fresh-wash);
 }
+
+/* Retired products stay visibly set apart on the product index, the same
+   standing obligation `.deactivated` carries for the roster. Colour and a
+   rule rather than `opacity`: a retired product's row still has to be
+   readable and its dossier still has to be reachable from it. */
+.product-retired {
+  border-left: 3px solid var(--rule);
+  background: var(--field);
+  color: var(--ink-quiet);
+}
+
+.product-retired td {
+  color: var(--ink-quiet);
+}
+
+/* What became of a retained result. Four states, and `result-withdrawn`
+   is deliberately not a shade of `result-rejected`: voiding refuses a
+   decision rather than making one, and colouring the two alike would say
+   on the page what the store is careful not to say in the data. */
+.record-entry {
+  border-left: 3px solid var(--rule);
+  padding-left: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.record-entry.result-accepted {
+  border-left-color: var(--fresh-rule);
+}
+
+.record-entry.result-pending {
+  border-left-color: var(--ink-quiet);
+  border-left-style: dashed;
+}
+
+.record-entry.result-rejected {
+  border-left-color: var(--danger, currentColor);
+}
+
+.record-entry.result-withdrawn {
+  border-left-style: dotted;
+  color: var(--ink-quiet);
+}
+
+/* Produced text is model output stored verbatim. Its line structure is
+   preserved by styling, never by markup: the page renders it escaped and
+   must not become the place it is first interpreted. */
+.produced-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono, monospace);
+}
