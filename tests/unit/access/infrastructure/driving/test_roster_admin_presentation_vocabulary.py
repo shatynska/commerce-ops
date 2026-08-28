@@ -170,7 +170,9 @@ _REACTIVATE_HINTS: Final = ("reactivat", "restore", "reinstate")
 #: a header may identify the current one. Kept identical to the launch
 #: side's file, which this one corrects together with.
 _PLAYBOOK_WORDS: Final = ("playbook", "step", "steps")
-_ROSTER_WORDS: Final = ("roster", "people", "person")
+# "user"/"users" since the header calls this surface Users; the page
+# itself still says Roster, and both readings must locate it.
+_ROSTER_WORDS: Final = ("roster", "people", "person", "user", "users")
 _CURRENT_ATTRIBUTES: Final = ("aria-current", "data-current")
 _CURRENT_CLASSES: Final = ("current", "active", "here", "is-current", "is-active")
 

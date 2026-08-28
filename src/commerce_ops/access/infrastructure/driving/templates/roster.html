@@ -10,7 +10,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Roster</title>
+  <title>Users</title>
   {# The same two files the playbook surfaces load, from the same shared
      guarded route — so a presentation fix reaches both admin surfaces
      rather than one. The page carries no styling of its own. #}
@@ -20,7 +20,7 @@
 <body>
 {% with current = "roster" %}{% include "_admin_header.html" %}{% endwith %}
 <main class="container">
-  <h1>Roster</h1>
+  <h1>Users</h1>
 
 {% if faults %}
   <article class="faults">
@@ -53,7 +53,7 @@
   <button type="submit" class="row-action">Add person</button>
 </form>
 
-<h2>Active roster</h2>
+<h2>Active users</h2>
 <table>
   <tr>
     <th>Name</th><th>Slack identity</th><th>ClickUp</th><th>Admin</th>
