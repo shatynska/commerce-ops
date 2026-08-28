@@ -343,3 +343,30 @@ a coarser precision than it is stored is not suppression, and is permitted.
 
 - **WHEN** a detail page renders a step whose evidence runs to several sentences
 - **THEN** the whole of that evidence is present in the response
+
+### Requirement: A launch's detail page offers the way back to the list
+
+The detail page SHALL offer the launch list in one action, without scripting.
+
+The header cannot serve this. Both pages are required to identify the launch
+surface as the one being viewed, so the header renders `Launches` as a position
+rather than as a link — and the requirement that the header make *the other*
+admin surfaces reachable says nothing about the list an admin arrived from,
+because the list is the same surface. The result was a page with no way back to
+it, which is the gap this closes.
+
+The gate sequence SHALL distinguish the gate the launch stands at from a gate
+the reader has merely navigated to. Every entry in the sequence is an anchor
+into its own gate's steps, so following one moves the page without moving the
+launch; marking only the current gate leaves that mark reading as "the entry you
+selected" when the two differ.
+
+#### Scenario: The list is reachable from a launch's detail page
+
+- **WHEN** a launch's detail page is rendered
+- **THEN** it offers the launch list in one action, without scripting
+
+#### Scenario: The current gate is not the gate navigated to
+
+- **WHEN** a detail page is opened at a gate other than the one the launch stands at
+- **THEN** the gate the launch stands at and the gate navigated to are distinguished from one another

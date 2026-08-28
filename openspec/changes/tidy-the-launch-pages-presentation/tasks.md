@@ -49,6 +49,8 @@
 - [x] 4b.4 Lay the step out in three columns — state, the step and what came of it, the fine print — with the middle column able to shrink (`minmax(0, …)`), so a several-sentence automated evidence wraps within a bound instead of widening the page. Never truncate it.
 - [x] 4b.5 Declare every new colour token in all three theme blocks — light `:root`, `prefers-color-scheme: dark`, and `[data-theme="dark"]`. Declaring them in the light block alone leaves them at light values on a dark ground, which is how this shipped to the admin's screen the first time.
 - [x] 4b.6 Remove the row fills after seeing them: the edge and the tag carry the state, and ten filled rows read as a warning rather than as a list. Delete the tint tokens rather than leaving colours nothing reads.
+- [x] 4b.8 Offer the launch list from the detail page. The header identifies the launch surface as current, so it renders `Launches` as a position rather than a link and cannot be the way back; the authoring surfaces already solve this with a control riding the title.
+- [x] 4b.9 Distinguish the gate the launch stands at from the gate a reader navigated to. The sequence's entries are anchors, so following one moves the page without moving the launch, and an admin who clicked `listable` and saw `commit` still lit read the mark as "selected".
 - [ ] 4b.7 Before archive, have `openspec-change-reviewer` read this requirement too. Like 4a.5, it was added after the change's two review passes at the admin's direction, and its scenarios have no tests derived from the delta ahead of them — the existing detail suite is what currently covers them.
 
 ## 5. Verify against the specification

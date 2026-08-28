@@ -25,7 +25,15 @@
    } %}
 {% with current = "launches" %}{% include "_admin_header.html" %}{% endwith %}
 <main class="container">
-  <h1>{{ launch.label }}</h1>
+  {# The way back to the list. The header cannot be it: this page identifies
+     the launch surface as the one being viewed, which `launch-admin` requires,
+     so the header renders `Launches` as a position rather than as a link and
+     there was no way back to the list at all. The authoring surfaces solve the
+     same problem the same way, with a control riding the title. #}
+  <div class="page-head">
+    <h1>{{ launch.label }}</h1>
+    <a href="{{ page_path }}" role="button" class="row-action quiet">All launches</a>
+  </div>
   <p class="launch-date">
     {% if launch.launch_date %}Launch date {{ launch.launch_date }}{% else %}No launch date{% endif %}
   </p>
