@@ -688,6 +688,15 @@ def _surface(
     _install(monkeypatch, module, "roster", _roster_store())
     _install(monkeypatch, module, "list_products", catalog.list_products)
     _install(monkeypatch, module, "get_product_by_id", catalog.get_product_by_id)
+
+    # An empty journal by default, so the surface stays hermetic: the read
+    # is wired to a real store by the composition root, and a test that
+    # does not stub it would otherwise reach for a database. The three
+    # journal tests install their own.
+    async def _no_journal(*_args: Any, **_kwargs: Any) -> tuple[Any, ...]:
+        return ()
+
+    monkeypatch.setattr(module, _journal_seam(module), _no_journal)
     _render_on(monkeypatch, module, day)
     if scope is not None:
 
@@ -1669,16 +1678,6 @@ def test_an_overdue_step_is_marked(monkeypatch: pytest.MonkeyPatch) -> None:
 # ===========================================================================
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "R5 renders the journal `add-launch-journal` provides, and that "
-        "change has not landed -- `tasks.md` 4.8 blocks this work and 6.2 "
-        "blocks the archive. Strict on purpose: when the journal lands "
-        "this stops failing, and strict turns that into a failure, so the "
-        "marker cannot outlive the block it records."
-    ),
-)
 def test_a_journal_entry_names_what_occurred_when_and_what_caused_it(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1717,19 +1716,14 @@ def test_a_journal_entry_names_what_occurred_when_and_what_caused_it(
     # ...and what caused it. `tasks.md` 4.8 requires confirming that
     # `add-launch-journal`'s read actually carries a cause before this is
     # built; this assertion is what would fail if it does not.
-    assert cause in text, f"the journal entry does not name what caused it: {text!r}"
+    # `_all_text` lowercases, so the expected value is folded to match --
+    # this cause carries capitals where the other two assertions' values
+    # happen not to.
+    assert cause.lower() in text, (
+        f"the journal entry does not name what caused it: {text!r}"
+    )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "R5 renders the journal `add-launch-journal` provides, and that "
-        "change has not landed -- `tasks.md` 4.8 blocks this work and 6.2 "
-        "blocks the archive. Strict on purpose: when the journal lands "
-        "this stops failing, and strict turns that into a failure, so the "
-        "marker cannot outlive the block it records."
-    ),
-)
 def test_journal_entries_render_newest_first(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
