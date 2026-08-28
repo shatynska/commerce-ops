@@ -120,15 +120,20 @@
     {% else %}
     <table class="journal-entries">
       <thead>
-        <tr><th>Kind</th><th>What</th><th>When</th><th>Cause</th></tr>
+        <tr>
+          <th>Kind</th><th>Subject</th><th>What</th><th>When</th>
+          <th>Source</th><th>Who</th>
+        </tr>
       </thead>
       <tbody>
         {% for entry in launch.journal %}
         <tr class="category-{{ entry.category }}">
           <td class="label">{{ entry.label }}</td>
+          <td class="subject">{{ entry.subject or '—' }}</td>
           <td class="what">{{ entry.what }}</td>
-          <td class="when">{{ entry.when }}</td>
-          <td class="cause">{{ entry.cause }}</td>
+          <td class="when">{{ entry.when.strftime('%Y-%m-%d %H:%M %Z') }}</td>
+          <td class="source">{{ entry.source or '—' }}</td>
+          <td class="who">{{ entry.who or '—' }}</td>
         </tr>
         {% endfor %}
       </tbody>

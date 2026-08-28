@@ -108,7 +108,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from commerce_ops.access.application import create_person
+from commerce_ops.access.application import create_person, list_people
 from commerce_ops.catalog.domain.product import Product
 from commerce_ops.launch.domain.launch_playbook import (
     Gate,
@@ -289,6 +289,26 @@ async def _build_roster() -> _FakeRosterStore:
     return store
 
 
+async def _roster_with_extra_person(
+    display_name: str, *, slack_identity: str
+) -> _FakeRosterStore:
+    """`_build_roster()`'s usual roster (the admin session's own principal,
+    "Alice Admin" — needed for the session to verify and for scope to
+    permit the product at all), plus one more named person, for a test
+    that needs to know that second person's generated identifier ahead
+    of time."""
+    store = await _build_roster()
+    await create_person(
+        roster=store,
+        principal="the-seeding-admin",
+        display_name=display_name,
+        slack_identity=slack_identity,
+        clickup_user_id=None,
+        admin=False,
+    )
+    return store
+
+
 def _roster_store() -> _FakeRosterStore:
     return asyncio.run(_build_roster())
 
@@ -378,12 +398,15 @@ def _surface(
     launches: _FakeLaunchStore,
     catalog: _Catalog,
     journal_entries: tuple[Any, ...] = (),
+    roster: Any = None,
 ) -> _Surface:
     module = _page_module()
     _install(monkeypatch, module, "verify", _fake_verify)
     _install(monkeypatch, module, "launches", launches)
     _install(monkeypatch, module, "playbooks", _FakePlaybooks())
-    _install(monkeypatch, module, "roster", _roster_store())
+    _install(
+        monkeypatch, module, "roster", roster if roster is not None else _roster_store()
+    )
     _install(monkeypatch, module, "list_products", catalog.list_products)
     _install(monkeypatch, module, "get_product_by_id", catalog.get_product_by_id)
 
@@ -612,14 +635,28 @@ def _journal_table(html: str) -> _Node | None:
 
 
 # ---------------------------------------------------------------------------
-# A fake composed journal entry — the shape a real `JournalEntry` carries
-# once this change lands: `kind`, `what`, `when`, `cause`, `label`,
-# `category` all present.
+# A fake composed journal entry — the shape a real `JournalEntry` carries:
+# `kind`, `what`, `when`, `cause`, `label`, `category`, `subject`,
+# `source`, `actor` all present. Updated for
+# `structure-the-launch-journal-table`'s follow-on refinement, which
+# splits the page's rendered `cause` sentence into raw `subject`/
+# `source`/`who` columns; `cause` stays on the fake entry (a real
+# `JournalEntry` still carries it) even though the page no longer reads
+# it, so a fixture built before that split still shapes a valid entry.
 # ---------------------------------------------------------------------------
 
 
 def _entry(
-    *, kind: str, what: str, when: datetime, cause: str, label: str, category: str
+    *,
+    kind: str,
+    what: str,
+    when: datetime,
+    cause: str,
+    label: str,
+    category: str,
+    subject: str | None = None,
+    source: str | None = None,
+    actor: str | None = None,
 ) -> Any:
     return type(
         "_Entry",
@@ -631,6 +668,9 @@ def _entry(
             "cause": cause,
             "label": label,
             "category": category,
+            "subject": subject,
+            "source": source,
+            "actor": actor,
         },
     )()
 
@@ -644,23 +684,34 @@ def test_an_entry_names_what_occurred_when_and_what_caused_it(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Scenario: An entry names what occurred, when, and what caused it
-    (REVISED: against an entry that also carries `label`/`category`, the
-    shape this change gives every composed entry).
+    (REVISED twice: first for `label`/`category`, then for the follow-on
+    refinement that splits the rendered `cause` sentence into raw
+    `subject`/`source`/`who` columns instead — this page no longer reads
+    `cause` at all, so "what caused it" is now checked as the source and
+    the actor rendering as their own facts).
 
     WHEN a launch's journal holds an entry
-    THEN it is rendered naming what occurred, when it occurred, and what
-    caused it.
+    THEN it is rendered naming what occurred, when it occurred, its
+    source, and who recorded it.
     """
     occurred = "the commit gate was approved, uniquely-marked-occurrence"
     when = datetime(2027, 3, 2, 10, 30, tzinfo=UTC)
-    cause = "an approval recorded by Helen in Slack"
+    source = "slack"
+    # An actor not present in `_roster_store()`'s fixture roster (only
+    # "Alice Admin" is seeded), so `who` renders this raw value rather
+    # than a resolved display name -- resolution itself is exercised by
+    # `test_an_entrys_who_column_resolves_a_known_actor_to_their_name`.
+    actor = "an-actor-not-on-the-roster"
     entry = _entry(
         kind="gate-approval-recorded",
         what=occurred,
         when=when,
-        cause=cause,
+        cause="an approval recorded by Helen in Slack",
         label="Approval",
         category="judgment",
+        subject="commit",
+        source=source,
+        actor=actor,
     )
     world = _world(monkeypatch, journal_entries=(entry,))
 
@@ -673,9 +724,11 @@ def test_an_entry_names_what_occurred_when_and_what_caused_it(
     assert _renders_date(_tree(html), when.date()), (
         f"the journal entry does not name when it occurred: {text!r}"
     )
-    # ...and what caused it.
-    assert cause.lower() in text, (
-        f"the journal entry does not name what caused it: {text!r}"
+    # ...and what caused it -- now its source and who recorded it, each
+    # in their own column rather than a composed sentence.
+    assert source in text, f"the journal entry does not name its source: {text!r}"
+    assert actor.lower() in text, (
+        f"the journal entry does not name who recorded it: {text!r}"
     )
 
 
@@ -786,3 +839,60 @@ def test_an_entrys_row_shows_its_label_and_carries_its_category_marker(
                     f"the row for {mark!r} (category {category!r}) also "
                     f"carries {other_marker!r}, another category's marker"
                 )
+
+
+def test_an_entrys_who_column_resolves_a_known_actor_to_their_name(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The journal table's `Who` column, for a follow-on refinement to
+    `structure-the-launch-journal-table`: an entry's `actor` is a roster
+    identifier (`Person.identifier`) where it names one, and a reader
+    should see the person's name rather than that raw identifier.
+
+    Built against a roster with one extra named person beyond the usual
+    admin-session principal (`_roster_with_extra_person`), so that
+    person's generated identifier is known ahead of time rather than
+    assumed, while the session still verifies and scope still permits
+    the product.
+    """
+    store = asyncio.run(
+        _roster_with_extra_person("Olena Approver", slack_identity="U0OLENA")
+    )
+    people = asyncio.run(list_people(roster=store))
+    olena = next(person for person in people if person.display_name == "Olena Approver")
+    identifier = olena.identifier
+
+    entry = _entry(
+        kind="gate-approval-recorded",
+        what="the commit gate was approved",
+        when=datetime(2027, 3, 2, 10, 30, tzinfo=UTC),
+        cause="an approval recorded by Olena in Slack",
+        label="Approval",
+        category="judgment",
+        subject="commit",
+        source="slack",
+        actor=identifier,
+    )
+    product = _launching("PX-201", "Gamma widget")
+    launch = _start(product.id)
+    surface = _surface(
+        monkeypatch,
+        launches=_FakeLaunchStore(launch),
+        catalog=_Catalog(product),
+        journal_entries=(entry,),
+        roster=store,
+    )
+
+    html = _detail_html(surface, product.id)
+    text = _all_text(_tree(html))
+
+    # SPECIFIED (this refinement): the actor resolves to the person's name.
+    assert "olena approver" in text, (
+        f"the journal does not show the resolved actor name: {text!r}"
+    )
+    # DERIVED guard: the raw roster identifier is not shown in its place
+    # -- resolution replaces the raw value rather than accompanying it.
+    assert identifier.lower() not in text, (
+        f"the journal shows the raw actor identifier {identifier!r} "
+        f"instead of (or alongside) the resolved name: {text!r}"
+    )

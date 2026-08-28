@@ -47,7 +47,11 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from jinja2 import ChoiceLoader, Environment, FileSystemLoader, select_autoescape
 
-from commerce_ops.access.application import resolve_scope, verify_admin_session
+from commerce_ops.access.application import (
+    list_people,
+    resolve_scope,
+    verify_admin_session,
+)
 from commerce_ops.catalog.application import (
     get_product_by_id as _read_product,
 )
@@ -245,13 +249,23 @@ class GateGroup:
 
 @dataclass(frozen=True, slots=True)
 class JournalLine:
-    """One journal entry as the detail page renders it."""
+    """One journal entry as the detail page renders it.
+
+    `subject`, `source` and `who` are the raw facts, rendered as their
+    own columns rather than folded into a sentence — `cause`'s composed
+    "recorded by X from Y" is deliberately not carried here, since `who`
+    and `source` already give a reader those two facts directly. `who`
+    is the entry's `actor`, resolved against the roster to a display name
+    where it names a known person, and left as the raw value otherwise
+    (`_actor_names`)."""
 
     what: str
     when: Any
-    cause: str
     label: str
     category: str
+    subject: str | None
+    source: str | None
+    who: str | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -449,7 +463,32 @@ def _gate_of(report: Any, line: StepLine) -> str:
     return ""
 
 
-def _journal_lines(entries: Any) -> tuple[JournalLine, ...]:
+async def _actor_names(roster: Any) -> dict[str, str]:
+    """Roster identifier -> display name, for resolving a journal entry's
+    `actor` to a human name.
+
+    Empty where the roster is unavailable or unreadable, the same
+    fail-quiet fallback `_label_for` uses for an unresolved product: an
+    actor then renders by its raw value rather than the page failing.
+    """
+    if roster is None:
+        return {}
+    try:
+        people = await list_people(roster=roster)
+    except Exception:  # noqa: BLE001 — an unreadable roster still renders raw ids
+        return {}
+    return {person.identifier: person.display_name for person in people}
+
+
+def _who(actor: str | None, actor_names: dict[str, str]) -> str | None:
+    if actor is None:
+        return None
+    return actor_names.get(actor, actor)
+
+
+def _journal_lines(
+    entries: Any, actor_names: dict[str, str]
+) -> tuple[JournalLine, ...]:
     """The journal as the page renders it, in the order the read gave it.
 
     R5 requires the journal to render newest first, and puts that on the
@@ -459,17 +498,20 @@ def _journal_lines(entries: Any) -> tuple[JournalLine, ...]:
     obligation is the page's, and a page that only looks right because
     its collaborator happened to be ordered is not meeting it.
 
-    Composes nothing: `what`, `cause`, `label` and `category` are worded
-    at read time, and carrying them across unchanged is what R5 requires
-    each entry to name.
+    Composes nothing beyond resolving `who`: `what`, `label`, `category`,
+    `subject` and `source` are worded or carried at read time already,
+    and passing them across unchanged is what R5 requires each entry to
+    name.
     """
     lines = [
         JournalLine(
             what=entry.what,
             when=entry.when,
-            cause=entry.cause,
             label=entry.label,
             category=entry.category,
+            subject=entry.subject,
+            source=entry.source,
+            who=_who(entry.actor, actor_names),
         )
         for entry in entries or ()
     ]
@@ -550,7 +592,8 @@ async def _journal_for(product_id: ProductId, scope: Any) -> tuple[JournalLine, 
     """
     if read_journal is None:
         return ()
-    return _journal_lines(await read_journal(product_id=product_id, scope=scope))
+    entries = await read_journal(product_id=product_id, scope=scope)
+    return _journal_lines(entries, await _actor_names(roster))
 
 
 async def _products_by_id(scope: Any) -> tuple[dict[str, Any], bool]:

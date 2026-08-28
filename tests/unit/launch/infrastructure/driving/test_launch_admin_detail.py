@@ -1684,14 +1684,18 @@ def test_a_journal_entry_names_what_occurred_when_and_what_caused_it(
     """Scenario: An entry names what occurred, when, and what caused it.
 
     WHEN a launch's journal holds an entry
-    THEN it is rendered naming what occurred, when it occurred, and what
-    caused it.
+    THEN it is rendered naming what occurred, when it occurred, its
+    source, and who recorded it -- `structure-the-launch-journal-table`'s
+    follow-on refinement splits the page's rendered `cause` sentence into
+    these two raw columns, so "what caused it" is checked as source and
+    actor rather than as a composed sentence.
     """
     world = _world(monkeypatch)
     seam = _journal_seam(world.surface.module)
     occurred = "the commit gate was approved"
     when = datetime(2027, 3, 2, 10, 30, tzinfo=UTC)
-    cause = "an approval recorded by Helen in Slack"
+    source = "slack"
+    actor = "an-actor-not-on-the-roster"
 
     async def _journal(*_args: Any, **_kwargs: Any) -> tuple[Any, ...]:
         return (
@@ -1701,10 +1705,13 @@ def test_a_journal_entry_names_what_occurred_when_and_what_caused_it(
                 {
                     "what": occurred,
                     "when": when,
-                    "cause": cause,
+                    "cause": "an approval recorded by Helen in Slack",
                     "kind": "approval",
                     "label": "Approval",
                     "category": "judgment",
+                    "subject": "commit",
+                    "source": source,
+                    "actor": actor,
                 },
             )(),
         )
@@ -1720,14 +1727,11 @@ def test_a_journal_entry_names_what_occurred_when_and_what_caused_it(
     assert _renders_date(_tree(html), when.date()), (
         f"the journal entry does not name when it occurred: {text!r}"
     )
-    # ...and what caused it. `tasks.md` 4.8 requires confirming that
-    # `add-launch-journal`'s read actually carries a cause before this is
-    # built; this assertion is what would fail if it does not.
-    # `_all_text` lowercases, so the expected value is folded to match --
-    # this cause carries capitals where the other two assertions' values
-    # happen not to.
-    assert cause.lower() in text, (
-        f"the journal entry does not name what caused it: {text!r}"
+    # ...and what caused it -- its source and who recorded it, each in
+    # their own column.
+    assert source in text, f"the journal entry does not name its source: {text!r}"
+    assert actor.lower() in text, (
+        f"the journal entry does not name who recorded it: {text!r}"
     )
 
 
@@ -1761,6 +1765,9 @@ def test_journal_entries_render_newest_first(
                     "kind": "step-outcome-recorded",
                     "label": "Outcome",
                     "category": "progression",
+                    "subject": None,
+                    "source": None,
+                    "actor": None,
                 },
             )()
             for mark, moment in zip(marks, moments, strict=True)

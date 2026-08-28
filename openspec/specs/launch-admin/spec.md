@@ -428,16 +428,33 @@ stands.
 
 ### Requirement: A launch's detail page renders its journal, newest first
 
-The detail page SHALL render the launch's journal as a table, with the most recent entry first, each row naming the entry's label, what occurred, when, and what caused it.
+The detail page SHALL render the launch's journal as a table, with the most recent entry first, each row naming the entry's label, its subject, what occurred, when, its source, and who recorded it — as separate raw facts, not composed into a sentence: an entry's `subject`, `source` and `actor` (`launch-journal`) SHALL each render in their own column, so a reader can read who did something or where it came from without reading a sentence about it. A fact the entry does not carry (a kind with no subject, no source, or no actor) SHALL render as an explicit absence rather than an empty-looking cell indistinguishable from a fault.
+
+Where an entry's `actor` is a roster identifier, the page SHALL render the person's name rather than the raw identifier; where it does not resolve against the roster, the page SHALL render the raw value rather than omitting it or failing.
 
 The presentation SHALL be observable in the rendered response — each row SHALL carry the marker `category-` followed by the entry's category, one of `category-progression`, `category-judgment`, `category-blocked`, `category-admin`, matching the standard `A step's outcome is rendered as a tag carrying its state` already holds for this page's other markers: the literal tokens are given because they are what a test is derived from. The markers are a necessary condition, not a sufficient one — that the categories are visually distinguished from one another SHALL be confirmed by direct inspection of the rendered page.
 
 A launch whose journal holds nothing SHALL render the section saying so. A journal is empty for launches that predate it, and a section that vanished when empty would read as "nothing happened" on exactly those launches.
 
-#### Scenario: An entry names what occurred, when, and what caused it
+#### Scenario: An entry names what occurred and when
 
 - **WHEN** a launch's journal holds an entry
-- **THEN** it is rendered naming what occurred, when it occurred, and what caused it
+- **THEN** it is rendered naming what occurred and when it occurred
+
+#### Scenario: An entry's row shows its subject, source and who recorded it as separate facts
+
+- **WHEN** a launch's journal holds an entry carrying a subject, a source and an actor
+- **THEN** its row shows each in its own column, and none of the three is folded into a sentence with another
+
+#### Scenario: A known actor resolves to their name
+
+- **WHEN** an entry's `actor` is the identifier of a person the roster carries
+- **THEN** the row shows that person's name rather than the raw identifier
+
+#### Scenario: An unresolvable actor renders as its raw value
+
+- **WHEN** an entry's `actor` does not match any person the roster carries
+- **THEN** the row shows the raw actor value rather than omitting it
 
 #### Scenario: An entry's row shows its label and carries its category marker
 

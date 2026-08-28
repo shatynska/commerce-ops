@@ -191,6 +191,8 @@ Each reported entry SHALL additionally carry a short label naming its kind, and 
 - a `gate-approval-recorded` entry SHALL be categorized blocked where it carries a rejecting decision and judgment where it carries an approving one;
 - a `step-outcome-recorded` entry SHALL be categorized blocked where the outcome it names is `Blocked` or `Refused`, and progression for every other outcome.
 
+Each reported entry SHALL additionally carry, unworded, the raw facts underlying what caused it: `subject` (the occurrence's subject label where it has one, its subject identifier otherwise), `source`, and `actor` — each `None` where the occurrence carries none, rather than a placeholder value. These are carried alongside, not instead of, the composed `what` and cause wording: a reader of the raw facts and a reader of the prose are both served by the same entry.
+
 A read made on a caller's behalf SHALL be subject to that caller's access scope: a launch whose product identifier the scope does not permit SHALL report an empty journal, exactly as a launch with nothing recorded does, so that a read can never confirm the existence of a launch the caller may not see.
 
 A launch that predates the journal, and a product with no launch record at all, SHALL each report an empty journal rather than an error.
@@ -219,6 +221,16 @@ A launch that predates the journal, and a product with no launch record at all, 
 
 - **WHEN** any entry is read
 - **THEN** it carries a short label naming its kind, drawn from the fixed set of labels rather than the raw kind string
+
+#### Scenario: An entry reports its subject, source and actor as raw facts
+
+- **WHEN** a launch whose journal holds a step outcome recorded by a named person from a named source, naming a step as its subject, is read
+- **THEN** that entry carries the step's name as `subject`, the source as `source`, and the recorder as `actor`, each unworded
+
+#### Scenario: An occurrence naming no subject, source or actor reports each as absent
+
+- **WHEN** an entry for an occurrence that names none of a subject, a source or an actor is read
+- **THEN** its `subject`, `source` and `actor` are each `None`, rather than a placeholder value
 
 #### Scenario: An entry reports a category
 

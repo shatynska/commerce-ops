@@ -1214,7 +1214,7 @@ section.finished .empty,
 .journal-entries th {
   text-align: left;
   color: var(--ink-quiet);
-  font-size: var(--size-fine);
+  font-size: var(--size-small);
   font-weight: 400;
   padding: var(--space-tight) var(--space-snug);
 }
@@ -1222,12 +1222,18 @@ section.finished .empty,
 .journal-entries td {
   padding: var(--space-tight) var(--space-snug);
   vertical-align: top;
-  font-size: var(--size-fine);
+  font-size: var(--size-body);
 }
 
 .journal-entries td.label {
   white-space: nowrap;
   font-weight: 600;
+}
+
+.journal-entries td.subject,
+.journal-entries td.source,
+.journal-entries td.who {
+  white-space: nowrap;
 }
 
 .journal-entries td.when {

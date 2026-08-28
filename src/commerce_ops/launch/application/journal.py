@@ -84,7 +84,17 @@ class JournalEntry:
     `label` and `category` are composed here too, the same way `what`
     and `cause` are: a short name for the kind, and one of four coarse
     groupings (`progression`, `judgment`, `blocked`, `admin`) a reader
-    scans a table by. Neither is stored."""
+    scans a table by. Neither is stored.
+
+    `subject`, `source` and `actor` are the raw facts underlying `what`
+    and `cause`, carried through unworded rather than folded into a
+    sentence — a reader who wants the identifier or the recorder rather
+    than the prose about them reads these directly. `None` where the
+    occurrence carries none: `subject` for the four kinds with nothing to
+    name, `source`/`actor` for the four kinds naming no one
+    (`_COMMAND_CAUSE`'s own set, `launch-graduated`'s `actor`-without-
+    `source` case included).
+    """
 
     kind: str
     what: str
@@ -92,6 +102,9 @@ class JournalEntry:
     cause: str
     label: str
     category: str
+    subject: str | None
+    source: str | None
+    actor: str | None
 
 
 def _detail(occurrence: JournalOccurrence, key: str) -> object | None:
@@ -269,4 +282,7 @@ def compose(occurrence: JournalOccurrence) -> JournalEntry:
         cause=_cause(occurrence),
         label=_label(occurrence),
         category=_category(occurrence),
+        subject=occurrence.subject_label or occurrence.subject_id,
+        source=occurrence.source,
+        actor=occurrence.actor,
     )
