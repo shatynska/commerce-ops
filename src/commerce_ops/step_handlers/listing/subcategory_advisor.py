@@ -65,6 +65,7 @@ one step apart.
 from __future__ import annotations
 
 import functools
+import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, TypedDict
 
@@ -92,15 +93,30 @@ __all__ = [
 
 HANDLER_NAME = "listing.subcategory_advisor"
 
-# What the advisor says when it cannot support a node choice. Recognised
-# by reading the model's own prose rather than by a sentinel token: the
-# recommendation is written for a person either way, and a token would be
-# one more thing the model could get wrong while still being right.
-_UNSUPPORTED_MARKERS = (
-    "cannot support",
-    "can not support",
-    "no confident answer",
-    "unable to support",
+#: The two values the verdict may carry. Anything else — including a
+#: verdict the model never reported — is not support, which is the
+#: fail-safe direction: a supported result wrongly withheld costs a pass,
+#: while an unsupported one wrongly accepted puts a false terminal
+#: outcome in front of a person.
+SUPPORTED = "supported"
+UNSUPPORTED = "unsupported"
+
+#: Who the refusal has to be *about* for the veto to fire. The veto reads
+#: a statement that the **advisor** cannot make a choice; a recommendation
+#: saying some rejected node "cannot support a food-contact claim" is a
+#: statement about that node, and vetoing on it would block the step on
+#: every pass for that product. Hence a subject, not a phrase list.
+_REFUSING_SUBJECT = r"(?:i|we|the advisor|this advisor)"
+_REFUSAL_VERB = r"(?:cannot|can not|can't|could not|couldn't|am unable to|is unable to|are unable to)"
+#: What it must be refusing to do: choose a placement, not meet some
+#: particular demand.
+_REFUSAL_OBJECT = (
+    r"(?:[^.]{0,60}?)"
+    r"(?:node|sub-?category|category|placement|classification|choice|answer)"
+)
+_ADVISOR_REFUSES = re.compile(
+    rf"\b{_REFUSING_SUBJECT}\b[^.]{{0,40}}?\b{_REFUSAL_VERB}\b{_REFUSAL_OBJECT}",
+    re.IGNORECASE,
 )
 
 _PROMPT = """\
@@ -117,7 +133,32 @@ would most plausibly have chosen instead, and why this one was preferred.
 If the category structure gives you no confident answer for this product
 and marketplace, say plainly that you cannot support a node choice, and do
 not name a node as though it were supported.
+
+Begin your answer with a single line reading exactly `Verdict: supported`
+or `Verdict: unsupported`, then a blank line, then the answer itself. The
+verdict line is read by the system; everything after it is read by a
+person, so state a refusal there in your own words as well.
 """
+
+#: Reads the verdict line the prompt asks for and takes it off the front
+#: of the recommendation, so the prose a person reads carries no machine
+#: scaffolding. A missing line yields `None` -- not a default -- because
+#: "never reported" and "reported as something unrecognised" are
+#: different facts the caller has to be able to tell apart.
+_VERDICT_LINE = re.compile(
+    r"^[ \t]*verdict[ \t]*:[ \t]*(?P<value>[^\r\n]*)", re.IGNORECASE
+)
+
+
+def _split_verdict(content: str) -> tuple[str | None, str]:
+    """The verdict the model reported, and the recommendation without it."""
+    match = _VERDICT_LINE.match(content)
+    if match is None:
+        return None, content
+    verdict = match.group("value").strip()
+    prose = content[match.end() :].lstrip("\r\n")
+    # A `Verdict:` line with nothing after it reported no verdict at all.
+    return (verdict or None), prose
 
 
 class AdvisorState(TypedDict, total=False):
@@ -126,6 +167,10 @@ class AdvisorState(TypedDict, total=False):
     product_name: str
     marketplace: str
     recommendation: str
+    #: Whether the advisor could support a node choice, as its own value
+    #: rather than something read back out of `recommendation`. Absent is
+    #: a state the fail-safe answers, which is why this is not defaulted.
+    verdict: str
 
 
 class NonStringRecommendationError(Exception):
@@ -170,7 +215,15 @@ def build_graph(model: BaseChatModel) -> Any:
                 f"plain string ({type(content).__name__}); refusing to "
                 "build a recommendation from it"
             )
-        return {"recommendation": content}
+        verdict, prose = _split_verdict(content)
+        # The verdict is omitted from the returned state when the model did
+        # not give one, rather than defaulted: `propose` has to be able to
+        # tell "not reported" from "reported as something unrecognised",
+        # and a default would erase that distinction here.
+        produced: dict[str, str] = {"recommendation": prose}
+        if verdict is not None:
+            produced["verdict"] = verdict
+        return produced
 
     graph = StateGraph(AdvisorState)
     graph.add_node("recommend", recommend)
@@ -188,9 +241,17 @@ def build_production_graph() -> Any:
     return build_graph(ChatOpenAI(model="gpt-4o-mini"))
 
 
-def _is_unsupported(recommendation: str) -> bool:
-    lowered = recommendation.lower()
-    return any(marker in lowered for marker in _UNSUPPORTED_MARKERS)
+def _advisor_refuses(recommendation: str) -> bool:
+    """Whether the recommendation says *the advisor* cannot make a choice.
+
+    Deliberately narrower than the substring list this change deletes.
+    That list would also match a rejected alternative described as unable
+    to support some particular demand -- a statement about that node, not
+    about the advisor -- and vetoing on it would block the step on every
+    pass for the product, since the same prompt yields the same shape.
+    So the subject is what is matched, not the phrase.
+    """
+    return _ADVISOR_REFUSES.search(recommendation) is not None
 
 
 def propose(
@@ -209,7 +270,36 @@ def propose(
     state = running.invoke({"product_name": product_name, "marketplace": marketplace})
     recommendation = state["recommendation"]
 
-    if _is_unsupported(recommendation):
+    # Read, never inferred. The verdict is the only thing that can
+    # *establish* support; the prose below can only withhold it.
+    reported = state.get("verdict")
+    verdict = reported.strip().lower() if isinstance(reported, str) else None
+
+    if verdict == SUPPORTED:
+        # The one direction prose may act in. A verdict claiming support
+        # while the recommendation refuses is the state the served
+        # prohibition on "a satisfying one accompanied by text admitting
+        # there is no answer" exists to forbid, and without this check
+        # nothing would enforce it once the old matcher is gone.
+        if _advisor_refuses(recommendation):
+            return Proposal(
+                outcome=Blocked(
+                    reason=(
+                        "the sub-category advisor reported a supporting "
+                        "verdict that its own recommendation contradicts, so "
+                        "the verdict and the prose disagree and no node "
+                        f"choice was accepted for '{product_name}' on "
+                        f"'{marketplace}'"
+                    )
+                ),
+                result=recommendation,
+            )
+        return Proposal(outcome=Satisfied, result=recommendation)
+
+    if verdict == UNSUPPORTED:
+        # A classification considered and declined -- the only one of the
+        # four withheld paths that is a finding about the product, and the
+        # only one keeping this wording.
         return Proposal(
             outcome=Blocked(
                 reason=(
@@ -219,7 +309,34 @@ def propose(
             ),
             result=recommendation,
         )
-    return Proposal(outcome=Satisfied, result=recommendation)
+
+    if reported is None:
+        # A shortfall, not a finding. Saying "could not support a node
+        # choice" here would record a model omission on the launch as the
+        # advisor's judgement about the product.
+        return Proposal(
+            outcome=Blocked(
+                reason=(
+                    "the sub-category advisor reported no verdict for "
+                    f"'{product_name}' on '{marketplace}', so whether a node "
+                    "choice could be supported is unknown rather than settled"
+                )
+            ),
+            result=recommendation,
+        )
+
+    # Reported, but as neither value. Distinct from absence, and the
+    # offending value is named: an operator cannot act on "unreadable".
+    return Proposal(
+        outcome=Blocked(
+            reason=(
+                "the sub-category advisor reported the unrecognised verdict "
+                f"'{reported}' for '{product_name}' on '{marketplace}', which "
+                "is neither supported nor unsupported"
+            )
+        ),
+        result=recommendation,
+    )
 
 
 @functools.lru_cache
