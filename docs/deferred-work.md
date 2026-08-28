@@ -219,6 +219,24 @@ The fix is small — give each module a package logger rather than `__name__` un
 
 **Recorded in**: `let-the-start-chain-finish`'s `proposal.md` (Out of scope) and `design.md` (Risks).
 
+### The admin stays server-rendered, in this repository
+
+The admin surface — the steps page and the roster today, a launch-products page and a product list planned — could move onto a JSON API, onto React, and/or into its own repository. All three were weighed on 2026-08-27 and deferred. They are recorded together because they are not independent moves.
+
+**A separate repository forces the API**; React does not. In-process calls into `launch.application` and `access.application` become network calls the moment the admin leaves this deployable, so the possible order is API → React → repository, each optional given the one before it. Nothing recorded here forecloses any of them.
+
+**React is a foundation change, not a UI choice.** The Node-free stance is deliberate and already recorded twice: `AGENTS.md` picks gitlint over commitlint "specifically to avoid a Node.js dependency in this otherwise pure-Python project", and `README.md`'s Technology section names Python/FastAPI/LangGraph as owner-supplied rather than proposed. Adopting React means editing that section, not adding a page. Against that cost, the only admin surface React genuinely earns is a monitoring dashboard with charts — and monitoring's live numbers are slice 8 of `docs/domain-map.md`, blocked on marketplace access. Steps, roster, launch products and a product list are tables and forms, which htmx already renders.
+
+**The repository split's costs are flat — they do not shrink by waiting.** Auth crosses the wire: `verify_admin_session` resolves a session's principal against the roster in-process, and the roster is the source of truth for admin capability. `.importlinter`'s 18 contracts stop applying, so a module boundary this project enforces mechanically at commit time becomes whatever the API happens to expose. Every change touching a domain rule *and* its admin rendering becomes two coordinated PRs, against `AGENTS.md`'s rule that a change reaches the server through one — `record-gate-and-discipline-as-fields`, 58 tasks across domain, specs and admin, is exactly the shape that would split. Two deploy pipelines double `AGENTS.md`'s four-step rule for adding a runtime variable, while the drift check in `tests/unit/shared/application/test_settings.py` still covers one of them. `admin-session`, `playbook-admin` and `roster-admin` would move to a second OpenSpec store. `shared/domain`'s vocabulary — `Discipline`, `LifecycleStage`, `Severity`, `ProductId`, `Sku` — is then duplicated, published as a package, or reduced to bare strings. And CORS becomes necessary, which `main.py` does not configure at all today.
+
+**If React is what is actually wanted, it does not require the split.** An `admin-ui/` directory in this repository, built in a second `Dockerfile` stage and served as static files by FastAPI, with TypeScript types generated from FastAPI's own OpenAPI schema, buys React and TS without any cost in the paragraph above, and keeps one PR shipping a domain change together with its UI. Node enters the build, not the runtime image. It adds no process to the `CMD` chain, so the `--start-period` clearance measured above is unaffected.
+
+**The one thing worth doing, and it is not itself a deferral.** No read-model layer exists between the use cases and the templates: `playbook_admin.py` is 1403 lines mixing form parsing, fault attribution, ordering and rendering, and its nearest thing to a view model is `_row(record, people) -> dict[str, Any]` (`playbook_admin.py:719`) — private, untyped, and inseparable from the adapter around it. `_require_admin` stands in three copies (`playbook_admin.py`, `roster_admin.py`, `admin_assets.py`). Naming that layer as typed frozen dataclasses when the next admin surface is built is better structure on its own terms, and it is separately what would make a later API roughly a day of serialization rather than a rewrite — a `@dataclass(frozen=True)` is a FastAPI response model in all but the decorator. Resource-shaped URLs cost nothing extra and spare the same rework.
+
+**Triggers to reopen.** React: when slice 7 or 8 makes a charted monitoring dashboard real. The repository split: a second consumer of the API (a mobile client, another service), separate teams owning the two ends, or genuinely divergent deploy cadences. None holds today, for one deployable and one ops team.
+
+**Recorded in**: this entry. Unlike its neighbours it has no change behind it — it was settled in exploration on 2026-08-27, and this file is the primary record until a change takes it up.
+
 ### Small cleanups, not worth a change each
 
 Verified present at the time of writing; suitable for one chore commit.
