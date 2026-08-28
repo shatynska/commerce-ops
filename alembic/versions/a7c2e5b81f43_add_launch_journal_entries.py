@@ -1,7 +1,7 @@
 """add the append-only launch journal
 
 Revision ID: a7c2e5b81f43
-Revises: e4b91c73a2d5
+Revises: c9f2a4d7b613
 Create Date: 2026-08-28
 
 `add-launch-journal`'s only schema change: one table recording what
@@ -37,7 +37,11 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "a7c2e5b81f43"
-down_revision: str | Sequence[str] | None = "e4b91c73a2d5"
+# Re-parented from `e4b91c73a2d5` when `main` was merged in: the field
+# configuration gap record (`c9f2a4d7b613`) had branched from the same
+# parent, leaving two heads. This revision touches nothing that one does,
+# so making the chain linear is the whole fix.
+down_revision: str | Sequence[str] | None = "c9f2a4d7b613"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
