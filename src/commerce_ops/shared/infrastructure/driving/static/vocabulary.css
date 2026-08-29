@@ -1311,6 +1311,70 @@ section.finished .empty,
   margin: 0 0 var(--space-loose);
 }
 
+/* A launch's steps are shown one gate's table at a time, and without a
+   fixed layout each gate's columns size themselves to that gate's own
+   content -- so the same column lands at a different width, or even a
+   different position, gate to gate. `table-layout: fixed` stops
+   sizing from content at all; the percentages below are what fixes it
+   to instead, in column order (status, name, id, discipline, facts,
+   timing, outcome), and hold across every gate's table on the page. */
+/* The scroll boundary a narrow viewport falls back to once the columns
+   below can't all honour both their percentage and their minimum at
+   once -- the table overflows this box instead of the page, and this
+   box, not the page, is what scrolls. */
+.gate-group .table-scroll {
+  overflow-x: auto;
+}
+
+.gate-group table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+/* Percentage widths shrink with the viewport; a tag that carries
+   `white-space: nowrap` by design (`.outcome-tag`, `.mark`) does not,
+   and a `<td>` does not clip its own overflow -- so without a floor, a
+   narrow enough viewport lets the tag run into the column beside it
+   rather than the column simply reading tighter. `min-width` gives the
+   two tag-bearing columns that floor; every other column keeps only
+   its percentage. */
+.gate-group th:nth-child(1),
+.gate-group td:nth-child(1) {
+  width: 9%;
+  min-width: 6rem;
+}
+
+.gate-group th:nth-child(2),
+.gate-group td:nth-child(2) {
+  width: 18%;
+}
+
+.gate-group th:nth-child(3),
+.gate-group td:nth-child(3) {
+  width: 13%;
+}
+
+.gate-group th:nth-child(4),
+.gate-group td:nth-child(4) {
+  width: 9%;
+}
+
+.gate-group th:nth-child(5),
+.gate-group td:nth-child(5) {
+  width: 13%;
+  min-width: 7.5rem;
+}
+
+.gate-group th:nth-child(6),
+.gate-group td:nth-child(6) {
+  width: 12%;
+}
+
+.gate-group th:nth-child(7),
+.gate-group td:nth-child(7) {
+  width: 26%;
+}
+
 /* A row's cells no longer share one height once the evidence column can
    clamp to two lines while its neighbours stay one -- centring on that
    mismatch reads as misaligned. Top-aligned instead, scoped to this
@@ -1331,15 +1395,9 @@ section.finished .empty,
   content: "–";
 }
 
-/* What came of the step, in its own column. An automated handler writes
-   several sentences here, so it is bounded and wraps within that bound
-   rather than running the table wider than the page — a fact this page
-   renders may not be hidden, and an ellipsis on the one field explaining
-   a refusal is exactly that. */
-.gate-group td.evidence {
-  max-width: 22rem;
-}
-
+/* What came of the step, in its own column -- bounded now by the fixed
+   column width above rather than a `max-width` of its own, so it wraps
+   within that bound rather than running the table wider than the page. */
 .gate-group .evidence-text {
   display: block;
   color: var(--ink);
@@ -1413,6 +1471,15 @@ section.finished .empty,
 
 .gate-group td.step-name {
   font-weight: 600;
+}
+
+/* `td.identity`'s own rule keeps a short code on one line, which reads
+   fine in an unconstrained column; fixed to a share of the table's
+   width here, a long identifier needs to wrap instead of spilling into
+   its neighbour. */
+.gate-group td.identity {
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 /* The outcome, as a tag leading its row. Same shape as `.mark` — a tag states

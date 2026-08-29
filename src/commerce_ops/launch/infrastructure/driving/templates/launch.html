@@ -69,6 +69,14 @@
       {% if group.current %}aria-current="step"{% endif %}>
     <h2 class="gate-name">{{ group.identifier }}</h2>
     {% if group.steps %}
+    {# The table's columns are a fixed share of its own width
+       (`.gate-group table`, below), which on a narrow viewport would
+       otherwise squeeze a column's tags — `nowrap` by design, so they
+       read as one word rather than breaking mid-state — past their own
+       readable width and into their neighbour. `.table-scroll` gives
+       the table a floor no column shrinks below; a viewport narrower
+       than that scrolls the table horizontally instead of breaking it. #}
+    <div class="table-scroll">
     <table>
       <thead>
         <tr><th>status</th><th>name</th><th>id</th><th>discipline</th><th>facts</th><th>timing</th><th>outcome</th></tr>
@@ -106,13 +114,16 @@
              begins. `OffsetAnchor` resolves to the same day for both
              start and end, which the first branch collapses back to one
              date rather than printing it twice. Lowercase throughout,
-             matching every other fact this table states in the row. #}
+             matching every other fact this table states in the row.
+             Nothing set renders as nothing, the same convention the
+             assignees and facts columns already use, rather than a
+             word saying so. #}
           <td class="timing">
             {%- if step.due_from and step.due_to and step.due_from != step.due_to %}
             <span class="timing-start">{{ step.due_from }}</span><span class="timing-sep"></span><span class="timing-end">{{ step.due_to }}</span>
             {%- elif step.due_to %}due {{ step.due_to }}
             {%- elif step.due_from %}from {{ step.due_from }}
-            {%- else %}no timing set{% endif -%}
+            {%- endif -%}
           </td>
           {# An automated handler's evidence runs to several sentences, so it
              is given a column with a bound rather than the row's full width
@@ -145,6 +156,7 @@
         {% endfor %}
       </tbody>
     </table>
+    </div>
     {% endif %}
   </section>
   {% endfor %}
