@@ -6,8 +6,7 @@ See `proposal.md` — Why. What follows is what the design has to fit.
 
 ```
 assignees    <select multiple size="4">   roster's active people, by display name
-after_steps  <select multiple size="7">   every active step, <optgroup> per gate,
-                                          plus an empty-valued "waits on nothing"
+after_steps  <select multiple size="7">   every active step, <optgroup> per gate
 ```
 
 **The set the second one ranges over**, measured against the live table:
@@ -55,10 +54,10 @@ of that is being revisited; the question is only how the options are drawn.
 
 ### Checkboxes, not a repaired `<select multiple>`
 
-The dead end has a cheap patch — the empty-valued "waits on nothing" option
-shipped with `let-a-step-say-when-it-starts` clears the set in one click — and
-that patch is why this is a usability change rather than a defect fix. What it
-cannot repair is that `<select multiple>` shows one window onto its options,
+The dead end has a cheap patch — an empty-valued "waits on nothing" option
+would clear the set in one click, since a plain click on it replaces the whole
+selection. That patch was written and tried and is not what shipped, because it
+addresses only the dead end. What it cannot repair is that `<select multiple>` shows one window onto its options,
 requires a modifier key to add a second, and gives no way to review what is
 chosen without scrolling back through everything that is not.
 
@@ -76,9 +75,9 @@ one exception, below, that is easy to miss and expensive to miss.
 
 ### An emptied control must still submit its key
 
-`<select multiple>` with an empty-valued option always posts the field; a
-checkbox group with nothing checked posts nothing. So the naive translation
-turns "cleared" into "absent", and a rejected write that re-renders from the
+`<select multiple>` posts its field whenever any option is selected; a
+checkbox group with nothing checked posts nothing at all. So the naive
+translation turns "cleared" into "absent", and a rejected write that re-renders from the
 submission would restore what the author had just cleared — the surface is
 required to come back holding what was submitted, and it would be holding the
 opposite.
