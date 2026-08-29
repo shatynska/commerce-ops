@@ -1123,46 +1123,49 @@ def test_a_chip_exists_for_each_chosen_value_and_for_no_other(
         )
 
 
-def test_the_stylesheet_carries_a_checked_state_rule_reaching_chosen_set(
-    monkeypatch: pytest.MonkeyPatch,
+@pytest.mark.parametrize("field_name", (ASSIGNEES, AFTER_STEPS))
+def test_every_value_has_its_own_control_among_the_options(
+    monkeypatch: pytest.MonkeyPatch, field_name: str
 ) -> None:
-    """Requirement statement: "that the served stylesheet carries a rule
-    keyed on a control's checked state reaching that region" — the
-    response's whole share of the toggle trap (`tasks.md` 7.3).
+    """Scenario: Every value has its own control among the options.
 
-    A rendering of `chosen-set` that does not follow its controls leaves
-    a cleared value still shown, and a second action on it silently
-    chooses the value again. That the rendering *does* follow is
-    behaviour and computed style, designated for direct inspection; that
-    the mechanism which makes it follow without a script is **shipped**
-    is what a response can be asked.
+    WHEN either control is rendered
+    THEN each value it offers has its own control in the list of options,
+    so that choosing and clearing need nothing to run.
+
+    SPECIFIED: "**Each value's own control SHALL be rendered among the
+    options**, where it is what chooses and unchooses — so clearing needs
+    nothing to run and no modifier key".
+
+    This replaces a test of the rule that stood here before, which had the
+    value's control living beside its chip and a stylesheet rule hiding a
+    chip whose box was unchecked. That arrangement made a chip clickable
+    without the enhancement and cost the option rows their own visible
+    controls, which is the whole of how a list of ninety-four is read. The
+    requirement was amended before it shipped; this asserts what replaced
+    it.
     """
     client = _signed_client(monkeypatch, _seeded_store())
-    surface = _edit_surface(client)
-    form = _authoring_form(surface)
-    css = _stylesheet(client, surface)
+    form = _authoring_form(_edit_surface(client))
 
-    vocabulary = _read(css)
-    _readable(vocabulary)
+    offered = _offered_values(form, field_name)
+    assert offered, (
+        f"the {field_name!r} control offers no value at all, so this "
+        "scenario would hold vacuously"
+    )
 
     regions = _chosen_regions(form)
-    assert regions, f"the form renders no region marked {CHOSEN_SET!r}"
-    inside = [node for region in regions for node in (region, *_elements(region))]
-
-    keyed = [rule for rule in vocabulary.rules if ":checked" in rule.selector]
-    # SPECIFIED: such a rule exists at all.
-    assert keyed, (
-        "the served stylesheet carries no rule keyed on a control's checked "
-        f"state, so nothing makes {CHOSEN_SET!r} follow its controls without "
-        "a script"
-    )
-    reaching = [rule for rule in keyed if any(_matches(rule, node) for node in inside)]
-    # SPECIFIED: and it reaches that region.
-    assert reaching, (
-        "the served stylesheet's checked-state rules "
-        f"({[rule.selector for rule in keyed]}) reach nothing inside a "
-        f"{CHOSEN_SET!r} region, so the region does not follow its controls "
-        "where the enhancement is absent"
+    outside = {
+        value: control
+        for value, control in offered.items()
+        if not any(_within(control, region) for region in regions)
+    }
+    # SPECIFIED: among the options, which is to say not inside the region
+    # that renders what is chosen.
+    assert set(outside) == set(offered), (
+        "these values' own controls do not sit among the options: "
+        f"{sorted(set(offered) - set(outside))} — a value whose control is "
+        "elsewhere cannot be cleared from the list an author is reading"
     )
 
 

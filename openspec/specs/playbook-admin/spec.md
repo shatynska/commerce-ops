@@ -574,11 +574,13 @@ Assignees SHALL be chosen from the roster's active people rather than typed, so 
 
 **Every control admitting more than one value SHALL be choosable and clearable without a modifier key.** A control that deselects only on ctrl/cmd-click has no plain-click route back to none, which for a field whose ordinary value *is* none — the steps a step waits on — leaves an author who chose by accident unable to undo it.
 
-**What is currently chosen SHALL be rendered apart from the options**, in a region carrying the marker `chosen-set` and naming the field it belongs to, since the form carries two such regions and a marker that cannot tell them apart is one a reader must fall back to structure to use. Each value SHALL be clearable from that region as well as from the options, **and that clearing SHALL NOT depend on the options being enhanced**: a value an author can see but not act on where they see it sends them back to search the options for it, which is the whole of what the region exists to spare them.
+**What is currently chosen SHALL be rendered apart from the options**, in a region carrying the marker `chosen-set` and naming the field it belongs to, since the form carries two such regions and a marker that cannot tell them apart is one a reader must fall back to structure to use. **Each value's own control SHALL be rendered among the options**, where it is what chooses and unchooses — so clearing needs nothing to run and no modifier key, and an author reads the list as a set of things to tick. `chosen-set` MAY additionally offer a way to clear a value where it is shown, and that MAY depend on the options being enhanced, since the option's own control is always there.
 
-**A value SHALL NOT be shown in `chosen-set` while its own control is unchosen**, whether or not the enhancement is running. This does not follow from the rule above and is the harder half of it: an affordance that acts on the option's own control is a *toggle*, so a rendering that did not follow the control would leave a cleared value still shown, and a second click on it would silently choose the value again — the author's clearing undone by the action they took to confirm it. The control remains the authority on what is chosen and what is submitted, and this rendering is a view of it, never a second copy of the answer.
+**What `chosen-set` offers SHALL NOT be a second control over a value.** It renders what is chosen and it may offer to clear one, but it SHALL NOT be an affordance that also *chooses* — anything bound to the option's own control is a toggle, and a toggle here would let a second action silently re-choose a value the author had just cleared, their clearing undone by the act of confirming it. The option's control remains the authority on what is chosen and what is submitted, and this region is a view of it, never a second copy of the answer.
 
-**What a response can be asked of these two controls, and what it cannot.** That each control renders a control per value, that a region marked `chosen-set` names its field, that a chip element exists for each chosen value, that the served stylesheet carries a rule keyed on a control's checked state reaching that region, and that a fault mark renders outside anything the options are scrolled within — all observable in the rendered response. That each control's values can be chosen and cleared without a modifier key, that clearing from `chosen-set` actually clears, that a cleared value actually stops being shown, and that no filtering removes a mark — these are behaviours and computed style, cannot be established by a server response, and SHALL be confirmed by direct inspection of the rendered page.
+Where nothing is chosen the region SHALL say so rather than render empty. A blank line is indistinguishable from a region that has failed to draw, and it moves the page under the author's hands as the first value is chosen.
+
+**What a response can be asked of these two controls, and what it cannot.** That each control renders a control per value **among its options**, that a region marked `chosen-set` names its field, that an element naming each chosen value appears there, that the region says so when nothing is chosen, and that a fault mark renders outside anything the options are scrolled within — all observable in the rendered response. That each control's values can be chosen and cleared without a modifier key, that clearing a value stops it being shown, and that no filtering removes a mark — these are behaviours and computed style, cannot be established by a server response, and SHALL be confirmed by direct inspection of the rendered page.
 
 **An emptied multi-valued control SHALL still submit its key**, present and empty, rather than omitting it. A control whose values are individually submitted sends nothing at all when none is chosen, so without this a cleared field is indistinguishable from one never rendered — and a write rejected for an unrelated fault would re-render from the submission and restore what the author had just cleared, which the requirement that a rejected form still hold what was submitted forbids. A submission that carries no such key SHALL nonetheless be read as the empty set, by every reader of it, so that a submission reaching the surface any other way cannot mean something else.
 
@@ -644,10 +646,15 @@ Neither control SHALL be worded so that it reads as the step's own gate, and nei
 - **WHEN** a step waiting on two other steps is opened for editing
 - **THEN** each control's chosen values are in a region marked `chosen-set` that names the field it belongs to
 
-#### Scenario: A cleared value is not left shown as chosen
+#### Scenario: Every value has its own control among the options
 
-- **WHEN** an author clears a value from `chosen-set`, with the options unenhanced
-- **THEN** that value is no longer shown as chosen, so that acting on it again cannot restore it unremarked
+- **WHEN** either control is rendered
+- **THEN** each value it offers has its own control in the list of options, so that choosing and clearing need nothing to run
+
+#### Scenario: An empty set says so
+
+- **WHEN** a control is rendered with nothing chosen
+- **THEN** its `chosen-set` region says so rather than rendering empty
 
 #### Scenario: An emptied control still submits its key
 
