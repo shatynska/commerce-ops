@@ -38,6 +38,7 @@ rendered from.
 
 from __future__ import annotations
 
+import logging
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
@@ -324,6 +325,9 @@ def _person_identifier(person: Any) -> str:
     raise ValueError(f"a roster person exposes no identifier: {person!r}")
 
 
+_logger = logging.getLogger(__name__)
+
+
 def _people_by_identifier(people: Sequence[Any]) -> dict[str, Any]:
     return {_person_identifier(person): person for person in people}
 
@@ -508,6 +512,7 @@ def _authorable_fields(
     form: dict[str, str],
     assignees: tuple[str, ...],
     faults: list[_AttributedFault],
+    after_steps: tuple[str, ...] = (),
 ) -> dict[str, Any]:
     """The authorable shape as one form submission carries it.
 
@@ -549,6 +554,11 @@ def _authorable_fields(
     fields["status"] = _enum("status", StepStatus, StepStatus.DRAFT)
     fields["hazard"] = _enum("hazard", Hazard, Hazard.NONE)
     fields["assignees"] = assignees
+    fields["after_steps"] = after_steps
+    # An empty selection is the empty tuple and never `None`: empty and
+    # "waits on nothing" are one fact, and the column is NOT NULL for
+    # exactly that reason.
+    fields["starts_at_gate"] = (form.get("starts_at_gate") or "").strip() or None
     # Submitted on a `human` step only because the control was left
     # enabled; carried through rather than dropped, so the write reports
     # the rule instead of the page quietly deciding for the author.
@@ -630,6 +640,40 @@ _CROSSINGS: Final = (
         True,
     ),
     _Crossing("is a human step and cannot name a handler", ("kind", "handler"), True),
+    # When a step starts (`let-a-step-say-when-it-starts`). Attributed by
+    # the declaration each fault turns on, never one fixed control per
+    # fault kind: most of these are provokable from more than one field,
+    # and an author who provoked one from a field this table did not name
+    # would be shown an unmarked form — the "falls through unrecognised"
+    # the attribution requirement forbids.
+    _Crossing("declares unknown start gate", ("starts_at_gate",), True),
+    _Crossing(
+        "which is not a gate at which work begins",
+        ("starts_at_gate",),
+        True,
+    ),
+    # A combination: neither value is wrong alone, and an author may mean
+    # to move the step's own gate as readily as its start gate.
+    _Crossing(
+        "declares start gate",
+        ("gate", "starts_at_gate"),
+        True,
+    ),
+    _Crossing("which no step in the set carries", ("after_steps",), True),
+    _Crossing("is not part of a launch's obligations at all", ("after_steps",), True),
+    _Crossing("work is not sequenced behind a refusal", ("after_steps",), True),
+    # Multi-step faults. They name steps this form does not carry, so
+    # neither the single-field nor the combination case reaches them:
+    # they mark every control on the edited step's form carrying a
+    # declaration the fault turns on. A deadlock is provoked as readily
+    # by ticking "blocks its gate", or by moving the step to an earlier
+    # gate, as by adding the edge.
+    _Crossing("steps form a dependency cycle", ("after_steps",), True),
+    _Crossing(
+        "so the gate could never open",
+        ("after_steps", "starts_at_gate", "gate", "blocking"),
+        True,
+    ),
     # The write-time preconditions, from the application layer.
     _Crossing("whom the roster does not carry", ("assignees",), True),
     _Crossing(
@@ -754,7 +798,66 @@ def _option_context() -> dict[str, Any]:
         "hazard_options": [h.value for h in Hazard],
         "cadence_options": [c.value for c in Cadence],
         "anchor_kinds": _ANCHOR_KINDS,
+        # Every gate but the last: the final gate is refused as a start
+        # gate, and offering it would invite a value the write rejects —
+        # the same rule this form follows for a field carrying no meaning.
+        "start_gate_options": GATE_SEQUENCE[:-1],
     }
+
+
+async def _dependency_options_for(
+    *, editing: str | None
+) -> list[tuple[str, list[tuple[str, str]]]]:
+    """`_dependency_options` for the surfaces that hold no loaded set.
+
+    The create and edit pages render from a submitted form rather than
+    from a list read, so they take the read themselves. A failure to
+    read leaves the control empty rather than failing the render: an
+    author who cannot see the options can still correct whatever else
+    the form is refusing, and a page that 500s over an option list would
+    hide the fault it was rendered to report.
+    """
+    try:
+        records, _version = await steps.load()
+    except Exception:  # pragma: no cover - defensive
+        _logger.warning(
+            "playbook admin: could not read the step set for the dependency "
+            "control; it renders empty",
+            exc_info=True,
+        )
+        return []
+    return _dependency_options(records, editing=editing)
+
+
+def _dependency_options(
+    records: Sequence[Any], *, editing: str | None
+) -> list[tuple[str, list[tuple[str, str]]]]:
+    """The steps a step may be authored to wait on, grouped by gate.
+
+    Only the `active` ones, and never the step being edited. Both
+    exclusions are this surface's standing rule that a form does not
+    invite a value the write would refuse: a dependency on any other kind
+    of step is refused, and a self-reference is refused as the cycle it
+    is. Restricting the options also keeps the served and unserved steps
+    apart, as the step table is separately required to.
+
+    Grouped by gate and labelled with both the identifier and the name
+    because this control ranges over the served set — steps in the dozens
+    — where the assignee control ranges over a handful of colleagues an
+    author knows by name.
+    """
+    by_gate: dict[str, list[tuple[str, str]]] = {gate: [] for gate in GATE_SEQUENCE}
+    for record in records:
+        definition = record.definition
+        if definition.status is not StepStatus.ACTIVE:
+            continue
+        if editing is not None and definition.identifier == editing:
+            continue
+        if definition.gate in by_gate:
+            by_gate[definition.gate].append(
+                (definition.identifier, f"{definition.identifier} — {definition.name}")
+            )
+    return [(gate, options) for gate, options in by_gate.items() if options]
 
 
 def _slot_key(record: Any) -> tuple[int, str]:
@@ -972,6 +1075,7 @@ async def _render_page(
             else None
         ),
         assignee_options=_assignee_options(list(people.values())),
+        dependency_options=_dependency_options(records, editing=None),
         **_option_context(),
     )
     return HTMLResponse(html)
@@ -996,6 +1100,7 @@ async def _render_new(
         notice=notice,
         narrowing=narrowing,
         assignee_options=_assignee_options(await _roster_people()),
+        dependency_options=await _dependency_options_for(editing=None),
         breadcrumb=[
             ("Playbook", f"{PAGE_PATH}{narrowing.suffix()}"),
             ("New step", None),
@@ -1029,6 +1134,7 @@ async def _render_edit(
         notice=notice,
         narrowing=narrowing,
         assignee_options=_assignee_options(await _roster_people()),
+        dependency_options=await _dependency_options_for(editing=step_id),
         breadcrumb=[
             ("Playbook", f"{PAGE_PATH}{narrowing.suffix()}"),
             (values["name"], None),
@@ -1042,6 +1148,8 @@ def _edit_values(record: Any) -> dict[str, Any]:
     definition = record.definition
     anchor = _anchor_form_values(definition.timing_anchor)
     return {
+        "starts_at_gate": definition.starts_at_gate or "",
+        "after_steps": list(definition.after_steps),
         "name": definition.name,
         "description": definition.description or "",
         "gate": definition.gate,
@@ -1063,7 +1171,9 @@ def _edit_values(record: Any) -> dict[str, Any]:
 
 
 def _submitted_values(
-    form: dict[str, str], assignees: tuple[str, ...] = ()
+    form: dict[str, str],
+    assignees: tuple[str, ...] = (),
+    after_steps: tuple[str, ...] = (),
 ) -> dict[str, Any]:
     """The submitted form, echoed back around a rejection: the spec
     requires the form to still hold what was typed.
@@ -1089,6 +1199,8 @@ def _submitted_values(
         "status": form.get("status", ""),
         "hazard": form.get("hazard", ""),
         "assignees": list(assignees),
+        "starts_at_gate": form.get("starts_at_gate", ""),
+        "after_steps": list(after_steps),
         "automation_brief": form.get("automation_brief", ""),
         "handler": form.get("handler", ""),
         "anchor_kind": form.get("anchor_kind", "offset"),
@@ -1107,14 +1219,19 @@ async def _find_record(step_id: str) -> Any:
     raise HTTPException(status_code=404)
 
 
-async def _form_of(request: Request) -> tuple[dict[str, str], tuple[str, ...]]:
-    """The submitted form, plus its assignees read as the many values
-    they are — a single-valued mapping would keep only the last person a
-    step names."""
+async def _form_of(
+    request: Request,
+) -> tuple[dict[str, str], tuple[str, ...], tuple[str, ...]]:
+    """The submitted form, plus the two multi-valued controls read as the
+    many values they are — a single-valued mapping would keep only the
+    last person a step names, and only the last step it waits on."""
     posted = await request.form()
     fields = {key: str(value) for key, value in posted.items()}
     assignees = tuple(str(value) for value in posted.getlist("assignees") if str(value))
-    return fields, assignees
+    after_steps = tuple(
+        str(value) for value in posted.getlist("after_steps") if str(value)
+    )
+    return fields, assignees, after_steps
 
 
 # --------------------------------------------------------------------------
@@ -1166,12 +1283,12 @@ async def save_edit(
     step_id: str, request: Request, principal: str = Depends(_require_admin)
 ) -> Response:
     narrowing = _filters_of(request)
-    form, assignees = await _form_of(request)
+    form, assignees, after_steps = await _form_of(request)
     record = await _find_record(step_id)
     discipline = record.definition.discipline.value
     try:
         parsed: list[_AttributedFault] = []
-        fields = _authorable_fields(form, assignees, parsed)
+        fields = _authorable_fields(form, assignees, parsed, after_steps)
         if parsed:
             raise _AdapterRejection(parsed)
         await update_step(
@@ -1186,7 +1303,7 @@ async def save_edit(
         return await _render_edit(
             step_id,
             discipline,
-            _submitted_values(form, assignees),
+            _submitted_values(form, assignees, after_steps),
             rejection=_rejection(rejected),
             narrowing=narrowing,
         )
@@ -1194,7 +1311,7 @@ async def save_edit(
         return await _render_edit(
             step_id,
             discipline,
-            _submitted_values(form, assignees),
+            _submitted_values(form, assignees, after_steps),
             notice=STALE_NOTICE,
             narrowing=narrowing,
         )
@@ -1206,7 +1323,7 @@ async def create(
     request: Request, principal: str = Depends(_require_admin)
 ) -> Response:
     narrowing = _filters_of(request)
-    form, assignees = await _form_of(request)
+    form, assignees, after_steps = await _form_of(request)
 
     # Two submissions the create surface cannot have produced: its select
     # always submits a discipline, and it never offers `retired`. Neither
@@ -1227,7 +1344,7 @@ async def create(
         # them, and "every value the surface parses" would be true of
         # editing and false of creating.
         parsed: list[_AttributedFault] = []
-        fields = _authorable_fields(form, assignees, parsed)
+        fields = _authorable_fields(form, assignees, parsed, after_steps)
         discipline = _discipline_from_form(submitted_discipline, parsed)
         if parsed or discipline is None:
             raise _AdapterRejection(parsed)
@@ -1241,13 +1358,13 @@ async def create(
         )
     except (InvalidPlaybookError, ValueError) as rejected:
         return await _render_new(
-            _submitted_values(form, assignees),
+            _submitted_values(form, assignees, after_steps),
             rejection=_rejection(rejected, creating=True),
             narrowing=narrowing,
         )
     except StaleStepSetError:
         return await _render_new(
-            _submitted_values(form, assignees),
+            _submitted_values(form, assignees, after_steps),
             notice=STALE_NOTICE,
             narrowing=narrowing,
         )
@@ -1318,7 +1435,7 @@ async def change_status(
     become a second way out of `retired` that records nobody.
     """
     narrowing = _filters_of(request)
-    form, _assignees = await _form_of(request)
+    form, _assignees, _after_steps = await _form_of(request)
     try:
         status = StepStatus(form.get("status", ""))
     except ValueError:
@@ -1364,7 +1481,7 @@ async def move(
     if not narrowing.reorderable:
         return await _render_page(narrowing, notice=_inert_notice(narrowing))
 
-    form, _assignees = await _form_of(request)
+    form, _assignees, _after_steps = await _form_of(request)
     records, version = await steps.load()
     if form.get("version", "") != str(version):
         return await _render_page(narrowing, notice=STALE_NOTICE)

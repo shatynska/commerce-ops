@@ -40,6 +40,7 @@ from commerce_ops.launch.domain.launch_playbook import (
     StepStatus,
     TimingAnchor,
     assignee_faults,
+    dependency_faults,
     framework_gates,
     gate_holding_faults,
     unheld_gates_of,
@@ -254,21 +255,32 @@ def person_identifier(person: Any) -> str:
 async def _precondition_faults(
     touched: Sequence[StepDefinition],
     *,
+    candidate: Sequence[StepDefinition],
     roster: RosterReader | None,
     handlers: Any,
 ) -> list[str]:
-    """The two checks a load cannot make, over the steps a write touches.
+    """The checks a load cannot make, over the steps a write touches.
 
     Scoped to the touched steps and never to the whole resulting set:
     set-wide evaluation would mean the migrated step set — 95 `active`
     steps deliberately left unowned — refuses every subsequent write
     until all 95 are assigned, which is the backfill the migration
     declined to invent.
+
+    The dependency rules are evaluated **whatever the caller supplies as
+    a roster, and whether or not one is supplied at all**. Only the two
+    assignee rules turn on the roster; a dependency is a function of the
+    step set alone, and skipping it because no roster arrived would leave
+    a step-set rule unevaluated for a reason having nothing to do with
+    it. They read the whole candidate set — that is where a named step's
+    status and hazard live — while still being *reported* only for the
+    steps the write touched.
     """
     faults: list[str] = []
     if roster is not None:
         known, active = await _roster_identifiers(roster)
         faults.extend(assignee_faults(touched, known=known, active=active))
+    faults.extend(dependency_faults(touched, defined=candidate))
     faults.extend(_registration_faults(touched, handlers))
     return faults
 
@@ -315,7 +327,14 @@ async def _accept(
             unheld_gates_of(authored_definitions(candidate)),
         )
     )
-    faults.extend(await _precondition_faults(touched, roster=roster, handlers=handlers))
+    faults.extend(
+        await _precondition_faults(
+            touched,
+            candidate=authored_definitions(candidate),
+            roster=roster,
+            handlers=handlers,
+        )
+    )
     if faults:
         raise InvalidPlaybookError(faults)
 
@@ -475,6 +494,8 @@ async def create_step(
     status: StepStatus = StepStatus.DRAFT,
     hazard: Hazard = Hazard.NONE,
     assignees: Sequence[str] = (),
+    starts_at_gate: str | None = None,
+    after_steps: Sequence[str] = (),
     automation_brief: str | None = None,
     handler: str | None = None,
 ) -> StepRecord:
@@ -499,6 +520,8 @@ async def create_step(
             status=status,
             hazard=hazard,
             assignees=tuple(assignees),
+            starts_at_gate=starts_at_gate,
+            after_steps=tuple(after_steps),
             automation_brief=automation_brief,
             handler=handler,
         )
@@ -604,6 +627,11 @@ async def update_step(
         )
     if "assignees" in fields:
         fields["assignees"] = tuple(fields["assignees"])
+    # Same normalisation and for the same reason: the surface submits a
+    # list, the definition compares by value, and a list member would
+    # defeat both.
+    if "after_steps" in fields:
+        fields["after_steps"] = tuple(fields["after_steps"])
     return await _write_fields(
         steps=steps,
         principal=principal,

@@ -234,6 +234,33 @@ class StepLine:
     evidence: str | None
     due_from: date | None
     due_to: date | None
+    started: bool = True
+    starts_at_gate: str | None = None
+    waits_on: tuple[str, ...] = ()
+
+    @property
+    def waiting_note(self) -> str | None:
+        """What this step is waiting for, in one phrase, or `None` where it
+        has started.
+
+        Worded from *starting* and never from *blocking*: this page already
+        renders a step's `blocking` declaration as "Blocks its gate" and the
+        `Blocked` outcome as a tag, and a third sense of the word would make
+        the surface unreadable.
+
+        Composed here rather than in the template because it is a sentence
+        with three shapes — a gate, some steps, or both — and a template
+        assembling it would put presentation logic where a reader looks for
+        markup.
+        """
+        if self.started:
+            return None
+        parts: list[str] = []
+        if self.starts_at_gate is not None:
+            parts.append(f"starts at {self.starts_at_gate}")
+        if self.waits_on:
+            parts.append("waits on " + ", ".join(self.waits_on))
+        return " · ".join(parts) if parts else "not started yet"
 
     @property
     def recorded(self) -> bool:
@@ -474,6 +501,9 @@ def _steps_for(report: Any) -> tuple[StepLine, ...]:
                 discipline=entry.discipline.value,
                 blocking=entry.blocking,
                 overdue=entry.overdue,
+                started=getattr(entry, "released", True),
+                starts_at_gate=getattr(entry, "starts_at_gate", None),
+                waits_on=tuple(getattr(entry, "unresolved_dependencies", ()) or ()),
                 outcome=outcome,
                 recorded_by=recorded_by,
                 recorded_at=recorded_at,

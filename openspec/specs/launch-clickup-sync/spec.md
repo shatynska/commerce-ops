@@ -219,7 +219,13 @@ The obligation to observe a departed step's task is deferred by the same excepti
 
 ### Requirement: Human steps are projected as tasks carrying their name, description and assignees
 
-The system SHALL project, into the launch's list, one ClickUp task per step of the served playbook whose kind is `human`, whose status is `active`, and whose hazard is not `prohibited-tactic`, and SHALL record the association between each step and its task. The served playbook is live, so a step activated after the launch started is projected on the next pass like any other. `automated` steps, steps that are not `active`, steps with the `prohibited-tactic` hazard, and gate metric conditions SHALL NOT be projected. A step whose task already exists SHALL NOT get a second one. A step whose mapped task no longer exists in ClickUp SHALL be re-projected — a new task created and the mapping replaced — unless the step's recorded outcome is already terminal (`Satisfied`, `Refused`, or `NotApplicable`), in which case the vanished task SHALL be left unrecreated.
+The system SHALL project, into the launch's list, one ClickUp task per step of the served playbook whose kind is `human`, whose status is `active`, whose hazard is not `prohibited-tactic`, and **which the launch has released** (`launch-playbook`, *A step declares when it may start*), and SHALL record the association between each step and its task. The served playbook is live, so a step activated after the launch started is projected on the next pass like any other, and so is a step the launch releases after it started. `automated` steps, steps that are not `active`, steps with the `prohibited-tactic` hazard, steps the launch has not yet released, and gate metric conditions SHALL NOT be projected.
+
+Release is what stops a launch's list opening with the whole playbook in it on its first pass. A step the launch has not released is not yet work anybody is being asked for, and a task for it would carry a due date the launch cannot honour and accrue overdue marks against work nobody was permitted to start.
+
+A task already created for a step SHALL NOT be withdrawn because that step is no longer released. A step can stop being released two ways — an authoring change to what it waits for, and a dependency's own outcome regressing when its task is reopened, which this capability records as `InProgress` — and neither is a reason to take away a task a person may already have begun. Release governs what is created, never what is taken away.
+
+A step whose task already exists SHALL NOT get a second one. A step whose mapped task no longer exists in ClickUp SHALL be re-projected — a new task created and the mapping replaced — unless the step's recorded outcome is already terminal (`Satisfied`, `Refused`, or `NotApplicable`), in which case the vanished task SHALL be left unrecreated.
 
 A projected task SHALL be named with the step's **name**, then ` · ` (a space, a middle dot, a space), then the step's identifier, so that the list states the work while each task remains traceable to the step it stands for. Before any shortening under the rule below, the name SHALL consist of exactly those three parts and no further element: the step's discipline SHALL NOT be appended as a further element of the name. The identifier's own second segment already carries it, and name width spent restating it costs the reader the wording this name exists to surface. This constrains what the system composes, not what a step's name happens to say — a name whose own wording mentions its discipline is unaffected. The name SHALL NOT be the sole record of that association: a task renamed or edited in ClickUp SHALL still resolve to its step, because the association is the recorded mapping and never the name.
 
@@ -268,8 +274,13 @@ Where the composed name would exceed the length the task system accepts, the nam
 
 #### Scenario: A step activated mid-launch is projected
 
-- **WHEN** a `human` step is activated after a launch started and the next pass runs
+- **WHEN** a `human` step is activated after a launch started, the launch has released it, and the next pass runs
 - **THEN** a task is created for it in the launch's list like any other step's
+
+#### Scenario: A step activated mid-launch that the launch has not released is not projected
+
+- **WHEN** a `human` step whose start gate the launch has not reached is activated after that launch started, and the next pass runs
+- **THEN** no task is created for it
 
 #### Scenario: A renamed task still resolves to its step
 
@@ -341,11 +352,40 @@ Where the composed name would exceed the length the task system accepts, the nam
 - **WHEN** the reconciliation pass runs and a `human` step's status is `draft`, `in-development` or `retired`
 - **THEN** no task is created for it
 
+#### Scenario: An unreleased step is not projected
+
+- **WHEN** the reconciliation pass runs over a launch standing at `commit` and the served playbook carries an `active` `human` step whose start gate is `listable`
+- **THEN** no task is created for it, and no mapping is recorded
+
+#### Scenario: A step is projected on the pass after the launch releases it
+
+- **WHEN** a launch that stood at `commit` advances to `listable`, and the next reconciliation pass runs
+- **THEN** a task is created for each `listable`-gate step the launch has now released
+
+#### Scenario: A step waiting on another is not projected until that one is resolved
+
+- **WHEN** the reconciliation pass runs over a launch that has reached a step's start gate, and that step names an `after_steps` dependency whose outcome is not yet resolved
+- **THEN** no task is created for it
+
+#### Scenario: A step released by its dependency being retired is projected
+
+- **WHEN** a step's only `after_steps` dependency is retired, and the reconciliation pass runs over a launch that has reached that step's start gate
+- **THEN** a task is created for it, the retired dependency being satisfied vacuously
+
+#### Scenario: A task already created is not withdrawn
+
+- **WHEN** a step's task exists and the step is subsequently authored to start at a gate the launch has not reached
+- **THEN** the task is left standing in ClickUp, and its mapping is left recorded
+
 ### Requirement: A step that is not active leaves the loop
 
 A step the loop no longer projects SHALL leave the completion loop in both directions while its mapping and task are left standing. The rule keys on the departure itself rather than on any one field, because projection turns on three of them — kind, status and hazard — and a rule naming fewer would leave the rest undefined. A step is no longer `active`, whether it became `retired` or moved back to `draft` or `in-development`; or its kind is no longer `human`, because an `automated` step resolves through `launch-step-automation` and never through a person ticking a task; or its hazard became `prohibited-tactic`, which the projection requirement already excludes.
 
 Outward: such a step is absent from what the pass projects, so no pass SHALL create, re-create, or update a task for it — its existing task is neither renamed, re-dated, closed, nor deleted; what a person does with the leftover task is their call, and closing it on their behalf would fabricate a completion. Inward: a state change on its mapped task SHALL NOT be recorded as an outcome — not by the reconciliation pass and not by a webhook delivery — because the step the recording would name is no longer part of the launch's obligations in the form the task represents. Observations of the task SHALL nonetheless keep updating its retained observed state, recording nothing, so that what happened while the step was out of the projection is never replayed as a transition later: a closure that occurred then is not recorded, not even after the step returns to the projection. A step returning to `active` `human` work SHALL rejoin the loop on the next pass, resuming through its existing mapping and task where they still stand, and recording only transitions observed after it returned.
+
+**Release is not one of these fields, and a step the launch has not released SHALL NOT be held to have left the loop.** Departure keys on the step ceasing to be work of the kind the projection represents — it is no longer a person's task, or no longer served at all — which is a fact about the *step*. Release is a fact about one *launch's position* against a step that is still `active`, still `human` and still the launch's obligation; the launch has simply not asked for it yet. The three departure fields say the task no longer stands for anything; release says only that the task does not exist yet.
+
+The distinction has a consequence this requirement must state, because it is the case a reader will hit: where a task stands for a step the launch has since stopped releasing — reachable only by an authoring change, since the projection never withdraws a task — a state change on that task **SHALL** still be recorded as an outcome. Work a person completed on a task they were given is work done, and release governs what the system asks for, never what it accepts.
 
 Retirement is the named instance of this rather than the rule itself: a rule that keyed on retirement alone — or on status alone — would leave the others undefined, which is the argument this requirement was already written on. The kind case is the one this rule most needs to state, because a step that becomes `automated` stays `active`: it is still part of the launch's obligations, so nothing about its status signals its departure from the loop, and a person closing its orphaned task would otherwise record a `clickup`-sourced completion for work a handler was about to do.
 
@@ -384,6 +424,16 @@ Retirement is the named instance of this rather than the rule itself: a rule tha
 
 - **WHEN** the mapped task of an `active` `automated` step is closed in ClickUp, and that closure reaches the system by webhook or by the reconciliation pass
 - **THEN** no outcome is recorded for that step, and its retained observed state is updated so the closure is never replayed
+
+#### Scenario: An unreleased step has not left the loop
+
+- **WHEN** a task stands for a step that is `active` and `human` but that its launch has since stopped releasing, and that task is closed in ClickUp
+- **THEN** the outcome is recorded for the step, exactly as it would be for a released one
+
+#### Scenario: Release does not suppress reconciliation
+
+- **WHEN** the reconciliation pass observes a state change on a task whose step the launch has not released
+- **THEN** the change is recorded, no rule of this requirement applying to it
 
 ### Requirement: Projection and intake stand down while the playbook cannot hold a launch
 

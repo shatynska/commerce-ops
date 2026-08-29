@@ -413,6 +413,13 @@ class PlaybookStep(Base):
     `timing_anchor` is the anchor's JSON shape (`{"kind": ..., ...}`),
     exactly as the seed's source format spelled it; `assignees` is a JSON
     array of the roster's generated identifiers, never of names.
+    `starts_at_gate` and `after_steps` say when the step may start
+    (`let-a-step-say-when-it-starts`) and are shaped to mirror the two
+    columns they most resemble: the first nullable like `handler`, since
+    absent is the meaningful value "starts immediately"; the second a
+    non-null JSON array defaulting to `[]` like `assignees`, since empty
+    and "no dependency" are one fact and a nullable column would give
+    them two spellings.
     `display_order` is the authored within-gate slot
     (`add-playbook-admin-ui`), held only by an `active` step: serving
     reads gate position, then slot, then identifier.
@@ -433,6 +440,8 @@ class PlaybookStep(Base):
     status: Mapped[str] = mapped_column(String, nullable=False)
     hazard: Mapped[str] = mapped_column(String, nullable=False)
     assignees: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
+    starts_at_gate: Mapped[str | None] = mapped_column(String, nullable=True)
+    after_steps: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
     automation_brief: Mapped[str | None] = mapped_column(Text, nullable=True)
     handler: Mapped[str | None] = mapped_column(Text, nullable=True)
     provenance: Mapped[str | None] = mapped_column(Text, nullable=True)

@@ -274,14 +274,30 @@ async def test_a_registered_runtime_does_not_activate_a_seeded_step() -> None:
     )
 
 
-async def test_every_seeded_human_step_is_still_active_after_registration() -> None:
-    """Requirement statement: "Every seeded `human` step SHALL be
-    `active`."
+async def test_no_seeded_human_step_is_in_development_after_registration() -> None:
+    """The other half of the pair above, and the reason that test is not
+    satisfiable by a deployment which simply broke the status read: an
+    implementation returning `in-development` for everything would pass
+    it and fail here.
 
-    The other half of the same sentence, and the reason the test above
-    is not satisfiable by a deployment that simply broke the status read:
-    an implementation that returned `in-development` for everything would
-    pass it and fail here.
+    **This used to assert that every seeded human step is `active`, and
+    that is no longer what the specification says.** It cited
+    `introduce-automation-runtime`'s "Every seeded `human` step SHALL be
+    `active`", written when the seeded set was the 97 rows the seed
+    migration wrote. `seed-the-reference-step-set` superseded it:
+    `launch-playbook` now requires that "Every seeded step SHALL be
+    `draft` and SHALL be `human`, and SHALL name no assignee", and
+    `seed_playbook` delivers 255 such rows into the same `lp.` namespace
+    on every container start. So a database prepared the way the
+    deployment prepares one carries hundreds of seeded human steps that
+    are legitimately not active, and the old assertion listed them all
+    back as a failure.
+
+    The guard is kept and only its subject corrected. What it exists to
+    catch is a uniformly broken status read, and *no seeded human step is
+    `in-development`* catches exactly that — the two seeded steps in that
+    status are `automated`, which is the pair's other assertion — while
+    saying nothing the current requirement contradicts.
     """
     _registered_names()
 
@@ -293,11 +309,12 @@ async def test_every_seeded_human_step_is_still_active_after_registration() -> N
     human = tuple(step for step in seeded if step.kind is StepKind.HUMAN)
     assert human, "the seeded set carries no human step"
 
-    not_active = [
-        step.identifier for step in human if step.status is not StepStatus.ACTIVE
+    in_development = [
+        step.identifier for step in human if step.status is StepStatus.IN_DEVELOPMENT
     ]
-    assert not_active == [], (
-        f"these seeded human steps are no longer active: {not_active}"
+    assert in_development == [], (
+        "these seeded human steps read as `in-development`, a status the "
+        f"seed gives only to automated steps: {in_development}"
     )
 
 

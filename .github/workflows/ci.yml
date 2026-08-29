@@ -69,9 +69,23 @@ jobs:
         run: uv run pytest tests/unit tests/agents
 
       # The tier assumes the schema and seed are already applied -- every
-      # file in it says so -- so this runs before it, not inside it.
+      # file in it says so -- so these run before it, not inside it.
       - name: alembic upgrade head
         run: uv run alembic upgrade head
+
+      # Seeding is two steps, not one, and running only the first left CI
+      # testing a state no deployment ever serves. The migration writes the
+      # 97 rows it always did; `seed-the-reference-step-set` put the other
+      # 255 behind `seed_playbook`, which the container runs on every start
+      # (see the Dockerfile's CMD chain) rather than as a migration. Without
+      # it the integration tier sees a step set with no drafts at all, so
+      # any obligation on the delivered set passes vacuously or fails for
+      # the wrong reason.
+      #
+      # It adds only rows no stored step already names, so running it here
+      # is idempotent and cannot overwrite what the migration wrote.
+      - name: seed-playbook
+        run: uv run python -m commerce_ops.seed_playbook
 
       - name: pytest (integration)
         run: uv run pytest tests/integration

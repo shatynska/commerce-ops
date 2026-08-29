@@ -348,6 +348,19 @@ class StepDefinition:
     person's details never rewrites the steps pointing at them. That an
     assignee exists and is active is a *write-time* precondition and
     never a load-time rule — see `assignee_faults`.
+
+    `starts_at_gate` and `after_steps` say when the step may *start*,
+    which is a different question from `gate` — the gate it must be
+    resolved *before* — and from `blocking`, which is a gate's exit
+    condition rather than a step's entry condition. Absent and empty
+    respectively mean "from the launch's first gate", which is what a
+    step whose author has said nothing declares.
+
+    They are two fields and not one mode because all four combinations
+    are meaningful, including both at once. Whether a launch has
+    released a step is `Launch.has_released`; nothing here evaluates
+    them, because whether a step may start is a fact about a *launch*
+    and this module knows only about the playbook.
     """
 
     identifier: str
@@ -363,6 +376,8 @@ class StepDefinition:
     status: StepStatus = StepStatus.DRAFT
     hazard: Hazard = Hazard.NONE
     assignees: tuple[str, ...] = ()
+    starts_at_gate: str | None = None
+    after_steps: tuple[str, ...] = ()
     automation_brief: str | None = None
     handler: str | None = None
     provenance: str | None = None
@@ -370,8 +385,11 @@ class StepDefinition:
     def __post_init__(self) -> None:
         # Normalised so a caller handing a list gets value semantics: the
         # definition is frozen and compared by value, and a mutable
-        # member would defeat both.
+        # member would defeat both. `after_steps` for the same reason as
+        # `assignees`, and never as a set: the order an author wrote the
+        # dependencies in is what a refusal names them back in.
         object.__setattr__(self, "assignees", tuple(self.assignees))
+        object.__setattr__(self, "after_steps", tuple(self.after_steps))
         if not isinstance(self.discipline, Discipline):
             raise InvalidPlaybookError(
                 [
@@ -404,6 +422,39 @@ GATE_SEQUENCE: tuple[str, ...] = _SPECIFIED_GATE_IDS
 """The eight gate identifiers in their fixed order — public, because the
 launch-instance side (`launch_run`) validates and advances against the
 same sequence this specification fixes."""
+
+_GATE_POSITION: dict[str, int] = {
+    identifier: position for position, identifier in enumerate(GATE_SEQUENCE)
+}
+"""Each gate's zero-based position, for the comparisons release turns on.
+
+Zero-based and not the `Gate.position` the spec numbers from one: nothing
+here is rendered, and an absent `starts_at_gate` means the first gate,
+which reads as 0 rather than as a special case.
+"""
+
+_FINAL_GATE: str = GATE_SEQUENCE[-1]
+"""The gate past which nothing acts on a launch. Named rather than spelled
+`"graduated"` at each site: three rules turn on it, and a sequence change
+must move all three together."""
+
+
+def gate_position(gate_identifier: str) -> int | None:
+    """Where a gate sits in the sequence, or `None` if it names no gate.
+
+    Public because the release predicate lives on `Launch` and must
+    compare positions by the same reading the load rules use — two
+    readings of "at or beyond" would be exactly the disagreement the
+    single-predicate design exists to prevent.
+    """
+    return _GATE_POSITION.get(gate_identifier)
+
+
+def start_position_of(step: StepDefinition) -> int:
+    """Where `step` is released, as a gate position — public for the same
+    reason `gate_position` is."""
+    return _start_position(step)
+
 
 # The metric conditions each gate authors — framework data, code-owned like
 # the sequence and the opening modes. `move-playbook-steps-to-postgres`
@@ -508,10 +559,164 @@ def _step_faults(
                 f"is a single line"
             )
         faults.extend(_automation_faults(step))
+        faults.extend(_start_gate_faults(step))
         if step.hazard is Hazard.PROHIBITED_TACTIC and step.blocking:
             faults.append(
                 f"step '{step.identifier}' is classified 'prohibited-tactic' "
                 f"and cannot block its gate"
+            )
+    # Over the whole set rather than per step: a cycle and a transitive
+    # deadlock are properties of the graph, and reporting them inside the
+    # per-step loop would name each one once per member.
+    faults.extend(_dependency_faults(steps))
+    return faults
+
+
+def _start_gate_faults(step: StepDefinition) -> list[str]:
+    """What a step's `starts_at_gate` must satisfy to be coherent.
+
+    Both rules are functions of the step set and the code-owned gate
+    sequence alone — nothing outside the step set can invalidate either —
+    which is the test every rule in this module is sorted by, and why
+    these are load rules where `assignee_faults` is not.
+    """
+    if step.starts_at_gate is None:
+        return []
+    if step.starts_at_gate not in _GATE_POSITION:
+        return [
+            (
+                f"step '{step.identifier}' declares unknown start gate "
+                f"'{step.starts_at_gate}'"
+            )
+        ]
+    # Refused for every step, including one belonging to the final gate.
+    # Every consumer that acts on a step stands down once a launch reaches
+    # the final gate, so a step released only there is released into a
+    # state where nothing will ever act on it — and a step blocking that
+    # gate would make graduation impossible.
+    if step.starts_at_gate == _FINAL_GATE:
+        return [
+            (
+                f"step '{step.identifier}' declares start gate "
+                f"'{_FINAL_GATE}', which is not a gate at which work begins "
+                f"— nothing acts on a launch that has reached it"
+            )
+        ]
+    if step.gate not in _GATE_POSITION:
+        # The unknown-gate fault is reported separately; comparing
+        # positions against a gate that does not exist would report a
+        # second fault for one mistake.
+        return []
+    if _GATE_POSITION[step.starts_at_gate] > _GATE_POSITION[step.gate]:
+        return [
+            (
+                f"step '{step.identifier}' belongs to gate '{step.gate}' but "
+                f"declares start gate '{step.starts_at_gate}', which is "
+                f"later — the step could not be resolved before its own gate"
+            )
+        ]
+    return []
+
+
+def _start_position(step: StepDefinition) -> int:
+    """Where a step is released, as a gate position.
+
+    An absent `starts_at_gate` means the launch's first gate, which is
+    position 0 — the same reading `Launch` applies, kept here so the load
+    rules and the release predicate cannot disagree about what "no start
+    gate" means.
+    """
+    if step.starts_at_gate is None:
+        return 0
+    return _GATE_POSITION.get(step.starts_at_gate, 0)
+
+
+def _dependency_faults(steps: tuple[StepDefinition, ...]) -> list[str]:
+    """Cycles among `after_steps`, and blocking steps whose dependencies
+    start too late — from one traversal, not two.
+
+    The walk computes, for each step, the latest start position anywhere
+    in its transitive `after_steps` closure, memoised so each step is
+    expanded once. Cycle detection falls out of the same walk as a
+    back-edge onto the recursion stack, and the deadlock rule is then a
+    lookup per blocking step rather than a second traversal.
+
+    **Edges are followed whatever the target's status.** An edge to a
+    non-`active` step is not a fault here — that is `playbook-authoring`'s
+    write-time business, and a stored set legitimately carries one — but
+    neither is it absent: skipping such edges would let a cycle become
+    loadable by retiring one step in it and reappear on un-retiring it,
+    so whether a stored set is coherent would turn on a fact the walk had
+    chosen to ignore. This makes the load rules deliberately stricter
+    than the release predicate, which does excuse a non-`active`
+    dependency; the asymmetry is intended, because the predicate must
+    never freeze a launch while a load rule need only cost an author an
+    edit.
+    """
+    by_id = {step.identifier: step for step in steps}
+    faults: list[str] = []
+    # The latest-starting step anywhere in a step's closure, as
+    # (position, identifier). The identifier is carried and not only the
+    # position because it is what an author must go and change: in a
+    # two-hop chain the step at fault is not the one the blocking step
+    # names, and a fault naming only the immediate dependency would send
+    # them to a step whose own declaration is fine.
+    latest: dict[str, tuple[int, str]] = {}
+    cycles_seen: list[frozenset[str]] = []
+    on_stack: dict[str, int] = {}
+    stack: list[str] = []
+
+    def walk(identifier: str) -> tuple[int, str] | None:
+        """The latest start position in `identifier`'s closure and the
+        step holding it, itself included. `None` where the identifier
+        names no step: a dangling edge constrains nothing, and it is the
+        write path's fault to report rather than this one's."""
+        if identifier in latest:
+            return latest[identifier]
+        step = by_id.get(identifier)
+        if step is None:
+            return None
+        if identifier in on_stack:
+            members = tuple(stack[on_stack[identifier] :])
+            # Reported once per cycle whichever member it is reached
+            # from, so a three-step cycle is one fault and not three.
+            if frozenset(members) not in cycles_seen:
+                cycles_seen.append(frozenset(members))
+                faults.append(
+                    "steps form a dependency cycle: "
+                    + " -> ".join([*members, members[0]])
+                )
+            return None
+        on_stack[identifier] = len(stack)
+        stack.append(identifier)
+        highest = (_start_position(step), identifier)
+        for named in step.after_steps:
+            reached = walk(named)
+            if reached is not None and reached[0] > highest[0]:
+                highest = reached
+        stack.pop()
+        del on_stack[identifier]
+        latest[identifier] = highest
+        return highest
+
+    for step in steps:
+        walk(step.identifier)
+
+    for step in steps:
+        if not step.blocking or step.gate not in _GATE_POSITION:
+            continue
+        allowed = _GATE_POSITION[step.gate]
+        for named in step.after_steps:
+            reached = walk(named)
+            if reached is None or reached[0] <= allowed:
+                continue
+            position, offender = reached
+            through = "" if offender == named else f" (through '{named}')"
+            faults.append(
+                f"blocking step '{step.identifier}' at gate '{step.gate}' "
+                f"depends{through} on '{offender}', which starts at "
+                f"'{GATE_SEQUENCE[position]}' — later than the gate "
+                f"'{step.identifier}' holds, so the gate could never open"
             )
     return faults
 
@@ -726,6 +931,62 @@ class LaunchPlaybook:
 
     def steps_with_scope(self, scope: Scope) -> tuple[StepDefinition, ...]:
         return tuple(step for step in self.served_steps if step.scope is scope)
+
+
+def dependency_faults(
+    steps: Sequence[StepDefinition],
+    *,
+    defined: Sequence[StepDefinition],
+) -> tuple[str, ...]:
+    """The `after_steps` rules, over the steps a write touches.
+
+    Kept out of `LaunchPlaybook`'s construction and stated here beside
+    `assignee_faults` — but **not for the reason that one carries**, and
+    the difference matters enough to state. An assignee is a fact about
+    the *roster*, which changes without the step set changing, so a load
+    rule would let a write in another module break this capability. A
+    dependency is a fact about the step set itself, which is the very
+    category every load rule belongs to.
+
+    It sits at write time for a narrower reason: retiring a step, or
+    re-classifying its hazard, is a legitimate authoring action, and its
+    blast radius must be the write rather than the corpus. A load rule
+    would mean one retirement rendered every stored playbook unloadable —
+    the mistake `serve-only-a-ready-playbook` was written to undo.
+
+    A consequence, and an intended one: this does not refuse the
+    retirement of a step other steps depend on, because that write
+    touches the retired step and not its dependents. What becomes of
+    them is settled at read time, by the release predicate's vacuous
+    satisfaction, and deliberately not by refusing the retirement.
+
+    One fault per offending identifier, so a write naming three
+    dependencies of which two are wrong is corrected once.
+    """
+    by_id = {held.identifier: held for held in defined}
+    faults: list[str] = []
+    for step in steps:
+        for named in step.after_steps:
+            held = by_id.get(named)
+            if held is None:
+                faults.append(
+                    f"step '{step.identifier}' waits on '{named}', which no "
+                    f"step in the set carries"
+                )
+            elif held.status is not StepStatus.ACTIVE:
+                faults.append(
+                    f"step '{step.identifier}' waits on '{named}', whose "
+                    f"status is '{held.status.value}' — a step that is not "
+                    f"active is not part of a launch's obligations at all"
+                )
+            elif held.hazard is Hazard.PROHIBITED_TACTIC:
+                faults.append(
+                    f"step '{step.identifier}' waits on '{named}', which is "
+                    f"classified 'prohibited-tactic' — its only outcome is "
+                    f"the system declining to do it, and work is not "
+                    f"sequenced behind a refusal"
+                )
+    return tuple(faults)
 
 
 def assignee_faults(

@@ -215,10 +215,21 @@ def test_gates_expose_a_stable_order() -> None:
 # steps. Since `add-playbook-admin-ui`, same-gate steps DO carry an
 # authored presentation order — but it lives in the serving layer
 # (`StepRecord.display_order`), never on the domain's `StepDefinition`,
-# because it must stay invisible to the commitment machinery ("Gates
-# SHALL remain the only *commitment* ordering primitive"). This probe
-# pins that design boundary, not any particular spelling of it, so the
-# list is a best-effort probe rather than an exhaustive one.
+# because it must stay invisible to the commitment machinery.
+#
+# `let-a-step-say-when-it-starts` added `after_steps`, which IS an
+# authored step-to-step ordering on `StepDefinition` and does carry
+# consequence — so this probe no longer pins "no ordering at all", and
+# the requirement it derives from was amended to say what it now pins:
+# a gate opens exactly when its own blocking steps are resolved,
+# whatever any step waited on before starting. `after_steps` orders
+# when work is *asked for*; gates order commitments.
+#
+# `after_steps` is therefore deliberately absent from the list below,
+# and the list keeps guarding what it always guarded — that no *other*
+# ordering primitive, and in particular no positional or implicit one,
+# reaches the domain. It is a best-effort probe of spellings, not an
+# exhaustive one.
 ORDERING_ATTRIBUTE_NAMES: Final = (
     "position",
     "order",

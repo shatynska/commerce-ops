@@ -15,6 +15,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: commit
   provenance: PLOG Intro
 - identifier: lp.strategy.002
   name: Classify the product as subjective or non-subjective
@@ -32,6 +33,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: commit
   provenance: PPC 3.0
 - identifier: lp.strategy.003
   name: 'Clear the demand gate: 8+ keywords at 1,000+ monthly searches'
@@ -49,6 +51,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: commit
   provenance: 8.1 Validating Product Ideas 2025
 - identifier: lp.strategy.004
   name: 'Clear the revenue gate: $10,000/month minimum'
@@ -65,6 +68,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: commit
   provenance: 8.2 Expanding Tolerance 2025
 - identifier: lp.strategy.005
   name: 'Screen review depth: 2 page-one products under 1,000 ratings'
@@ -82,6 +86,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: commit
   provenance: 8.2 Expanding Tolerance 2025
 - identifier: lp.strategy.006
   name: Screen against the hazmat list and high-compliance categories
@@ -99,6 +104,7 @@ steps:
   status: draft
   hazard: compliance-obligation
   assignees: []
+  starts_at_gate: commit
   provenance: 4 Products to Avoid 2025; Proactive Product Compliance 2025
 - identifier: lp.strategy.007
   name: Screen for fragile goods and their return-rate exposure
@@ -117,6 +123,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: commit
   provenance: 4 Products to Avoid 2025
 - identifier: lp.strategy.008
   name: Benchmark projected Unit Session % against comparable competitors
@@ -134,6 +141,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: commit
   provenance: States+Drivers Q1
 - identifier: lp.strategy.009
   name: Set a launch price that beats the market average
@@ -150,6 +158,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: commit
   provenance: PPC 2.0 Part 5 Launching and Ranking 2025
 - identifier: lp.strategy.010
   name: Set launch length from the product's tier
@@ -166,6 +175,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: commit
   provenance: 09/26/2024 Alpha Q&A Launch Strategies
 - identifier: lp.strategy.011
   name: Hold 15-20 products in development to launch 12 a year
@@ -182,6 +192,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: commit
   provenance: 6.1 Scheduling Product Development 2025
 - identifier: lp.strategy.012
   name: Define the target post-launch price before any discount
@@ -199,6 +210,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: commit
   provenance: 12/17/2025 CM3 Launch Strategy
 - identifier: lp.finance.001
   name: Clear 70% CM1 and 35% CM2 before committing
@@ -216,6 +228,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: commit
   provenance: PLOG 1.1.2
 - identifier: lp.finance.002
   name: Clear 25%+ CM3 on the plan
@@ -233,6 +246,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: commit
   provenance: PLOG Priority 1.0
 - identifier: lp.finance.003
   name: Compute CM2 from sale price, landed cost and fulfilment cost
@@ -250,6 +264,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: commit
   provenance: PLOG 1.1.2
 - identifier: lp.finance.004
   name: Test the Pick & Pack fee tier before packaging is tooled
@@ -267,6 +282,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: commit
   provenance: PLOG 1.1.2 Part 1
 - identifier: lp.finance.005
   name: Check for a category with lower referral fees
@@ -283,6 +299,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: commit
   provenance: PLOG 1.1.2 Part 4
 - identifier: lp.finance.006
   name: 'Clear the fee gate: FBA fulfilment under 25% of selling price'
@@ -300,6 +317,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: commit
   provenance: 8.2 Expanding Tolerance 2025
 - identifier: lp.finance.007
   name: Build the launch P&L before ordering
@@ -317,6 +335,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: commit
   provenance: Profit and Loss Forecast 2025
 - identifier: lp.finance.008
   name: 'Declare the budget tier: constrained or well-funded'
@@ -334,6 +353,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: commit
   provenance: PPC 3.0
 - identifier: lp.finance.009
   name: 'Plan against the TACoS curve: 70% / 50% / 20%'
@@ -350,6 +370,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: commit
   provenance: Cash Flow Forecasting with Titan Tools 2025
 - identifier: lp.inventory.001
   name: Avoid a large deposit order before Chinese New Year
@@ -367,6 +388,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: commit
   provenance: 6.1 Scheduling Product Development 2025
 - identifier: lp.strategy.013
   name: Decide the warranty or protection programme
@@ -384,6 +406,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: order
   provenance: PLOG 1.1.3
 - identifier: lp.strategy.014
   name: Buy competitors with higher review velocity and document their inserts
@@ -401,6 +424,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: order
   provenance: PLOG 1.3.4
 - identifier: lp.finance.010
   name: Negotiate terms and split the first order into shipments
@@ -418,6 +442,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: order
   provenance: PLOG 1.1.2 Part 4
 - identifier: lp.finance.011
   name: Confirm the testing obligation from the HTS classification
@@ -435,6 +460,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: order
   provenance: 07/02/2026 Flammability Testing & CPSC eFiling
 - identifier: lp.finance.012
   name: Re-run profit and ROI validation immediately before ordering
@@ -452,6 +478,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: order
   provenance: 'Sourcing: Final Order and Pre Production Form 2025'
 - identifier: lp.finance.013
   name: 'EU: Register EPR per country'
@@ -468,6 +495,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: order
   provenance: 06/18/2026 Managing DDP Risk, Tariffs & AGL
 - identifier: lp.finance.014
   name: 'EU: Register for VAT in every country holding stock under Pan-EU'
@@ -485,6 +513,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: order
   provenance: 04/09/2025 EU Market Expansion Q&A
 - identifier: lp.finance.015
   name: Budget ~$1,000 all-in for the trademark
@@ -502,6 +531,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: order
   provenance: Trademark & Brand Registry BONUS 2025; 02/24/2025 Q&A Trademarks
 - identifier: lp.finance.016
   name: Accept order 1 as the highest unit price from a new factory
@@ -518,6 +548,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: order
   provenance: Launch Strategy Phase 2 Profit Optimization 2025
 - identifier: lp.finance.017
   name: 'EU: Audit EFN against Pan-EU before launching into Europe'
@@ -535,6 +566,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: order
   provenance: 05/13/2026 Company-Wide Huddle
 - identifier: lp.finance.018
   name: Cut MOQ cash exposure with a split commitment
@@ -551,6 +583,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: order
   provenance: 'Sourcing: The Art of Negotiation 2025'
 - identifier: lp.setup.001
   name: Check Ships in Own Packaging eligibility and apply to the programme
@@ -568,6 +601,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: order
   provenance: PLOG 1.1.2 Part 1
 - identifier: lp.setup.002
   name: Choose shrink wrap over an oversized poly bag
@@ -585,6 +619,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: order
   provenance: PLOG 1.1.2 Part 1
 - identifier: lp.setup.003
   name: Spec the in-box insert into the carton before production
@@ -602,6 +637,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: order
   provenance: PLOG 1.3.4
 - identifier: lp.setup.004
   name: Put manufacturer details and batch code on children's packaging
@@ -619,6 +655,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: 07/14/2025 Avoiding Launch Mistakes CPC Compliance
 - identifier: lp.setup.005
   name: Interrogate why the MOQ is high before accepting it
@@ -637,6 +674,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: order
   provenance: 06/25/2024 Q&A Sourcing & Product Development
 - identifier: lp.setup.006
   name: File the trademark on the application number, not the granted mark
@@ -654,6 +692,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: order
   provenance: Trademark & Brand Registry BONUS 2025
 - identifier: lp.setup.007
   name: 'TOS RISK: Brand Registry on a pending application is revocable'
@@ -670,6 +709,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: order
   provenance: 11/04/2024 Q&A Brand Registry
 - identifier: lp.setup.008
   name: Lock branding before artwork so Brand Registry evidence exists
@@ -687,6 +727,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: order
   provenance: Trademark & Brand Registry BONUS 2025
 - identifier: lp.setup.009
   name: Book compliance testing at an Amazon-approved lab before production
@@ -704,6 +745,7 @@ steps:
   status: draft
   hazard: compliance-obligation
   assignees: []
+  starts_at_gate: order
   provenance: Andrew's Launch Checklist 2024; 09/24/2025 Prime Day & Listing Insights
 - identifier: lp.setup.010
   name: Allow 11-13 days for testing or the listing goes dark
@@ -721,6 +763,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: order
   provenance: 06/19/2024 Alpha Compliance & Warehouse Distribution
 - identifier: lp.setup.011
   name: Issue the General Certificate of Conformity from the brand
@@ -737,6 +780,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: order
   provenance: 07/02/2026 Flammability Testing & CPSC eFiling
 - identifier: lp.setup.012
   name: Apply the Reese's Law label to coin-cell battery products
@@ -754,6 +798,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: order
   provenance: Mastering Consumer Product Labeling 2025
 - identifier: lp.setup.013
   name: 'TOS RISK: A non-hazardous SDS does not guarantee the exemption'
@@ -772,6 +817,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: 10/03/2024 Alpha Q&A Hazardous Goods
 - identifier: lp.setup.014
   name: 'EU: Supply per-SKU detail before a provider lends its address'
@@ -788,6 +834,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: order
   provenance: 04/09/2025 EU Market Expansion Q&A
 - identifier: lp.setup.015
   name: 'EU: Register WEEE separately for Germany'
@@ -805,6 +852,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: order
   provenance: 'Community: WEEE for Germany 2025; EPR Batteries enforcement 2025'
 - identifier: lp.setup.016
   name: Kick off the launch sequence at final production inspection
@@ -822,6 +870,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: 08.07.2024 Omega Launch Special
 - identifier: lp.setup.017
   name: 'EU: Appoint an EU Responsible Person under GPSR'
@@ -839,6 +888,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: order
   provenance: 'Community: EU responsible person service 2024; NEW EU GPSR regulations 2025'
 - identifier: lp.setup.018
   name: 'EU: Obtain EPR numbers before they block the listing'
@@ -855,6 +905,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: order
   provenance: 05/13/2026 Company-Wide Huddle
 - identifier: lp.inventory.002
   name: Ask the supplier how to reduce the FBA fee tier
@@ -872,6 +923,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: order
   provenance: PLOG 1.1.2 Part 1
 - identifier: lp.inventory.003
   name: Maximise units per carton within Amazon's carton maxima
@@ -889,6 +941,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: order
   provenance: PLOG 1.1.2 Part 2
 - identifier: lp.inventory.004
   name: Verify the HS code against the freight forwarder's answer
@@ -906,6 +959,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: order
   provenance: PLOG 1.1.2 Part 3
 - identifier: lp.inventory.005
   name: Select the inbound port on supply-chain geography
@@ -922,6 +976,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: order
   provenance: PLOG 1.1.2 Part 3
 - identifier: lp.inventory.006
   name: Quote Amazon Global Logistics direct to FBA with Managed Placement
@@ -939,6 +994,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: order
   provenance: PLOG 1.1.2 Part 3
 - identifier: lp.inventory.007
   name: Lock packaging dimensions into the supplier brief
@@ -955,6 +1011,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: order
   provenance: 'Sourcing: Packaging (TitanOS Sourcing)'
 - identifier: lp.inventory.008
   name: Pass the 3-foot drop test with packaging at pre-shipment inspection
@@ -972,6 +1029,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: order
   provenance: 'Sourcing: PP Samples and Inspections; Product Testing and Certifications'
 - identifier: lp.inventory.009
   name: Remove major-issue units and replace only minor-issue ones
@@ -990,6 +1048,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: stock-ready
   provenance: 'Sourcing: PP Samples and Inspections'
 - identifier: lp.inventory.010
   name: Analyse 12-24 months of lane shipping costs before quoting
@@ -1006,6 +1065,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: order
   provenance: PLOG 1.1.2 Part 3
 - identifier: lp.inventory.011
   name: Negotiate the first-order price against a 12-month forecast
@@ -1022,6 +1082,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: order
   provenance: PLOG 1.1.2 Part 5
 - identifier: lp.inventory.012
   name: Have the supplier hold excess first-order stock at the factory
@@ -1039,6 +1100,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: order
   provenance: PLOG 1.1.2 Part 4
 - identifier: lp.inventory.013
   name: Quote DDP, DDU, FOB and EXW side by side
@@ -1056,6 +1118,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: order
   provenance: PLOG 1.1.2 Part 3
 - identifier: lp.inventory.014
   name: Pull the SDS/MSDS for anything with a battery or chemical
@@ -1073,6 +1136,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: order
   provenance: 03/27/2024 Omega Q&A HS Codes
 - identifier: lp.inventory.015
   name: Quote a second supplier to create pricing leverage
@@ -1089,6 +1153,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: order
   provenance: PLOG 1.1.2 Part 5
 - identifier: lp.inventory.016
   name: Run the FBA Placement Fee Calculator on the launch shipment
@@ -1106,6 +1171,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: order
   provenance: PLOG 1.1.2 Part 3
 - identifier: lp.creative.001
   name: Produce the instructions and test-results PDFs at sourcing stage
@@ -1123,6 +1189,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: order
   provenance: PLOG 2.3.2
 - identifier: lp.creative.002
   name: Send packaging artwork to the test lab with the product
@@ -1140,6 +1207,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: order
   provenance: 03/12/2026 Shipping Disruptions & Product Compliance
 - identifier: lp.strategy.015
   name: Identify like-for-like competitors and the keywords they miss
@@ -1157,6 +1225,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: PLOG 1.3.1
 - identifier: lp.strategy.016
   name: 'Sequence CTR assets first: title, main image, price'
@@ -1174,6 +1243,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: PLOG 1.3.3
 - identifier: lp.setup.019
   name: Buy the GS1 barcode from your company's own country
@@ -1191,6 +1261,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: 'Listing Content BONUS: Purchasing Your UPC 2025'
 - identifier: lp.setup.020
   name: 'TOS RISK: Match the GS1 record to Seller Central exactly'
@@ -1209,6 +1280,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: 'Listing Content BONUS: Purchasing Your UPC 2025'
 - identifier: lp.setup.021
   name: Wait 3-5 days after buying the UPC before creating the listing
@@ -1226,6 +1298,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: 'Listing Content BONUS: Creating Your Initial Listing 2025'
 - identifier: lp.setup.022
   name: Create the listing before inventory ships
@@ -1242,6 +1315,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: 'Listing Content BONUS: Creating Your Initial Listing 2025'
 - identifier: lp.setup.023
   name: Keep the GTIN rather than taking an exemption
@@ -1259,6 +1333,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: GS1 Barcodes - What They Are & Why You Need Them 2025
 - identifier: lp.setup.024
   name: Clear category gating early through the Qualification Center
@@ -1276,6 +1351,7 @@ steps:
   status: draft
   hazard: compliance-obligation
   assignees: []
+  starts_at_gate: listable
   provenance: Restricted Category Qualification 2026
 - identifier: lp.inventory.017
   name: Decide FNSKU versus manufacturer barcode deliberately
@@ -1292,6 +1368,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: 05/20/2026 AI Workflows & Inventory Strategy
 - identifier: lp.inventory.018
   name: 'TOS RISK: Never convert FNSKU stock to a manufacturer barcode'
@@ -1309,6 +1386,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: order
   provenance: 10/20/2025 Optimizing Listings & Backend Data
 - identifier: lp.listing.001
   name: Populate every attribute from the category flat-file template
@@ -1326,6 +1404,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: PLOG 1.3.2
 - identifier: lp.listing.002
   name: Appear in the same browse paths as competitors
@@ -1342,6 +1421,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: PLOG 1.3.2
 - identifier: lp.listing.003
   name: Match category and GL across child ASINs for a week before combining
@@ -1359,6 +1439,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: PLOG 1.3.4
 - identifier: lp.listing.004
   name: Schedule any parent/child restructure for a slow period
@@ -1376,6 +1457,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: PLOG 1.3.4
 - identifier: lp.listing.005
   name: Design the variation family so no child drags the parent rating
@@ -1392,6 +1474,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: PLOG 1.3.4
 - identifier: lp.listing.006
   name: Assemble the full content pack before opening Add-a-Product
@@ -1409,6 +1492,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: 'Listing Content BONUS: Creating Your Initial Listing 2025'
 - identifier: lp.listing.007
   name: Pick the sub-category deliberately, not just the main category
@@ -1426,6 +1510,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: Flat File Mastery 2025
 - identifier: lp.listing.008
   name: Use flat files rather than the UI once variations exist
@@ -1443,6 +1528,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: 'Listing Content BONUS: Flat Files 2025'
 - identifier: lp.listing.009
   name: Create the parent with no relationship type and no parent SKU
@@ -1460,6 +1546,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: 'Listing Content BONUS: Flat Files 2025'
 - identifier: lp.listing.010
   name: Design the family so Amazon does not break it
@@ -1477,6 +1564,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: Flat File Mastery 2025
 - identifier: lp.listing.011
   name: Enrich every child, not just the parent
@@ -1494,6 +1582,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: 'Pre-Launch: Setting up your Listing for Success 2025'
 - identifier: lp.listing.012
   name: Set up the canonical URL
@@ -1510,6 +1599,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: 'Pre-Launch: Setting up your Listing for Success 2025'
 - identifier: lp.listing.013
   name: Do not architect variation families around Vine stacking
@@ -1527,6 +1617,7 @@ steps:
   status: draft
   hazard: prohibited-tactic
   assignees: []
+  starts_at_gate: listable
   provenance: 'Launch: Week 1 Actions - Reviews 2025'
 - identifier: lp.listing.014
   name: Run listing copy through the Amazon Compliance Advisor GPT
@@ -1544,6 +1635,7 @@ steps:
   status: draft
   hazard: compliance-obligation
   assignees: []
+  starts_at_gate: listable
   provenance: PLOG 1.3.2
 - identifier: lp.listing.015
   name: Upload the instructions and test-results PDFs to the listing
@@ -1560,6 +1652,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: PLOG 2.3.2
 - identifier: lp.listing.016
   name: Review badge eligibility including Climate Pledge Friendly
@@ -1576,6 +1669,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: PLOG 1.3.4 / 2.3.2
 - identifier: lp.listing.017
   name: Upload each creative asset while the listing is still inactive
@@ -1593,6 +1687,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: 'Pre-Launch: Setting up your Listing for Success 2025'
 - identifier: lp.listing.018
   name: Sequence marketplace launches so US reviews port with you
@@ -1610,6 +1705,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: 04/09/2025 EU Market Expansion Q&A
 - identifier: lp.listing.019
   name: Identify the top 20% of search terms driving 80% of sales
@@ -1628,6 +1724,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: PLOG 1.3.3
 - identifier: lp.listing.020
   name: Rescale the volume tier for non-US marketplaces
@@ -1645,6 +1742,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: PPC Optimization Part 3 2025
 - identifier: lp.listing.021
   name: Check title rendering on mobile and desktop
@@ -1662,6 +1760,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: PLOG 1.3.3
 - identifier: lp.listing.022
   name: Set all three release dates well into the future
@@ -1679,6 +1778,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: 'Pre-Launch: Setting up your Listing for Success 2025'
 - identifier: lp.listing.023
   name: On launch day backdate all three release dates to the launch day
@@ -1696,6 +1796,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: 06/02/2025 Pricing Confidence & Launch Setup
 - identifier: lp.listing.024
   name: Confirm phrase-form keyword coverage with the Listing Optimizer
@@ -1713,6 +1814,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: 'Pre-Launch: Setting up your Listing for Success 2025'
 - identifier: lp.listing.025
   name: Document Rufus questions and answer them in copy, images and A+
@@ -1730,6 +1832,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: PLOG 1.3.2
 - identifier: lp.listing.026
   name: Place every researched keyword into bullets, description and backend
@@ -1747,6 +1850,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: PLOG 1.3.2
 - identifier: lp.listing.027
   name: Refresh keyword research 30 days out
@@ -1764,6 +1868,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: 04/17/2024 Andrew's Product Launch Checklist
 - identifier: lp.listing.028
   name: Choose 10-20 hyper-relevant mid-volume launch keywords
@@ -1780,6 +1885,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: PPC Optimization Part 3 2025
 - identifier: lp.listing.029
   name: Write and test 2+ title versions against the control
@@ -1797,6 +1903,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: PLOG 1.3.3
 - identifier: lp.listing.030
   name: Draft bullets, description and backend for indexation
@@ -1813,6 +1920,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: PLOG 1.3.2
 - identifier: lp.rank.001
   name: Select root keywords from competitors' organic positions
@@ -1830,6 +1938,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: PPC 3.0 Phase 1 Step 1
 - identifier: lp.rank.002
   name: Choose one keyword family to launch on
@@ -1847,6 +1956,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: PPC 3.0 Phase 1 Step 1
 - identifier: lp.rank.003
   name: Do not attack the head term head-on at launch
@@ -1863,6 +1973,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: PPC 3.0 Phase 1 Step 1
 - identifier: lp.rank.004
   name: Load the final keyword and competitor list into Titan Tools
@@ -1880,6 +1991,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: PLOG 1.3.1
 - identifier: lp.rank.005
   name: Cap each keyword set at 15,000 searches of volume
@@ -1897,6 +2009,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: 'Pre-Launch: Selecting your Launch Keywords 2025'
 - identifier: lp.rank.006
   name: Deploy keyword sets in waves through phase 1
@@ -1914,6 +2027,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: 'Pre-Launch: Selecting your Launch Keywords 2025'
 - identifier: lp.rank.007
   name: Target depth over breadth on page-one keywords
@@ -1931,6 +2045,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: Double Your Sales Challenge Day 2 2025
 - identifier: lp.creative.003
   name: Test CTR elements 3-5x more than the rest of the listing
@@ -1948,6 +2063,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: PLOG 1.3.3
 - identifier: lp.creative.004
   name: Make every asset readable on mobile and desktop in 17 seconds
@@ -1965,6 +2081,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: PLOG 2.3.1
 - identifier: lp.creative.005
   name: Assign named owners for design, research and publishing
@@ -1982,6 +2099,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: Titan Huddle 10.22.2025 Outsourcing PLOG
 - identifier: lp.creative.006
   name: Finish most assets 1-2 weeks before launch
@@ -1998,6 +2116,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: 07/24/2024 Andrew's Launch Checklist
 - identifier: lp.creative.007
   name: Deposition competitors using their own reviews
@@ -2015,6 +2134,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: 8.2 Expanding Tolerance 2025
 - identifier: lp.creative.008
   name: Design a scroll-stopping main image unlike competitors'
@@ -2032,6 +2152,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: PLOG 1.3.3
 - identifier: lp.creative.009
   name: Survey-test titles and main images before going live
@@ -2048,6 +2169,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: PLOG 1.3.3
 - identifier: lp.creative.010
   name: Write the image brief as concepts, not ready-to-publish images
@@ -2065,6 +2187,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: PLOG 2.3.1
 - identifier: lp.creative.011
   name: Make every image and video confirm, differentiate and set expectations
@@ -2082,6 +2205,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: PLOG 2.3.1
 - identifier: lp.creative.012
   name: Mine competitor reviews for what matters in the category
@@ -2098,6 +2222,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: PLOG 2.3.1
 - identifier: lp.creative.013
   name: Produce the launch video at 15-20 seconds
@@ -2114,6 +2239,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: PPC 3.0 Phase 2
 - identifier: lp.creative.014
   name: Add tutorial video and imagery wherever user error is predictable
@@ -2131,6 +2257,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: PLOG 1.3.4
 - identifier: lp.creative.015
   name: Create the photoshoot list and get units to the photographer
@@ -2148,6 +2275,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: 04/17/2024 Andrew's Product Launch Checklist
 - identifier: lp.creative.016
   name: Send production-period samples to the photographer
@@ -2164,6 +2292,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: '02/12/2025 Panel: Product Launch Strategy'
 - identifier: lp.creative.017
   name: Plan the listing's look before launch, not during
@@ -2181,6 +2310,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: '02/12/2025 Panel: Product Launch Strategy'
 - identifier: lp.creative.018
   name: Win the pre-review window on image and price alone
@@ -2198,6 +2328,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: 07/28/2025 Launch Without Reviews
 - identifier: lp.creative.019
   name: Build A+ modules answering the documented Rufus questions
@@ -2215,6 +2346,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: PLOG 2.3.4
 - identifier: lp.creative.020
   name: Design one Brand Story for the whole brand
@@ -2232,6 +2364,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: PLOG 2.3.3
 - identifier: lp.creative.021
   name: Preview the Brand Story on desktop and mobile separately
@@ -2248,6 +2381,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: PLOG 2.3.3
 - identifier: lp.creative.022
   name: Use the Brand Story slot for content blocked elsewhere
@@ -2265,6 +2399,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: PLOG 2.3.3
 - identifier: lp.creative.023
   name: Add A+ content shortly after launch rather than delaying for it
@@ -2282,6 +2417,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: 06/11/2026 AI Workflows & Strikethrough Pricing
 - identifier: lp.ppc.001
   name: Fix the campaign naming convention before building any campaign
@@ -2298,6 +2434,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: Campaign Naming Convention
 - identifier: lp.ppc.002
   name: Bucket target keywords at the 1,000 monthly searches threshold
@@ -2315,6 +2452,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: PPC 3.0 Phase 1 Step 3
 - identifier: lp.ppc.003
   name: Build the never-keywords list that must never receive ad spend
@@ -2332,6 +2470,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: order
   provenance: PLOG 1.3.1
 - identifier: lp.ppc.004
   name: Avoid launch keywords above 5,000 searches
@@ -2348,6 +2487,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: 'Launch: Day 1 Actions - Setting up Rank Campaigns 2025'
 - identifier: lp.strategy.017
   name: Do not delay the launch chasing a strike-through
@@ -2364,6 +2504,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: live
   provenance: PPC 2.0 Part 5 Launching and Ranking 2025
 - identifier: lp.finance.019
   name: Complete the Price Tier Calculator across all 6 levels
@@ -2381,6 +2522,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: PLOG 1.2.2
 - identifier: lp.finance.020
   name: Calculate CM2 for every price a customer could actually pay
@@ -2398,6 +2540,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: PLOG 1.2.1
 - identifier: lp.finance.021
   name: Calculate the target CVR before any price change
@@ -2415,6 +2558,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: live
   provenance: PLOG 1.2.1
 - identifier: lp.finance.022
   name: Load the Price Tier Calculator with costs, fees and average TACoS
@@ -2432,6 +2576,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: 'July 01 2025 Roundtable: Mastering Pricing & Inventory'
 - identifier: lp.finance.023
   name: Never let the discount ladder drop the net below CM2
@@ -2449,6 +2594,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: live
   provenance: PPC 2.0 Part 5 Launching and Ranking 2025
 - identifier: lp.finance.024
   name: Model the coupon at its redemption rate, not face value
@@ -2466,6 +2612,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: live
   provenance: '2025 Plan Workshop Day 1: Financial Foundations'
 - identifier: lp.price.001
   name: Set the target price so CM2 lands at 35%+
@@ -2482,6 +2629,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: PLOG 1.2.1
 - identifier: lp.price.002
   name: Check competitor pricing on the top 20% keywords
@@ -2498,6 +2646,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: PLOG 1.3.3
 - identifier: lp.price.003
   name: Record baseline listing performance before the price goes live
@@ -2515,6 +2664,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: live
   provenance: PLOG 1.2.1
 - identifier: lp.price.004
   name: Define the List / Your / Sale price combination
@@ -2532,6 +2682,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: PLOG 1.2.1
 - identifier: lp.price.005
   name: Build the price ladder from the tier structure
@@ -2548,6 +2699,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: PLOG 1.2.1 / 1.2.2
 - identifier: lp.price.006
   name: Set tier 1 list price and mirror it to other channels
@@ -2565,6 +2717,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: 'July 01 2025 Roundtable: Mastering Pricing & Inventory'
 - identifier: lp.price.007
   name: Set tier 2 regular price in the sale price field
@@ -2581,6 +2734,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: 'July 01 2025 Roundtable: Mastering Pricing & Inventory'
 - identifier: lp.price.008
   name: Set tier 3 push price at 5-10% off regular
@@ -2598,6 +2752,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: 'July 01 2025 Roundtable: Mastering Pricing & Inventory'
 - identifier: lp.price.009
   name: Set tier 4 deal price to earn the red deal badge
@@ -2615,6 +2770,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: 'July 01 2025 Roundtable: Mastering Pricing & Inventory'
 - identifier: lp.price.010
   name: Set tier 5 event price for Prime Day and Black Friday
@@ -2631,6 +2787,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: 09/24/2025 Prime Day Strategy & Six-Tier Pricing
 - identifier: lp.price.011
   name: Insert a profit price for the six-tier variant
@@ -2647,6 +2804,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: 09/24/2025 Prime Day Strategy & Six-Tier Pricing
 - identifier: lp.price.012
   name: Keep the same tier structure across all marketplaces
@@ -2664,6 +2822,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: 'July 01 2025 Roundtable: Mastering Pricing & Inventory'
 - identifier: lp.price.013
   name: Trigger the strike-through with one full-price sale
@@ -2681,6 +2840,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: live
   provenance: 09/25/2024 Omega Accelerate Recap
 - identifier: lp.price.014
   name: 'TOS RISK: Refuse friend-purchase strike-through triggers'
@@ -2698,6 +2858,7 @@ steps:
   status: draft
   hazard: prohibited-tactic
   assignees: []
+  starts_at_gate: live
   provenance: 08/28/2024 Alpha Q&A Buy Box & Pricing
 - identifier: lp.price.015
   name: Decide and set up strike-through pricing
@@ -2714,6 +2875,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: PLOG 1.2.1
 - identifier: lp.price.016
   name: Set the strike-through gap in the 15-25% band
@@ -2730,6 +2892,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: live
   provenance: 09/25/2024 Omega Accelerate Recap; 09/03/2025 Growth Guide
 - identifier: lp.price.017
   name: Establish the strike-through while the SKU has no price history
@@ -2747,6 +2910,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: live
   provenance: 07/06/2026 Winning The Click
 - identifier: lp.price.018
   name: Select deal types with CM2 computed for each
@@ -2764,6 +2928,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: live
   provenance: PLOG 1.2.2
 - identifier: lp.price.019
   name: Check upcoming events requiring a 30-day lowest price
@@ -2781,6 +2946,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: listable
   provenance: PLOG 1.2.2
 - identifier: lp.price.020
   name: Add every scheduled deal to the shared calendar
@@ -2798,6 +2964,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: live
   provenance: PLOG 1.2.2
 - identifier: lp.price.021
   name: Work through the coupon economics before running one
@@ -2816,6 +2983,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: live
   provenance: Profitability and ROI 2025
 - identifier: lp.price.022
   name: 'TOS-adjacent: Coupons on new launches stopped working reliably'
@@ -2832,6 +3000,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: live
   provenance: 04/17/2024 Andrew's Product Launch Checklist
 - identifier: lp.finance.025
   name: Keep the first order under 120 days of cover
@@ -2848,6 +3017,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: stock-ready
   provenance: PLOG 1.1.1
 - identifier: lp.finance.026
   name: Plan cash flow in 2-week sections against Amazon deposits
@@ -2865,6 +3035,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: order
   provenance: PLOG 1.1.1
 - identifier: lp.inventory.019
   name: Size the first order to 45-90 days of cover
@@ -2882,6 +3053,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: order
   provenance: PLOG 1.1.1
 - identifier: lp.inventory.020
   name: Stage the growth buffer in AWD or a 3PL rather than in FBA
@@ -2899,6 +3071,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: stock-ready
   provenance: PLOG 1.1.1
 - identifier: lp.inventory.021
   name: Build a 6+ month unit forecast before the first order ships
@@ -2916,6 +3089,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: order
   provenance: PLOG 1.1.1
 - identifier: lp.inventory.022
   name: Set the first order quantity to the practitioner default
@@ -2932,6 +3106,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: order
   provenance: 07/24/2024 Andrew's Launch Checklist
 - identifier: lp.inventory.023
   name: Bias the launch order to slightly understocked
@@ -2948,6 +3123,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: order
   provenance: 07/24/2024 Andrew's Launch Checklist
 - identifier: lp.inventory.024
   name: Set the launch floor for a fairly unique product
@@ -2964,6 +3140,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: stock-ready
   provenance: 07/22/2026 Listing Optimization, PPC Fixes & Launch Inventory
 - identifier: lp.inventory.025
   name: Split the first shipment between FBA and AWD
@@ -2981,6 +3158,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: stock-ready
   provenance: 04/09/2026 Amazon AWD, AGL & Conversion Deep Dive
 - identifier: lp.inventory.026
   name: Size the send-in with no sales history
@@ -2997,6 +3175,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: stock-ready
   provenance: 09/25/2024 New Platform Preview Q&A
 - identifier: lp.inventory.027
   name: Allow for staggered, unpredictable FBA check-in
@@ -3014,6 +3193,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: stock-ready
   provenance: 07/24/2024 Andrew's Launch Checklist
 - identifier: lp.inventory.028
   name: Never let cover fall below 45 days
@@ -3030,6 +3210,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: stock-ready
   provenance: PLOG 1.1.1
 - identifier: lp.inventory.029
   name: Keep the Unit Forecasting Calculator updated with actual sales
@@ -3047,6 +3228,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: stock-ready
   provenance: PLOG 1.1.1
 - identifier: lp.inventory.030
   name: Assign a named owner for holding 45-90 days of cover
@@ -3064,6 +3246,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: stock-ready
   provenance: Titan Huddle 10.22.2025
 - identifier: lp.inventory.031
   name: Check the live FBA restock limit before booking the shipment
@@ -3081,6 +3264,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: stock-ready
   provenance: 'Announcement: US FBA peak inventory shipments'
 - identifier: lp.inventory.032
   name: Hold 150-200 units to keep PPC behaving predictably
@@ -3099,6 +3283,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: 07/22/2026 Listing Optimization, PPC Fixes & Launch Inventory
 - identifier: lp.inventory.033
   name: Cut the first shipment when launching into November or December
@@ -3116,6 +3301,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: order
   provenance: PLOG 1.1.1
 - identifier: lp.inventory.034
   name: Combine the launch shipment with other SKUs' demand plan
@@ -3133,6 +3319,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: order
   provenance: PLOG 1.1.2 Part 3
 - identifier: lp.inventory.035
   name: Send the supplier the FNSKU only after the listing exists
@@ -3149,6 +3336,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: stock-ready
   provenance: 'Pre-Launch: Setting up your Listing for Success 2025'
 - identifier: lp.inventory.036
   name: Compare AWD, 3PL and FBA in the Storage Fee Calculator
@@ -3166,6 +3354,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: stock-ready
   provenance: PLOG 1.1.2 Part 4
 - identifier: lp.inventory.037
   name: Do not rely on AWD auto-replenish during a launch
@@ -3183,6 +3372,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: stock-ready
   provenance: 04/09/2026 Amazon AWD, AGL & Conversion Deep Dive
 - identifier: lp.finance.027
   name: Calculate the ad budget as target TACOS x target monthly sales
@@ -3200,6 +3390,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: live
   provenance: PLOG 2.2.1
 - identifier: lp.setup.025
   name: Work the 44-item pre-launch checklist before ignition
@@ -3217,6 +3408,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: live
   provenance: 07/24/2024 Andrew's Launch Checklist
 - identifier: lp.setup.026
   name: Configure the Automated Review Requester
@@ -3235,6 +3427,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: live
   provenance: 'Review Acquisition: Automated Review Request Demo 2025'
 - identifier: lp.setup.027
   name: Clear all four Vine eligibility gates
@@ -3252,6 +3445,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: order
   provenance: Review Acquisition Part 2 2025
 - identifier: lp.inventory.038
   name: Confirm inventory supports the sales the budget should generate
@@ -3268,6 +3462,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: live
   provenance: PLOG 2.2.1
 - identifier: lp.inventory.039
   name: Compare CTR and CVR across shipping speeds in Search Catalog
@@ -3286,6 +3481,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: live
   provenance: PLOG 1.1.1
 - identifier: lp.listing.031
   name: Confirm the listing contains every keyword on the research list
@@ -3303,6 +3499,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: live
   provenance: PLOG 1.3.2
 - identifier: lp.listing.032
   name: Turn the listing live 3-4 days before the launch date
@@ -3319,6 +3516,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: live
   provenance: 07/24/2024 Andrew's Launch Checklist
 - identifier: lp.rank.008
   name: Confirm the listing indexes for the full keyword list
@@ -3336,6 +3534,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: live
   provenance: PLOG 1.3.2
 - identifier: lp.creative.024
   name: Preview Brand Story and A+ on desktop and mobile
@@ -3352,6 +3551,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: live
   provenance: PLOG 2.3.3
 - identifier: lp.creative.025
   name: 'TOS RISK: Product inserts must never mention reviews'
@@ -3369,6 +3569,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: live
   provenance: PPC 2.0 Part 5 2025; 05/05/2025 Optimizing External Marketing
 - identifier: lp.ppc.005
   name: Confirm ads can run on every researched keyword and ASIN
@@ -3386,6 +3587,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: live
   provenance: PLOG 1.3.2
 - identifier: lp.ppc.006
   name: Review the PPC structure with someone before launch
@@ -3403,6 +3605,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: live
   provenance: 'Pre-Launch: PPC Lifecycles and Launch Phases 2025'
 - identifier: lp.ppc.007
   name: Set the exact-match ranking bid as the highest bid
@@ -3420,6 +3623,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: live
   provenance: PPC 3.0 Bid stacking
 - identifier: lp.ppc.008
   name: 'Set the bid waterfall: phrase, broad and autos below exact'
@@ -3437,6 +3641,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: live
   provenance: PPC 3.0 Bid stacking
 - identifier: lp.ppc.009
   name: Lean on the base bid, not the top-of-search modifier
@@ -3453,6 +3658,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: live
   provenance: PPC 3.0
 - identifier: lp.strategy.018
   name: Stagger price, bid and creative changes so results stay readable
@@ -3471,6 +3677,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: States+Drivers Lever Conflicts
 - identifier: lp.finance.028
   name: Set breakeven ACOS equal to your margin
@@ -3488,6 +3695,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: 01/13/2026 Launch Momentum & Pricing Signals
 - identifier: lp.inventory.042
   name: Keep a standing line between supply chain and sales
@@ -3505,6 +3713,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: PLOG 1.1.1
 - identifier: lp.listing.033
   name: Do not switch the listing on until units land in FBA
@@ -3522,6 +3731,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: 07/10/2026 Listing Review & PPC Cleanup
 - identifier: lp.listing.034
   name: Hold off on copy and content changes in the first few days
@@ -3539,6 +3749,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: 04/17/2024 Andrew's Product Launch Checklist
 - identifier: lp.rank.009
   name: 'Day 2: Confirm the listing is indexing with PPC live'
@@ -3555,6 +3766,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: 04/17/2024 Andrew's Product Launch Checklist
 - identifier: lp.price.023
   name: Log every price and creative change in the Daily Sales Tracker
@@ -3571,6 +3783,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: PLOG 1.2.1
 - identifier: lp.price.024
   name: Monitor daily for 2-3 days after any change
@@ -3587,6 +3800,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: PLOG 1.2.1
 - identifier: lp.price.025
   name: Prioritise deals that increase impressions
@@ -3606,6 +3820,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: PLOG 1.2.2
 - identifier: lp.ppc.010
   name: Launch broad match campaigns before any single-keyword exact
@@ -3623,6 +3838,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: PPC 3.0 Phase 1 Step 2
 - identifier: lp.ppc.011
   name: Broad-match only tightly relevant keywords
@@ -3640,6 +3856,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: PPC 3.0 Phase 1 Step 2
 - identifier: lp.ppc.012
   name: Launch auto campaigns on close match and substitute
@@ -3657,6 +3874,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: PPC 3.0 Phase 1 Step 5
 - identifier: lp.ppc.013
   name: Keep auto loose match and complement off at launch
@@ -3674,6 +3892,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: PPC 3.0
 - identifier: lp.ppc.014
   name: Bid low-bid discovery campaigns at 25% of Max CPC
@@ -3692,6 +3911,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: PLOG 2.1.2
 - identifier: lp.ppc.015
   name: Take cheap head-term sales through the auto campaign
@@ -3710,6 +3930,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: PPC 3.0 Phase 1 Step 5
 - identifier: lp.ppc.016
   name: Watch the search term report and negate aggressively
@@ -3727,6 +3948,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: PPC 3.0 Phase 1 Step 2
 - identifier: lp.ppc.017
   name: Put the ad objective first in campaign names
@@ -3743,6 +3965,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: 'Launch: Day 1 Actions - Setting up Rank Campaigns 2025'
 - identifier: lp.ppc.018
   name: Keep one keyword family per campaign
@@ -3760,6 +3983,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: PPC 3.0 Phase 2
 - identifier: lp.ppc.019
   name: Start PPC the day the listing goes live
@@ -3777,6 +4001,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: live
   provenance: 07/24/2024 Andrew's Launch Checklist
 - identifier: lp.ppc.020
   name: Avoid over-aggressive spend in week 1
@@ -3794,6 +4019,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: 08/18/2025 Launch Readiness & Pacing Strategy
 - identifier: lp.ppc.021
   name: Derive seed bids from a mock campaign's suggested bids
@@ -3811,6 +4037,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: 'PPC Optimization Bonus: Titan Bulk Uploader 2025'
 - identifier: lp.ppc.022
   name: Set each rank campaign's daily budget to allow 10 clicks
@@ -3827,6 +4054,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: 'Launch: Day 1 Actions - Setting up Rank Campaigns 2025'
 - identifier: lp.ppc.023
   name: Use fixed bids on rank campaigns, never dynamic
@@ -3844,6 +4072,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: 'Launch: Day 1 Actions - Setting up Rank Campaigns 2025'
 - identifier: lp.ppc.024
   name: Set placement modifiers by product type at launch
@@ -3860,6 +4089,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: 'Launch: Day 1 Actions - Setting up Rank Campaigns 2025'
 - identifier: lp.ppc.025
   name: Treat the 25% modifier as a default, not a ceiling
@@ -3878,6 +4108,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: 04/23/2024 Launch Audits
 - identifier: lp.ppc.026
   name: Ignore rank-campaign ACOS unless it exceeds 2x margin
@@ -3896,6 +4127,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: 'Pre-Launch: PPC Rank Objective Campaigns 2025'
 - identifier: lp.ppc.027
   name: 'Day 4: Review impressions, orders and budget caps only'
@@ -3914,6 +4146,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: 04/30/2025 Profit Benchmarks & PPC Correlations
 - identifier: lp.ppc.028
   name: 'Clear both BOOST tests: ACOS at breakeven and CVR above listing'
@@ -3932,6 +4165,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: 'Pre-Launch: PPC BOOST Objective Campaigns 2025'
 - identifier: lp.external.001
   name: Blast the email list in three separate sends on launch day
@@ -3949,6 +4183,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: 04/17/2024 Andrew's Product Launch Checklist
 - identifier: lp.strategy.019
   name: Record state and driver on entering Inventory Override
@@ -3967,6 +4202,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: States+Drivers
 - identifier: lp.strategy.020
   name: After a month with no traction, move to a different keyword family
@@ -3985,6 +4221,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: PPC 3.0 Phase 1 timeline
 - identifier: lp.strategy.021
   name: 'TOS RISK: Refuse the friends-and-friends-of-friends purchase step'
@@ -4004,6 +4241,7 @@ steps:
   status: draft
   hazard: prohibited-tactic
   assignees: []
+  starts_at_gate: ignition
   provenance: 'Launch: Week 1 Actions - Reviews 2025'
 - identifier: lp.finance.029
   name: Track units, revenue, CM3%, CVR and TACOS for every price test
@@ -4020,6 +4258,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: PLOG 1.2.1
 - identifier: lp.finance.030
   name: Take all 30 Vine units — there is no top-up
@@ -4037,6 +4276,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: 08.29.2024 Alpha Q&A Vine Reviews; Review Acquisition Part 2 2025
 - identifier: lp.inventory.043
   name: Run the Inventory Override gate weekly
@@ -4054,6 +4294,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: States+Drivers
 - identifier: lp.inventory.044
   name: Alert when daily units drop from steady velocity to near zero
@@ -4071,6 +4312,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: States+Drivers
 - identifier: lp.inventory.045
   name: Share the return rate and its reasons with the supplier
@@ -4089,6 +4331,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: PLOG 1.1.3
 - identifier: lp.listing.035
   name: Compare CTR and CVR before and after listing changes
@@ -4106,6 +4349,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: PLOG 2.1.2
 - identifier: lp.listing.036
   name: Start the rating, review and badge workstream in parallel
@@ -4124,6 +4368,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: PLOG 1.3.4
 - identifier: lp.listing.037
   name: Verify the listing has not acquired the Frequently Returned badge
@@ -4140,6 +4385,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: PLOG 2.3.2
 - identifier: lp.listing.038
   name: Run review analysis across the whole parent
@@ -4158,6 +4404,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: PLOG 1.3.4
 - identifier: lp.rank.010
   name: Identify rank-eligible keywords already in the top 20-30
@@ -4176,6 +4423,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: PPC 3.0 Phase 1 Step 3
 - identifier: lp.rank.011
   name: 'Day 7: Confirm indexation and real rank increases'
@@ -4194,6 +4442,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: 04/17/2024 Andrew's Product Launch Checklist
 - identifier: lp.rank.012
   name: Deploy keyword round 2 only once round 1 stabilises
@@ -4212,6 +4461,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: 'PPC Challenge Day 5: Launching and Ranking 2025'
 - identifier: lp.rank.013
   name: Coordinate deals with the PPC owner as a sell-through strategy
@@ -4230,6 +4480,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: PLOG 1.2.2
 - identifier: lp.rank.014
   name: Download and compare Search Query Performance around each change
@@ -4246,6 +4497,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: PLOG 1.3.5
 - identifier: lp.rank.015
   name: Read SQP alongside business reports and PPC, never alone
@@ -4263,6 +4515,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: PLOG 1.3.5
 - identifier: lp.rank.016
   name: Share every product's rank position with the team twice a week
@@ -4281,6 +4534,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: 04/17/2024 Andrew's Product Launch Checklist
 - identifier: lp.rank.017
   name: Compare against the worked benchmark of a launch that worked
@@ -4298,6 +4552,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: PPC 2.0 Part 5 Launching and Ranking 2025
 - identifier: lp.creative.026
   name: Fix product and listing for recurring complaints
@@ -4316,6 +4571,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: PLOG 1.3.4
 - identifier: lp.price.026
   name: Track price-test results on the parent ASIN
@@ -4333,6 +4589,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: PLOG 1.2.1
 - identifier: lp.price.027
   name: Enrol Subscribe & Save and create S&S coupons
@@ -4350,6 +4607,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: PLOG 1.2.2
 - identifier: lp.ppc.029
   name: Launch single-keyword exacts for 1,000+ keywords with traction
@@ -4368,6 +4626,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: PPC 3.0 Phase 1 Step 3
 - identifier: lp.ppc.030
   name: Group sub-1,000-search keywords into one stacked exact campaign
@@ -4386,6 +4645,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: PPC 3.0 Phase 1 Step 3
 - identifier: lp.ppc.031
   name: Cap stacked campaigns at 5 keywords or 5 ASINs
@@ -4403,6 +4663,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: States+Drivers Numbers Map
 - identifier: lp.ppc.032
   name: Spin dominant keywords out of a stacked campaign into their own
@@ -4421,6 +4682,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: PPC 3.0 Phase 1 Step 3
 - identifier: lp.ppc.033
   name: Launch phrase support campaigns 10-15% below the exact bid
@@ -4438,6 +4700,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: PPC 3.0 Phase 1 Step 4
 - identifier: lp.ppc.034
   name: Run the n-gram report on broads and harvest converting terms
@@ -4456,6 +4719,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: PPC 3.0
 - identifier: lp.ppc.035
   name: Apply the harvest paths from auto to product targeting or exact
@@ -4473,6 +4737,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: PPC 3.0 Continuous harvesting
 - identifier: lp.ppc.036
   name: Set the lookback window by volume tier
@@ -4490,6 +4755,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: States+Drivers Layer 4
 - identifier: lp.ppc.037
   name: Pause SP phrase, broad, auto, SB and SD under Inventory Override
@@ -4508,6 +4774,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: States+Drivers CONF-INV-01
 - identifier: lp.ppc.038
   name: Permit a broad-match campaign in phase 1 if momentum stalls
@@ -4526,6 +4793,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: 'PPC Challenge Day 5: Launching and Ranking 2025'
 - identifier: lp.ppc.039
   name: Harvest a search term at 3+ conversions in a few weeks
@@ -4543,6 +4811,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: PPC 3.0
 - identifier: lp.ppc.040
   name: Pause any keyword at 10 clicks with 0 orders
@@ -4559,6 +4828,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: States+Drivers Layer 5
 - identifier: lp.ppc.041
   name: Apply negative-keyword click thresholds by posture
@@ -4575,6 +4845,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: States+Drivers Numbers Map
 - identifier: lp.ppc.042
   name: At 60 days with 0 orders, pause or flag by spend
@@ -4592,6 +4863,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: States+Drivers Layer 5
 - identifier: lp.ppc.043
   name: Gate spend scaling on rating stability, not review count
@@ -4610,6 +4882,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: PPC Challenge Day 1 2025
 - identifier: lp.ppc.044
   name: Hold placement modifiers flat until conversion data exists
@@ -4626,6 +4899,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: States+Drivers / PPC 3.0
 - identifier: lp.ppc.045
   name: Compute bid changes from current ACOS over target ACOS
@@ -4643,6 +4917,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: States+Drivers Layer 1
 - identifier: lp.ppc.046
   name: Require data sufficiency before a placement decision
@@ -4660,6 +4935,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: Double Your Sales Challenge Day 4 2025
 - identifier: lp.ppc.047
   name: Treat rating as a CPC tax
@@ -4678,6 +4954,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: 01/19/2026 Fixing Conversion Gaps
 - identifier: lp.customer.001
   name: Watch the half-star cliff weekly
@@ -4695,6 +4972,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: 11/27/2024 Titan Tools Analytics Report
 - identifier: lp.customer.002
   name: Read all reviews and feedback and list the negative reasons
@@ -4712,6 +4990,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: PLOG 1.3.4
 - identifier: lp.customer.003
   name: Contact negative product reviewers to refund and replace
@@ -4728,6 +5007,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: PLOG 1.3.4
 - identifier: lp.customer.004
   name: 'TOS RISK: Reject the review-inflation tactics circulating in-network'
@@ -4745,6 +5025,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: 03/26/2025 Q&A Vine Reviews; 05/13/2026 Company-Wide Huddle
 - identifier: lp.customer.005
   name: Staff a same-day response to any 1-star review
@@ -4763,6 +5044,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: 07.25.2024 Omega Q&A Vine Reviews
 - identifier: lp.customer.006
   name: Apply the Vine approach where rating risk exists at launch
@@ -4781,6 +5063,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: PLOG 1.3.4 Other Notes
 - identifier: lp.customer.007
   name: Enrol Vine only after the strike-through price is visible
@@ -4799,6 +5082,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: 'Launch: Week 1 Actions - Reviews 2025; 01/29/2025 Q&A Vine Reviews'
 - identifier: lp.customer.008
   name: Plan on about 20 reviews from 30 Vine units
@@ -4816,6 +5100,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: 04/10/2024 Alpha Q&A; 01/29/2025 Q&A Vine Reviews
 - identifier: lp.customer.009
   name: Stop waiting on Vine at 15-20 reviews
@@ -4834,6 +5119,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: 04/10/2024 Alpha Q&A Vine Reviews
 - identifier: lp.customer.010
   name: Consider holding Vine until 4-5 organic reviews exist
@@ -4851,6 +5137,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: 05/13/2026 Company-Wide Huddle
 - identifier: lp.customer.011
   name: Send full-price test orders to real users before opening Vine
@@ -4868,6 +5155,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: 06/02/2025 Pricing Confidence & Launch Setup
 - identifier: lp.customer.012
   name: Ship and run the insert or scratch-card follow-up
@@ -4885,6 +5173,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: PLOG 1.3.4
 - identifier: lp.customer.013
   name: Send hand-written thank-you postcards
@@ -4902,6 +5191,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: PLOG 1.3.4
 - identifier: lp.customer.014
   name: Identify the top 3+ reasons for returns
@@ -4919,6 +5209,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: PLOG 1.1.3
 - identifier: lp.customer.015
   name: 'TOS RISK: Refuse paid review-removal services'
@@ -4935,6 +5226,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: WhatsApp Titan_8 2024
 - identifier: lp.customer.016
   name: Track the review-to-sales ratio daily
@@ -4952,6 +5244,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: WhatsApp Titan_8 2025; 05/13/2026 Company-Wide Huddle
 - identifier: lp.customer.017
   name: 'TOS RISK: Never reference the review when refunding a reviewer'
@@ -4969,6 +5262,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: 06/18/2024 Q&A UGC & Review Management
 - identifier: lp.customer.018
   name: Generate reviews through service rather than asking
@@ -4986,6 +5280,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: Customer Service Part 2 2025
 - identifier: lp.customer.019
   name: Report non-TOS-compliant reviews to Seller Support
@@ -5002,6 +5297,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: PLOG 1.3.4
 - identifier: lp.customer.020
   name: Convert positive seller feedback into product reviews
@@ -5018,6 +5314,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: PLOG 1.3.4
 - identifier: lp.customer.021
   name: Hold Subscribe & Save off while price is still moving down
@@ -5035,6 +5332,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: 01/16/2024 Q&A Subscribe & Save; 12/12/2025 Scaling Launches
 - identifier: lp.customer.022
   name: Set return-rate alerts against the category baseline
@@ -5052,6 +5350,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: States+Drivers Numbers Map
 - identifier: lp.external.002
   name: Shift to 1-2 dozen smaller influencers from week 2
@@ -5070,6 +5369,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: 04/17/2024 Andrew's Product Launch Checklist
 - identifier: lp.external.003
   name: Message your own list, then ask for a review a week later
@@ -5088,6 +5388,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: 05/13/2026 Company-Wide Huddle
 - identifier: lp.strategy.022
   name: Gate off-Amazon spend on having maxed out Amazon
@@ -5104,6 +5405,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: PLOG Priority 3.0
 - identifier: lp.strategy.023
   name: 'NOTE: Re-check PLOG monthly for external-traffic procedure'
@@ -5122,6 +5424,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: PLOG Priority 3.0 / 2.2.3
 - identifier: lp.external.004
   name: Enrol Creator Connections and duplicate campaigns regularly
@@ -5140,6 +5443,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: PLOG 1.2.2
 - identifier: lp.external.005
   name: Use Levanta instead of Creator Connections for UK and EU
@@ -5157,6 +5461,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: PLOG 1.2.2
 - identifier: lp.external.006
   name: Issue promo codes and share them with Amazon affiliates
@@ -5174,6 +5479,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: PLOG 1.2.2
 - identifier: lp.external.007
   name: 'Track TikTok milestones: $2,000 GMV unlocks more creators'
@@ -5191,6 +5497,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: Launch Strategy Phase 1 2025
 - identifier: lp.external.008
   name: Hold three Google positions on your own brand term
@@ -5209,6 +5516,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: 11/04/2024 TikTok Shop & Affiliate Programs
 - identifier: lp.external.009
   name: Use the owned email and SMS list to create launch velocity
@@ -5228,6 +5536,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: 'PPC Challenge Day 5: Launching and Ranking 2025'
 - identifier: lp.external.010
   name: Create a Brand Tailored Promotion
@@ -5245,6 +5554,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: PLOG 1.2.2
 - identifier: lp.external.011
   name: Exhaust Amazon before spending on external traffic
@@ -5263,6 +5573,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: 02/13/2024 Launch Audit & TikTok Discussion
 - identifier: lp.external.012
   name: Budget $3,000-5,000/month upfront for external traffic
@@ -5281,6 +5592,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: 'Optional: External Traffic - Owned Lists 2025'
 - identifier: lp.external.013
   name: Decide the storefront destination before any ad points at it
@@ -5299,6 +5611,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: PLOG 2.3.5
 - identifier: lp.external.014
   name: 'Treat TikTok as all-or-nothing: a $10k test or full commitment'
@@ -5317,6 +5630,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: Launch Strategy Phase 1 2025
 - identifier: lp.external.015
   name: Expect 3+ extra Amazon orders per 10 TikTok orders
@@ -5335,6 +5649,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: Launch Strategy Phase 1 2025
 - identifier: lp.traffic.001
   name: Stop sending traffic if CTR and CVR have not improved
@@ -5353,6 +5668,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: PLOG 2.1.2
 - identifier: lp.strategy.024
   name: Concentrate phase 1 in the first three to four weeks
@@ -5371,6 +5687,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: phase-one-complete
   provenance: PPC 3.0 Phase 1 timeline
 - identifier: lp.strategy.026
   name: Read the phase 1 to 2 transition metrics
@@ -5389,6 +5706,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: PPC 2.0 Part 5 Launching and Ranking 2025
 - identifier: lp.strategy.027
   name: Move the product onto the post-launch track at phase 4
@@ -5406,6 +5724,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: 07/24/2024 Andrew's Launch Checklist
 - identifier: lp.strategy.028
   name: Set the post-launch handover cadence
@@ -5424,6 +5743,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: Post Launch Optimization Guide 2026
 - identifier: lp.strategy.029
   name: Assign state and driver at handoff via the decision flow
@@ -5441,6 +5761,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: States+Drivers Section 4
 - identifier: lp.strategy.030
   name: Confirm 60 days of availability and stable demand
@@ -5458,6 +5779,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: States+Drivers
 - identifier: lp.strategy.031
   name: Apply PLOG only once the product is established at 120+ days
@@ -5475,6 +5797,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: PLOG Intro
 - identifier: lp.strategy.032
   name: Set the post-launch review cadence
@@ -5492,6 +5815,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: States+Drivers Section 6
 - identifier: lp.strategy.034
   name: Prefer rating quality over review volume when choosing an ASIN
@@ -5509,6 +5833,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: 06/11/2025 Amazon Growth Levers
 - identifier: lp.finance.031
   name: Run the Fee Preview report and file reimbursements
@@ -5526,6 +5851,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: PLOG 1.1.2
 - identifier: lp.finance.032
   name: Run the Aged Inventory Fee Calculator on unsold launch stock
@@ -5543,6 +5869,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: PLOG 1.1.2 Part 4
 - identifier: lp.finance.033
   name: Apply the phase 1 to 2 gate as restated under PPC 3.0
@@ -5560,6 +5887,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: PPC 3.0 Playbook Walkthrough 2026
 - identifier: lp.finance.034
   name: Analyse liquidation versus storage versus removal
@@ -5576,6 +5904,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: PLOG 1.1.2 Part 4
 - identifier: lp.finance.035
   name: Act on a stalled launch around the 4-5 month mark
@@ -5592,6 +5921,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: 07/09/2026 PPC Launch & Product Validation
 - identifier: lp.inventory.046
   name: Confirm 60 days of cover before moving to Scale or Optimize
@@ -5608,6 +5938,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: States+Drivers Numbers Map
 - identifier: lp.inventory.047
   name: Set the reorder trigger from total lead time
@@ -5626,6 +5957,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: '10: The Amazon Seller Checklist 2025'
 - identifier: lp.inventory.048
   name: Compute stock cover as units on hand over units per day
@@ -5642,6 +5974,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: '10: The Amazon Seller Checklist 2025'
 - identifier: lp.inventory.049
   name: Add a safety margin on the second order
@@ -5659,6 +5992,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: 04/22/2024 Inventory Management & CPSIA
 - identifier: lp.inventory.050
   name: Treat a launch stockout as wasting the whole launch effort
@@ -5675,6 +6009,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: 03/06/2025 Q&A Launch Strategy; 08/22/2025 PPC Reset & Inventory Discipline
 - identifier: lp.inventory.051
   name: Suppress via price and cut campaigns if a stockout is unavoidable
@@ -5694,6 +6029,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: 05/13/2025 Scaling Subjective Products
 - identifier: lp.listing.039
   name: Use the two compliant plays for social proof on the next SKU
@@ -5710,6 +6046,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: 02/19/2025 Product Development Tips Q&A
 - identifier: lp.rank.018
   name: Refresh keyword and competitor research every 3-12 months
@@ -5727,6 +6064,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: PLOG 1.3.1
 - identifier: lp.price.028
   name: Raise price a dollar at a time as rank moves
@@ -5744,6 +6082,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: 07/06/2026 Winning The Click; 01/23/2026 Fixing Early Launch Visibility
 - identifier: lp.price.029
   name: Test profit by reducing or removing the coupon
@@ -5761,6 +6100,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: Launch Strategy Phase 2 2025
 - identifier: lp.price.030
   name: Re-validate the list price every 90 days
@@ -5778,6 +6118,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: July 01 2025 Roundtable; 09/24/2025 Six-Tier Pricing
 - identifier: lp.price.031
   name: Protect the strike-through — losing it is expensive
@@ -5795,6 +6136,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: 11/20/2023 Listing Audits Q&A Pricing
 - identifier: lp.ppc.049
   name: Launch SBV once the underlying keyword's conversion is proven
@@ -5813,6 +6155,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: PPC 3.0 Phase 2
 - identifier: lp.ppc.050
   name: Expand auto loose match only after close and substitute convert
@@ -5830,6 +6173,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: PPC 3.0 Phase 2
 - identifier: lp.ppc.051
   name: Run phase 2 additively, not as a replacement
@@ -5848,6 +6192,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: PPC 3.0 Phase 2
 - identifier: lp.ppc.052
   name: Reduce bids 10-30% where rank improved and measure the hold
@@ -5865,6 +6210,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: PLOG 2.2.2
 - identifier: lp.ppc.053
   name: Launch SP product targeting at 5 above and 5 below by BSR
@@ -5883,6 +6229,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: PPC 3.0 Phase 2
 - identifier: lp.ppc.054
   name: Select ASIN targets by organic rank where BSR sourcing fails
@@ -5902,6 +6249,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: PPC 3.0 Phase 2
 - identifier: lp.ppc.055
   name: Add further targeting angles beyond BSR neighbours
@@ -5920,6 +6268,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: PPC 3.0 Phase 2
 - identifier: lp.ppc.056
   name: Check top-3 click and conversion share before pulling spend back
@@ -5937,6 +6286,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: PLOG 2.2.2
 - identifier: lp.ppc.057
   name: Lower spend on campaigns not contributing to rankings
@@ -5953,6 +6303,7 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: PLOG 2.2.2
 - identifier: lp.ppc.058
   name: Exhaust hyper-relevant rank keywords before opening BOOST
@@ -5970,4 +6321,5 @@ steps:
   status: draft
   hazard: none
   assignees: []
+  starts_at_gate: ignition
   provenance: Launch Strategy Phase 2 2025

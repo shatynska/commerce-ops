@@ -52,7 +52,13 @@ from commerce_ops.launch.application.ports import (
 from commerce_ops.launch.domain.launch_playbook import (
     GATE_SEQUENCE,
     AnchorPeriod,
+    Hazard,
     LaunchPlaybook,
+    StepDefinition,
+    StepStatus,
+    gate_position,
+    permissible_terminal_outcomes,
+    start_position_of,
 )
 from commerce_ops.launch.domain.launch_run import (
     GateApproval,
@@ -384,6 +390,24 @@ class ReportedStep:
     module has neither the playbook nor the hazard rules, so each of these
     travels on the report rather than being re-derived (`launch-instance`,
     "The launch report carries each step's discipline").
+
+    `released` and the two fields beside it say whether the launch has
+    asked for this work yet, and where it has not, what it is waiting for
+    — the gate it starts at while the launch has not reached it, and the
+    dependencies still unresolved. They travel here for the same reason
+    everything else does: release turns on gate *positions* and on which
+    outcomes each named step's hazard permits, so a consumer computing it
+    would need the framework and the whole step set.
+
+    `starts_at_gate` is present only while the launch has not reached it,
+    and `unresolved_dependencies` holds only the ones still outstanding:
+    the report states what a step is waiting *for*, not what it declares.
+    A released step carries neither, so a consumer can render "what is
+    this waiting on" without a second judgement of its own.
+
+    All three default so that constructing a report without them is still
+    possible for a caller that predates them — and default to *released*,
+    which is what a step declaring nothing is.
     """
 
     step_id: str
@@ -394,6 +418,9 @@ class ReportedStep:
     progress: StepProgress | None
     blocking: bool
     overdue: bool
+    released: bool = True
+    starts_at_gate: str | None = None
+    unresolved_dependencies: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -421,6 +448,51 @@ class LaunchReport:
     awaiting_confirmation: bool
 
 
+def _awaited_gate(launch: Launch, step: StepDefinition) -> str | None:
+    """The gate the step starts at, while the launch has not reached it.
+
+    `None` once it has, so a consumer renders "waiting for `listable`"
+    only while that is true and never as a restatement of what the step
+    declares.
+    """
+    standing = gate_position(launch.current_gate)
+    if standing is None or standing >= start_position_of(step):
+        return None
+    return step.starts_at_gate
+
+
+def _unresolved_dependencies(
+    launch: Launch, playbook: LaunchPlaybook, step: StepDefinition
+) -> tuple[str, ...]:
+    """The steps this one waits on that are not yet resolved.
+
+    Only the outstanding ones, and only the ones that count: a dependency
+    naming no step, one no longer `active`, or one classified
+    `prohibited-tactic` holds nothing back, so naming it here would tell a
+    reader to chase something that is not holding anything.
+    """
+    defined = {held.identifier: held for held in playbook.authored_steps}
+    return tuple(
+        named
+        for named in step.after_steps
+        if (held := defined.get(named)) is not None
+        and held.status is StepStatus.ACTIVE
+        and held.hazard is not Hazard.PROHIBITED_TACTIC
+        and not _is_resolved(launch, held)
+    )
+
+
+def _is_resolved(launch: Launch, step: StepDefinition) -> bool:
+    """Whether `step` has reached an outcome its own hazard permits as
+    terminal — the reading every consumer of "resolved" uses."""
+    progress = launch.progress_for(step.identifier)
+    if progress is None:
+        return False
+    recorded = progress.outcome
+    kind = recorded if isinstance(recorded, type) else type(recorded)
+    return kind in permissible_terminal_outcomes(step.hazard)
+
+
 def _report_for(launch: Launch, playbook: LaunchPlaybook, as_of: date) -> LaunchReport:
     """One launch's report — the single construction both reads share, so
     an enumerated report can never drift from a singly-read one."""
@@ -440,6 +512,11 @@ def _report_for(launch: Launch, playbook: LaunchPlaybook, as_of: date) -> Launch
                 progress=launch.progress_for(step.identifier),
                 blocking=step.blocking,
                 overdue=step.identifier in overdue,
+                released=launch.has_released(playbook, step),
+                starts_at_gate=_awaited_gate(launch, step),
+                unresolved_dependencies=_unresolved_dependencies(
+                    launch, playbook, step
+                ),
             )
             for step in playbook.served_steps
         ),

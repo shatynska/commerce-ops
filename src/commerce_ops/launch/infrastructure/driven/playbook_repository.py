@@ -98,6 +98,11 @@ def _definition_from_row(row: PlaybookStep) -> StepDefinition:
         status=StepStatus(row.status),
         hazard=Hazard(row.hazard),
         assignees=tuple(row.assignees or ()),
+        starts_at_gate=row.starts_at_gate,
+        # `or ()` for the same reason `assignees` carries it: a row written
+        # before the column existed reads back as NULL whatever the model's
+        # default says, and the domain wants a tuple either way.
+        after_steps=tuple(row.after_steps or ()),
         automation_brief=row.automation_brief,
         handler=row.handler,
         provenance=row.provenance,
@@ -135,6 +140,8 @@ def _row_from_record(record: Any) -> PlaybookStep:
         status=definition.status.value,
         hazard=definition.hazard.value,
         assignees=list(definition.assignees),
+        starts_at_gate=definition.starts_at_gate,
+        after_steps=list(definition.after_steps),
         automation_brief=definition.automation_brief,
         handler=definition.handler,
         provenance=definition.provenance,

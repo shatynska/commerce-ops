@@ -54,6 +54,7 @@ from commerce_ops.launch.domain.launch_playbook import (
     GATE_SEQUENCE,
     AnchorPeriod,
     GateOpening,
+    Hazard,
     InProgress,
     LaunchPlaybook,
     MetricCondition,
@@ -64,7 +65,10 @@ from commerce_ops.launch.domain.launch_playbook import (
     StepDefinition,
     StepObligation,
     StepOutcome,
+    StepStatus,
+    gate_position,
     permissible_terminal_outcomes,
+    start_position_of,
 )
 from commerce_ops.shared.domain.identity import MetricId, ProductId
 from commerce_ops.shared.domain.lifecycle_stage import Posture
@@ -536,13 +540,32 @@ class Launch:
         — which is why it is answered here rather than left to whoever
         reads a report. `date_at_risk` is this, narrowed to blocking
         steps.
+
+        **A step whose start gate the launch has not reached is not
+        overdue**, whatever its due period says. Nobody has been asked for
+        the work — it is not projected as a task and its handler is not
+        invoked — so there is nothing anyone has failed to do, and a
+        launch delayed at an early gate would otherwise accrue overdue
+        marks against the whole plan ahead of it.
+
+        **The exclusion turns on the start gate alone, and never on
+        `has_released`.** A step the launch has reached but which waits on
+        an unresolved dependency stays overdue: it is a delay *within*
+        work the launch has arrived at, the dependency holding it may not
+        itself be overdue or even blocking, and nothing else in the report
+        would say so. Excluding it would mean the later a dependency ran,
+        the quieter the report became — and a launch stalled behind one
+        would report healthy.
         """
         if self.launch_date is None:
             return ()
+        standing = gate_position(self.current_gate)
         return tuple(
             step.identifier
             for step in playbook.served_steps
-            if self._fully_passed(step, as_of) and not self._resolved(step)
+            if (standing is None or standing >= start_position_of(step))
+            and self._fully_passed(step, as_of)
+            and not self._resolved(step)
         )
 
     def awaiting_confirmation(self, playbook: LaunchPlaybook) -> bool:
@@ -659,6 +682,73 @@ class Launch:
         # A recurring anchor has no due period; an open-ended one never
         # fully passes.
         return period is not None and period.end is not None and period.end < as_of
+
+    def has_released(self, playbook: LaunchPlaybook, step: StepDefinition) -> bool:
+        """Whether this launch has released `step` — whether the work may
+        begin, which is a different question from whether the step's gate
+        may open.
+
+        Two authored facts decide it: the launch must have reached the
+        step's start gate, and every step it waits on must be resolved.
+        A step declaring neither is released from the first gate, which is
+        every step until an author says otherwise.
+
+        **Compared by position, at or beyond, and never by equality.** A
+        step whose gate the launch has already passed and which is not yet
+        resolved stays released, because work left unfinished at a gate the
+        launch has left is exactly the work that must still be done.
+        Equality here would abandon every unfinished step the moment its
+        gate was left — which for the `listable` gate is most of the
+        playbook.
+
+        **No clock, and no timing anchor.** An anchor states when work is
+        *due*; whether it may *begin* is this. A rule reading the date
+        would make a step's eligibility differ between two passes that
+        differ only in when they ran.
+
+        This governs what the system **asks for** — the projection into a
+        task tracker and the invocation of a handler — and never what it
+        accepts or evaluates. Recording an outcome is outside it: work a
+        person completed early is work done. Gate opening is outside it
+        too, and that one matters more: `unsatisfied_conditions` turns on
+        recorded outcomes alone, and gating a blocking condition on
+        release would open a gate over work that had merely not been asked
+        for yet.
+        """
+        standing = gate_position(self.current_gate)
+        if standing is None:  # pragma: no cover - constructor forbids it
+            return False
+        if standing < start_position_of(step):
+            return False
+        defined = {held.identifier: held for held in playbook.authored_steps}
+        return all(
+            self._counts_against_release(defined.get(named))
+            is not True  # a dependency that does not count cannot hold
+            or self._resolved(defined[named])
+            for named in step.after_steps
+        )
+
+    def _counts_against_release(self, named: StepDefinition | None) -> bool:
+        """Whether a named dependency is something this launch is still
+        owed, and so may hold its dependent back.
+
+        Three cases fall the same way and are stated together because a
+        release predicate must excuse all three or none: a name no step
+        answers to, a step no longer `active`, and a step classified
+        `prohibited-tactic`. None is something anybody is waiting for — the
+        first was never a step, the second is not part of the launch's
+        obligations at all, and the third the system has undertaken to
+        decline.
+
+        The alternative — holding a dependent until such a step reaches an
+        outcome — freezes it for ever, on every launch in flight, as the
+        consequence of one routine authoring action.
+        """
+        if named is None:
+            return False
+        if named.status is not StepStatus.ACTIVE:
+            return False
+        return named.hazard is not Hazard.PROHIBITED_TACTIC
 
     def _resolved(self, step: StepDefinition) -> bool:
         progress = self._step_progress.get(step.identifier)
