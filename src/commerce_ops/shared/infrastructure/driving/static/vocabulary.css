@@ -1243,6 +1243,26 @@ section.finished .empty,
   margin: 0 0 var(--space-loose);
 }
 
+/* A row's cells no longer share one height once the evidence column can
+   clamp to two lines while its neighbours stay one -- centring on that
+   mismatch reads as misaligned. Top-aligned instead, scoped to this
+   table since every other admin table's rows are still uniformly one
+   line, where the two alignments look identical. */
+.gate-group td {
+  vertical-align: top;
+}
+
+/* A step's timing: one date (a deadline) reads fine close-set, but two
+   -- a window's start and end -- need visible daylight between them or
+   they blur into one run of digits. */
+.gate-group .timing-sep {
+  margin: 0 var(--space-snug);
+}
+
+.gate-group .timing-sep::before {
+  content: "–";
+}
+
 /* What came of the step, in its own column. An automated handler writes
    several sentences here, so it is bounded and wraps within that bound
    rather than running the table wider than the page — a fact this page
@@ -1266,6 +1286,61 @@ section.finished .empty,
   color: var(--ink-quiet);
   font-size: var(--size-fine);
   overflow-wrap: anywhere;
+}
+
+/* The evidence cell's own disclosure: closed, it clamps the evidence
+   text and its provenance to two lines with a native ellipsis: opened
+   (a click anywhere on the summary, `<details>`'s own built-in
+   behaviour), it shows all of it. `list-style`/`::marker` remove the
+   triangle a `<summary>` draws by default -- replaced by the chevron
+   below, which (unlike the browser's own marker) flips direction with
+   the disclosure's state. */
+.gate-group .evidence-summary {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-tight);
+  cursor: pointer;
+  list-style: none;
+}
+
+.gate-group .evidence-summary::marker,
+.gate-group .evidence-summary::-webkit-details-marker {
+  display: none;
+}
+
+/* The chevron itself, drawn from two borders rotated to a corner
+   rather than a font glyph, so its weight and colour follow the same
+   tokens as everything else on the page. Down (pointing at the clamped
+   text) closed, meaning "there's more, open me"; up (pointing back at
+   what's already open) once opened, meaning "collapse". */
+.gate-group .evidence-summary::after {
+  content: "";
+  flex: none;
+  width: 0.4em;
+  height: 0.4em;
+  margin-top: 0.4em;
+  border-right: 0.14em solid var(--ink-faint);
+  border-bottom: 0.14em solid var(--ink-faint);
+  transform: rotate(45deg);
+}
+
+.gate-group .evidence-disclosure[open] .evidence-summary::after {
+  transform: rotate(-135deg);
+  margin-top: 0.55em;
+}
+
+.gate-group .evidence-clamp {
+  min-width: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.gate-group .evidence-disclosure[open] .evidence-clamp {
+  display: block;
+  -webkit-line-clamp: unset;
+  overflow: visible;
 }
 
 .gate-group td.step-name {

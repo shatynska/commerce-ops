@@ -71,7 +71,7 @@
     {% if group.steps %}
     <table>
       <thead>
-        <tr><th>status</th><th>name</th><th>id</th><th>discipline</th><th>facts</th><th>due</th><th>outcome</th></tr>
+        <tr><th>status</th><th>name</th><th>id</th><th>discipline</th><th>facts</th><th>timing</th><th>outcome</th></tr>
       </thead>
       <tbody>
         {% for step in group.steps %}
@@ -99,21 +99,46 @@
             {%- if step.blocking %}<span class="mark blocking">Blocks its gate</span>{% endif %}
             {%- if step.overdue %}<span class="mark overdue">Overdue</span>{% endif -%}
           </td>
-          <td class="due">
-            {%- if step.due_from or step.due_to %}Due {{ step.due_from }}–{{ step.due_to }}
-            {%- else %}No due period{% endif -%}
+          {# A single date is a deadline ("due" plus one date); two
+             different dates are a window (shown as both, wide apart, no
+             "due" prefix -- "due" names one date, not a span); a start
+             with no end (`OpenEndedAnchor`) names when the obligation
+             begins. `OffsetAnchor` resolves to the same day for both
+             start and end, which the first branch collapses back to one
+             date rather than printing it twice. Lowercase throughout,
+             matching every other fact this table states in the row. #}
+          <td class="timing">
+            {%- if step.due_from and step.due_to and step.due_from != step.due_to %}
+            <span class="timing-start">{{ step.due_from }}</span><span class="timing-sep"></span><span class="timing-end">{{ step.due_to }}</span>
+            {%- elif step.due_to %}due {{ step.due_to }}
+            {%- elif step.due_from %}from {{ step.due_from }}
+            {%- else %}no timing set{% endif -%}
           </td>
           {# An automated handler's evidence runs to several sentences, so it
              is given a column with a bound rather than the row's full width
              -- a paragraph set the width of the page cannot be read. Every
              fact the page rendered before is still rendered, the recorder,
-             the source and the recording time included -- never dropped. #}
+             the source and the recording time included -- never dropped.
+
+             Clamped to two lines by default and opened on click via
+             `<details>`/`<summary>` -- native disclosure, so a long
+             evidence text doesn't stretch every row to its height, and
+             no JS is needed to expand the one row a reader wants. The
+             clamped text and the chevron are separate elements so the
+             chevron itself is never counted into the clamp's line
+             budget. #}
           <td class="evidence">
             {%- if step.recorded %}
-            <span class="evidence-text">{{ step.evidence }}</span>
-            <span class="outcome-provenance">recorded by {{ step.recorded_by }}
-              ({{ step.source }})
-              at {{ step.recorded_at.strftime('%Y-%m-%d %H:%M %Z') }}</span>
+            <details class="evidence-disclosure">
+              <summary class="evidence-summary">
+                <span class="evidence-clamp">
+                  <span class="evidence-text">{{ step.evidence }}</span>
+                  <span class="outcome-provenance">recorded by {{ step.recorded_by }}
+                    ({{ step.source }})
+                    at {{ step.recorded_at.strftime('%Y-%m-%d %H:%M %Z') }}</span>
+                </span>
+              </summary>
+            </details>
             {%- endif -%}
           </td>
         </tr>
