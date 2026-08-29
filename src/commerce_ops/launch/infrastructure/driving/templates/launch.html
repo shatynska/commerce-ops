@@ -94,7 +94,11 @@
            are different facts, and only the second names who said so. The
            capability requires them to render distinguishably, so they differ in
            word AND in treatment rather than sharing a grey. #}
-        {% set state = step.outcome|lower if step.recorded else 'unrecorded' %}
+        {# `not-started` is its own row state, distinct from `unrecorded`: nothing
+   recorded on work the launch has asked for is work outstanding, while
+   nothing recorded on work it has not asked for is not a gap at all. The
+   capability requires the two to render distinguishably. #}
+{% set state = step.outcome|lower if step.recorded else ('not-started' if not step.started else 'unrecorded') %}
         <tr class="step-row state-{{ state }}">
           <td><span class="outcome-tag">{{ OUTCOME_LABELS.get(step.outcome, step.outcome) if step.recorded else 'Unrecorded' }}</span></td>
           <td class="step-name">{{ step.name }}</td>
@@ -103,8 +107,21 @@
           {# Stated only when true: "Does not block" contains the word the
              mark is read by, so the negative form made the mark
              unfalsifiable. #}
+          {# The start mark says what a step is waiting for, and is worded
+             from *starting* — never "blocked". This cell already carries
+             `blocking` as "Blocks its gate", and the outcome column
+             carries the `Blocked` tag; a third sense of the word here
+             would make the row unreadable.
+
+             Rendered rather than hidden: the page shows the launch's whole
+             plan against its position, and hiding what has not started
+             would make it show less than the playbook. A reader must be
+             able to tell work outstanding from work not yet asked for,
+             which is what this mark and the `not-started` row state do
+             together. #}
           <td>
             {%- if step.blocking %}<span class="mark blocking">Blocks its gate</span>{% endif %}
+            {%- if not step.started %}<span class="mark starts">{{ step.waiting_note }}</span>{% endif %}
             {%- if step.overdue %}<span class="mark overdue">Overdue</span>{% endif -%}
           </td>
           {# A single date is a deadline ("due" plus one date); two

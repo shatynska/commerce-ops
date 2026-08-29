@@ -144,6 +144,30 @@ The cost is a second gate-valued field on a step that already has `gate`.
 They are distinguished in the form and on the detail page by wording —
 *belongs to* versus *starts at* — never by proximity.
 
+### `after_steps` is a second ordering primitive, and the spec said there was one
+
+`launch-playbook` states that "Gates SHALL remain the only *commitment*
+ordering primitive in the playbook", and carefully separates the within-gate
+`display_order`, which "SHALL never affect when a gate opens, which steps
+block it, or how step completion is evaluated". `after_steps` is neither: it
+orders two steps *and* carries consequence, so the requirement as written
+forbids it. It is amended rather than worked around.
+
+What the amendment preserves is the distinction the original clause exists to
+draw. A gate still opens exactly when its own blocking steps are resolved and
+its conditions are met; `after_steps` cannot move a step between gates, add or
+remove an obligation, or change a gate's evaluation given the same recorded
+outcomes. It governs **when work is asked for**, not when a commitment is
+reached — which is why gate evaluation is explicitly outside the release
+predicate (see *Both passes consult the predicate*), and why the existing
+"steps at the same gate are unordered" guarantee survives intact.
+
+This was found while reading the test the domain already carries for that
+clause, `test_steps_at_the_same_gate_carry_no_ordering`, after six review
+rounds had passed over it. Recorded because the near-miss is the point: a
+change that adds a primitive to a system whose specification says there is
+only one will not necessarily contradict anything the change itself says.
+
 ### `after_steps` is a conjunctive set
 
 *Alternative considered: a single reference.* Rejected: it forces a fan-in
@@ -343,6 +367,16 @@ schedules this specification does not fix. What it buys is that a gate's own
 blocking work is released only at that gate, so leaving `ignition` takes
 recorded work rather than a signature, and closing the whole window now takes
 two coincidences instead of one.
+
+**The integration database is not the stored set this design describes.**
+The 352/95/2/255 figures describe the set after `seed_playbook` has delivered
+the vendored file, which is what a deployed container does on every start.
+The configured integration database has never had that step run against it —
+it holds 95 `active` and 2 `in-development` rows, matching this design
+exactly, plus 680 `retired` `mg.*` rows left by authoring tests, and **no
+drafts at all**. So `tasks.md` 8.8 cannot be observed there, and its test says
+so rather than passing vacuously. The active gate distribution does match the
+table above, which is what task 8.7's re-derivation needs.
 
 **The live table may have diverged from both vendored files.** The counts
 above are computed from the YAML; authoring writes since have not been read.

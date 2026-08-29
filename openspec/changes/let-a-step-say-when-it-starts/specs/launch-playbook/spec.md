@@ -279,6 +279,55 @@ The obligation binds **the backfill and the delivery path**, and is not a standi
 
 ## MODIFIED Requirements
 
+### Requirement: Gate sequence orders the launch
+
+A launch playbook SHALL define its ordering as a sequence of commitment gates, each representing a point at which money, stock, or public exposure becomes irreversible. The sequence SHALL be exactly the following eight gates in this order:
+
+1. `commit` — the product is worth developing
+2. `order` — the purchase order may be placed
+3. `listable` — everything buildable without stock or a live listing is ready
+4. `stock-ready` — sufficient fulfillable units are available
+5. `live` — the listing may be switched on
+6. `ignition` — the marketing launch may fire
+7. `phase-one-complete` — the ranking push has done its work
+8. `graduated` — the launch is over
+
+Gates SHALL remain the only primitive ordering the launch's **commitments** — the points at which money, stock or exposure becomes irreversible — and the only thing determining when a gate opens. A step definition MAY additionally declare steps it waits on (*A step declares when it may start*), which orders **when work is asked for** and never when a commitment is reached: a gate opens exactly when its own blocking steps are resolved and its conditions are met, whatever any step waited on before starting. That ordering is authored, acyclic, and validated so it can never leave a gate unopenable.
+
+The distinction is the whole of it. `after_steps` cannot move a step to another gate, cannot add or remove a gate's obligations, and cannot make a gate open earlier or later given the same recorded outcomes. What it can do is stop the system asking for a step's work until the work it builds on is done — which is a statement about sequencing effort, not about the irreversibility ladder this sequence exists to express.
+
+Step definitions attached to the same gate SHALL additionally carry an authored order relative to one another — a total order within the gate, exposed by the served step set and followed by every consumer that lists a gate's steps. This within-gate order SHALL carry no commitment semantics: it SHALL never affect when a gate opens, which steps block it, or how step completion is evaluated — reordering a gate's steps changes how they are listed, and nothing else.
+
+#### Scenario: Gates expose a stable order
+
+- **WHEN** the playbook's gates are read
+- **THEN** they are returned in the defined order, each carrying its position in the sequence
+- **AND** two gates never share a position
+
+#### Scenario: Steps at a gate are served in their authored order
+
+- **WHEN** a gate's steps are read from the served playbook
+- **THEN** they arrive in the gate's authored order
+- **AND** two reads with no intervening write arrive in the same order
+
+#### Scenario: Steps at the same gate are unordered
+
+*(Retained name: "unordered" now means unordered to the commitment machinery — the authored order exists, and this scenario pins down that it never reaches an evaluation.)*
+
+- **WHEN** a gate's steps are reordered and the gate's advancement, blocking evaluation, and step completion are then evaluated
+- **THEN** the commitment machinery treats the gate's steps as an unordered set: each evaluation comes out exactly as it did before the reorder
+
+#### Scenario: A dependency does not change when a gate opens
+
+- **WHEN** a gate's blocking steps are all resolved, and some step at that gate declares steps it waits on
+- **THEN** the gate opens exactly as it would with no such declaration, the declaration having governed only when the work was asked for
+
+#### Scenario: A dependency does not move a step's obligations
+
+- **WHEN** a step declaring steps it waits on is read from the served playbook
+- **THEN** it belongs to the gate it declares, and that gate's conditions name it exactly as they would without the declaration
+
+
 ### Requirement: A step definition declares how it is to be resolved
 Each step definition SHALL declare all of:
 

@@ -336,6 +336,16 @@ async def _walk_launch(
         if _is_settled(launch, step):
             continue
 
+        # Before the backoff read and before the handler is resolved, so
+        # an unreleased step costs no read, produces no stuck-step report,
+        # and is not named every pass for an unregistered handler it will
+        # not be asked to run for several gates yet. It has not failed to
+        # make progress — it has not been asked to. The startup
+        # registration report is where an unregistered handler is named
+        # meanwhile.
+        if not launch.has_released(playbook, step):
+            continue
+
         row, row_ok = await _contained(
             backoff=backoff,
             what="reading the backoff record",

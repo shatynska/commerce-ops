@@ -1526,6 +1526,33 @@ section.finished .empty,
   color: var(--ink-quiet);
 }
 
+/* Work the launch has not asked for yet is a third thing again: not a
+   recorded outcome, and not an absence anybody owes. It reads quieter
+   than `unrecorded` rather than louder, because it is not a gap — nobody
+   is late, and the row is on the page so the plan reads whole
+   (`let-a-step-say-when-it-starts`). */
+.gate-group .step-row.state-not-started {
+  opacity: 0.72;
+}
+
+.gate-group .step-row.state-not-started .outcome-tag {
+  border: 1px dotted var(--state-idle-edge);
+  background: transparent;
+  color: var(--ink-quiet);
+}
+
+/* The start mark carries a phrase rather than a word ("starts at listable",
+   "waits on lp.listing.007"), so unlike its neighbours it is allowed to
+   wrap: `white-space: nowrap` on a sentence forces the row wider than the
+   viewport, which `restore-launch-detail-column-widths` fixed for the tag
+   columns and must not be reintroduced here. */
+.mark.starts {
+  white-space: normal;
+  background: transparent;
+  border: 1px dotted var(--state-idle-edge);
+  color: var(--ink-quiet);
+}
+
 /* The journal, as a table -- one row per entry, the entry's category
    carried on the row as a `category-<value>` marker (`launch-admin`
    delta, "structure-the-launch-journal-table"). Same left-edge-only

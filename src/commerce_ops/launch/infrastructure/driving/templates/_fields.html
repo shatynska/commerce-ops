@@ -239,6 +239,45 @@
   <small>The roster's active people. An active human step needs at least one.</small>
   {{ marked(marks, "assignees") }}
 </label>
+{# When the step may start — two fields, never one. They sit together and
+   away from the step's own `gate` control, and are worded from *starting*
+   rather than from *blocking*: this form already carries the blocking flag
+   and the launch surfaces carry a `Blocked` outcome, so a third sense of
+   the word would make both unreadable.
+
+   The start-gate control offers every gate but the last (the final gate is
+   refused as a start gate) plus an explicit "starts immediately" — an empty
+   value carrying a real meaning rather than an unfilled box, since absent
+   IS the authored value "from the launch's first gate" and a control
+   offering only gates could not say it.
+
+   Deliberately NOT filtered against the step's current gate, though the
+   write refuses a start gate later than it: that refusal is a combination
+   fault, so an author may equally mean to move the step's gate, and hiding
+   the later gates would silently decide which half of the pair they meant. #}
+<label>Starts at gate
+  <select name="starts_at_gate">
+    <option value=""{% if not values.get("starts_at_gate") %} selected{% endif %}>starts immediately</option>
+    {% for option in start_gate_options %}
+    <option value="{{ option }}"{% if option == values.get("starts_at_gate") %} selected{% endif %}>{{ option }}</option>
+    {% endfor %}
+  </select>
+  <small>The gate this launch must reach before the work may begin. Not the gate the step belongs to.</small>
+  {{ marked(marks, "starts_at_gate") }}
+</label>
+<label>Waits on
+  <select name="after_steps" multiple size="6">
+    {% for gate, options in dependency_options %}
+    <optgroup label="{{ gate }}">
+      {% for identifier, display in options %}
+      <option value="{{ identifier }}"{% if identifier in values.get("after_steps", []) %} selected{% endif %}>{{ display }}</option>
+      {% endfor %}
+    </optgroup>
+    {% endfor %}
+  </select>
+  <small>Steps that must be resolved first — all of them, not any. Active steps only; this step is not among them.</small>
+  {{ marked(marks, "after_steps") }}
+</label>
 <label>Kind
   <select name="kind">
     {% for option in kind_options %}

@@ -578,7 +578,16 @@ async def converge_launch(
     # rather than reaching for ClickUp per launch.
     configuration = {} if configuration is None else configuration
 
-    steps = [step for step in playbook.served_steps if is_projectable(step)]
+    # Release is asked here and not folded into `is_projectable`: that
+    # predicate is a fact about a *step*, shared with the reconciliation
+    # half below, while release is a fact about this *launch's position*
+    # against it. Folding them would gate reconciliation too, which the
+    # requirement forbids — see the note above the `defined` set.
+    steps = [
+        step
+        for step in playbook.served_steps
+        if is_projectable(step) and launch.has_released(playbook, step)
+    ]
     list_id = await _ensure_list(
         launch=launch,
         mapping=mapping,
@@ -757,6 +766,15 @@ async def reconcile_launch(
     # tidying up, would otherwise record a `clickup`-sourced completion for
     # work a handler is about to do. One predicate, shared with the outward
     # half above, so the two directions cannot drift apart.
+    #
+    # **Deliberately not narrowed by release.** A step the launch has not
+    # released has no task, so it never reaches this loop at all; what
+    # can reach it is a task created while the step *was* released, whose
+    # step has since stopped being one — reachable by an authoring change
+    # or by a dependency's task being reopened. Completing that task is
+    # work a person did on work they were given, and recording it is
+    # right: release governs what the system asks for, never what it
+    # accepts. Gating here would discard real work for arriving early.
     defined = {
         step.identifier for step in playbook.served_steps if is_projectable(step)
     }

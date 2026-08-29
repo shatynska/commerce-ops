@@ -98,13 +98,30 @@ def _anchor(raw: dict[str, Any]) -> TimingAnchor:
     raise ValueError(f"vendored timing anchor has unknown kind '{kind}'")
 
 
-def vendored_definitions(path: Path = _VENDORED) -> tuple[StepDefinition, ...]:
+def vendored_definitions(path: Path | None = None) -> tuple[StepDefinition, ...]:
     """The vendored set, as domain values.
 
     A shape fault here is a fault in a file this repository ships, so it is
     reported as one rather than being allowed to reach the database.
+
+    The path defaults to `None` and resolves to `_VENDORED` at call time,
+    not in the signature: a default bound at definition time captures the
+    module attribute's value once, so substituting the file — which is
+    how this function is exercised against a doctored set — would have no
+    effect on a caller that passed nothing.
     """
-    document = yaml.safe_load(path.read_text(encoding="utf-8"))
+    document = yaml.safe_load((path or _VENDORED).read_text(encoding="utf-8"))
+    for step in document["steps"]:
+        # Named before the constructor runs, so the fault says which step
+        # and which field rather than surfacing a bare `KeyError` from
+        # somewhere inside a comprehension over 352 rows.
+        if "starts_at_gate" not in step:
+            raise ValueError(
+                f"vendored step '{step.get('identifier', '?')}' states no "
+                f"'starts_at_gate'; every vendored step must say when it "
+                f"starts, since delivery inserts rows a migration's "
+                f"backfill has already passed over"
+            )
     return tuple(
         StepDefinition(
             identifier=step["identifier"],
@@ -120,6 +137,18 @@ def vendored_definitions(path: Path = _VENDORED) -> tuple[StepDefinition, ...]:
             status=StepStatus(step["status"]),
             hazard=Hazard(step["hazard"]),
             assignees=tuple(step["assignees"]),
+            # Read by subscript and never with a default: a field the file
+            # does not carry would otherwise arrive at the dataclass's own
+            # default for every row this step inserts — silently, and only
+            # for steps nobody had yet, which is the half a migration's
+            # backfill cannot reach. A shape fault here is a fault in a
+            # file this repository ships, and is reported as one.
+            starts_at_gate=step["starts_at_gate"],
+            # `after_steps` is deliberately absent from the vendored file:
+            # empty and "waits on nothing" are one fact, so omission is the
+            # empty set and there is no second way to spell it. That is not
+            # true of `starts_at_gate`, where absent is itself a meaningful
+            # value the backfill exists to replace.
             provenance=step["provenance"],
         )
         for step in document["steps"]

@@ -219,6 +219,76 @@ def reference_rows() -> list[dict[str, Any]]:
     return rows
 
 
+# The gate sequence, duplicated here rather than imported: this script is a
+# data generator run by hand and must not depend on the application's import
+# graph, the same reason the seed migration vendors its own copy.
+GATE_ORDER: tuple[str, ...] = (
+    "commit",
+    "order",
+    "listable",
+    "stock-ready",
+    "live",
+    "ignition",
+    "phase-one-complete",
+    "graduated",
+)
+
+# The seven steps whose calendar anchor falls before their own gate can be
+# reached, each given the earlier gate its anchor implies
+# (`let-a-step-say-when-it-starts`, tasks 8.2-8.4). Keyed on identifier and
+# not on status: every step in this file is `draft`, so status cannot select
+# them, and these are the same seven that are `active` in the stored set.
+#
+# Reviewed individually and never derived by a rule: the disagreement between
+# the calendar and the gate sequence is a property of the authored playbook.
+# The remaining sixteen anchor-conflicting steps take the default, because
+# choosing a start gate for a step nobody has reviewed is an authoring
+# judgement made once, at activation, by a person who can see it.
+REVIEWED_START_GATES: dict[str, str] = {
+    # `stock-ready` cannot be reached before T-7; goods must be ordered
+    # before they can be stocked.
+    "lp.inventory.019": "order",  # first-order sizing, T-30
+    "lp.inventory.008": "order",  # pre-shipment inspection, T-30
+    "lp.inventory.018": "order",  # barcode TOS, T-30
+    # Campaign preparation deliberately precedes going live.
+    "lp.ppc.001": "listable",  # naming convention, T-14
+    "lp.ppc.002": "listable",  # keyword bucketing, T-14
+    "lp.ppc.004": "listable",  # search-volume ceiling, T-14
+    # `listable` is itself reachable only by T-60, so releasing this one
+    # there would leave it no margin against its own anchor; `order` is
+    # reachable by T-90.
+    "lp.ppc.003": "order",  # never-keywords list, T-60
+}
+
+
+def start_gate_for(identifier: str, gate: str) -> str:
+    """When a step may start: its own gate, with two exceptions.
+
+    A step belonging to the **final gate** takes the gate two before it.
+    Its own gate is refused as a start gate — every consumer stands down
+    once a launch reaches it, so a step released only there is released
+    where nothing will act on it — and a single-gate window can be
+    crossed between two passes, since gate progression advances a launch
+    as far as its recorded state permits in one run. Two gates is a
+    margin, not a guarantee, and the nearest gate meeting it rather than
+    the earliest: releasing work sooner than it needs to be is the harm
+    this field exists to remove.
+
+    A step whose anchor falls before its own gate can be reached takes the
+    earlier gate that anchor implies, for the seven reviewed above.
+    """
+    reviewed = REVIEWED_START_GATES.get(identifier)
+    if reviewed is not None:
+        return reviewed
+    # Only the final gate. Every other gate can serve as its own steps'
+    # start gate, because a launch cannot leave a gate until that gate's
+    # own blocking work is recorded — which is what makes even a
+    # one-gate window survivable everywhere else.
+    if gate == GATE_ORDER[-1]:
+        return GATE_ORDER[-3]
+    return gate
+
+
 def build() -> dict[str, Any]:
     curated = {
         step["identifier"]: step
@@ -264,6 +334,7 @@ def build() -> dict[str, Any]:
                 "status": "draft",
                 "hazard": hazard,
                 "assignees": [],
+                "starts_at_gate": start_gate_for(row["id"], gate),
                 "provenance": row["source"],
             }
         )

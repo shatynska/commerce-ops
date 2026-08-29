@@ -784,6 +784,13 @@ def _require_control(html: str, *, contains: tuple[str, ...]) -> _Control:
 def _field_name(
     names: dict[str, Any], fragment: str, *, excluding: tuple[str, ...] = ()
 ) -> str:
+    # An exact field name wins outright. Since
+    # `let-a-step-say-when-it-starts` the form carries two gate-valued
+    # controls — the step's own `gate` and its `starts_at_gate` — so a
+    # bare substring search for "gate" is ambiguous where addressing the
+    # named field is not.
+    if fragment in names:
+        return fragment
     matches = [
         name
         for name in names

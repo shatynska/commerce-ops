@@ -540,6 +540,14 @@ def _states(html: str) -> dict[str, _Node]:
 def _field(
     fields: dict[str, str], fragment: str, *, excluding: tuple[str, ...] = ()
 ) -> str:
+    # An exact field name wins outright. Since
+    # `let-a-step-say-when-it-starts` the form carries two gate-valued
+    # controls — the step's own `gate` and its `starts_at_gate` — so a
+    # bare substring search for "gate" is ambiguous where addressing the
+    # named field is not. Substring matching still covers every field
+    # whose spelling this file does not fix.
+    if fragment in fields:
+        return fragment
     matches = [
         name
         for name in fields
