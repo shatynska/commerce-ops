@@ -47,7 +47,11 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from jinja2 import ChoiceLoader, Environment, FileSystemLoader, select_autoescape
 
-from commerce_ops.access.application import resolve_scope, verify_admin_session
+from commerce_ops.access.application import (
+    list_people,
+    resolve_scope,
+    verify_admin_session,
+)
 from commerce_ops.catalog.application import (
     get_product_by_id as _read_product,
 )
@@ -278,13 +282,37 @@ class GateGroup:
 
 @dataclass(frozen=True, slots=True)
 class JournalLine:
-    """One journal entry as the detail page renders it."""
+    """One journal entry as the detail page renders it.
 
-    what: str
+    `who` is the entry's `actor`, resolved against the roster to a
+    display name where it names a known person (by roster identifier or
+    by ClickUp user id — `_actor_names`), and left as the raw value
+    otherwise.
+
+    `subject` is the page's own narrowing of `JournalEntry.subject` to
+    what its column is named for: a gate or a step (`_gate_or_step`).
+    `metric-attested`'s subject is a metric condition, neither a gate
+    nor a step, so it carries `None` here -- that condition text renders
+    as part of `detail` instead.
+
+    `detail` is this page's own composed phrase, built from
+    `JournalEntry`'s per-kind raw fields (`outcome`, `decision`,
+    `gate_id`, ...) — the page tried a column per fact and then two
+    columns (`detail`/`note`) and settled on one short readable phrase,
+    the same shape the page's original composed `what` sentence had,
+    minus the subject clause for every kind except `metric-attested`
+    (`subject` already has its own column for the others, so repeating
+    it here would duplicate that column). Composition the page performs,
+    the same way it already composes `who`, not a fact `journal.py`
+    stores or exposes as its own field (`_journal_detail`)."""
+
     when: Any
-    cause: str
     label: str
     category: str
+    subject: str | None
+    source: str | None
+    who: str | None
+    detail: str | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -511,7 +539,104 @@ def _gate_of(report: Any, line: StepLine) -> str:
     return ""
 
 
-def _journal_lines(entries: Any) -> tuple[JournalLine, ...]:
+async def _actor_names(roster: Any) -> dict[str, str]:
+    """Every identifier a journal entry's `actor` might carry, mapped to
+    the person's display name: a Slack-sourced entry's `actor` is a
+    roster identifier (`Person.identifier`), a ClickUp-sourced one is
+    that person's `clickup_user_id` (`clickup_webhook`'s `_status_change`,
+    `raw-out-the-journal-columns`). Both map into one dict, since the two
+    identifier spaces do not collide in practice.
+
+    Empty where the roster is unavailable or unreadable, the same
+    fail-quiet fallback `_label_for` uses for an unresolved product: an
+    actor then renders by its raw value rather than the page failing.
+    """
+    if roster is None:
+        return {}
+    try:
+        people = await list_people(roster=roster)
+    except Exception:  # noqa: BLE001 — an unreadable roster still renders raw ids
+        return {}
+    names: dict[str, str] = {}
+    for person in people:
+        names[person.identifier] = person.display_name
+        if person.clickup_user_id:
+            names[person.clickup_user_id] = person.display_name
+    return names
+
+
+def _who(actor: str | None, actor_names: dict[str, str]) -> str | None:
+    if actor is None:
+        return None
+    return actor_names.get(actor, actor)
+
+
+def _gate_or_step(entry: Any) -> str | None:
+    """`subject` where it names a gate or a step -- every kind except
+    `metric-attested`, whose subject is the metric condition being
+    attested, not a gate or a step. That condition text is folded into
+    `_journal_detail` instead, so this column stays true to its name.
+
+    `gate_id` is unique to `metric-attested` among this entry's fields,
+    so its presence is what distinguishes the one kind this column
+    excludes."""
+    if entry.gate_id is not None:
+        return None
+    subject = entry.subject
+    return None if subject is None else str(subject)
+
+
+def _journal_detail(entry: Any) -> str | None:
+    """A short, readable phrase describing what this entry recorded,
+    composed from its per-kind facts.
+
+    The page's third attempt at rendering these facts: a column per
+    fact, then two columns (a primary fact plus an explanatory one), and
+    now one composed phrase -- the same shape the page's original
+    composed `what` sentence had, minus the subject clause, since
+    `subject` already has its own column (the gate/step column,
+    `_gate_or_step`) and repeating it here would duplicate that column.
+    The one exception is `metric-attested`, whose subject is not a gate
+    or a step and so has no column of its own -- its condition text is
+    composed in here instead.
+
+    Dispatches on which raw field is populated rather than on `kind`,
+    since each field belongs to exactly one or two kinds already — the
+    order matters only where two kinds share a field (`decision` and
+    `posture`: an approving `gate-approval-recorded` carries both, and
+    `decision` takes the lead clause, folding posture in alongside it,
+    so a graduating approval's posture still has somewhere to go)."""
+    if entry.playbook_version is not None:
+        return f"started against playbook version {entry.playbook_version}"
+    if entry.outcome is not None:
+        recorded = f"recorded {entry.outcome}"
+        extra = entry.reason or entry.evidence
+        return f"{recorded} — {extra}" if extra else recorded
+    if entry.decision is not None:
+        decided = f"{entry.decision} decision recorded"
+        return f"{decided}, posture '{entry.posture}'" if entry.posture else decided
+    if entry.gate_id is not None:
+        attested = (
+            f"the condition '{entry.subject}' attested on the {entry.gate_id} gate"
+        )
+        return f"{attested} — {entry.evidence}" if entry.evidence else attested
+    if entry.standing_at is not None:
+        return f"opened; the launch now stands at {entry.standing_at}"
+    if entry.previous_date is not None or entry.new_date is not None:
+        if entry.previous_date is None:
+            return f"set to {entry.new_date}"
+        return f"moved from {entry.previous_date} to {entry.new_date}"
+    if entry.unsatisfied:
+        named = ", ".join(str(item) for item in entry.unsatisfied)
+        return f"refused, waiting on: {named}"
+    if entry.posture is not None:
+        return f"graduated, steady-state posture '{entry.posture}'"
+    return None
+
+
+def _journal_lines(
+    entries: Any, actor_names: dict[str, str]
+) -> tuple[JournalLine, ...]:
     """The journal as the page renders it, in the order the read gave it.
 
     R5 requires the journal to render newest first, and puts that on the
@@ -521,17 +646,19 @@ def _journal_lines(entries: Any) -> tuple[JournalLine, ...]:
     obligation is the page's, and a page that only looks right because
     its collaborator happened to be ordered is not meeting it.
 
-    Composes nothing: `what`, `cause`, `label` and `category` are worded
-    at read time, and carrying them across unchanged is what R5 requires
-    each entry to name.
+    Composes `who`, `subject` (`_gate_or_step`) and `detail`; every other
+    field is carried across unchanged, which is what R5 requires each
+    entry to name.
     """
     lines = [
         JournalLine(
-            what=entry.what,
             when=entry.when,
-            cause=entry.cause,
             label=entry.label,
             category=entry.category,
+            subject=_gate_or_step(entry),
+            source=entry.source,
+            who=_who(entry.actor, actor_names),
+            detail=_journal_detail(entry),
         )
         for entry in entries or ()
     ]
@@ -621,7 +748,8 @@ async def _journal_for(product_id: ProductId, scope: Any) -> tuple[JournalLine, 
     """
     if read_journal is None:
         return ()
-    return _journal_lines(await read_journal(product_id=product_id, scope=scope))
+    entries = await read_journal(product_id=product_id, scope=scope)
+    return _journal_lines(entries, await _actor_names(roster))
 
 
 async def _products_by_id(scope: Any) -> tuple[dict[str, Any], bool]:

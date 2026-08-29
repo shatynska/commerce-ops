@@ -26,26 +26,39 @@
   {% if not journal.entries %}
   <p class="empty">Nothing is recorded in this launch's journal.</p>
   {% else %}
-  {# The journal, as a table -- moved here unchanged from the detail
-     page's own inline section (`structure-the-launch-journal-table`,
-     merged from `main` alongside this page's own split). Each row
-     carries the entry's category as a `category-<value>` marker;
-     `vocabulary.css`'s `.journal-entries` rules render it. #}
+  {# The journal, as a table -- one row per entry, raw facts in their own
+     columns rather than a composed sentence (`raw-out-the-journal-columns`).
+     Wrapped the same way the detail page's own step table is
+     (`.table-scroll`), and using the same visual vocabulary: the kind
+     renders as a coloured tag (`kind-tag`, coloured by the row's own
+     `category-<value>` marker, the same "readable by treatment" standard
+     `outcome-tag` holds on the detail page), the source as a plain
+     uncoloured tag (`mark`, the page's existing fact vocabulary), and the
+     table inherits the site-wide row height and type size rather than
+     setting its own. #}
+  <div class="table-scroll">
   <table class="journal-entries">
     <thead>
-      <tr><th>Kind</th><th>What</th><th>When</th><th>Cause</th></tr>
+      <tr>
+        <th>when</th><th>kind</th><th>gate/step</th>
+        <th>source</th><th>who</th>
+        <th>detail</th>
+      </tr>
     </thead>
     <tbody>
       {% for entry in journal.entries %}
-      <tr class="category-{{ entry.category }}">
-        <td class="label">{{ entry.label }}</td>
-        <td class="what">{{ entry.what }}</td>
-        <td class="when">{{ entry.when }}</td>
-        <td class="cause">{{ entry.cause }}</td>
+      <tr class="journal-row category-{{ entry.category }}">
+        <td class="when">{{ entry.when.strftime('%Y-%m-%d %H:%M %Z') }}</td>
+        <td><span class="kind-tag">{{ entry.label }}</span></td>
+        <td class="subject">{{ entry.subject or '—' }}</td>
+        <td><span class="mark">{{ entry.source or 'system' }}</span></td>
+        <td class="who">{{ entry.who or '—' }}</td>
+        <td class="detail">{{ entry.detail or '—' }}</td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
+  </div>
   {% endif %}
 </main>
 </body>

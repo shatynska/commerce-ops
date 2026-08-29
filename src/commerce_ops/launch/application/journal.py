@@ -1,17 +1,22 @@
-"""The launch journal's facts, and the wording composed from them.
+"""The launch journal's facts, read back as facts — never as prose.
 
-Implements `launch-journal` (`openspec/changes/add-launch-journal/`).
+Implements `launch-journal` (`openspec/changes/add-launch-journal/`,
+later revised by `structure-the-launch-journal-table` and
+`raw-out-the-journal-columns`).
 
-Two shapes live here, and the distinction between them is the whole of
-the capability's "an entry stores structure, never rendered prose":
+Two shapes live here:
 
 - `JournalOccurrence` is what an accepted command appends — the facts of
   one occurrence, a field per fact, never a sentence about them.
-- `JournalEntry` is what a reader gets back, and its `what` and `cause`
-  are **composed here, at read time**, from those facts. Improving a
-  sentence therefore improves every entry of that kind already appended
-  (design.md Decision 5); nothing about how an occurrence reads is
-  frozen at the moment it is appended.
+- `JournalEntry` is what a reader gets back: the same facts, still
+  unworded, plus a short `label` and a `category` composed from them at
+  read time (design.md Decision 5 of `structure-the-launch-journal-table`
+  — improving a label or a category rule improves every entry of that
+  kind already appended). Earlier revisions of this module also composed
+  a `what` sentence and a `cause` sentence; `raw-out-the-journal-columns`
+  removed both; a reader wanting the shape of an occurrence one kind at a
+  time reads `kind`, `subject` and the per-kind fact fields below
+  directly; no field here is ever a sentence about another.
 
 `occurred_at` is the moment the occurrence *names*, and is `None`
 exactly for the occurrences that name none — a start, a gate opening, a
@@ -78,81 +83,66 @@ class JournalOccurrence:
 
 @dataclass(frozen=True, slots=True)
 class JournalEntry:
-    """One entry as a reader gets it: what occurred, when, and what
-    caused it — the wording composed from the stored facts.
+    """One entry as a reader gets it — every fact the occurrence carried,
+    unworded, plus a composed `label` and `category` (below).
 
-    `label` and `category` are composed here too, the same way `what`
-    and `cause` are: a short name for the kind, and one of four coarse
-    groupings (`progression`, `judgment`, `blocked`, `admin`) a reader
-    scans a table by. Neither is stored."""
+    `subject` is the occurrence's captured label where it has one, its
+    identifier otherwise; `None` for the three kinds with nothing to
+    name (`launch-started`, `launch-date-moved`) — see the field-by-field
+    table below for which kind populates which field.
+
+    Every other field beyond `kind`/`when`/`subject`/`source`/`actor`/
+    `label`/`category` is a raw fact read straight out of the stored
+    occurrence's `details`, present only for the kind(s) that populate
+    it, `None` (or, for `unsatisfied`, an empty tuple) everywhere else:
+
+    | Field               | Populated by                              |
+    |---------------------|--------------------------------------------|
+    | `playbook_version`  | `launch-started`                            |
+    | `outcome`, `reason`  | `step-outcome-recorded`                     |
+    | `evidence`          | `step-outcome-recorded`, `metric-attested`  |
+    | `gate_id`           | `metric-attested`                           |
+    | `decision`          | `gate-approval-recorded`                    |
+    | `posture`           | `gate-approval-recorded` (graduating), `launch-graduated` |
+    | `standing_at`       | `gate-opened`                               |
+    | `previous_date`, `new_date` | `launch-date-moved`                 |
+    | `unsatisfied`       | `advance-refused`                           |
+    """
 
     kind: str
-    what: str
     when: datetime
-    cause: str
     label: str
     category: str
+    subject: str | None
+    source: str | None
+    actor: str | None
+    playbook_version: str | None
+    outcome: str | None
+    reason: str | None
+    evidence: str | None
+    gate_id: str | None
+    decision: str | None
+    posture: str | None
+    standing_at: str | None
+    previous_date: str | None
+    new_date: str | None
+    unsatisfied: tuple[str, ...]
 
 
 def _detail(occurrence: JournalOccurrence, key: str) -> object | None:
     return occurrence.details.get(key)
 
 
-def _text(value: object | None) -> str:
-    return "" if value is None else str(value)
+def _detail_str(occurrence: JournalOccurrence, key: str) -> str | None:
+    value = _detail(occurrence, key)
+    return None if value is None else str(value)
 
 
-def _subject(occurrence: JournalOccurrence) -> str:
-    """How to name the thing an occurrence concerned: its captured label
-    where it has one, its identifier otherwise.
-
-    The label is read off the entry rather than re-resolved, which is
-    what keeps an entry legible after the served playbook has moved on.
-    """
-    return occurrence.subject_label or occurrence.subject_id or "the launch"
-
-
-def _what(occurrence: JournalOccurrence) -> str:
-    kind = occurrence.kind
-    if kind == KIND_LAUNCH_STARTED:
-        version = _text(_detail(occurrence, "playbook_version"))
-        return f"the launch was started against playbook version {version}"
-    if kind == KIND_STEP_OUTCOME_RECORDED:
-        outcome = _text(_detail(occurrence, "outcome"))
-        reason = _detail(occurrence, "reason")
-        recorded = f"'{_subject(occurrence)}' was recorded {outcome}"
-        return f"{recorded} — {reason}" if reason else recorded
-    if kind == KIND_METRIC_ATTESTED:
-        gate = _text(_detail(occurrence, "gate_id"))
-        return (
-            f"the metric condition '{_subject(occurrence)}' was attested "
-            f"on the {gate} gate"
-        )
-    if kind == KIND_GATE_APPROVAL_RECORDED:
-        decision = _text(_detail(occurrence, "decision"))
-        return f"a {decision} decision was recorded on the {_subject(occurrence)} gate"
-    if kind == KIND_GATE_OPENED:
-        standing = _text(_detail(occurrence, "standing_at"))
-        opened = f"the {_subject(occurrence)} gate opened"
-        return f"{opened}; the launch now stands at {standing}" if standing else opened
-    if kind == KIND_LAUNCH_GRADUATED:
-        posture = _text(_detail(occurrence, "posture"))
-        return f"the launch graduated, steady-state posture '{posture}'"
-    if kind == KIND_LAUNCH_DATE_MOVED:
-        previous = _detail(occurrence, "previous")
-        moved_to = _text(_detail(occurrence, "new"))
-        if previous is None:
-            return f"the launch date was set to {moved_to}"
-        return f"the launch date was moved from {previous} to {moved_to}"
-    if kind == KIND_ADVANCE_REFUSED:
-        blocked_by = _detail(occurrence, "unsatisfied")
-        conditions = blocked_by if isinstance(blocked_by, (list, tuple)) else ()
-        named = ", ".join(str(item) for item in conditions)
-        return (
-            f"an advance past the {_subject(occurrence)} gate was refused, "
-            f"waiting on: {named}"
-        )
-    return f"an occurrence of kind '{kind}' was recorded"
+def _unsatisfied(occurrence: JournalOccurrence) -> tuple[str, ...]:
+    value = _detail(occurrence, "unsatisfied")
+    if isinstance(value, (list, tuple)):
+        return tuple(str(item) for item in value)
+    return ()
 
 
 #: A short, fixed label per journal kind — what a table's kind column
@@ -220,42 +210,15 @@ def _category(occurrence: JournalOccurrence) -> str:
     raise ValueError(f"no category rule for journal kind '{kind}'")
 
 
-#: How to name the command that produced an occurrence naming nobody.
-#: Four of the eight kinds are in this position — the use case is simply
-#: never told who asked (design.md Decision 4, "Which kinds carry an
-#: actor").
-_COMMAND_CAUSE: Final[Mapping[str, str]] = {
-    KIND_LAUNCH_STARTED: "a recorded launch start",
-    KIND_GATE_OPENED: "an advance past the gate",
-    KIND_LAUNCH_DATE_MOVED: "a recorded launch date move",
-    KIND_ADVANCE_REFUSED: "a refused advance past the gate",
-}
-
-
-def _cause(occurrence: JournalOccurrence) -> str:
-    """What brought the occurrence about.
-
-    The person and the source where the occurrence names one; the
-    command that produced it where it names nobody. Never empty — a
-    reader scanning a mixed list learns either who did this or which
-    command did.
-    """
-    if occurrence.actor is not None:
-        attributed = f"recorded by {occurrence.actor}"
-        if occurrence.source is not None:
-            attributed = f"{attributed} from {occurrence.source}"
-        evidence = _detail(occurrence, "evidence")
-        return f"{attributed}: {evidence}" if evidence else attributed
-    return _COMMAND_CAUSE.get(occurrence.kind, f"a recorded {occurrence.kind}")
-
-
 def compose(occurrence: JournalOccurrence) -> JournalEntry:
-    """One stored occurrence, worded.
+    """One stored occurrence, read back as an entry.
 
-    A stamped `occurred_at` is guaranteed by the store, which fills the
-    ones the application layer leaves `None`; an unstamped occurrence
-    here would be a repository that did not do its job, so this asserts
-    rather than inventing a moment of its own.
+    Composes only `label` and `category` — every other field is the
+    occurrence's own fact, carried across unchanged. A stamped
+    `occurred_at` is guaranteed by the store, which fills the ones the
+    application layer leaves `None`; an unstamped occurrence here would
+    be a repository that did not do its job, so this asserts rather than
+    inventing a moment of its own.
     """
     assert occurrence.occurred_at is not None, (
         f"a stored journal occurrence must carry the moment it names; the "
@@ -264,9 +227,21 @@ def compose(occurrence: JournalOccurrence) -> JournalEntry:
     )
     return JournalEntry(
         kind=occurrence.kind,
-        what=_what(occurrence),
         when=occurrence.occurred_at,
-        cause=_cause(occurrence),
         label=_label(occurrence),
         category=_category(occurrence),
+        subject=occurrence.subject_label or occurrence.subject_id,
+        source=occurrence.source,
+        actor=occurrence.actor,
+        playbook_version=_detail_str(occurrence, "playbook_version"),
+        outcome=_detail_str(occurrence, "outcome"),
+        reason=_detail_str(occurrence, "reason"),
+        evidence=_detail_str(occurrence, "evidence"),
+        gate_id=_detail_str(occurrence, "gate_id"),
+        decision=_detail_str(occurrence, "decision"),
+        posture=_detail_str(occurrence, "posture"),
+        standing_at=_detail_str(occurrence, "standing_at"),
+        previous_date=_detail_str(occurrence, "previous"),
+        new_date=_detail_str(occurrence, "new"),
+        unsatisfied=_unsatisfied(occurrence),
     )

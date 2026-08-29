@@ -124,7 +124,7 @@ A later change to the playbook SHALL NOT change what an already-appended entry c
 
 An entry SHALL store the occurrence as facts — its kind, the moment it names, the identifiers and labels it concerned, the attribution it carried, and the values that distinguish it from another occurrence of the same kind — and SHALL NOT store a composed sentence about it.
 
-Wording SHALL be composed when the journal is read, from what the entry carries. Improving how an occurrence reads SHALL therefore improve every entry of that kind already appended, rather than leaving history phrased the way it was first written.
+A read SHALL carry those facts across unworded — no sentence is composed from them at read time either, per the requirement above (`raw-out-the-journal-columns`, which removed the sentence composition an earlier revision performed here). The one thing still composed at read time is the label and the category (above): both are short, fixed-vocabulary tags rather than sentences, and improving either SHALL therefore still improve every entry of that kind already appended, rather than leaving history labelled or categorized the way it was first read.
 
 #### Scenario: An entry is stored as facts
 
@@ -133,8 +133,8 @@ Wording SHALL be composed when the journal is read, from what the entry carries.
 
 #### Scenario: Improved wording reaches entries already appended
 
-- **WHEN** the wording composed for a kind of occurrence changes, and a launch's journal holding an entry of that kind from before the change is read
-- **THEN** that entry reads with the new wording
+- **WHEN** the label or category rule for a kind of occurrence changes, and a launch's journal holding an entry of that kind from before the change is read
+- **THEN** that entry reads with the new label or category
 
 ### Requirement: Entries are appended, never replaced or deleted
 
@@ -184,9 +184,11 @@ A failed append SHALL be reported to the application log at error severity, nami
 
 The system SHALL report one launch's journal, given the product identifier the launch references, with the most recent entry first — ordered by the moment each entry names, entries naming the same moment reported in the reverse of the order they were appended, so that the later of two simultaneous entries is reported first.
 
-Each reported entry SHALL name what occurred, when it occurred, and what caused it. What caused it is the person and the source where the occurrence names one — the recorder of a step outcome, the approver of a decision, the attester of a metric condition — and the command that produced it where the occurrence names nobody.
+Each reported entry SHALL name when it occurred, and SHALL carry every other fact the occurrence recorded as its own field — never composed into a sentence about them. This extends "An entry stores structure, never rendered prose" (below) to the read side as well as the stored side: an earlier revision of this requirement composed a `what` sentence and a `cause` sentence at read time; `raw-out-the-journal-columns` removed both, so that a reader wanting to know what happened reads the facts directly rather than a sentence built from them.
 
-Each reported entry SHALL additionally carry a short label naming its kind, and a category, both composed at read time from the stored occurrence rather than stored. The label SHALL be one of a fixed set, one per journal kind. The category SHALL be one of a fixed set of four — progression, judgment, blocked, admin — assigned per kind, except for two kinds whose category depends on a fact the occurrence carries, so that a negative outcome reads distinctly from ordinary progress:
+The facts every entry carries: `kind`, `subject` (the occurrence's subject label where it has one, its subject identifier otherwise), `source`, and `actor` — each `None` where the occurrence carries none, rather than a placeholder value. Beyond these, an entry carries the fact or facts that distinguish its kind, read straight from the occurrence's stored details and named for what they are rather than folded into any other field: `playbook_version` (a start), `outcome` and `reason` (a step outcome), `evidence` (a step outcome or a metric attestation), `gate_id` (a metric attestation — the gate it was attested against, distinct from `subject`, which is the condition), `decision` (an approval), `posture` (a graduating approval, or a graduation), `standing_at` (a gate opened), `previous_date` and `new_date` (a moved launch date), and `unsatisfied` (a refusal — a list of condition names, not a sentence about them, per the exception the requirement below already carries). Each is `None` (or, for `unsatisfied`, empty) on every entry whose kind does not populate it.
+
+Each reported entry SHALL additionally carry a short label naming its kind, and a category, both composed at read time from the stored occurrence rather than stored — the one exception to "never composed": a label and a category are not sentences, and composing them is what lets an improved label or a corrected category reach every already-appended entry of that kind, the same reasoning "Improved wording reaches entries already appended" (below) states for the wording this revision removes. The label SHALL be one of a fixed set, one per journal kind. The category SHALL be one of a fixed set of four — progression, judgment, blocked, admin — assigned per kind, except for two kinds whose category depends on a fact the occurrence carries, so that a negative outcome reads distinctly from ordinary progress:
 
 - a `gate-approval-recorded` entry SHALL be categorized blocked where it carries a rejecting decision and judgment where it carries an approving one;
 - a `step-outcome-recorded` entry SHALL be categorized blocked where the outcome it names is `Blocked` or `Refused`, and progression for every other outcome.
@@ -205,20 +207,30 @@ A launch that predates the journal, and a product with no launch record at all, 
 - **WHEN** two entries naming the same moment are read
 - **THEN** the one appended later is reported first
 
-#### Scenario: An entry reports what occurred, when, and what caused it
+#### Scenario: An entry reports its distinguishing facts as their own fields
 
 - **WHEN** a launch whose journal holds a step outcome recorded by a named person from a named source is read
-- **THEN** that entry names what occurred, the moment it occurred, and that person and source as what caused it
+- **THEN** that entry carries the moment it occurred as `when`, that person as `actor`, that source as `source`, and the recorded outcome and its reason as `outcome` and `reason`, each in its own field
 
-#### Scenario: An occurrence naming nobody reports the command as its cause
+#### Scenario: A kind's distinguishing facts are absent from an entry of another kind
 
-- **WHEN** an entry for an occurrence that names no person is read
-- **THEN** it names the command that produced it as what caused it
+- **WHEN** an entry of a kind that carries no `outcome`, `reason`, `decision`, `gate_id`, `standing_at`, `posture`, `playbook_version`, `previous_date` or `new_date` is read
+- **THEN** each of those fields is `None` on that entry, rather than an empty string or a placeholder
 
 #### Scenario: An entry reports a label naming its kind
 
 - **WHEN** any entry is read
 - **THEN** it carries a short label naming its kind, drawn from the fixed set of labels rather than the raw kind string
+
+#### Scenario: An entry reports its subject, source and actor as raw facts
+
+- **WHEN** a launch whose journal holds a step outcome recorded by a named person from a named source, naming a step as its subject, is read
+- **THEN** that entry carries the step's name as `subject`, the source as `source`, and the recorder as `actor`, each unworded
+
+#### Scenario: An occurrence naming no subject, source or actor reports each as absent
+
+- **WHEN** an entry for an occurrence that names none of a subject, a source or an actor is read
+- **THEN** its `subject`, `source` and `actor` are each `None`, rather than a placeholder value
 
 #### Scenario: An entry reports a category
 

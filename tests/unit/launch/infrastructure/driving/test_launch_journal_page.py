@@ -1061,16 +1061,21 @@ def test_both_ancestors_are_reachable_from_the_journal_page(
 def test_a_journal_entry_names_what_occurred_when_and_what_caused_it(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Scenario: An entry names what occurred, when, and what caused it.
+    """Scenario: An entry names when it occurred, and shows its subject,
+    source and who recorded it as separate facts.
 
     WHEN a launch's journal holds an entry
-    THEN the journal page renders it naming what occurred, when it
-    occurred, and what caused it.
+    THEN the journal page renders it naming when it occurred, and shows
+    its subject, its source, and who recorded it, each in its own
+    column -- `raw-out-the-journal-columns` replaced this page's earlier
+    composed `what`/`cause` fields entirely with these raw ones plus a
+    composed `detail` phrase.
     """
     product = _launching("PX-100", PRODUCT_NAME)
-    occurred = "the commit gate was approved"
+    subject = "commit"
     when = datetime(2027, 3, 2, 10, 30, tzinfo=UTC)
-    cause = "an approval recorded by Helen in Slack"
+    source = "slack"
+    actor = "an-actor-not-on-the-roster"
 
     async def _one_entry(*_a: Any, **_k: Any) -> tuple[Any, ...]:
         return (
@@ -1078,12 +1083,24 @@ def test_a_journal_entry_names_what_occurred_when_and_what_caused_it(
                 "_Entry",
                 (),
                 {
-                    "what": occurred,
                     "when": when,
-                    "cause": cause,
                     "kind": "approval",
                     "label": "Approval",
                     "category": "judgment",
+                    "subject": subject,
+                    "source": source,
+                    "actor": actor,
+                    "playbook_version": None,
+                    "outcome": None,
+                    "reason": None,
+                    "evidence": None,
+                    "gate_id": None,
+                    "decision": "approving",
+                    "posture": None,
+                    "standing_at": None,
+                    "previous_date": None,
+                    "new_date": None,
+                    "unsatisfied": (),
                 },
             )(),
         )
@@ -1096,15 +1113,15 @@ def test_a_journal_entry_names_what_occurred_when_and_what_caused_it(
     )
 
     text = _all_text(_tree(_journal_html(surface)))
-    # SPECIFIED: what occurred...
-    assert occurred in text, f"the journal page does not name what occurred: {text!r}"
-    # ...when it occurred...
+    # SPECIFIED: when it occurred...
     assert when.date().isoformat() in text or (
         str(when.day) in text and str(when.year) in text
     ), f"the journal page does not name when it occurred: {text!r}"
-    # ...and what caused it.
-    assert cause.lower() in text, (
-        f"the journal page does not name what caused it: {text!r}"
+    # ...and its subject, source and who recorded it, each its own fact.
+    assert subject in text, f"the journal page does not show its subject: {text!r}"
+    assert source in text, f"the journal page does not show its source: {text!r}"
+    assert actor.lower() in text, (
+        f"the journal page does not show who recorded it: {text!r}"
     )
 
 
@@ -1124,17 +1141,32 @@ def test_journal_entries_render_newest_first(monkeypatch: pytest.MonkeyPatch) ->
 
     async def _entries(*_a: Any, **_k: Any) -> tuple[Any, ...]:
         # Handed over oldest-first, so passing cannot be arrival order.
+        # The mark rides `outcome` -- `step-outcome-recorded`'s own fact
+        # field, folded into the composed `detail` phrase -- since `what`
+        # no longer exists (`raw-out-the-journal-columns`).
         return tuple(
             type(
                 "_Entry",
                 (),
                 {
-                    "what": mark,
                     "when": moment,
-                    "cause": "a recorded outcome",
                     "kind": "step-outcome-recorded",
                     "label": "Outcome",
                     "category": "progression",
+                    "subject": None,
+                    "source": None,
+                    "actor": None,
+                    "playbook_version": None,
+                    "outcome": mark,
+                    "reason": None,
+                    "evidence": None,
+                    "gate_id": None,
+                    "decision": None,
+                    "posture": None,
+                    "standing_at": None,
+                    "previous_date": None,
+                    "new_date": None,
+                    "unsatisfied": (),
                 },
             )()
             for mark, moment in zip(marks, moments, strict=True)

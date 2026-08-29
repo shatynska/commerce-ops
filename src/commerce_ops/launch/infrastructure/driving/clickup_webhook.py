@@ -125,7 +125,15 @@ def _status_change(payload: Any) -> tuple[bool, str | None] | None:
             continue
         after = item.get("after") or {}
         user = item.get("user") or {}
-        actor = user.get("username") or user.get("email") or user.get("id")
+        # `id` first, not `username`/`email`: a roster person's
+        # `clickup_user_id` stores exactly this field (the identifier we
+        # use to assign that person tasks in ClickUp), so recording it
+        # here is what lets a journal reader's `Who` column resolve a
+        # ClickUp-sourced actor to a name, the same way it already
+        # resolves a Slack-sourced one against `Person.identifier`.
+        # ClickUp always supplies `id`; the other two are the fallback
+        # for a payload shape that somehow doesn't.
+        actor = user.get("id") or user.get("username") or user.get("email")
         return after.get("type") == _CLOSED_STATUS_TYPE, (
             str(actor) if actor is not None else None
         )
