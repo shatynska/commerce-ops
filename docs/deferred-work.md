@@ -345,64 +345,6 @@ per-worktree database convention with a script that creates and migrates one,
 or the resolver refusing a URL that names the working database. The last is the
 one worth doing whether or not the others are.
 
-### A step cannot say when it may start, so gate-8 work runs during gate 1
-
-Nothing in the step set governs *when* a step becomes eligible. `blocking`
-says what a gate waits for before opening — an exit condition — and no field
-says what a step waits for before starting.
-
-The two consumers therefore start everything at once, and each has exactly
-one gate check, both of them the same one:
-
-- `automation_pass._walk_launch` returns early only when the launch is at
-  `graduated`; otherwise it invokes **every** `active` automated step's
-  handler, whatever gate that step belongs to.
-- `clickup_sync.py` projects **every** `active` human step into the launch's
-  ClickUp list on the first pass, so a new launch's list opens with all
-  eight gates of work in it.
-
-**Observed in production**, and this is what prompted recording it: a launch
-standing at `commit` had `listing.subcategory_advisor` — a `listable`-gate
-step, gate 3 — re-recorded at 10:00, 10:15 and 10:30, one journal entry per
-automation pass. It runs six gates early, and repeats, because the outcome it
-records is not terminal so each pass proposes it again.
-
-**Marking such a step `blocking` does not help**, and is the natural wrong
-guess. `blocking` feeds `conditions_for_gate`, `_unheld_gates` and
-`date_at_risk` and nothing else; it would add an obligation to `listable`
-while leaving the handler firing exactly as often.
-
-**The shape the work wants**, settled in conversation and recorded here
-because the conversation is not where it will be looked for: two independent
-authored fields on a step rather than one enum —
-
-- `starts_at_gate` — wait until the launch reaches this step's own gate;
-- `after_step` — wait until a named step is satisfied.
-
-Two fields because all four combinations are meaningful, including both at
-once ("once we are in `listable`, and once the photos are approved"). The
-default must be neither, matching today's behaviour, or the migration
-freezes every launch.
-
-It drags in rules a first cut should not skip: cycle detection (`after_step`
-makes the set a graph), a rule for a dependency pointing at a later gate, and
-a rule for one pointing at a non-`active` step. That last must be a
-**write-time** refusal and never a load-time one — a load rule would make
-retiring a step render every stored playbook unloadable, which is the mistake
-`serve-only-a-ready-playbook` was written to undo.
-
-Naming needs care: `blocking` (a gate's exit condition) and the `Blocked`
-step outcome already coexist in `launch.html` twelve lines apart. A third
-sense of "blocked" would make the surface unreadable; prefer *starts when*.
-
-**Unblocked as of `advance-gates-and-confirm-in-slack` (2026-08-28).** It was
-unsafe before that change: gate-released steps against a `current_gate` that
-never advanced would have frozen every launch permanently. Gates move now.
-
-**Recorded in**: `advance-gates-and-confirm-in-slack`'s `proposal.md`
-(Impact) and `design.md` (Non-Goals), now under
-`openspec/changes/archive/2026-08-28-advance-gates-and-confirm-in-slack/`.
-
 ### Graduation cannot be triggered, and the persisted launch cannot say it happened
 
 `advance-gates-and-confirm-in-slack` wires the gate ratchet for the first seven
@@ -498,6 +440,76 @@ sensibly be fixed together.
 **Recorded in**: `advance-gates-and-confirm-in-slack`'s `design.md` (Decision 11).
 Found by `openspec-change-reviewer` during that change's spec review and
 confirmed against `launch_repository.py`, 2026-08-28.
+
+### An integration test assumes every `lp.` human step is active
+
+`tests/integration/launch/test_registered_handlers_activate_nothing.py`
+asserts that every seeded `lp.`-prefixed human step is `active`. That held
+while the only `lp.` rows were the 97 the seed migration wrote, of which 95
+became `active`. It stopped holding when `seed-the-reference-step-set`
+delivered `playbook_reference.yaml`, whose 352 identifiers are a superset of
+the same `lp.` namespace and which `seed_playbook` inserts **as drafts** — so
+255 `lp.` human steps are legitimately not active, and the assertion lists all
+255 back.
+
+**It is unrelated to `let-a-step-say-when-it-starts`**, and was verified so:
+the test fails identically with that change's source reverted to its parent
+commit. It is recorded here because it fails only on a database that has had
+the preparation step run against it, which is why it can pass in one
+environment and fail in another for reasons having nothing to do with the code
+under test.
+
+**The premise to correct, not the assertion.** What the test is really about
+is that a handler existing does not activate a step — "activation is an
+authoring act". The seeded-and-active set it wants is the *migrated* one, so
+the fix is to scope it to the 97 identifiers the seed migration wrote (or to
+the steps the vendored file does not carry as drafts), not to relax the
+status check.
+
+**Trigger to close.** The next change touching the seeded step set, or anyone
+running `tests/integration` against a database where `seed_playbook` has run
+and wondering whether the failure is theirs.
+
+### `after_steps` is not projected onto ClickUp's own task dependencies
+
+`let-a-step-say-when-it-starts` gave a step an `after_steps` set — the steps
+it waits on — and stops at deciding when the system *asks* for the work.
+ClickUp can carry the same fact natively, and does not.
+
+**The API supports it.** `POST /api/v2/task/{task_id}/dependency` takes
+exactly one of `depends_on` (the task waits on that one) or `dependency_of`
+(it blocks that one); `DELETE` on the same path removes an edge. Our client is
+already v2, so this is one function beside `add_task_tag`.
+
+**It fits the convergence design unusually well.** `GET /api/v2/list/{id}/task`
+returns a `dependencies` array on every task, and `clickup_client.list_tasks`
+already takes that read once per pass with pagination — so `converge_launch`
+could read the current edges, add what is missing and remove what is stale at
+**no extra request at all**. `_task_state` simply does not parse the field yet.
+
+**What it cannot be is the enforcement.** ClickUp's Dependency Warning
+ClickApp warns when someone closes a task that is waiting on another and then
+lets them close it; there is no setting that refuses. So the edges are
+advisory, the release predicate remains the thing that decides, and the
+projection must not be written as though ClickUp were holding the line.
+
+**Nor can it carry `starts_at_gate`.** That field points at a gate, and a gate
+is not a task, so there is nothing to depend on. Two workarounds were
+considered and both rejected: fanning each step out to every blocking task of
+every earlier gate is hundreds of edges re-derived on each playbook edit,
+against a rate-limited API; and synthesising a task per gate invents a ClickUp
+object with no counterpart in the domain, needing its own completion semantics
+and its own reconciliation.
+
+**Why it was left out** rather than folded in: it is independent of the
+release predicate, touches no domain code, and would have pushed a change that
+already spans seven capabilities past what one sitting can review. The
+prerequisite is that the Dependency Warning ClickApp is enabled in the Space —
+without it not even the warning appears.
+
+**Trigger to close.** Someone asking why a task's dependencies are visible in
+this system and not in ClickUp; or the first launch where an author uses
+`after_steps` in earnest and wants the ordering where the work is done.
 
 ### The step set's provenance is split across two files, one of which is stale
 

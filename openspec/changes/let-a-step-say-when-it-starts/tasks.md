@@ -80,13 +80,13 @@
 ## 11. Verification
 
 - [x] 11.1 Run `uv run pytest` over `tests/unit` and `tests/agents`
-- [ ] 11.2 Run `uv run pytest tests/integration`, the migration revisions being the point of this one
+- [x] 11.2 Run `uv run pytest tests/integration`, the migration revisions being the point of this one
 - [x] 11.3 Run `ruff check`, `ruff format --check` and `mypy`
 - [x] 11.4 Run `import-linter` and confirm no new contract violation — the predicate is domain code and must not have reached for a repository
 - [x] 11.5 Apply both revisions against a scratch database and confirm a launch at `commit` projects only its released steps, then advances and projects the rest
 
 ## 12. Documentation
 
-- [ ] 12.1 Remove `docs/deferred-work.md`'s "A step cannot say when it may start, so gate-8 work runs during gate 1" entry as part of the archive commit
-- [ ] 12.2 Record in `docs/deferred-work.md` the ClickUp dependency projection this change deliberately left out, with what was established about it: `POST /api/v2/task/{id}/dependency`, the existing list read already returning each task's `dependencies`, and ClickUp's dependencies warning on early completion rather than preventing it
-- [ ] 12.3 Record in `docs/deferred-work.md` that `alembic/data/playbook_v1.yaml` reads as the current step set and is not one — it is read only by migration `d2f8b3c64e17`, whose docstring records why the copy is vendored, so it cannot be deleted and wants a header saying what it is; `alembic/data/playbook_reference.yaml` is the live vendored set
+- [x] 12.1 Remove `docs/deferred-work.md`'s "A step cannot say when it may start, so gate-8 work runs during gate 1" entry as part of the archive commit
+- [x] 12.2 Record in `docs/deferred-work.md` the ClickUp dependency projection this change deliberately left out, with what was established about it: `POST /api/v2/task/{id}/dependency`, the existing list read already returning each task's `dependencies`, and ClickUp's dependencies warning on early completion rather than preventing it
+- [x] 12.3 Record in `docs/deferred-work.md` that `alembic/data/playbook_v1.yaml` reads as the current step set and is not one — it is read only by migration `d2f8b3c64e17`, whose docstring records why the copy is vendored, so it cannot be deleted and wants a header saying what it is; `alembic/data/playbook_reference.yaml` is the live vendored set
