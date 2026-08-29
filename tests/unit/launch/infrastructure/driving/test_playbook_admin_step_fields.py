@@ -486,20 +486,15 @@ def _edit_form(client: TestClient, page_html: str, step_id: str) -> dict[str, An
 
 
 def _status_control(
-    html: str, step_id: str, status: StepStatus
+    client: TestClient, html: str, step_id: str, status: StepStatus
 ) -> tuple[str, str, dict[str, str]]:
-    """The page's status control for a step (INVENTED vocabulary)."""
-    found = _control(html, contains=(step_id, "status"))
-    if found is None:
-        pytest.fail(
-            f"no status control for {step_id!r} was discovered — the page "
-            "SHALL offer changing a step's status; correct this file's "
-            "control vocabulary to the implemented page"
-        )
-    method, url, fields = found
-    if fields:
-        fields = _fill(fields, status=_status_value(status))
-    return method, url, fields
+    """The status change, submitted through the step's own edit form
+    (`move-step-actions-into-step-pages`) -- retiring, un-retiring and
+    changing status all go through the shared `status` field now, not a
+    dedicated row control."""
+    form = _edit_form(client, html, step_id)
+    fields = _fill(form["fields"], status=_status_value(status))
+    return form["method"], form["url"], fields
 
 
 def _status_value(status: StepStatus) -> str:
@@ -888,7 +883,7 @@ def test_an_activation_from_the_page_lands_and_joins_the_served_set(
     client = _signed_client(monkeypatch, store)
 
     method, url, fields = _status_control(
-        _get_page(client), "listing.ready", StepStatus.ACTIVE
+        client, _get_page(client), "listing.ready", StepStatus.ACTIVE
     )
     response = _submit(client, method, url, fields)
 
@@ -927,8 +922,16 @@ def test_a_refused_activation_explains_itself_on_the_page(
     client = _signed_client(monkeypatch, store)
 
     method, url, fields = _status_control(
-        _get_page(client), "listing.unowned", StepStatus.ACTIVE
+        client, _get_page(client), "listing.unowned", StepStatus.ACTIVE
     )
+    # The edit form's parsed fields default an unselected multi-select to
+    # its first option (a fixture-parsing artifact, not a real browser's
+    # behaviour), which would otherwise name an assignee the step does
+    # not actually have and satisfy the very rule this scenario means to
+    # provoke. Cleared explicitly so the submission still names none —
+    # `posted.getlist("assignees")` (`playbook_admin.py`) drops an empty
+    # string, so this reads as "no assignee" server-side.
+    fields = _fill(fields, assignees="")
     response = _submit(client, method, url, fields)
 
     assert response.status_code in (200, 422), response.text

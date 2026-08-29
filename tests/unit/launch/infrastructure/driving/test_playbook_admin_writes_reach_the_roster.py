@@ -120,7 +120,6 @@ NOBODY: Final = "prs_00000000-never-on-any-roster"
 
 _CREATE_HINTS: Final = ("new", "create", "add")
 _RETIRED_PARAM: Final = "retired"
-_UNRETIRE_HINTS: Final = ("unretire", "un-retire", "un_retire")
 
 _HX_VERBS: Final = ("hx-get", "hx-post", "hx-put", "hx-patch", "hx-delete")
 
@@ -809,6 +808,13 @@ def test_each_write_reaches_the_roster(
     `test_a_roster_refusal_is_explicable_from_the_page` and by
     `test_a_write_names_a_person_the_page_offered`, which read the person
     off the page and write against it.
+
+    Retiring, un-retiring and changing status are submitted through the
+    step's edit form now (`move-step-actions-into-step-pages`), the same
+    `status` field an ordinary field edit uses — not a dedicated row
+    control, which no longer exists. `unretire_step`
+    (`playbook_authoring.py`) always returns a step to `in-development`,
+    never `active`, so that is the value the `unretire` case submits.
     """
     roster, (alice,) = _roster_carrying(("Alice Admin", "U01ALICE"))
     store = _seeded_store(person=alice)
@@ -824,21 +830,32 @@ def test_each_write_reaches_the_roster(
         values = _valid_values(surface, person=alice, name="Work of listing.zeta again")
         response = _issue(client, _authoring_form(surface), data=values)
     elif write == "retire":
-        control = _require_control(
-            _get_page(client), contains=(EDITED, "retire"), excluding=_UNRETIRE_HINTS
-        )
-        response = _issue(client, control)
-    elif write == "unretire":
-        control = _require_control(
-            _retired_view(client), contains=(RETIRED_ALREADY, "unretire")
-        )
-        response = _issue(client, control)
-    else:
-        control = _require_control(_get_page(client), contains=(EDITED, "status"))
+        surface = _edit_surface(client, EDITED)
+        control = _authoring_form(surface)
         values = control.data()
         values[_field(values, "status")] = _option_matching(
-            _get_page(client), "status", "draft"
+            surface, "status", "retired"
         )
+        response = _issue(client, control, data=values)
+    elif write == "unretire":
+        # A retired step's name is not on the default list view (retired
+        # steps are hidden there), so its edit surface is reached from
+        # the view that reveals them rather than through `_edit_surface`.
+        surface = _open(
+            client,
+            _require_control(_retired_view(client), contains=(RETIRED_ALREADY, "edit")),
+        )
+        control = _authoring_form(surface)
+        values = control.data()
+        values[_field(values, "status")] = _option_matching(
+            surface, "status", "in-development"
+        )
+        response = _issue(client, control, data=values)
+    else:
+        surface = _edit_surface(client, EDITED)
+        control = _authoring_form(surface)
+        values = control.data()
+        values[_field(values, "status")] = _option_matching(surface, "status", "draft")
         response = _issue(client, control, data=values)
 
     # SPECIFIED: the write evaluates its preconditions against the roster

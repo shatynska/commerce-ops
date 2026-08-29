@@ -171,8 +171,6 @@ _RETIRED_PARAM: Final = "retired"
 #: How the page spells each action, read off the control's own URL,
 #: hidden fields, name, value and text. Correction point for the
 #: implemented page's action vocabulary.
-_RETIRE_HINTS: Final = ("retire",)
-_UNRETIRE_HINTS: Final = ("unretire", "un-retire", "un_retire", "restore", "reinstate")
 _MOVE_HINTS: Final = ("move", "reorder", "position", "/order", "up", "down", "top")
 
 _A_BRIEF: Final = "A brief no human step may carry"
@@ -611,25 +609,6 @@ def _control_haystack(node: _Node) -> str:
 
 def _matching(controls: list[_Node], hints: tuple[str, ...]) -> list[_Node]:
     return [c for c in controls if any(hint in _control_haystack(c) for hint in hints)]
-
-
-def _one_action(
-    row: _Node, *, hints: tuple[str, ...], excluding: tuple[str, ...], what: str
-) -> _Node:
-    controls = _action_controls(row)
-    found = [
-        control
-        for control in _matching(controls, hints)
-        if not any(word in _control_haystack(control) for word in excluding)
-    ]
-    if len(found) != 1:
-        pytest.fail(
-            f"{len(found)} controls on this row look like the {what} action "
-            f"(hints {hints}, excluding {excluding}); the row offers "
-            f"{[_control_haystack(c)[:80] for c in controls]} — correct this "
-            "file's action vocabulary to the implemented page"
-        )
-    return found[0]
 
 
 def _row_of(root: _Node, identifier: str) -> _Node:
@@ -1178,13 +1157,14 @@ def test_a_rows_actions_share_one_vocabulary(
 ) -> None:
     """Scenario: A row's actions share one vocabulary.
 
-    WHEN an active step's row is rendered with its full set of actions
-    THEN every action control carries `row-action`
+    WHEN an active step's row that can move is rendered
+    THEN each move control carries `row-action`
     AND no action is rendered as an unmarked link among marked controls.
 
     `listing.zeta` is the middle of its gate's three active steps, so its
-    row offers the full set: both reorder directions, the status control,
-    edit and retire.
+    row offers both reorder directions — the row's only actions now
+    (`move-step-actions-into-step-pages`): editing, changing status,
+    retiring and un-retiring all moved to the step's own edit page.
     """
     store = _seeded_store()
     client = _signed_client(monkeypatch, store)
@@ -1192,13 +1172,13 @@ def test_a_rows_actions_share_one_vocabulary(
     row = _row_of(_tree(_get_page(client)), EDITED)
     controls = _action_controls(row)
 
-    # DERIVED vacuity guard: a row rendering one control, or none, would
+    # DERIVED vacuity guard: a row rendering no control at all would
     # satisfy the sweep below while offering nothing to speak a
     # vocabulary about.
-    assert len(controls) >= 3, (
-        f"the row for {EDITED!r} offers {len(controls)} action controls, so "
-        "the sweep below asserts almost nothing — correct "
-        "`_is_action_control` to the implemented page"
+    assert controls, (
+        f"the row for {EDITED!r} offers no action control at all, so the "
+        "sweep below asserts nothing — correct `_is_action_control` to the "
+        "implemented page"
     )
     # SPECIFIED: every action control carries `row-action`.
     unmarked = [c for c in controls if not _carries(c, ROW_ACTION)]
@@ -1233,8 +1213,14 @@ def test_a_non_active_steps_row_speaks_the_same_vocabulary(
 
     `page.html` renders a step row at two sites — the served table and
     the one for steps that are not served at this gate (`tasks.md` 4.2) —
-    and a draft's row is the second site. Without this, a draft could
-    keep the old vocabulary while every scenario above still passed.
+    and a draft's row is the second site. Without this, that second site
+    could keep offering an action the served table's row no longer does,
+    while every scenario above still passed.
+
+    A draft holds no slot, so it was never movable there either — the
+    second site's rows carry no action control at all now
+    (`move-step-actions-into-step-pages`), the same as a retired step's
+    row (`A retired step's only action speaks the same vocabulary`).
 
     SPECIFIED by the requirement's prose; it carries no scenario of its
     own, which is why it is a test of its own rather than a clause folded
@@ -1254,17 +1240,11 @@ def test_a_non_active_steps_row_speaks_the_same_vocabulary(
     row = _row_of(_tree(_get_page(client)), "listing.drafted")
     controls = _action_controls(row)
 
-    assert controls, (
-        "the draft's row offers no action control at all, so the vocabulary "
-        "cannot be read off it — correct `_is_action_control` or the "
-        "expectation that a draft's row offers actions"
-    )
-    unmarked = [c for c in controls if not _carries(c, ROW_ACTION)]
-    assert unmarked == [], (
-        f"{len(unmarked)} action controls on the draft's row carry no "
-        f"{ROW_ACTION!r} marker: "
-        f"{[(c.tag, _control_haystack(c)[:60]) for c in unmarked]} — the "
-        "second row site kept the old vocabulary"
+    assert controls == [], (
+        f"the draft's row offers {len(controls)} action control(s): "
+        f"{[(c.tag, _control_haystack(c)[:60]) for c in controls]} — the "
+        "second row site kept an action the served table's row no longer "
+        "offers"
     )
 
 
@@ -1273,37 +1253,25 @@ def test_the_destructive_action_is_distinguished_not_amplified(
 ) -> None:
     """Scenario: The destructive action is distinguished, not amplified.
 
-    WHEN an active step's row is rendered
-    THEN the retire control carries `danger`
-    AND no other action control on that row carries it.
+    WHEN any step's row is rendered, active or retired
+    THEN no control on that row carries `danger`.
 
-    What the markers cannot establish — that retire is not the *most
-    prominent* control in the row — is `tasks.md` 7.7's manual check, and
-    is deliberately not asserted here.
+    Retiring, the row's one destructive action, moved to the step's edit
+    page (`move-step-actions-into-step-pages`) — distinguishing it on
+    the row is no longer a question the row's own markup can answer,
+    since it no longer carries the control at all.
     """
     store = _seeded_store()
     client = _signed_client(monkeypatch, store)
 
     row = _row_of(_tree(_get_page(client)), EDITED)
-    retire = _one_action(
-        row, hints=_RETIRE_HINTS, excluding=_UNRETIRE_HINTS, what="retire"
-    )
+    marked_danger = [c for c in _action_controls(row) if _carries(c, DANGER)]
 
-    # SPECIFIED: the retire control carries `danger`.
-    assert _carries(retire, DANGER), (
-        f"the retire control on {EDITED!r}'s row carries no {DANGER!r} marker "
-        f"(classes: {sorted(_classes(retire))}), so the destructive action is "
-        "not distinguished from its siblings at all"
-    )
-    # SPECIFIED: and no other action control on that row carries it.
-    others = [
-        c for c in _action_controls(row) if c is not retire and _carries(c, DANGER)
-    ]
-    assert others == [], (
-        f"{len(others)} controls other than retire carry {DANGER!r} on "
-        f"{EDITED!r}'s row: "
-        f"{[(c.tag, _control_haystack(c)[:60]) for c in others]} — the "
-        "distinction says nothing if every control claims it"
+    assert marked_danger == [], (
+        f"{len(marked_danger)} controls on {EDITED!r}'s row carry {DANGER!r}: "
+        f"{[(c.tag, _control_haystack(c)[:60]) for c in marked_danger]} — "
+        "retiring is no longer a row action, so nothing on the row should "
+        "claim the destructive marker"
     )
 
 
@@ -1314,8 +1282,11 @@ def test_a_retired_steps_only_action_speaks_the_same_vocabulary(
 
     WHEN a retired step's row is rendered from the view that reveals
     retired steps
-    THEN its un-retire control carries `row-action`
-    AND does not carry `danger`.
+    THEN it carries no control marked `row-action` at all — retired
+    steps hold no slot to reorder, and every other action moved to the
+    step's edit page (`move-step-actions-into-step-pages`), so there is
+    no longer an "only action" for the row to offer, only the marker's
+    continued absence.
     """
     retired = _Record(
         _step(
@@ -1336,19 +1307,13 @@ def test_a_retired_steps_only_action_speaks_the_same_vocabulary(
         "so there is no row to read a vocabulary off"
     )
     row = _row_of(_tree(revealed), "listing.retired-work")
-    unretire = _one_action(row, hints=_UNRETIRE_HINTS, excluding=(), what="un-retire")
+    controls = _action_controls(row)
 
-    # SPECIFIED: its un-retire control carries `row-action`.
-    assert _carries(unretire, ROW_ACTION), (
-        "the un-retire control carries no "
-        f"{ROW_ACTION!r} marker (classes: {sorted(_classes(unretire))}), so "
-        "the retired row speaks a vocabulary of its own"
-    )
-    # SPECIFIED: and does not carry `danger` — un-retiring destroys
-    # nothing.
-    assert not _carries(unretire, DANGER), (
-        f"the un-retire control carries {DANGER!r}, marking a restoring "
-        "action as the destructive one"
+    assert controls == [], (
+        f"a retired step's row offers {len(controls)} action control(s): "
+        f"{[(c.tag, _control_haystack(c)[:60]) for c in controls]} — retired "
+        "steps hold no slot to reorder, and every other action moved to "
+        "the step's edit page"
     )
 
 

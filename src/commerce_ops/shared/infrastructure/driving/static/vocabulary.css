@@ -618,6 +618,74 @@ main.container h2 {
   font-weight: 600;
 }
 
+/* The playbook page's own gate tables (the served table and the
+   "not served at this gate" one) size their columns the same way the
+   launch detail page's do (`add-admin-breadcrumb-navigation`'s
+   follow-up polish): `table-layout: fixed` with a percentage per
+   column, so a column holds its width across every gate's table on the
+   page rather than sizing itself to that gate's own content. Column
+   order: move, at, name, id, assignees, discipline, facts —
+   `move-step-actions-into-step-pages`'s narrowed set, status and
+   actions no longer among them. */
+.playbook-gate .table-scroll {
+  overflow-x: auto;
+}
+
+.playbook-gate table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.playbook-gate th:nth-child(1),
+.playbook-gate td:nth-child(1) {
+  width: 6%;
+}
+
+.playbook-gate th:nth-child(2),
+.playbook-gate td:nth-child(2) {
+  width: 7%;
+}
+
+.playbook-gate th:nth-child(3),
+.playbook-gate td:nth-child(3) {
+  width: 22%;
+}
+
+.playbook-gate th:nth-child(4),
+.playbook-gate td:nth-child(4) {
+  width: 15%;
+}
+
+.playbook-gate th:nth-child(5),
+.playbook-gate td:nth-child(5) {
+  width: 18%;
+}
+
+.playbook-gate th:nth-child(6),
+.playbook-gate td:nth-child(6) {
+  width: 10%;
+}
+
+/* `facts` can carry up to three `.mark`s, each `white-space: nowrap` by
+   design; the same floor `launch.html`'s own facts column needed, for
+   the same reason -- a `<td>` doesn't clip its own overflow, so a
+   narrow enough viewport would otherwise let a mark spill into `id`. */
+.playbook-gate th:nth-child(7),
+.playbook-gate td:nth-child(7) {
+  width: 22%;
+  min-width: 8rem;
+}
+
+/* `td.identity`'s own site-wide rule keeps a short code on one line,
+   which reads fine in an unconstrained column; fixed to a share of the
+   table's width here, a long identifier needs to wrap instead of
+   spilling into its neighbour -- the same correction the launch detail
+   page's own identity column needed. */
+.playbook-gate td.identity {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 /* ---------------------------------------------------------------------------
  * The page head, and the narrowing beside it
  * ------------------------------------------------------------------------ */
