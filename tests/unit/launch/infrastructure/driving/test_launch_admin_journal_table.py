@@ -108,7 +108,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from commerce_ops.access.application import create_person
+from commerce_ops.access.application import create_person, list_people
 from commerce_ops.catalog.domain.product import Product
 from commerce_ops.launch.domain.launch_playbook import (
     Gate,
@@ -289,6 +289,26 @@ async def _build_roster() -> _FakeRosterStore:
     return store
 
 
+async def _roster_with_extra_person(
+    display_name: str, *, slack_identity: str, clickup_user_id: str | None = None
+) -> _FakeRosterStore:
+    """`_build_roster()`'s usual roster (the admin session's own principal,
+    "Alice Admin" — needed for the session to verify and for scope to
+    permit the product at all), plus one more named person, for a test
+    that needs to know that second person's generated identifier ahead
+    of time."""
+    store = await _build_roster()
+    await create_person(
+        roster=store,
+        principal="the-seeding-admin",
+        display_name=display_name,
+        slack_identity=slack_identity,
+        clickup_user_id=clickup_user_id,
+        admin=False,
+    )
+    return store
+
+
 def _roster_store() -> _FakeRosterStore:
     return asyncio.run(_build_roster())
 
@@ -378,12 +398,15 @@ def _surface(
     launches: _FakeLaunchStore,
     catalog: _Catalog,
     journal_entries: tuple[Any, ...] = (),
+    roster: Any = None,
 ) -> _Surface:
     module = _page_module()
     _install(monkeypatch, module, "verify", _fake_verify)
     _install(monkeypatch, module, "launches", launches)
     _install(monkeypatch, module, "playbooks", _FakePlaybooks())
-    _install(monkeypatch, module, "roster", _roster_store())
+    _install(
+        monkeypatch, module, "roster", roster if roster is not None else _roster_store()
+    )
     _install(monkeypatch, module, "list_products", catalog.list_products)
     _install(monkeypatch, module, "get_product_by_id", catalog.get_product_by_id)
 
@@ -618,25 +641,58 @@ def _journal_table(html: str) -> _Node | None:
 
 
 # ---------------------------------------------------------------------------
-# A fake composed journal entry — the shape a real `JournalEntry` carries
-# once this change lands: `kind`, `what`, `when`, `cause`, `label`,
-# `category` all present.
+# A fake composed journal entry — the shape a real `JournalEntry` carries.
+# `raw-out-the-journal-columns` removed `what`/`cause` (composed
+# sentences) from the real dataclass entirely, replacing them with raw
+# per-kind fact fields (`outcome`, `reason`, `decision`, ...); this fake
+# carries the same fields, each defaulted to `None`/`()` since a given
+# fixture only ever populates the one or two facts its kind carries.
 # ---------------------------------------------------------------------------
 
 
 def _entry(
-    *, kind: str, what: str, when: datetime, cause: str, label: str, category: str
+    *,
+    kind: str,
+    when: datetime,
+    label: str,
+    category: str,
+    subject: str | None = None,
+    source: str | None = None,
+    actor: str | None = None,
+    playbook_version: str | None = None,
+    outcome: str | None = None,
+    reason: str | None = None,
+    evidence: str | None = None,
+    gate_id: str | None = None,
+    decision: str | None = None,
+    posture: str | None = None,
+    standing_at: str | None = None,
+    previous_date: str | None = None,
+    new_date: str | None = None,
+    unsatisfied: tuple[str, ...] = (),
 ) -> Any:
     return type(
         "_Entry",
         (),
         {
             "kind": kind,
-            "what": what,
             "when": when,
-            "cause": cause,
             "label": label,
             "category": category,
+            "subject": subject,
+            "source": source,
+            "actor": actor,
+            "playbook_version": playbook_version,
+            "outcome": outcome,
+            "reason": reason,
+            "evidence": evidence,
+            "gate_id": gate_id,
+            "decision": decision,
+            "posture": posture,
+            "standing_at": standing_at,
+            "previous_date": previous_date,
+            "new_date": new_date,
+            "unsatisfied": unsatisfied,
         },
     )()
 
@@ -646,43 +702,169 @@ def _entry(
 # ===========================================================================
 
 
-def test_an_entry_names_what_occurred_when_and_what_caused_it(
+def test_an_entry_names_when_it_occurred_and_shows_subject_source_who(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Scenario: An entry names what occurred, when, and what caused it
-    (REVISED: against an entry that also carries `label`/`category`, the
-    shape this change gives every composed entry).
+    """Scenarios: An entry names when it occurred / An entry's row shows
+    its subject, source and who recorded it as separate facts
+    (`raw-out-the-journal-columns`, which removed the page's earlier
+    composed `what`/`cause` columns in favour of these raw ones).
 
-    WHEN a launch's journal holds an entry
-    THEN it is rendered naming what occurred, when it occurred, and what
-    caused it.
+    WHEN a launch's journal holds an entry carrying a subject, a source
+    and an actor
+    THEN its row shows when it occurred, and shows the subject, the
+    source and who recorded it each in its own column, none folded into
+    a sentence with another.
     """
-    occurred = "the commit gate was approved, uniquely-marked-occurrence"
     when = datetime(2027, 3, 2, 10, 30, tzinfo=UTC)
-    cause = "an approval recorded by Helen in Slack"
+    subject = "commit"
+    source = "slack"
+    # An actor not present in `_roster_store()`'s fixture roster (only
+    # "Alice Admin" is seeded), so `who` renders this raw value rather
+    # than a resolved display name -- resolution itself is exercised by
+    # `test_an_entrys_who_column_resolves_a_known_actor_to_their_name`
+    # and its ClickUp-id sibling below.
+    actor = "an-actor-not-on-the-roster"
     entry = _entry(
         kind="gate-approval-recorded",
-        what=occurred,
         when=when,
-        cause=cause,
         label="Approval",
         category="judgment",
+        subject=subject,
+        source=source,
+        actor=actor,
+        decision="approving",
     )
     world = _world(monkeypatch, journal_entries=(entry,))
 
     html = _detail_html(world.surface, world.product.id)
 
     text = _all_text(_tree(html))
-    # SPECIFIED: naming what occurred...
-    assert occurred in text, f"the journal entry does not name what occurred: {text!r}"
-    # ...when it occurred...
+    # SPECIFIED: when it occurred.
     assert _renders_date(_tree(html), when.date()), (
         f"the journal entry does not name when it occurred: {text!r}"
     )
-    # ...and what caused it.
-    assert cause.lower() in text, (
-        f"the journal entry does not name what caused it: {text!r}"
+    # SPECIFIED: subject, source and who, each its own fact.
+    assert subject in text, f"the journal entry does not show its subject: {text!r}"
+    assert source in text, f"the journal entry does not show its source: {text!r}"
+    assert actor.lower() in text, (
+        f"the journal entry does not show who recorded it: {text!r}"
     )
+
+
+def test_a_kinds_facts_are_composed_into_the_row_detail_phrase(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Scenario: A kind's facts are composed into the row's detail
+    phrase.
+
+    WHEN a launch's journal holds a `step-outcome-recorded` entry
+    carrying an outcome and a reason
+    THEN its row's detail column shows a phrase naming both, without a
+    further column for the second.
+    """
+    outcome = "Blocked"
+    reason = "waiting on brand guidelines, uniquely-marked-reason"
+    entry = _entry(
+        kind="step-outcome-recorded",
+        when=datetime(2027, 3, 2, 10, 30, tzinfo=UTC),
+        label="Outcome",
+        category="blocked",
+        subject="Write the listing copy",
+        outcome=outcome,
+        reason=reason,
+    )
+    world = _world(monkeypatch, journal_entries=(entry,))
+
+    html = _detail_html(world.surface, world.product.id)
+    text = _all_text(_tree(html))
+
+    assert outcome.lower() in text, (
+        f"the journal entry does not show its outcome: {text!r}"
+    )
+    assert reason in text, f"the journal entry does not show its reason: {text!r}"
+
+
+def test_a_detail_phrase_does_not_restate_the_subject(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Scenario: A detail phrase does not restate the subject.
+
+    WHEN a launch's journal holds an entry carrying a subject
+    THEN its row's detail column does not repeat that subject -- the
+    subject is read from its own column instead.
+    """
+    subject = "Write the listing copy, uniquely-marked-subject"
+    entry = _entry(
+        kind="step-outcome-recorded",
+        when=datetime(2027, 3, 2, 10, 30, tzinfo=UTC),
+        label="Outcome",
+        category="progression",
+        subject=subject,
+        outcome="Satisfied",
+    )
+    world = _world(monkeypatch, journal_entries=(entry,))
+
+    html = _detail_html(world.surface, world.product.id)
+
+    row = _journal_row(html, subject)
+    detail_cell = next(
+        element
+        for element in _elements(row)
+        if "detail" in element.attrs.get("class", "")
+    )
+    assert subject not in _all_text(detail_cell), (
+        f"the detail column restates the subject {subject!r}: "
+        f"{_all_text(detail_cell)!r}"
+    )
+
+
+def test_metric_attesteds_condition_is_not_a_gate_or_step(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A `metric-attested` entry's subject is the condition being
+    attested -- not a gate or a step -- so the gate/step column SHALL
+    leave it out, and the condition text SHALL instead be part of the
+    row's composed detail phrase alongside the gate it was attested
+    against.
+
+    Not a scenario named in the delta spec (which speaks of `subject`
+    generically); DERIVED from the spec's own description of `_gate_or_step`
+    excluding `metric-attested` and folding its condition into `detail`.
+    """
+    condition = "conversion rate >= 2%, uniquely-marked-condition"
+    gate = "commit"
+    entry = _entry(
+        kind="metric-attested",
+        when=datetime(2027, 3, 2, 10, 30, tzinfo=UTC),
+        label="Attestation",
+        category="judgment",
+        subject=condition,
+        gate_id=gate,
+    )
+    world = _world(monkeypatch, journal_entries=(entry,))
+
+    html = _detail_html(world.surface, world.product.id)
+
+    row = _journal_row(html, condition)
+    subject_cell = next(
+        element
+        for element in _elements(row)
+        if "subject" in element.attrs.get("class", "")
+    )
+    # SPECIFIED (this refinement): the gate/step column leaves the
+    # condition out -- it names neither a gate nor a step.
+    assert _all_text(subject_cell).strip() in ("", "—"), (
+        f"the gate/step column shows the metric condition, which is "
+        f"neither a gate nor a step: {_all_text(subject_cell)!r}"
+    )
+    # SPECIFIED: the condition and the gate it was attested against both
+    # appear, in the detail column.
+    text = _all_text(row)
+    assert condition.lower() in text, (
+        f"the row does not show the attested condition: {text!r}"
+    )
+    assert gate in text, f"the row does not show the gate attested against: {text!r}"
 
 
 def test_journal_entries_render_newest_first(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -702,15 +884,16 @@ def test_journal_entries_render_newest_first(monkeypatch: pytest.MonkeyPatch) ->
         datetime(2027, 2, 3, 9, 0, tzinfo=UTC),
         datetime(2027, 3, 4, 9, 0, tzinfo=UTC),
     )
-    # Handed over oldest-first, so passing cannot be arrival order.
+    # Handed over oldest-first, so passing cannot be arrival order. The
+    # mark rides `playbook_version` -- `launch-started`'s own fact column
+    # -- rather than a `what` column, which no longer exists.
     entries = tuple(
         _entry(
             kind="launch-started",
-            what=mark,
             when=moment,
-            cause="a recorded launch start",
             label="Start",
             category="progression",
+            playbook_version=mark,
         )
         for mark, moment in zip(marks, moments, strict=True)
     )
@@ -750,11 +933,10 @@ def test_an_entrys_row_shows_its_label_and_carries_its_category_marker(
     entries = tuple(
         _entry(
             kind="launch-started",
-            what=mark,
             when=datetime(2027, 5, index + 1, 9, 0, tzinfo=UTC),
-            cause="a recorded occurrence",
             label=label,
             category=category,
+            subject=mark,
         )
         for index, (mark, label, category) in enumerate(fixtures)
     )
@@ -792,3 +974,258 @@ def test_an_entrys_row_shows_its_label_and_carries_its_category_marker(
                     f"the row for {mark!r} (category {category!r}) also "
                     f"carries {other_marker!r}, another category's marker"
                 )
+
+
+def test_an_entrys_who_column_resolves_a_known_actor_to_their_name(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The journal table's `Who` column, for a follow-on refinement to
+    `structure-the-launch-journal-table`: an entry's `actor` is a roster
+    identifier (`Person.identifier`) where it names one, and a reader
+    should see the person's name rather than that raw identifier.
+
+    Built against a roster with one extra named person beyond the usual
+    admin-session principal (`_roster_with_extra_person`), so that
+    person's generated identifier is known ahead of time rather than
+    assumed, while the session still verifies and scope still permits
+    the product.
+    """
+    store = asyncio.run(
+        _roster_with_extra_person("Olena Approver", slack_identity="U0OLENA")
+    )
+    people = asyncio.run(list_people(roster=store))
+    olena = next(person for person in people if person.display_name == "Olena Approver")
+    identifier = olena.identifier
+
+    entry = _entry(
+        kind="gate-approval-recorded",
+        when=datetime(2027, 3, 2, 10, 30, tzinfo=UTC),
+        label="Approval",
+        category="judgment",
+        subject="commit",
+        source="slack",
+        actor=identifier,
+        decision="approving",
+    )
+    product = _launching("PX-201", "Gamma widget")
+    launch = _start(product.id)
+    surface = _surface(
+        monkeypatch,
+        launches=_FakeLaunchStore(launch),
+        catalog=_Catalog(product),
+        journal_entries=(entry,),
+        roster=store,
+    )
+
+    html = _detail_html(surface, product.id)
+    text = _all_text(_tree(html))
+
+    # SPECIFIED (this refinement): the actor resolves to the person's name.
+    assert "olena approver" in text, (
+        f"the journal does not show the resolved actor name: {text!r}"
+    )
+    # DERIVED guard: the raw roster identifier is not shown in its place
+    # -- resolution replaces the raw value rather than accompanying it.
+    assert identifier.lower() not in text, (
+        f"the journal shows the raw actor identifier {identifier!r} "
+        f"instead of (or alongside) the resolved name: {text!r}"
+    )
+
+
+def test_an_entrys_who_column_resolves_a_known_actor_by_clickup_user_id(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The journal table's `Who` column, for `raw-out-the-journal-columns`:
+    a ClickUp-sourced entry's `actor` is the acting person's ClickUp user
+    id (`clickup_webhook`'s `_status_change`, fixed by this change to
+    prefer `user.id` over `username`/`email`), and a reader should see
+    that person's name where the roster carries a matching
+    `clickup_user_id` — the same resolution the roster-identifier case
+    above gets, over the other identifier space.
+    """
+    clickup_id = "48213"
+    store = asyncio.run(
+        _roster_with_extra_person(
+            "Petro Fulfilment", slack_identity="U0PETRO", clickup_user_id=clickup_id
+        )
+    )
+
+    entry = _entry(
+        kind="step-outcome-recorded",
+        when=datetime(2027, 3, 2, 10, 30, tzinfo=UTC),
+        label="Outcome",
+        category="progression",
+        subject="Write the listing copy",
+        source="clickup",
+        actor=clickup_id,
+        outcome="Satisfied",
+    )
+    product = _launching("PX-202", "Delta widget")
+    launch = _start(product.id)
+    surface = _surface(
+        monkeypatch,
+        launches=_FakeLaunchStore(launch),
+        catalog=_Catalog(product),
+        journal_entries=(entry,),
+        roster=store,
+    )
+
+    html = _detail_html(surface, product.id)
+    text = _all_text(_tree(html))
+
+    # SPECIFIED: the actor resolves to the person's name, by ClickUp id.
+    assert "petro fulfilment" in text, (
+        f"the journal does not show the resolved actor name: {text!r}"
+    )
+    # DERIVED guard: the raw ClickUp id is not shown in its place.
+    assert clickup_id not in text, (
+        f"the journal shows the raw ClickUp id {clickup_id!r} instead of "
+        f"(or alongside) the resolved name: {text!r}"
+    )
+
+
+def test_a_sourceless_entrys_source_column_says_system(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An entry naming no source (one of the four command-caused kinds:
+    `launch-started`, `gate-opened`, `advance-refused`, `launch-date-moved`)
+    SHALL render the source column as `system` rather than an
+    absence-shaped dash -- distinct from `who`, which stays a dash for
+    the same entry, since `system` names where an occurrence arrived
+    from, not who acted (`launch-graduated` carries a known approver but
+    still no recorded source, and would misread if the same word were
+    used for both).
+
+    Not a scenario named in the delta spec (which does not fix this
+    wording); DERIVED from review feedback naming this word choice.
+    """
+    entry = _entry(
+        kind="launch-started",
+        when=datetime(2027, 3, 2, 10, 30, tzinfo=UTC),
+        label="Start",
+        category="progression",
+        playbook_version="v-uniquely-marked-version",
+    )
+    world = _world(monkeypatch, journal_entries=(entry,))
+
+    html = _detail_html(world.surface, world.product.id)
+
+    row = _journal_row(html, "v-uniquely-marked-version")
+    # SPECIFIED: the source renders as a plain tag (`mark`) -- located by
+    # that marker rather than by a `class="source"` on the cell, since
+    # the source is now a `<span class="mark">` inside a bare `<td>`.
+    source_tag = next(
+        element
+        for element in _elements(row)
+        if "mark" in element.attrs.get("class", "")
+    )
+    who_cell = next(
+        element for element in _elements(row) if "who" in element.attrs.get("class", "")
+    )
+    assert _all_text(source_tag).strip() == "system", (
+        f"the source tag for a sourceless entry does not say 'system': "
+        f"{_all_text(source_tag)!r}"
+    )
+    assert _all_text(who_cell).strip() in ("", "—"), (
+        f"the who column for an actorless entry is not a plain absence: "
+        f"{_all_text(who_cell)!r}"
+    )
+
+
+def test_an_entrys_label_renders_as_a_kind_tag(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Scenario: An entry's row shows its label as a coloured kind tag
+    and carries its category marker.
+
+    WHEN a launch's journal holds an entry
+    THEN its row shows the entry's short label as a tag carrying the
+    marker `kind-tag`, and the row carries the marker `category-`
+    followed by its category.
+
+    Colour itself is not asserted here -- confirming that
+    `category-blocked`'s `kind-tag` actually renders in a different
+    colour from `category-progression`'s is a presentation fact this
+    tool cannot observe from markup alone, per the requirement's own
+    "confirmed by direct inspection" clause. What is asserted is
+    structural: the label sits inside an element carrying `kind-tag`,
+    not bare text in the cell.
+    """
+    label = "Refusal"
+    entry = _entry(
+        kind="advance-refused",
+        when=datetime(2027, 3, 2, 10, 30, tzinfo=UTC),
+        label=label,
+        category="blocked",
+        subject="order, uniquely-marked-refusal-gate",
+    )
+    world = _world(monkeypatch, journal_entries=(entry,))
+
+    html = _detail_html(world.surface, world.product.id)
+    row = _journal_row(html, "order, uniquely-marked-refusal-gate")
+
+    kind_tag = next(
+        (
+            element
+            for element in _elements(row)
+            if "kind-tag" in element.attrs.get("class", "")
+        ),
+        None,
+    )
+    assert kind_tag is not None, (
+        f"the row carries no element marked `kind-tag`: attrs of children "
+        f"are {[e.attrs for e in _elements(row)]!r}"
+    )
+    assert label.lower() in _all_text(kind_tag), (
+        f"the kind-tag does not show the entry's label {label!r}: "
+        f"{_all_text(kind_tag)!r}"
+    )
+    assert _carries_marker(row, "category-blocked"), (
+        f"the row does not carry its category marker: attrs={row.attrs!r}"
+    )
+
+
+def test_a_source_renders_as_a_plain_uncoloured_tag(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Scenario: A source renders as a plain, uncoloured tag.
+
+    WHEN a launch's journal holds an entry carrying a source
+    THEN its row shows that source as a tag carrying the marker `mark`,
+    the page's existing plain-fact vocabulary rather than a marker of
+    its own that could be mistaken for a second category signal.
+    """
+    source = "slack"
+    entry = _entry(
+        kind="gate-approval-recorded",
+        when=datetime(2027, 3, 2, 10, 30, tzinfo=UTC),
+        label="Approval",
+        category="judgment",
+        subject="commit, uniquely-marked-approval-gate",
+        source=source,
+        decision="approving",
+    )
+    world = _world(monkeypatch, journal_entries=(entry,))
+
+    html = _detail_html(world.surface, world.product.id)
+    row = _journal_row(html, "commit, uniquely-marked-approval-gate")
+
+    source_tag = next(
+        (
+            element
+            for element in _elements(row)
+            if "mark" in element.attrs.get("class", "")
+        ),
+        None,
+    )
+    assert source_tag is not None, (
+        f"the row carries no element marked `mark` for its source: "
+        f"attrs of children are {[e.attrs for e in _elements(row)]!r}"
+    )
+    assert _all_text(source_tag).strip() == source, (
+        f"the mark tag does not show the entry's source {source!r}: "
+        f"{_all_text(source_tag)!r}"
+    )
+    # DERIVED guard: the source tag is not also a kind-tag -- the two
+    # markers stay distinct even though both render as tags.
+    assert "kind-tag" not in source_tag.attrs.get("class", ""), (
+        f"the source tag also carries kind-tag: {source_tag.attrs!r}"
+    )

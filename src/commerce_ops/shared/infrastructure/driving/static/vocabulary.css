@@ -1527,67 +1527,67 @@ section.finished .empty,
 }
 
 /* The journal, as a table -- one row per entry, the entry's category
-   carried on the row as a `category-<value>` marker (`launch-admin`
-   delta, "structure-the-launch-journal-table"). Same left-edge-only
-   convention as `.step-row` above, and the same reason: a column of
-   rows is scanned by an edge of colour, not by a filled background. */
+   carried on the row as a `category-<value>` marker. Row height and
+   type size are the site-wide table rule's (`table`, `th`, `td`,
+   above), not a size of this table's own -- the same tables the detail
+   page's own step table reads as one page with. The kind is carried by
+   a coloured tag (`.kind-tag`, below) rather than a left-edge accent:
+   the same "the tag alone, no left-edge accent" standard `.outcome-tag`
+   settled on for the step table (`raw-out-the-journal-columns`). */
 .journal-entries {
   width: 100%;
   border-collapse: collapse;
 }
 
-.journal-entries th {
-  text-align: left;
-  color: var(--ink-quiet);
-  font-size: var(--size-fine);
-  font-weight: 400;
-  padding: var(--space-tight) var(--space-snug);
-}
-
-.journal-entries td {
-  padding: var(--space-tight) var(--space-snug);
-  vertical-align: top;
-  font-size: var(--size-fine);
-}
-
-.journal-entries td.label {
+.journal-entries td.subject,
+.journal-entries td.who,
+.journal-entries td.when {
   white-space: nowrap;
-  font-weight: 600;
 }
 
 .journal-entries td.when {
-  white-space: nowrap;
   color: var(--ink-quiet);
 }
 
 .journal-entries tr {
-  border-left: 3px solid transparent;
   border-bottom: 1px solid var(--state-idle-edge);
+}
+
+/* The kind, as a tag leading its row -- same shape as `.outcome-tag`
+   (inline, flat wash, no border), coloured by the row's own category
+   rather than by a state carried on the row for this purpose alone.
+   Defaults to the idle treatment, which is also `admin`'s own colour,
+   so that category needs no override of its own. */
+.journal-entries .kind-tag {
+  display: inline-block;
+  padding: 0 var(--space-tight);
+  border-radius: var(--pico-border-radius);
+  background: var(--state-idle-wash);
+  color: var(--state-idle-ink);
+  font-size: var(--size-fine);
+  line-height: 1.6;
+  white-space: nowrap;
 }
 
 /* Progression: the launch moving forward under its own steam. Same
    token as a satisfied step. */
-.journal-entries tr.category-progression {
-  border-left-color: var(--state-done-edge);
+.journal-entries tr.category-progression .kind-tag {
+  background: var(--state-done-wash);
+  color: var(--state-done-ink);
 }
 
 /* Judgment: someone affirmed something -- an approval, an attestation.
    Same token as a step being actively worked. */
-.journal-entries tr.category-judgment {
-  border-left-color: var(--state-active-edge);
+.journal-entries tr.category-judgment .kind-tag {
+  background: var(--state-active-wash);
+  color: var(--state-active-ink);
 }
 
 /* Blocked: the one category a reader scans for -- a refusal, a rejected
    approval, a step recorded Blocked or Refused. Same token as a stuck
-   step, and the only category that also tints its row, so it is legible
-   without reading the row's words (design.md, "the whole point is to
-   let a reader spot trouble without reading every sentence"). */
-.journal-entries tr.category-blocked {
-  border-left-color: var(--state-stuck-edge);
-  background: color-mix(in srgb, var(--state-stuck-wash) 8%, transparent);
-}
-
-/* Admin: a date moved. Neither progress nor a decision nor trouble. */
-.journal-entries tr.category-admin {
-  border-left-color: var(--state-idle-edge);
+   step -- the whole point of a coloured kind tag is to let a reader
+   spot trouble without reading every row's words. */
+.journal-entries tr.category-blocked .kind-tag {
+  background: var(--state-stuck-wash);
+  color: var(--state-stuck-ink);
 }

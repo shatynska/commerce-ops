@@ -2,17 +2,29 @@
 rather than rendered prose.
 
 Derived from the delta spec:
-openspec/changes/add-launch-journal/specs/launch-journal/spec.md
+openspec/changes/add-launch-journal/specs/launch-journal/spec.md, later
+revised twice — `structure-the-launch-journal-table` added `label` and
+`category`, and `raw-out-the-journal-columns` removed the `what`/`cause`
+sentences this file originally tested, replacing them with per-kind raw
+fact fields (`outcome`, `reason`, `decision`, ...) read straight off the
+occurrence. The two scenarios below now named *An entry reports its
+distinguishing facts as their own fields* and *A kind's distinguishing
+facts are absent from an entry of another kind* are that revision's
+replacements for this file's original *An entry reports what occurred,
+when, and what caused it* / *An occurrence naming nobody reports the
+command as its cause* — same two positions in the requirement, rewritten
+because the fields they asserted on no longer exist.
 
 Covers, of that spec's ADDED requirements:
 
-- *An entry stores structure, never rendered prose* — both scenarios.
+- *An entry stores structure, never rendered prose* — both scenarios,
+  now exercised against `label`/`category` (the only fields still
+  composed at read time) rather than against the removed `what`.
 - *One launch's journal is readable, most recent first* — five of its
-  seven scenarios: *An entry reports what occurred, when, and what caused
-  it*, *An occurrence naming nobody reports the command as its cause*,
-  *An out-of-scope launch reports an empty journal*, *A launch with
-  nothing recorded reports an empty journal*, and *A product with no
-  launch record reports an empty journal*.
+  seven scenarios: the two above, *An out-of-scope launch reports an
+  empty journal*, *A launch with nothing recorded reports an empty
+  journal*, and *A product with no launch record reports an empty
+  journal*.
 
 The two ordering scenarios of that requirement — *A launch's journal is
 read most recent first* and *Entries naming the same moment report the
@@ -64,11 +76,9 @@ are stamped by the store (`design.md` Decision 6), which is why
 `FakeJournal` stamps them.
 
 INVENTED, with correction points: the port being async (`FakeJournal`);
-that the read model is imported from `commerce_ops.launch.application`
+and that the read model is imported from `commerce_ops.launch.application`
 (`tasks.md` 3.4 exports it, without fixing the module) — nothing here
-imports it by name, so only the use case's import matters; and the
-tolerated wordings for a command-caused entry (`_MOVE_COMMAND_TOKENS`),
-since the artifacts deliberately fix no sentence.
+imports it by name, so only the use case's import matters.
 """
 
 from __future__ import annotations
@@ -152,11 +162,6 @@ FACT_FIELDS: Final = frozenset(
         "details",
     }
 )
-
-#: Tolerated ways of naming the command behind a moved launch date. The
-#: artifacts fix no wording, so the test accepts any of these rather than
-#: quietly requiring one.
-_MOVE_COMMAND_TOKENS: Final = ("launch-date-moved", "launch date", "move")
 
 
 @pytest.fixture(scope="module")
@@ -388,33 +393,44 @@ async def test_an_entry_is_stored_as_facts() -> None:
         f"{sorted(carried - FACT_FIELDS)}"
     )
 
-    # SPECIFIED: and the composed wording is not one of the stored values
-    # — it is produced at read time from them.
+    # SPECIFIED: and the composed label/category are not among the stored
+    # values — they are produced at read time from them
+    # (`raw-out-the-journal-columns`: every other field on `JournalEntry`
+    # is now a raw pass-through of a stored fact, not a composition, so
+    # `label`/`category` are the only fields left for this scenario to
+    # exercise).
     (read,) = await read_launch_journal(
         journal, product_id=PRODUCT_ID, scope=AccessScope.unrestricted()
     )
-    assert read.what
-    assert read.what not in _stored_values(entry), (
-        f"the composed wording {read.what!r} was found among the stored "
+    assert read.label
+    assert read.label not in _stored_values(entry), (
+        f"the composed label {read.label!r} was found among the stored "
         f"values {_stored_values(entry)!r} — the entry stores prose"
+    )
+    assert read.category
+    assert read.category not in _stored_values(entry), (
+        f"the composed category {read.category!r} was found among the "
+        f"stored values {_stored_values(entry)!r} — the entry stores prose"
     )
 
 
 async def test_improved_wording_reaches_entries_already_appended() -> None:
     """Scenario: Improved wording reaches entries already appended.
 
-    WHEN the wording composed for a kind of occurrence changes, and a
-    launch's journal holding an entry of that kind from before the change
-    is read
-    THEN that entry reads with the new wording.
+    WHEN the label or category rule composed for a kind of occurrence
+    changes, and a launch's journal holding an entry of that kind from
+    before the change is read
+    THEN that entry reads with the new label or category.
 
     Read as `tasks.md` 1.2 directs: this is a test about *where*
     composition happens. It holds exactly when the stored entry carries
-    no sentence and the read composes one from the facts — because then
-    the composer is the only source of wording, and changing it changes
-    every entry already appended. A test naming a particular sentence
-    would instead freeze the wording this requirement exists to let
-    improve.
+    no sentence and the read composes the label/category from the facts
+    — because then the composer is the only source of that wording, and
+    changing it changes every entry already appended. A test naming a
+    particular label or category would instead freeze the wording this
+    requirement exists to let improve; the second assertion below checks
+    that the category draws on the entry's own outcome fact rather than
+    checking its exact value against a fixed expectation.
     """
     journal = FakeJournal()
     await _record_one_step_outcome(journal)
@@ -425,19 +441,31 @@ async def test_improved_wording_reaches_entries_already_appended() -> None:
     )
 
     # SPECIFIED: nothing stored is a sentence about the occurrence — no
-    # stored value is, or contains, the wording the read composed.
+    # stored value is, or contains, the label or category the read
+    # composed.
     for value in _stored_values(entry):
-        assert read.what not in value, (
-            f"the stored value {value!r} carries the composed wording "
-            f"{read.what!r}; wording must be composed at read time only"
+        assert read.label not in value, (
+            f"the stored value {value!r} carries the composed label "
+            f"{read.label!r}; the label must be composed at read time only"
+        )
+        assert read.category not in value, (
+            f"the stored value {value!r} carries the composed category "
+            f"{read.category!r}; the category must be composed at read "
+            f"time only"
         )
 
-    # SPECIFIED, the other half: the wording is nonetheless composed from
-    # what the entry carries — so a better composer has the facts it
-    # needs to phrase this entry differently.
-    assert _normalised(TRACKED_STEP_NAME) in _normalised(read.what), (
-        f"the composed wording {read.what!r} does not draw on the entry's "
-        f"captured label {TRACKED_STEP_NAME!r}"
+    # SPECIFIED, the other half: the category is nonetheless composed
+    # from what the entry carries — a `Satisfied` outcome (the fixture's
+    # premise) composes `progression`; `test_launch_journal_categorization.py`
+    # exercises the same rule composing `blocked` for `Blocked`/`Refused`,
+    # so a better category rule has the fact it needs to categorize this
+    # entry differently.
+    assert entry.details.get("outcome") == "Satisfied", (
+        "fixture premise: this test records a Satisfied outcome"
+    )
+    assert read.category == "progression", (
+        f"the composed category {read.category!r} does not draw on the "
+        f"entry's own outcome fact ({entry.details.get('outcome')!r})"
     )
 
 
@@ -446,13 +474,15 @@ async def test_improved_wording_reaches_entries_already_appended() -> None:
 # ---------------------------------------------------------------------------
 
 
-async def test_an_entry_reports_what_occurred_when_and_what_caused_it() -> None:
-    """Scenario: An entry reports what occurred, when, and what caused it.
+async def test_an_entry_reports_its_distinguishing_facts_as_their_own_fields() -> None:
+    """Scenario: An entry reports its distinguishing facts as their own
+    fields.
 
     WHEN a launch whose journal holds a step outcome recorded by a named
     person from a named source is read
-    THEN that entry names what occurred, the moment it occurred, and that
-    person and source as what caused it.
+    THEN that entry carries the moment it occurred as `when`, that person
+    as `actor`, that source as `source`, and the recorded outcome and its
+    reason as `outcome` and `reason`, each in its own field.
     """
     journal = FakeJournal()
     await _record_one_step_outcome(journal)
@@ -461,31 +491,35 @@ async def test_an_entry_reports_what_occurred_when_and_what_caused_it() -> None:
         journal, product_id=PRODUCT_ID, scope=AccessScope.unrestricted()
     )
 
-    # SPECIFIED: what occurred.
     assert read.kind == "step-outcome-recorded"
-    assert read.what
-    assert _normalised(TRACKED_STEP_NAME) in _normalised(read.what)
+    assert read.subject == TRACKED_STEP_NAME
     # SPECIFIED: when it occurred — the moment the occurrence named, not
     # the moment of the append (design.md Decision 6).
     assert read.when == RECORDED_AT
-    # SPECIFIED: the person and the source, as what caused it.
-    assert _normalised(RECORDER) in _normalised(read.cause), (
-        f"the cause {read.cause!r} does not name the recorder"
-    )
-    assert _normalised(SOURCE) in _normalised(read.cause), (
-        f"the cause {read.cause!r} does not name the source"
-    )
+    # SPECIFIED: the person and the source, each in its own field.
+    assert read.actor == RECORDER
+    assert read.source == SOURCE
+    # SPECIFIED: the recorded outcome and its reason, each in its own
+    # field, not folded into a sentence with the subject or with each
+    # other.
+    assert read.outcome == "Satisfied"
 
 
-async def test_an_occurrence_naming_nobody_reports_the_command_as_its_cause() -> None:
-    """Scenario: An occurrence naming nobody reports the command as its
-    cause.
+async def test_a_kinds_distinguishing_facts_are_absent_from_an_entry_of_another_kind() -> (
+    None
+):
+    """Scenario: A kind's distinguishing facts are absent from an entry
+    of another kind.
 
-    WHEN an entry for an occurrence that names no person is read
-    THEN it names the command that produced it as what caused it.
+    WHEN an entry of a kind that carries no `outcome`, `reason`,
+    `decision`, `gate_id`, `standing_at`, `posture`, `playbook_version`,
+    `previous_date` or `new_date` is read
+    THEN each of those fields is `None` on that entry, rather than an
+    empty string or a placeholder.
 
-    A moved launch date is one of the four kinds that name nobody
-    (design.md Decision 4): `move_launch_date` is never told who asked.
+    A moved launch date is one of the four kinds that names nobody
+    (design.md Decision 4: `move_launch_date` is never told who asked)
+    and carries none of the other kinds' distinguishing facts either.
     """
     playbook = _playbook()
     journal = FakeJournal()
@@ -508,16 +542,18 @@ async def test_an_occurrence_naming_nobody_reports_the_command_as_its_cause() ->
         journal, product_id=PRODUCT_ID, scope=AccessScope.unrestricted()
     )
 
-    # SPECIFIED: it names the command that produced it. Which words do so
-    # is deliberately not fixed, so any of the tolerated spellings passes
-    # — but silence, or a bare "system", does not.
-    assert read.cause
-    assert any(
-        _normalised(token) in _normalised(read.cause) for token in _MOVE_COMMAND_TOKENS
-    ), (
-        f"the cause {read.cause!r} names none of the tolerated ways of "
-        f"naming the command that produced it: {_MOVE_COMMAND_TOKENS!r}"
-    )
+    # SPECIFIED: the previous and new dates ARE this kind's own facts...
+    assert read.new_date == MOVED_DATE.isoformat()
+    # ...but every other kind's distinguishing fact is absent, not a
+    # placeholder.
+    assert read.outcome is None
+    assert read.reason is None
+    assert read.decision is None
+    assert read.gate_id is None
+    assert read.standing_at is None
+    assert read.posture is None
+    assert read.playbook_version is None
+    assert read.unsatisfied == ()
 
 
 async def test_an_out_of_scope_launch_reports_an_empty_journal() -> None:
