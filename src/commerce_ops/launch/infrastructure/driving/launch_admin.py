@@ -198,6 +198,12 @@ class LaunchRow:
     # at the first gate, not a degenerate one.
     last_completed: str | None = None
     last_completed_at: datetime | None = None
+    # The product's SKU, split out from `label` (which now holds only the
+    # product's name) so the list can render the two as separate columns
+    # rather than one combined string. `None` for the same reason `label`
+    # falls back to the raw identifier -- a product the catalog cannot
+    # resolve has no SKU to show either.
+    sku: str | None = None
 
     @property
     def band(self) -> int:
@@ -293,8 +299,16 @@ class LaunchDetail:
     launch_date: date | None
     gates: tuple[GateGroup, ...]
     served_any: bool
-    journal: tuple[JournalLine, ...]
-    journal_available: bool
+
+
+@dataclass(frozen=True, slots=True)
+class JournalPage:
+    """One launch's journal, as its own page renders it."""
+
+    product_id: str
+    label: str
+    entries: tuple[JournalLine, ...]
+    available: bool
 
 
 # ---------------------------------------------------------------------------
@@ -305,6 +319,12 @@ class LaunchDetail:
 def _label_for(product: Any, product_id: str) -> tuple[str, bool]:
     """A product's human label, and whether the catalog resolved it.
 
+    Name only, not the SKU-prefixed form this used to combine — the
+    detail and journal pages render this as the page's own title now
+    (`add-admin-breadcrumb-navigation`'s breadcrumb-current segment), and
+    a title carrying a code beside the name is the same duplication the
+    list's own `sku`/`label` split moved away from.
+
     A launch whose product does not resolve is still rendered, named by
     its raw identifier. Losing a launch to a failed lookup is the silent
     failure a tracking surface exists to prevent, and during a wholesale
@@ -312,11 +332,22 @@ def _label_for(product: Any, product_id: str) -> tuple[str, bool]:
     """
     if product is None:
         return product_id, False
+    name = getattr(product, "name", None)
+    return str(name or product_id), True
+
+
+def _row_identity(product: Any, product_id: str) -> tuple[str | None, str, bool]:
+    """A launch row's own SKU and name, split apart -- unlike `_label_for`
+    above, which the detail and journal pages still use for their single
+    combined label. A launch whose product does not resolve shows no SKU
+    and is named by its raw identifier, the same fallback `_label_for`
+    uses, for the same reason.
+    """
+    if product is None:
+        return None, product_id, False
     sku = getattr(getattr(product, "sku", None), "value", None)
     name = getattr(product, "name", None)
-    if sku and name:
-        return f"{sku} — {name}", True
-    return str(sku or name or product_id), True
+    return (str(sku) if sku else None), str(name or product_id), True
 
 
 def _last_completed(report: Any) -> tuple[str | None, datetime | None]:
@@ -369,7 +400,7 @@ def _rows_for(
     for report in reports:
         product_id = str(report.product_id.value)
         product = products.get(product_id)
-        label, resolved = _label_for(product, product_id)
+        sku, label, resolved = _row_identity(product, product_id)
         stage = _stage_of(product)
         retired = stage.startswith("retired")
         last_name, last_when = _last_completed(report)
@@ -391,6 +422,7 @@ def _rows_for(
                 detail_path=f"{PAGE_PATH}/{product_id}",
                 last_completed=last_name,
                 last_completed_at=last_when,
+                sku=sku,
             )
         )
     return tuple(rows)
@@ -604,9 +636,7 @@ def _journal_lines(
     return tuple(lines)
 
 
-def _detail_for(
-    report: Any, product: Any, journal: tuple[JournalLine, ...] = ()
-) -> LaunchDetail:
+def _detail_for(report: Any, product: Any) -> LaunchDetail:
     product_id = str(report.product_id.value)
     label, resolved = _label_for(product, product_id)
     gates = _gates_for(report)
@@ -618,12 +648,23 @@ def _detail_for(
         launch_date=report.launch_date,
         gates=gates,
         served_any=any(group.steps for group in gates),
-        journal=journal,
+    )
+
+
+def _journal_page_for(
+    report: Any, product: Any, journal: tuple[JournalLine, ...]
+) -> JournalPage:
+    product_id = str(report.product_id.value)
+    label, _resolved = _label_for(product, product_id)
+    return JournalPage(
+        product_id=product_id,
+        label=label,
+        entries=journal,
         # Whether the store answered, not whether it answered anything. An
         # empty journal is a fact about the launch; an absent store is a
         # fact about the deployment, and the page must not present the
         # second as the first.
-        journal_available=read_journal is not None,
+        available=read_journal is not None,
     )
 
 
@@ -765,17 +806,24 @@ async def launch_list(request: Request) -> HTMLResponse:
     )
 
 
-@router.get(PAGE_PATH + "/{product_id}")
-async def launch_detail(request: Request, product_id: str) -> HTMLResponse:
-    principal = await _require_admin(request)
-    scope = await _scope_for(principal)
-    try:
-        identifier = ProductId(product_id)
-    except ValueError as exc:
-        # An identifier naming nothing the system knows, refused in the
-        # shape every other refusal here takes.
-        raise HTTPException(status_code=404) from exc
+def _journal_path(product_id: str) -> str:
+    return f"{PAGE_PATH}/{product_id}/journal"
 
+
+def _detail_path(product_id: str) -> str:
+    return f"{PAGE_PATH}/{product_id}"
+
+
+async def _resolve_launch(identifier: ProductId, scope: Any) -> tuple[Any, Any]:
+    """The launch position and its product, resolved the one way both the
+    detail route and the journal route resolve a launch by — so the two
+    refuse identically by construction rather than by agreeing twice.
+
+    Refusal turns on the launch position, never on whether the catalog
+    can name the product: the list renders an unresolvable launch and
+    offers the detail page in one action, so refusing here would put a
+    dead end behind a row the surface deliberately keeps visible.
+    """
     report = await read_launch(
         launches,
         await _playbook_port(),
@@ -783,10 +831,6 @@ async def launch_detail(request: Request, product_id: str) -> HTMLResponse:
         as_of=today(),
         scope=scope,
     )
-    # Refusal turns on the launch position, never on whether the catalog
-    # can name the product: the list renders an unresolvable launch and
-    # offers this page in one action, so refusing here would put a dead
-    # end behind a row the surface deliberately keeps visible.
     if report is None:
         raise HTTPException(status_code=404)
 
@@ -794,12 +838,56 @@ async def launch_detail(request: Request, product_id: str) -> HTMLResponse:
         product = await get_product_by_id(identifier, scope)
     except Exception:  # noqa: BLE001 — an unnameable product still renders
         product = None
+    return report, product
 
-    journal = await _journal_for(identifier, scope)
 
+def _identifier_or_404(product_id: str) -> ProductId:
+    try:
+        return ProductId(product_id)
+    except ValueError as exc:
+        # An identifier naming nothing the system knows, refused in the
+        # shape every other refusal here takes.
+        raise HTTPException(status_code=404) from exc
+
+
+@router.get(PAGE_PATH + "/{product_id}")
+async def launch_detail(request: Request, product_id: str) -> HTMLResponse:
+    principal = await _require_admin(request)
+    scope = await _scope_for(principal)
+    identifier = _identifier_or_404(product_id)
+    report, product = await _resolve_launch(identifier, scope)
+
+    detail = _detail_for(report, product)
     template = _TEMPLATES.get_template("launch.html")
     return HTMLResponse(
         template.render(
-            page_path=PAGE_PATH, launch=_detail_for(report, product, journal)
+            page_path=PAGE_PATH,
+            launch=detail,
+            breadcrumb=[("Launches", PAGE_PATH), (detail.label, None)],
+            descendants=[("Journal", _journal_path(detail.product_id))],
+        )
+    )
+
+
+@router.get(PAGE_PATH + "/{product_id}/journal")
+async def launch_journal(request: Request, product_id: str) -> HTMLResponse:
+    principal = await _require_admin(request)
+    scope = await _scope_for(principal)
+    identifier = _identifier_or_404(product_id)
+    report, product = await _resolve_launch(identifier, scope)
+
+    journal = await _journal_for(identifier, scope)
+    page = _journal_page_for(report, product, journal)
+
+    template = _TEMPLATES.get_template("journal.html")
+    return HTMLResponse(
+        template.render(
+            page_path=PAGE_PATH,
+            journal=page,
+            breadcrumb=[
+                ("Launches", PAGE_PATH),
+                (page.label, _detail_path(page.product_id)),
+                ("Journal", None),
+            ],
         )
     )

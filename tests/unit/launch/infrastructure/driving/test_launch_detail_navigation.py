@@ -588,16 +588,20 @@ def _shortest_get_route(router: Any) -> str:
 
 
 def _parameterised_get_route(router: Any) -> str:
+    # A second single-parameter GET route (the launch journal page
+    # `add-admin-breadcrumb-navigation` adds) is excluded by name, so this
+    # locator survives once that route exists alongside this one.
     candidates = [
         str(route.path)
         for route in router.routes
         if getattr(route, "path", None)
         and "GET" in (getattr(route, "methods", None) or set())
         and str(route.path).count("{") == 1
+        and "journal" not in str(route.path).lower()
     ]
     assert len(candidates) == 1, (
         f"{router!r} exposes {len(candidates)} GET routes taking one path "
-        "parameter; exactly one is expected"
+        "parameter and not mentioning 'journal'; exactly one is expected"
     )
     return str(candidates[0])
 
@@ -800,6 +804,19 @@ def _gate_sequence(html: str) -> _Node:
 
 
 def _gate_group(html: str, gate: str) -> _Node:
+    """The smallest *addressable* element holding every step of `gate` and
+    no step of another gate.
+
+    Correction point: since the gate's steps now render inside a `<table>`
+    (`add-admin-breadcrumb-navigation`'s launch-page redesign), an
+    un-addressed `<tbody>` also holds exactly one gate's steps and is
+    strictly smaller than the `id`-carrying `<section>` wrapping it — the
+    smallest *candidate*, but neither the fragment target nor an ancestor
+    of the gate's own name (`.gate-name`, a *sibling* of the `<table>`
+    inside that `<section>`, so `_within(tbody)` never reaches it).
+    Filtering to `id`-carrying candidates first is what keeps this locator
+    finding the group `:target` actually applies to.
+    """
     mine = [step.identifier for step in PLAYBOOK.steps_for_gate(gate)]
     theirs = [step_id for step_id in SERVED_ORDER if step_id not in mine]
     candidates = [
@@ -808,12 +825,14 @@ def _gate_group(html: str, gate: str) -> _Node:
         if all(_holds(element, step_id) for step_id in mine)
         and not any(_holds(element, other) for other in theirs)
     ]
-    if not candidates:
+    addressable = [element for element in candidates if element.attrs.get("id")]
+    if not addressable:
         pytest.fail(
-            f"no element holds exactly the steps of gate {gate!r} ({mine}) "
-            "without holding another gate's — correct `_gate_group`"
+            f"no addressable (`id`-carrying) element holds exactly the steps "
+            f"of gate {gate!r} ({mine}) without holding another gate's — "
+            "correct `_gate_group`"
         )
-    return min(candidates, key=_size)
+    return min(addressable, key=_size)
 
 
 def _marked_current(node: _Node) -> bool:

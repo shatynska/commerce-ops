@@ -423,29 +423,35 @@ def _surface(
     return _Surface(client, module)
 
 
-def _detail_template(module: ModuleType) -> str:
+def _journal_template(module: ModuleType) -> str:
+    # The journal moved off the detail page onto its own page
+    # (`add-admin-breadcrumb-navigation`, merged alongside this file's own
+    # `structure-the-launch-journal-table`); this file exercises journal
+    # *content*, so it targets that route specifically rather than "the"
+    # single parameterized route, now that two exist.
     candidates = [
         str(route.path)
         for route in module.router.routes
         if getattr(route, "path", None)
         and "GET" in (getattr(route, "methods", None) or set())
         and "{" in route.path
+        and "journal" in route.path.lower()
     ]
     assert len(candidates) == 1
     return str(candidates[0])
 
 
-def _detail_path(module: ModuleType, product_id: ProductId) -> str:
-    template = _detail_template(module)
+def _journal_path(module: ModuleType, product_id: ProductId) -> str:
+    template = _journal_template(module)
     opened = template.index("{")
     closed = template.index("}", opened)
     return template[:opened] + product_id.value + template[closed + 1 :]
 
 
 def _detail_html(surface: _Surface, product_id: ProductId) -> str:
-    response = surface.client.get(_detail_path(surface.module, product_id))
+    response = surface.client.get(_journal_path(surface.module, product_id))
     assert response.status_code == 200, (
-        f"the detail page for {product_id} was not served: "
+        f"the journal page for {product_id} was not served: "
         f"{response.status_code} {response.text[:400]}"
     )
     return str(response.text)
@@ -1105,19 +1111,121 @@ def test_a_sourceless_entrys_source_column_says_system(
     html = _detail_html(world.surface, world.product.id)
 
     row = _journal_row(html, "v-uniquely-marked-version")
-    source_cell = next(
+    # SPECIFIED: the source renders as a plain tag (`mark`) -- located by
+    # that marker rather than by a `class="source"` on the cell, since
+    # the source is now a `<span class="mark">` inside a bare `<td>`.
+    source_tag = next(
         element
         for element in _elements(row)
-        if "source" in element.attrs.get("class", "")
+        if "mark" in element.attrs.get("class", "")
     )
     who_cell = next(
         element for element in _elements(row) if "who" in element.attrs.get("class", "")
     )
-    assert _all_text(source_cell).strip() == "system", (
-        f"the source column for a sourceless entry does not say 'system': "
-        f"{_all_text(source_cell)!r}"
+    assert _all_text(source_tag).strip() == "system", (
+        f"the source tag for a sourceless entry does not say 'system': "
+        f"{_all_text(source_tag)!r}"
     )
     assert _all_text(who_cell).strip() in ("", "—"), (
         f"the who column for an actorless entry is not a plain absence: "
         f"{_all_text(who_cell)!r}"
+    )
+
+
+def test_an_entrys_label_renders_as_a_kind_tag(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Scenario: An entry's row shows its label as a coloured kind tag
+    and carries its category marker.
+
+    WHEN a launch's journal holds an entry
+    THEN its row shows the entry's short label as a tag carrying the
+    marker `kind-tag`, and the row carries the marker `category-`
+    followed by its category.
+
+    Colour itself is not asserted here -- confirming that
+    `category-blocked`'s `kind-tag` actually renders in a different
+    colour from `category-progression`'s is a presentation fact this
+    tool cannot observe from markup alone, per the requirement's own
+    "confirmed by direct inspection" clause. What is asserted is
+    structural: the label sits inside an element carrying `kind-tag`,
+    not bare text in the cell.
+    """
+    label = "Refusal"
+    entry = _entry(
+        kind="advance-refused",
+        when=datetime(2027, 3, 2, 10, 30, tzinfo=UTC),
+        label=label,
+        category="blocked",
+        subject="order, uniquely-marked-refusal-gate",
+    )
+    world = _world(monkeypatch, journal_entries=(entry,))
+
+    html = _detail_html(world.surface, world.product.id)
+    row = _journal_row(html, "order, uniquely-marked-refusal-gate")
+
+    kind_tag = next(
+        (
+            element
+            for element in _elements(row)
+            if "kind-tag" in element.attrs.get("class", "")
+        ),
+        None,
+    )
+    assert kind_tag is not None, (
+        f"the row carries no element marked `kind-tag`: attrs of children "
+        f"are {[e.attrs for e in _elements(row)]!r}"
+    )
+    assert label.lower() in _all_text(kind_tag), (
+        f"the kind-tag does not show the entry's label {label!r}: "
+        f"{_all_text(kind_tag)!r}"
+    )
+    assert _carries_marker(row, "category-blocked"), (
+        f"the row does not carry its category marker: attrs={row.attrs!r}"
+    )
+
+
+def test_a_source_renders_as_a_plain_uncoloured_tag(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Scenario: A source renders as a plain, uncoloured tag.
+
+    WHEN a launch's journal holds an entry carrying a source
+    THEN its row shows that source as a tag carrying the marker `mark`,
+    the page's existing plain-fact vocabulary rather than a marker of
+    its own that could be mistaken for a second category signal.
+    """
+    source = "slack"
+    entry = _entry(
+        kind="gate-approval-recorded",
+        when=datetime(2027, 3, 2, 10, 30, tzinfo=UTC),
+        label="Approval",
+        category="judgment",
+        subject="commit, uniquely-marked-approval-gate",
+        source=source,
+        decision="approving",
+    )
+    world = _world(monkeypatch, journal_entries=(entry,))
+
+    html = _detail_html(world.surface, world.product.id)
+    row = _journal_row(html, "commit, uniquely-marked-approval-gate")
+
+    source_tag = next(
+        (
+            element
+            for element in _elements(row)
+            if "mark" in element.attrs.get("class", "")
+        ),
+        None,
+    )
+    assert source_tag is not None, (
+        f"the row carries no element marked `mark` for its source: "
+        f"attrs of children are {[e.attrs for e in _elements(row)]!r}"
+    )
+    assert _all_text(source_tag).strip() == source, (
+        f"the mark tag does not show the entry's source {source!r}: "
+        f"{_all_text(source_tag)!r}"
+    )
+    # DERIVED guard: the source tag is not also a kind-tag -- the two
+    # markers stay distinct even though both render as tags.
+    assert "kind-tag" not in source_tag.attrs.get("class", ""), (
+        f"the source tag also carries kind-tag: {source_tag.attrs!r}"
     )

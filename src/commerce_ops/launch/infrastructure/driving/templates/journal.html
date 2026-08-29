@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ journal.label }} — Journal</title>
+  {# The same two files every other admin surface loads, from the same
+     shared guarded route, so a presentation fix reaches all of them
+     rather than some. This page carries no styling of its own. #}
+  <link rel="stylesheet" href="/admin/assets/pico.min.css">
+  <link rel="stylesheet" href="/admin/assets/vocabulary.css">
+</head>
+<body>
+{% with current = "launches" %}{% include "_admin_header.html" %}{% endwith %}
+<main class="container">
+  {# This launch's journal, split out of the detail page's own body onto
+     its own page (`add-admin-breadcrumb-navigation`) — reached from the
+     detail page's descendants region, and named the launch's second
+     ancestor here in the same trail that page's own breadcrumb starts.
+     Its current segment ("Journal") is this page's `<h1>` — see
+     `_breadcrumb.html`. #}
+  <div class="page-head">
+    {% include "_breadcrumb.html" %}
+  </div>
+
+  {% if not journal.entries %}
+  <p class="empty">Nothing is recorded in this launch's journal.</p>
+  {% else %}
+  {# The journal, as a table -- one row per entry, raw facts in their own
+     columns rather than a composed sentence (`raw-out-the-journal-columns`).
+     Wrapped the same way the detail page's own step table is
+     (`.table-scroll`), and using the same visual vocabulary: the kind
+     renders as a coloured tag (`kind-tag`, coloured by the row's own
+     `category-<value>` marker, the same "readable by treatment" standard
+     `outcome-tag` holds on the detail page), the source as a plain
+     uncoloured tag (`mark`, the page's existing fact vocabulary), and the
+     table inherits the site-wide row height and type size rather than
+     setting its own. #}
+  <div class="table-scroll">
+  <table class="journal-entries">
+    <thead>
+      <tr>
+        <th>kind</th><th>gate/step</th>
+        <th>source</th><th>who</th><th>when</th>
+        <th>detail</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for entry in journal.entries %}
+      <tr class="journal-row category-{{ entry.category }}">
+        <td><span class="kind-tag">{{ entry.label }}</span></td>
+        <td class="subject">{{ entry.subject or '—' }}</td>
+        <td><span class="mark">{{ entry.source or 'system' }}</span></td>
+        <td class="who">{{ entry.who or '—' }}</td>
+        <td class="when">{{ entry.when.strftime('%Y-%m-%d %H:%M %Z') }}</td>
+        <td class="detail">{{ entry.detail or '—' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% endif %}
+</main>
+</body>
+</html>

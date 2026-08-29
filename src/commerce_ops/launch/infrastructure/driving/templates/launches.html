@@ -13,7 +13,14 @@
 <body>
 {% with current = "launches" %}{% include "_admin_header.html" %}{% endwith %}
 <main class="container">
-  <h1>Launches</h1>
+  {# `.page-head` — the same title container every other admin page
+     uses, breadcrumb-carrying pages included — so the space below a
+     title is one rule shared everywhere, not a spacing accident of
+     whichever element happens to follow a bare `<h1>` on this one
+     page. #}
+  <div class="page-head">
+    <h1>Launches</h1>
+  </div>
 
   {# One bar, the shape the steps page uses. Every rule that sizes these
      controls is scoped to `.narrowing-bar` — left outside it they inherit
@@ -89,6 +96,7 @@
        it cannot drift out of alignment with the rows it names. It carries no
        launch link, so it is not a row for anything that reads one. #}
     <li class="launch-heading" aria-hidden="true">
+      <span>SKU</span>
       <span>Product</span>
       <span>Launch date</span>
       <span>State</span>
@@ -97,10 +105,12 @@
     </li>
     {% for row in rows %}
     <li class="launch-row">
-      {# No `product-id` span. Where the catalog resolves the product the
-         identifier is 36 opaque characters an admin cannot act on; where it
-         does not, the label already IS the identifier, so a span beside it
-         would print the same string twice on the one row that needs reading. #}
+      {# The SKU, not the 36-opaque-character product identifier: unlike
+         that identifier, an admin can read and act on a SKU, and it is
+         never the same string as the name beside it. Where the catalog
+         cannot resolve the product there is no SKU to show — the name
+         cell already falls back to the raw identifier for that case. #}
+      <span class="identity">{% if row.sku %}<code>{{ row.sku }}</code>{% endif %}</span>
       <a class="launch-link" href="{{ row.detail_path }}#gate-{{ row.current_gate }}">{{ row.label }}</a>
       <span class="launch-date">
         {% if row.launch_date %}{{ row.launch_date }}{% else %}No launch date{% endif %}
@@ -135,6 +145,7 @@
     {% else %}
     <ul class="launches finished-launches">
     <li class="launch-heading" aria-hidden="true">
+      <span>SKU</span>
       <span>Product</span>
       <span>Launch date</span>
       <span>State</span>
@@ -143,6 +154,7 @@
     </li>
       {% for row in revealed %}
       <li class="launch-row finished-row">
+        <span class="identity">{% if row.sku %}<code>{{ row.sku }}</code>{% endif %}</span>
         <a class="launch-link" href="{{ row.detail_path }}#gate-{{ row.current_gate }}">{{ row.label }}</a>
         <span class="launch-date">
           {% if row.launch_date %}{{ row.launch_date }}{% else %}No launch date{% endif %}

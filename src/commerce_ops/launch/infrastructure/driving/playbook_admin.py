@@ -728,7 +728,6 @@ def _row(record: Any, people: Mapping[str, Any]) -> dict[str, Any]:
         "kind": definition.kind.value,
         "needs_confirmation": definition.needs_confirmation,
         "status": definition.status.value,
-        "status_label": _STATUS_LABELS[definition.status],
         # By display name, since an author knows colleagues by name and
         # not by generated identifier. An identifier the roster no longer
         # carries is shown as itself rather than dropped — an assignee
@@ -997,6 +996,16 @@ async def _render_new(
         notice=notice,
         narrowing=narrowing,
         assignee_options=_assignee_options(await _roster_people()),
+        breadcrumb=[
+            ("Playbook", f"{PAGE_PATH}{narrowing.suffix()}"),
+            ("New step", None),
+        ],
+        # `new.html`'s own `<body>` carries no `hx-boost`, unlike
+        # `page.html`'s and `edit.html`'s — so, as its own (pre-breadcrumb)
+        # `Cancel` control already did, the trail's own link back is
+        # marked un-boosted explicitly rather than relying on an ancestor
+        # that is not there.
+        breadcrumb_unboost=True,
         **context,
     )
     return HTMLResponse(html)
@@ -1020,6 +1029,10 @@ async def _render_edit(
         notice=notice,
         narrowing=narrowing,
         assignee_options=_assignee_options(await _roster_people()),
+        breadcrumb=[
+            ("Playbook", f"{PAGE_PATH}{narrowing.suffix()}"),
+            (values["name"], None),
+        ],
         **_option_context(),
     )
     return HTMLResponse(html)

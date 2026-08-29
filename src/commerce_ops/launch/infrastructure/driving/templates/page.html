@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Launch playbook steps</title>
+  <title>Playbook</title>
   <link rel="stylesheet" href="/admin/assets/pico.min.css">
   <link rel="stylesheet" href="/admin/assets/vocabulary.css">
   <script src="/admin/static/htmx.min.js" defer></script>
@@ -28,7 +28,7 @@
      create control into that grey would make the one thing an admin comes
      here to do the quietest thing on the page. #}
   <div class="page-head">
-    <h1>Launch playbook steps</h1>
+    <h1>Playbook</h1>
     <a href="{{ page_path }}/steps/new{{ narrowing.suffix() }}" role="button" class="page-head-action" hx-boost="false">Add step</a>
   </div>
 
@@ -101,20 +101,6 @@
   </article>
   {% endif %}
 
-  {% macro status_control(step) %}
-  {# Every status move goes through one control. Crossing `retired` is
-     resolved by the authoring write, not here, so this cannot become a
-     second way out of it that records nobody. #}
-  <form method="post" action="{{ page_path }}/steps/{{ step.identifier }}/status{{ narrowing.suffix() }}">
-    <select name="status" aria-label="status of {{ step.identifier }}">
-      {% for option, label in status_options %}
-      <option value="{{ option }}"{% if option == step.status %} selected{% endif %}>{{ label }}</option>
-      {% endfor %}
-    </select>
-    <button type="submit" class="row-action">set status</button>
-  </form>
-  {% endmacro %}
-
   {% macro move_controls(step) %}
   {# Both controls speak one vocabulary — the visible step to come to rest
      after — so the placement rule has a single code path. An end of the
@@ -142,25 +128,6 @@
   </form>
   {% endmacro %}
 
-  {% macro row_actions(step) %}
-  {# Every action a row offers speaks one vocabulary: same weight, same
-     treatment, on one line rather than stacking one per line. The `edit`
-     link takes `role="button"` and matches the buttons — not the buttons
-     matching it — and `retire`, the destructive one, is distinguished by
-     colour and border alone rather than by prominence.
-
-     Rendered from a macro because `page.html` lays a step's row out at two
-     sites: the served table and the "Not served at this gate" one. Two
-     copies is how a draft's row keeps the old vocabulary while every
-     scenario about an active step's row still passes. #}
-  {% if step.retired %}
-  <form method="post" action="{{ page_path }}/steps/{{ step.identifier }}/unretire{{ narrowing.suffix() }}"><button type="submit" class="row-action">unretire</button></form>
-  {% else %}
-  <a href="{{ page_path }}/steps/{{ step.identifier }}/edit{{ narrowing.suffix() }}" role="button" class="row-action">edit</a>
-  <form method="post" action="{{ page_path }}/steps/{{ step.identifier }}/retire{{ narrowing.suffix() }}"><button type="submit" class="row-action danger">retire</button></form>
-  {% endif %}
-  {% endmacro %}
-
   {# `movable` is the row site, not a permission: only the served table's
      steps hold a slot, so only they offer a move. `reorderable` is the
      page-level condition on top of it. #}
@@ -183,8 +150,11 @@
   <td class="position">
     {%- if step.position %}{{ step.position }} / {{ step.live_count }}{% endif %}
   </td>
+  {# The name is the row's only way into the step's edit page now
+     (`move-step-actions-into-step-pages`) — editing, changing status,
+     retiring and un-retiring all happen there, not on the row. #}
+  <td><a href="{{ page_path }}/steps/{{ step.identifier }}/edit{{ narrowing.suffix() }}">{{ step.name }}</a></td>
   <td class="identity"><code>{{ step.identifier }}</code></td>
-  <td>{{ step.name }}</td>
   {# Nobody assigned renders as nothing. A word saying "unowned" on every
      one of the migrated steps is noise the eye has to filter on every
      scan, and an empty cell says the same thing without being read. #}
@@ -198,23 +168,16 @@
     {%- if step.needs_confirmation %}<span class="mark">needs confirmation</span>{% endif %}
     {%- if step.blocking %}<span class="mark emphatic">blocks its gate</span>{% endif %}
   </td>
-  {# The status control gets a column of its own, second to last. A retired
-     step is not offered one — crossing `retired` is the un-retire write,
-     which records who did it — so its status renders as the text it always
-     was, keeping every step's status legible whether or not it can be
-     changed here. #}
-  <td class="actions">
-    {%- if step.retired %}{{ step.status_label }}{% else %}{{ status_control(step) }}{% endif %}
-  </td>
   {% endmacro %}
 
   {% for gate in gates %}
-  <section>
-    <h2>{{ gate.identifier }}</h2>
+  <section class="playbook-gate">
+    <h2 class="gate-name">{{ gate.identifier }}</h2>
     {% if gate.steps %}
+    <div class="table-scroll">
     <table>
       <thead>
-        <tr><th class="reorder">move</th><th>at</th><th>step</th><th>name</th><th>assignees</th><th>discipline</th><th>facts</th><th>status</th><th>actions</th></tr>
+        <tr><th class="reorder">move</th><th>at</th><th>name</th><th>id</th><th>assignees</th><th>discipline</th><th>facts</th></tr>
       </thead>
       <tbody>
         {% for step in gate.steps %}
@@ -223,15 +186,11 @@
            naming a step this read did not return marks nothing. #}
         <tr class="step status-{{ step.status }}{% if created and step.identifier == created %} just-created{% endif %}" id="step-{{ step.identifier }}">
           {{ step_cells(step, true) }}
-          <td class="actions">
-            {{ row_actions(step) }}
-          </td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
-    {% else %}
-    <p><small>No active steps at this gate.</small></p>
+    </div>
     {% endif %}
 
     {% if gate.pending %}
@@ -240,9 +199,10 @@
        These hold no slot, so they carry no position and no move control. #}
     <details open>
       <summary>Not served at this gate ({{ gate.pending | length }})</summary>
+      <div class="table-scroll">
       <table class="not-served">
         <thead>
-          <tr><th class="reorder">move</th><th>at</th><th>step</th><th>name</th><th>assignees</th><th>discipline</th><th>facts</th><th>status</th><th>actions</th></tr>
+          <tr><th class="reorder">move</th><th>at</th><th>name</th><th>id</th><th>assignees</th><th>discipline</th><th>facts</th></tr>
         </thead>
         <tbody>
           {% for step in gate.pending %}
@@ -250,13 +210,11 @@
              lands on — so the created marker belongs here too. #}
           <tr class="step status-{{ step.status }}{% if created and step.identifier == created %} just-created{% endif %}" id="step-{{ step.identifier }}">
             {{ step_cells(step, false) }}
-            <td class="actions">
-              {{ row_actions(step) }}
-            </td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
+      </div>
     </details>
     {% endif %}
   </section>

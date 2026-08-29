@@ -237,7 +237,6 @@ ALICE_NAME: Final = "Alice Admin"
 EDITED: Final = "listing.zeta"
 
 _CREATE_HINTS: Final = ("new", "create", "add")
-_UNRETIRE_HINTS: Final = ("unretire", "un-retire", "un_retire")
 _HX_VERBS: Final = ("hx-get", "hx-post", "hx-put", "hx-patch", "hx-delete")
 
 _VOID_TAGS: Final = (
@@ -979,15 +978,22 @@ def test_a_failed_write_does_not_read_as_a_successful_one(
     Expected to **PASS** on its first run: the server already answers its
     real status. Recorded in the manifest as a regression guard against
     the client half being built by making the server lie.
+
+    Retiring is submitted through the step's edit form now
+    (`move-step-actions-into-step-pages`), the same `status` field an
+    ordinary field edit uses — not a row-level `retire` control, which
+    no longer exists.
     """
     store = _seeded_store(_StoreThatCannotPersist)
     client = _signed_client(monkeypatch, store)
     records_before = store.records
 
-    control = _require_control(
-        _get_page(client), contains=(EDITED, "retire"), excluding=_UNRETIRE_HINTS
-    )
-    response = _issue(client, control)
+    surface = _edit_surface(client)
+    control = _require_control(surface, contains=("status",))
+    values = control.data()
+    status_field = _field(values, "status")
+    values[status_field] = _option_matching(surface, status_field, "retired")
+    response = _issue(client, control, data=values)
 
     # SPECIFIED: the page does not render as though the write was
     # accepted — and the status says so too, since the status is what

@@ -813,15 +813,19 @@ def test_a_blocked_retirement_explains_itself(
 
     `hold.stock-ready` is its gate's only blocking step; the gate name
     is distinctive enough to assert on without false positives.
+
+    Retiring is submitted through the step's edit form now
+    (`move-step-actions-into-step-pages`), the same `status` field an
+    ordinary field edit uses — not a row-level `retire` control, which
+    no longer exists.
     """
     store = _seeded_store(extra=_listable_extras())
     client = _signed_client(monkeypatch, store)
-    page = _get_page(client)
-    method, url, fields = _require_control(
-        page, contains=("hold.stock-ready", "retire"), excludes=("unretire",)
-    )
+    form = _edit_form(client, _get_page(client), "hold.stock-ready")
 
-    response = _submit(client, method, url, fields)
+    response = _submit(
+        client, form["method"], form["url"], _fill(form["fields"], status="retired")
+    )
 
     # SPECIFIED: the fault names the gate that would be left unheld.
     assert "stock-ready" in response.text

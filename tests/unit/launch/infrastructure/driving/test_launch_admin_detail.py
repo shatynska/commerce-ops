@@ -755,10 +755,12 @@ def _detail_template(module: ModuleType) -> str:
         if getattr(route, "path", None)
         and "GET" in (getattr(route, "methods", None) or set())
         and "{" in route.path
+        and "journal" not in route.path.lower()
     ]
     assert len(candidates) == 1, (
         f"{_PAGE_MODULE_NAME} exposes {len(candidates)} parameterised GET "
-        "routes; exactly one detail route is expected"
+        "routes not mentioning 'journal'; exactly one detail route is "
+        "expected"
     )
     return str(candidates[0])
 
@@ -1040,8 +1042,19 @@ def _step_order(html: str) -> list[str]:
 
 
 def _gate_group(html: str, gate: str) -> _Node:
-    """The smallest element holding every step of `gate` and no step of
-    another gate."""
+    """The smallest *addressable* element holding every step of `gate` and
+    no step of another gate — addressable because this is what the
+    scenario below lands a reader on, and an element with no `id` cannot
+    be.
+
+    Correction point: since the gate's steps now render inside a
+    `<table>` (`add-admin-breadcrumb-navigation`'s launch-page redesign),
+    an un-addressed `<tbody>` also holds exactly one gate's steps and is
+    strictly smaller than the `id`-carrying element wrapping it — the
+    smallest *candidate*, but not what a fragment can land on. Filtering
+    to `id`-carrying candidates first is what keeps this locator finding
+    the group the page actually addresses, on either shape.
+    """
     root = _tree(html)
     mine = [step.identifier for step in PLAYBOOK.steps_for_gate(gate)]
     theirs = [step_id for step_id in SERVED_ORDER if step_id not in mine]
@@ -1051,14 +1064,15 @@ def _gate_group(html: str, gate: str) -> _Node:
         if all(_holds(element, step_id) for step_id in mine)
         and not any(_holds(element, other) for other in theirs)
     ]
-    if not candidates:
+    addressable = [element for element in candidates if element.attrs.get("id")]
+    if not addressable:
         pytest.fail(
-            f"no element holds exactly the steps of gate {gate!r} ({mine}) "
-            "without holding another gate's, so the page does not group steps "
-            "by gate — correct `_gate_group` if the grouping is expressed "
-            "differently"
+            f"no addressable (`id`-carrying) element holds exactly the steps "
+            f"of gate {gate!r} ({mine}) without holding another gate's, so "
+            "the page does not group steps by gate — correct `_gate_group` "
+            "if the grouping is expressed differently"
         )
-    return min(candidates, key=_size)
+    return min(addressable, key=_size)
 
 
 def _marked_current(node: _Node) -> bool:
@@ -1673,163 +1687,12 @@ def test_an_overdue_step_is_marked(monkeypatch: pytest.MonkeyPatch) -> None:
 # ===========================================================================
 # Requirement: A launch's detail page renders its journal, newest first
 #
-# BLOCKED on the sibling change `add-launch-journal` (`tasks.md` 4.8, 7.1).
-# Each test fails through `_journal_seam`, which names that dependency.
+# REMOVED by `add-admin-breadcrumb-navigation`: the journal no longer
+# renders inline on the detail page. The three scenarios this section
+# once carried now belong to `test_launch_journal_page.py`, testing the
+# launch's own journal page; `test_launch_detail_breadcrumb.py` covers
+# what the detail page does carry — an offer of that page in one action.
 # ===========================================================================
-
-
-def test_a_journal_entry_names_when_it_occurred_and_shows_subject_source_who(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Scenario: An entry names when it occurred / shows its subject,
-    source and who recorded it as separate facts.
-
-    WHEN a launch's journal holds an entry
-    THEN it is rendered naming when it occurred, and shows its subject,
-    its source, and who recorded it, each in its own column --
-    `raw-out-the-journal-columns` removed the page's earlier composed
-    `what`/`cause` columns entirely in favour of these raw ones.
-    """
-    world = _world(monkeypatch)
-    seam = _journal_seam(world.surface.module)
-    when = datetime(2027, 3, 2, 10, 30, tzinfo=UTC)
-    subject = "commit"
-    source = "slack"
-    actor = "an-actor-not-on-the-roster"
-
-    async def _journal(*_args: Any, **_kwargs: Any) -> tuple[Any, ...]:
-        return (
-            type(
-                "_Entry",
-                (),
-                {
-                    "when": when,
-                    "kind": "approval",
-                    "label": "Approval",
-                    "category": "judgment",
-                    "subject": subject,
-                    "source": source,
-                    "actor": actor,
-                    "playbook_version": None,
-                    "outcome": None,
-                    "reason": None,
-                    "evidence": None,
-                    "gate_id": None,
-                    "decision": "approving",
-                    "posture": None,
-                    "standing_at": None,
-                    "previous_date": None,
-                    "new_date": None,
-                    "unsatisfied": (),
-                },
-            )(),
-        )
-
-    monkeypatch.setattr(world.surface.module, seam, _journal)
-
-    html = _detail_html(world.surface, world.product.id)
-
-    text = _all_text(_tree(html))
-    # SPECIFIED: when it occurred...
-    assert _renders_date(_tree(html), when.date()), (
-        f"the journal entry does not name when it occurred: {text!r}"
-    )
-    # ...and its subject, source and who recorded it, each in its own
-    # column.
-    assert subject in text, f"the journal entry does not show its subject: {text!r}"
-    assert source in text, f"the journal entry does not show its source: {text!r}"
-    assert actor.lower() in text, (
-        f"the journal entry does not show who recorded it: {text!r}"
-    )
-
-
-def test_journal_entries_render_newest_first(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Scenario: Entries render newest first.
-
-    WHEN a launch's journal holds several entries
-    THEN they are rendered most recent first.
-    """
-    world = _world(monkeypatch)
-    seam = _journal_seam(world.surface.module)
-    marks = ("the-oldest-entry", "the-middle-entry", "the-newest-entry")
-    moments = (
-        datetime(2027, 1, 2, 9, 0, tzinfo=UTC),
-        datetime(2027, 2, 3, 9, 0, tzinfo=UTC),
-        datetime(2027, 3, 4, 9, 0, tzinfo=UTC),
-    )
-
-    async def _journal(*_args: Any, **_kwargs: Any) -> tuple[Any, ...]:
-        # Handed over oldest-first, so passing cannot be arrival order.
-        return tuple(
-            type(
-                "_Entry",
-                (),
-                {
-                    "when": moment,
-                    "kind": "step-outcome-recorded",
-                    "label": "Outcome",
-                    "category": "progression",
-                    "subject": None,
-                    "source": None,
-                    "actor": None,
-                    "playbook_version": None,
-                    "outcome": mark,
-                    "reason": None,
-                    "evidence": None,
-                    "gate_id": None,
-                    "decision": None,
-                    "posture": None,
-                    "standing_at": None,
-                    "previous_date": None,
-                    "new_date": None,
-                    "unsatisfied": (),
-                },
-            )()
-            for mark, moment in zip(marks, moments, strict=True)
-        )
-
-    monkeypatch.setattr(world.surface.module, seam, _journal)
-
-    html = _detail_html(world.surface, world.product.id).lower()
-
-    # SPECIFIED: most recent first.
-    positions = [html.index(mark) for mark in reversed(marks)]
-    assert positions == sorted(positions), (
-        f"the journal renders {marks} in the order they arrived rather than "
-        "most recent first"
-    )
-
-
-def test_an_empty_journal_says_so(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Scenario: An empty journal says so.
-
-    WHEN a launch's journal holds no entry
-    THEN the section is rendered and states that nothing is recorded.
-    """
-    world = _world(monkeypatch)
-    seam = _journal_seam(world.surface.module)
-
-    async def _journal(*_args: Any, **_kwargs: Any) -> tuple[Any, ...]:
-        return ()
-
-    monkeypatch.setattr(world.surface.module, seam, _journal)
-
-    html = _detail_html(world.surface, world.product.id)
-
-    text = _all_text(_tree(html))
-    # SPECIFIED: the section is rendered and states that nothing is
-    # recorded, rather than vanishing — a vanished section would read as
-    # "nothing happened" on every launch predating the journal.
-    assert "journal" in text, (
-        "the journal section is absent from a launch whose journal holds "
-        f"nothing: {_flat(text)[:400]!r}"
-    )
-    assert any(
-        phrase in text
-        for phrase in ("nothing is recorded", "no entries", "nothing recorded", "empty")
-    ), f"the empty journal section states nothing: {_flat(text)[:400]!r}"
 
 
 # ===========================================================================

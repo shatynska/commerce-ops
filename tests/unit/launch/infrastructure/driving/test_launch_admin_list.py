@@ -794,16 +794,22 @@ def _list_path(module: ModuleType) -> str:
 
 
 def _detail_template(module: ModuleType) -> str:
+    # A second parameterised GET route (the launch journal page
+    # `add-admin-breadcrumb-navigation` adds) is excluded by name, so this
+    # locator survives once that route exists alongside this one — the
+    # same correction that route's own change made in its own test files.
     candidates = [
         str(route.path)
         for route in module.router.routes
         if getattr(route, "path", None)
         and "GET" in (getattr(route, "methods", None) or set())
         and "{" in route.path
+        and "journal" not in route.path.lower()
     ]
     assert len(candidates) == 1, (
         f"{_PAGE_MODULE_NAME} exposes {len(candidates)} parameterised GET "
-        "routes; exactly one detail route is expected"
+        "routes not mentioning 'journal'; exactly one detail route is "
+        "expected"
     )
     return str(candidates[0])
 
