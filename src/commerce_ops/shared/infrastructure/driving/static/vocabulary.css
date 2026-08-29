@@ -1623,13 +1623,18 @@ section.finished .empty,
  * The step form's two multi-valued controls
  * (`pick-steps-and-people-by-checkbox`)
  *
- * Every rule below is scoped under `.control-group`, which only the step
- * form's two fieldsets carry — `_fields.html` is included by `edit.html` and
- * `new.html` and by nothing else. That is what keeps these rules off the six
- * other surfaces loading this stylesheet, and it is arranged rather than left
- * to be caught by inspection. `gate` and `empty` are never selected
- * unqualified here: the launch list and the page-level empty state already
- * use both.
+ * Every rule is scoped under `.control-group`, which only the step form's two
+ * fieldsets carry — `_fields.html` is included by `edit.html` and `new.html`
+ * and by nothing else. That is what keeps these off the six other surfaces
+ * loading this stylesheet, and it is arranged rather than left to be caught by
+ * inspection. `gate` and `empty` are never selected unqualified: the launch
+ * list and the page-level empty state already use both.
+ *
+ * These two are FIELDS, not sections. The form gives `fieldset` a section's
+ * spacing and `legend` a section heading's weight, which is right for the four
+ * groups an eleven-field form is divided into and wrong for a single control.
+ * The element is a fieldset because it holds a group of inputs; it still has
+ * to read as one field among its neighbours.
  * ------------------------------------------------------------------------ */
 
 .control-group {
@@ -1637,151 +1642,175 @@ section.finished .empty,
   flex-direction: column;
   border: 0;
   padding: 0;
-  margin: 0 0 var(--space-tight);
+  margin: 0 0 var(--space-snug);
+  max-width: 34rem;
 }
 
-/* The chosen set is written AFTER the options in the document, so that the
-   first label bound to a value is the option's own row rather than its chip.
-   It reads above them, which is where the answer to "what does this wait on"
-   belongs. */
 .control-group > legend {
   order: -2;
   padding: 0;
-  font-size: inherit;
+  margin-bottom: var(--space-hair);
+  color: var(--ink);
+  font-size: var(--size-small);
+  font-weight: 600;
 }
 
+.control-group > small {
+  display: block;
+  margin-top: var(--space-hair);
+  color: var(--ink-quiet);
+  font-size: var(--size-fine);
+  font-weight: 400;
+}
+
+/* What is chosen, read at a glance. Written after the options so the first
+   label bound to a value is that option's own row, and placed above them
+   because that is where the answer to "what does this wait on" belongs.
+
+   A chip is a summary and not a second control: the option row's own
+   checkbox is what chooses and unchooses, so a chip cannot be a toggle that
+   silently re-chooses what an author has just cleared. */
 .control-group .chosen-set {
   order: -1;
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-hair);
+  gap: 0.3rem;
   min-height: 1.9rem;
-  margin-bottom: var(--space-hair);
+  margin-bottom: 0.55rem;
 }
 
-/* The input is the control; the chip is its face. Kept in the accessibility
-   tree rather than `display: none`, so the group is still reachable by
-   keyboard from here and not only from the option rows. */
-.control-group .chosen > input {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
-
-.control-group .chosen > .chip {
+.control-group .chip {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-hair);
-  padding: 0 var(--space-tight);
+  gap: 0.3rem;
+  padding: 0.1rem 0.5rem;
   border: 1px solid var(--pico-muted-border-color);
   border-radius: 1rem;
-  font-size: var(--size-fine);
-  line-height: 1.7;
+  font-size: 0.8rem;
+  font-weight: 400;
+  font-family: var(--pico-font-family-monospace, monospace);
+}
+
+/* A person is known by name, not by identifier, so their chip is not code. */
+.control-group .chip.person {
+  font-family: inherit;
+}
+
+.control-group .chip.none {
+  opacity: 0.6;
+  font-style: italic;
+  font-family: inherit;
+}
+
+.control-group .chip-x {
+  all: unset;
   cursor: pointer;
-}
-
-/* **The rule that makes clearing safe without a script.** The chip's own
-   affordance is a label bound to its input, so acting on it is a TOGGLE: a
-   second action would choose the value again. Were the chip to stay put after
-   the first, an author who cleared a value, saw it still listed and acted
-   again to be sure would silently restore it. The chip and its input are
-   siblings for exactly this selector's sake — a shared stylesheet cannot
-   carry one rule per value. */
-.control-group .chosen > input:not(:checked) + .chip {
-  display: none;
-}
-
-.control-group .chosen > input:focus-visible + .chip {
-  outline: 2px solid var(--pico-primary-focus, currentColor);
-  outline-offset: 1px;
-}
-
-.control-group .chip .chip-x {
-  opacity: 0.55;
+  opacity: 0.6;
   font-size: 1rem;
   line-height: 1;
 }
 
+.control-group .chip-x:hover,
+.control-group .chip-x:focus-visible {
+  opacity: 1;
+}
+
 /* Filtering the OPTIONS — not the page narrowing, and not the step list's own
-   gate filter. Wraps rather than scrolling sideways, per the rule the launch
-   detail page's columns already follow. */
+   gate filter. Wraps rather than scrolling sideways. */
 .control-group .option-filters {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-hair);
-  margin-bottom: var(--space-hair);
+  gap: 0.25rem;
+  margin-bottom: 0.5rem;
 }
 
 .control-group .option-gate-filter {
   all: unset;
   cursor: pointer;
-  padding: 0 var(--space-tight);
+  padding: 0.12rem 0.5rem;
   border: 1px solid var(--pico-muted-border-color);
   border-radius: 1rem;
-  font-size: var(--size-fine);
-  line-height: 1.7;
+  font-size: 0.75rem;
+}
+
+.control-group .option-gate-filter .ct {
+  opacity: 0.5;
+  font-size: 0.68rem;
+  margin-left: 0.15rem;
 }
 
 .control-group .option-gate-filter.on {
-  background: var(--mark-flag-wash);
-  color: var(--mark-flag-ink);
+  background: var(--pico-primary-background);
+  color: var(--pico-primary-inverse);
   border-color: transparent;
 }
 
-/* A gate later than the one the form was rendered with. Dimmed rather than
-   withheld: depending on a later step is permitted for a step that does not
-   block its gate and refused for one that does, and which applies turns on
-   two controls the author can still change. */
-.control-group .option-gate-filter.later,
-.control-group .picker .grp.later > .grp-name {
+.control-group .option-gate-filter.on .ct {
+  opacity: 0.8;
+}
+
+/* Later than the gate the form was rendered with. Dimmed, not withheld:
+   depending on a later step is permitted for a step that does not block its
+   gate and refused for one that does, and both controls that decide which
+   are still editable. The phrase itself is said once, in the group heading —
+   eight of these have to fit on a row. */
+.control-group .option-gate-filter.later {
   opacity: 0.62;
   font-style: italic;
 }
 
-.control-group .option-gate-filter .ct {
-  opacity: 0.55;
-  font-size: 0.9em;
-  margin-left: 0.15em;
-}
-
+/* Sized to the row it filters, not to the form. Pico gives an input the
+   height of a primary control, which beside 0.75rem chips and 0.85rem rows
+   reads as a different instrument entirely. */
 .control-group .option-filter {
-  flex: 1 1 12rem;
-  min-width: 8rem;
-  margin: 0;
+  height: auto;
+  margin: 0 0 0.5rem;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.8rem;
+  line-height: 1.5;
 }
 
-/* The options: bounded, scrolling in their own container so the page body
-   never scrolls sideways for them, with each gate's heading sticking to the
-   top edge so the group a row belongs to is always legible. */
 .control-group .picker {
   list-style: none;
   margin: 0;
   padding: 0;
-  max-height: 18rem;
+  max-height: 19rem;
   overflow-y: auto;
   border: 1px solid var(--pico-muted-border-color);
-  border-radius: var(--pico-border-radius);
+  border-radius: 0.35rem;
 }
 
 .control-group .picker .grp {
   padding: 0;
 }
 
+/* The heading sticks to the top edge, so the group a row belongs to is
+   readable wherever the list is scrolled to. */
 .control-group .picker .grp > .grp-name {
   position: sticky;
   top: 0;
   z-index: 1;
-  display: block;
-  padding: var(--space-hair) var(--space-tight);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.3rem 0.6rem;
   background: var(--pico-card-background-color, var(--pico-background-color));
   border-bottom: 1px solid var(--pico-muted-border-color);
-  font-size: var(--size-fine);
+  font-size: 0.78rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+}
+
+.control-group .picker .grp.later > .grp-name {
+  opacity: 0.55;
+}
+
+.control-group .picker .grp .hint {
+  font-size: 0.7rem;
+  opacity: 0.75;
+  text-transform: none;
+  letter-spacing: 0;
 }
 
 .control-group .picker .grp-rows {
@@ -1790,25 +1819,46 @@ section.finished .empty,
   padding: 0;
 }
 
+/* One line per option, always: the box, the identifier, the name. A wrapped
+   row costs the list its scannability at ninety-four of them, so the name is
+   elided and the identifier — what the write refers to — never is. */
 .control-group .picker .row > label {
-  display: block;
-  padding: 0.15rem var(--space-tight);
+  display: flex;
+  gap: 0.5rem;
+  align-items: baseline;
+  padding: 0.22rem 0.6rem;
   margin: 0;
   cursor: pointer;
-  font-size: var(--size-fine);
+  font-size: 0.85rem;
+  font-weight: 400;
 }
 
 .control-group .picker .row > label:hover {
-  background: var(--pico-secondary-background, rgba(0, 0, 0, 0.04));
+  background: var(--pico-secondary-background, rgba(0, 0, 0, 0.05));
 }
 
-/* Each row carries its own gate so that text filtering on a gate's name
-   reaches it. Present for that, not to be read — the group heading above it
-   already says which gate this is. */
-.control-group .picker .row-gate {
-  opacity: 0.45;
-  font-size: 0.85em;
-  margin-left: 0.4em;
+.control-group .picker .row input {
+  margin: 0;
+  flex: none;
+}
+
+.control-group .picker .row code {
+  flex: none;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+/* `min-width: 0` is what makes the ellipsis work at all: a flex item will
+   not shrink below its content's own width without it, so a long step name
+   pushes the row — and with it the whole control — past the form's width
+   instead of being elided. */
+.control-group .picker .row .nm {
+  flex: 1 1 auto;
+  min-width: 0;
+  opacity: 0.75;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .control-group .picker .row.hide,
@@ -1819,18 +1869,18 @@ section.finished .empty,
 /* Said plainly rather than left as an empty box, which reads as a failure to
    load rather than as a filter matching nothing. */
 .control-group .picker .no-match {
-  padding: var(--space-tight);
-  font-size: var(--size-fine);
+  padding: 0.6rem;
+  font-size: 0.85rem;
   color: var(--ink-quiet);
 }
 
-/* The report's region always renders; the occurrence marker is added to it
-   only once a chosen option actually is hidden — the split
-   `write-failure-notice` and `write-failed` already draw. */
+/* The report's region always renders; the occurrence marker is added only
+   once a chosen option actually is hidden — the split `write-failure-notice`
+   and `write-failed` already draw. */
 .control-group .hidden-chosen-notice {
-  margin: var(--space-hair) 0 0;
-  min-height: 1.1rem;
-  font-size: var(--size-fine);
+  margin: 0.4rem 0 0;
+  min-height: 1rem;
+  font-size: 0.78rem;
   color: var(--ink-quiet);
 }
 
