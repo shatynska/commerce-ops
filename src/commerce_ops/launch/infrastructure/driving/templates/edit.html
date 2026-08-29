@@ -11,13 +11,16 @@
 <body hx-boost="true">
 {% with current = "playbook" %}{% include "_admin_header.html" %}{% endwith %}
 <main class="container">
-  {# The way back rides the title rather than sitting under the form: an
-     author who opened this page to look rather than to write should not
-     have to scroll past every field to leave. It carries the narrowing, so
-     leaving returns the list exactly as it was left. #}
+  {# The way back is now the breadcrumb trail rather than a title-local
+     control (`add-admin-breadcrumb-navigation`), but it still carries the
+     narrowing forward: an author who opened this page to look rather than
+     to write should not have to scroll past every field to leave, and
+     leaving should return the list exactly as it was left. The trail's
+     current segment — the step's own name — is this page's `<h1>` now,
+     so the page carries no separate, generic "Edit step" title of its
+     own (see `_breadcrumb.html`). #}
   <div class="page-head">
-    <h1>Edit step</h1>
-    <a href="{{ page_path }}{{ narrowing.suffix() }}" role="button" class="row-action quiet">Back to the table</a>
+    {% include "_breadcrumb.html" %}
   </div>
   <p>
     Identifier: <code>{{ step_id }}</code> — Discipline: {{ discipline }}

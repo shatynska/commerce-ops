@@ -400,29 +400,35 @@ def _surface(
     return _Surface(client, module)
 
 
-def _detail_template(module: ModuleType) -> str:
+def _journal_template(module: ModuleType) -> str:
+    # The journal moved off the detail page onto its own page
+    # (`add-admin-breadcrumb-navigation`, merged alongside this file's own
+    # `structure-the-launch-journal-table`); this file exercises journal
+    # *content*, so it targets that route specifically rather than "the"
+    # single parameterized route, now that two exist.
     candidates = [
         str(route.path)
         for route in module.router.routes
         if getattr(route, "path", None)
         and "GET" in (getattr(route, "methods", None) or set())
         and "{" in route.path
+        and "journal" in route.path.lower()
     ]
     assert len(candidates) == 1
     return str(candidates[0])
 
 
-def _detail_path(module: ModuleType, product_id: ProductId) -> str:
-    template = _detail_template(module)
+def _journal_path(module: ModuleType, product_id: ProductId) -> str:
+    template = _journal_template(module)
     opened = template.index("{")
     closed = template.index("}", opened)
     return template[:opened] + product_id.value + template[closed + 1 :]
 
 
 def _detail_html(surface: _Surface, product_id: ProductId) -> str:
-    response = surface.client.get(_detail_path(surface.module, product_id))
+    response = surface.client.get(_journal_path(surface.module, product_id))
     assert response.status_code == 200, (
-        f"the detail page for {product_id} was not served: "
+        f"the journal page for {product_id} was not served: "
         f"{response.status_code} {response.text[:400]}"
     )
     return str(response.text)

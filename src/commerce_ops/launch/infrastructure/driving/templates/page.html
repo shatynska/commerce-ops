@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Launch playbook steps</title>
+  <title>Playbook steps</title>
   <link rel="stylesheet" href="/admin/assets/pico.min.css">
   <link rel="stylesheet" href="/admin/assets/vocabulary.css">
   <script src="/admin/static/htmx.min.js" defer></script>
@@ -28,7 +28,7 @@
      create control into that grey would make the one thing an admin comes
      here to do the quietest thing on the page. #}
   <div class="page-head">
-    <h1>Launch playbook steps</h1>
+    <h1>Playbook steps</h1>
     <a href="{{ page_path }}/steps/new{{ narrowing.suffix() }}" role="button" class="page-head-action" hx-boost="false">Add step</a>
   </div>
 
@@ -183,8 +183,13 @@
   <td class="position">
     {%- if step.position %}{{ step.position }} / {{ step.live_count }}{% endif %}
   </td>
+  {# The name is a second way into the step's edit page, alongside the
+     row's own `edit` action rather than instead of it
+     (`add-admin-breadcrumb-navigation`) — the same pattern a launch's
+     label and a product's SKU already offer their own detail pages
+     through. #}
+  <td><a href="{{ page_path }}/steps/{{ step.identifier }}/edit{{ narrowing.suffix() }}">{{ step.name }}</a></td>
   <td class="identity"><code>{{ step.identifier }}</code></td>
-  <td>{{ step.name }}</td>
   {# Nobody assigned renders as nothing. A word saying "unowned" on every
      one of the migrated steps is noise the eye has to filter on every
      scan, and an empty cell says the same thing without being read. #}
@@ -210,11 +215,11 @@
 
   {% for gate in gates %}
   <section>
-    <h2>{{ gate.identifier }}</h2>
+    <h2 class="gate-name">{{ gate.identifier }}</h2>
     {% if gate.steps %}
     <table>
       <thead>
-        <tr><th class="reorder">move</th><th>at</th><th>step</th><th>name</th><th>assignees</th><th>discipline</th><th>facts</th><th>status</th><th>actions</th></tr>
+        <tr><th class="reorder">move</th><th>at</th><th>name</th><th>id</th><th>assignees</th><th>discipline</th><th>facts</th><th>status</th><th>actions</th></tr>
       </thead>
       <tbody>
         {% for step in gate.steps %}
@@ -230,8 +235,6 @@
         {% endfor %}
       </tbody>
     </table>
-    {% else %}
-    <p><small>No active steps at this gate.</small></p>
     {% endif %}
 
     {% if gate.pending %}
@@ -242,7 +245,7 @@
       <summary>Not served at this gate ({{ gate.pending | length }})</summary>
       <table class="not-served">
         <thead>
-          <tr><th class="reorder">move</th><th>at</th><th>step</th><th>name</th><th>assignees</th><th>discipline</th><th>facts</th><th>status</th><th>actions</th></tr>
+          <tr><th class="reorder">move</th><th>at</th><th>name</th><th>id</th><th>assignees</th><th>discipline</th><th>facts</th><th>status</th><th>actions</th></tr>
         </thead>
         <tbody>
           {% for step in gate.pending %}

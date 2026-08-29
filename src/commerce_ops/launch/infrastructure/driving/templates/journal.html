@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ journal.label }} — Journal</title>
+  {# The same two files every other admin surface loads, from the same
+     shared guarded route, so a presentation fix reaches all of them
+     rather than some. This page carries no styling of its own. #}
+  <link rel="stylesheet" href="/admin/assets/pico.min.css">
+  <link rel="stylesheet" href="/admin/assets/vocabulary.css">
+</head>
+<body>
+{% with current = "launches" %}{% include "_admin_header.html" %}{% endwith %}
+<main class="container">
+  {# This launch's journal, split out of the detail page's own body onto
+     its own page (`add-admin-breadcrumb-navigation`) — reached from the
+     detail page's descendants region, and named the launch's second
+     ancestor here in the same trail that page's own breadcrumb starts.
+     Its current segment ("Journal") is this page's `<h1>` — see
+     `_breadcrumb.html`. #}
+  <div class="page-head">
+    {% include "_breadcrumb.html" %}
+  </div>
+
+  {% if not journal.entries %}
+  <p class="empty">Nothing is recorded in this launch's journal.</p>
+  {% else %}
+  {# The journal, as a table -- moved here unchanged from the detail
+     page's own inline section (`structure-the-launch-journal-table`,
+     merged from `main` alongside this page's own split). Each row
+     carries the entry's category as a `category-<value>` marker;
+     `vocabulary.css`'s `.journal-entries` rules render it. #}
+  <table class="journal-entries">
+    <thead>
+      <tr><th>Kind</th><th>What</th><th>When</th><th>Cause</th></tr>
+    </thead>
+    <tbody>
+      {% for entry in journal.entries %}
+      <tr class="category-{{ entry.category }}">
+        <td class="label">{{ entry.label }}</td>
+        <td class="what">{{ entry.what }}</td>
+        <td class="when">{{ entry.when }}</td>
+        <td class="cause">{{ entry.cause }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</main>
+</body>
+</html>

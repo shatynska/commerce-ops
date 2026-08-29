@@ -997,6 +997,16 @@ async def _render_new(
         notice=notice,
         narrowing=narrowing,
         assignee_options=_assignee_options(await _roster_people()),
+        breadcrumb=[
+            ("Playbook steps", f"{PAGE_PATH}{narrowing.suffix()}"),
+            ("New step", None),
+        ],
+        # `new.html`'s own `<body>` carries no `hx-boost`, unlike
+        # `page.html`'s and `edit.html`'s — so, as its own (pre-breadcrumb)
+        # `Cancel` control already did, the trail's own link back is
+        # marked un-boosted explicitly rather than relying on an ancestor
+        # that is not there.
+        breadcrumb_unboost=True,
         **context,
     )
     return HTMLResponse(html)
@@ -1020,6 +1030,10 @@ async def _render_edit(
         notice=notice,
         narrowing=narrowing,
         assignee_options=_assignee_options(await _roster_people()),
+        breadcrumb=[
+            ("Playbook steps", f"{PAGE_PATH}{narrowing.suffix()}"),
+            (values["name"], None),
+        ],
         **_option_context(),
     )
     return HTMLResponse(html)

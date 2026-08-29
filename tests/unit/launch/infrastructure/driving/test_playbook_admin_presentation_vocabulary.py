@@ -529,8 +529,30 @@ def _nearest(node: _Node, tag: str) -> _Node | None:
 # ---------------------------------------------------------------------------
 
 
+def _in_action_cell(node: _Node) -> bool:
+    """Whether `node` sits in one of the row's *action* cells — `reorder`
+    or `actions` — rather than one of its plain content cells (identity,
+    name, assignees, discipline).
+
+    Correction point, added after `add-admin-breadcrumb-navigation`: a
+    step's name is now itself a plain `<a href>` to the same edit page the
+    row's own `edit` action reaches (`playbook-admin`'s ADDED requirement
+    *A step's name in the table opens its edit page*), so a plain `<a
+    href>` is no longer sufficient on its own to recognise a *row action*
+    — this vocabulary's own concern, and explicitly not one that
+    requirement's own text changes ("nothing here changes which actions a
+    row offers"). The name link is content, addressed at what the row
+    names rather than what it does to it, and the two cell classes
+    `step_cells`/`row_actions` already write are what tells them apart
+    structurally rather than by wording.
+    """
+    cell = _nearest(node, "td")
+    return cell is not None and bool(_classes(cell) & {"reorder", "actions"})
+
+
 def _is_action_control(node: _Node) -> bool:
-    """An affordance a person clicks.
+    """An affordance a person clicks *to act on the row*, as opposed to
+    one that merely navigates to read or edit what the row names.
 
     INVENTED — see this file's docstring. A `<select>` submitting itself
     through an `hx-*` attribute is not swept; that is an under-reach, not
@@ -543,7 +565,9 @@ def _is_action_control(node: _Node) -> bool:
     if node.tag == "input":
         return (node.attrs.get("type") or "text").lower() in ("submit", "image")
     if node.tag == "a":
-        return "href" in node.attrs or any(verb in node.attrs for verb in _HX_VERBS)
+        if any(verb in node.attrs for verb in _HX_VERBS):
+            return True
+        return "href" in node.attrs and _in_action_cell(node)
     return False
 
 
@@ -1185,7 +1209,13 @@ def test_a_rows_actions_share_one_vocabulary(
     )
     # SPECIFIED: and no action is rendered as an unmarked link among
     # marked controls — the `edit` link is the one the delta is about.
-    unmarked_links = [a for a in _links(row) if not _carries(a, ROW_ACTION)]
+    # Scoped to the row's action cells, the same distinction
+    # `_is_action_control` now draws: the step's own name is a plain
+    # content link outside them, added by `add-admin-breadcrumb-navigation`
+    # and not itself a row action this vocabulary governs.
+    unmarked_links = [
+        a for a in _links(row) if _in_action_cell(a) and not _carries(a, ROW_ACTION)
+    ]
     assert unmarked_links == [], (
         "the row renders a link among its marked controls that carries no "
         f"{ROW_ACTION!r} marker: "

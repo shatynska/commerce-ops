@@ -20,13 +20,15 @@
    so the header identifies it as current rather than naming this page. #}
 {% with current = "playbook" %}{% include "_admin_header.html" %}{% endwith %}
 <main class="container">
-  {# Cancel rides the title for the reason the edit surface's back link
-     does, and stays un-boosted for the reason this page's own comment
-     above records. It carries the narrowing, so leaving without creating
-     returns the list exactly as it was left. #}
+  {# The way back is the breadcrumb trail now, for the reason the edit
+     surface's own trail is (`add-admin-breadcrumb-navigation`), and stays
+     un-boosted for the reason this page's own comment above records. It
+     carries the narrowing, so leaving without creating returns the list
+     exactly as it was left. The trail's current segment ("New step") is
+     this page's `<h1>` now, replacing the separate "Add a step" title
+     (see `_breadcrumb.html`). #}
   <div class="page-head">
-    <h1>Add a step</h1>
-    <a href="{{ page_path }}{{ narrowing.suffix() }}" role="button" class="row-action quiet" hx-boost="false">Cancel</a>
+    {% include "_breadcrumb.html" %}
   </div>
   <p>
     The identifier is generated on save — <code>mg.&lt;discipline&gt;.&lt;seq&gt;</code>,
