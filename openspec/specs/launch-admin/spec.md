@@ -1067,8 +1067,10 @@ launch link SHALL reach that launch's detail page.
 ### Requirement: A launch's journal page renders its journal, newest first
 
 The journal page SHALL render the launch's journal as a table, with the
-most recent entry first, a row for each entry carrying its label, a
-gate/step, its source, who recorded it, when it occurred, and a detail.
+most recent entry first, a row for each entry carrying when it
+occurred, its label, a gate/step, its source, who recorded it, and a
+detail — when leading the row, since a journal is read by when
+something happened before it is read by what happened.
 The gate/step column SHALL carry the entry's subject where that subject
 names a gate or a step, and SHALL be empty otherwise — a
 `metric-attested` entry's subject is the metric condition being
