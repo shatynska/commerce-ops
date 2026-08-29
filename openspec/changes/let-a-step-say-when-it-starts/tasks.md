@@ -75,7 +75,7 @@
 
 ## 10. The two scenarios the test pass predates
 
-- [ ] 10.1 `launch-playbook`'s MODIFIED *Gate sequence orders the launch* was added after `openspec-test-writer` ran, so its two new scenarios — *A dependency does not change when a gate opens* and *A dependency does not move a step's obligations* — are absent from `test-manifest.md`. Have them written from the delta by someone other than whoever implements the predicate, as every other scenario here was, rather than folded in by the implementer
+- [x] 10.1 `launch-playbook`'s MODIFIED *Gate sequence orders the launch* was added after `openspec-test-writer` ran, so **all five** of its scenarios are absent from `test-manifest.md` — the two new ones (*A dependency does not change when a gate opens*, *A dependency does not move a step's obligations*) and the three the MODIFIED block reproduces unchanged. This task first said "two", which understated it: the whole requirement postdates that pass, not only its additions. Have the two new ones written from the delta by someone other than whoever implements the predicate, as every other scenario here was, and account for the other three against the coverage they already have
 
 ## 11. Verification
 

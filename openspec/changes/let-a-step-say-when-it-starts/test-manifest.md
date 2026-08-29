@@ -58,6 +58,13 @@ moment `tasks.md` 1.1 lands. The implementation step should expect the
 The delta specs carry **166 `#### Scenario:` blocks** across seven
 capabilities. Every one is accounted for below, exactly once.
 
+> **Superseded count — see the addendum at the foot of this file.** The
+> delta now carries **171** scenarios. `launch-playbook`'s MODIFIED
+> *Gate sequence orders the launch* was added to the delta after this
+> pass ran, and its five scenarios (52 → 57 for that capability) are
+> absent from the tables below. They are accounted for in *Addendum
+> (2026-08-29, second pass)*, which brings the count to 171 = 171.
+
 | Capability | Scenarios | New behaviour | Reproduced unchanged |
 | --- | ---: | ---: | ---: |
 | `launch-playbook` | 52 | 36 | 16 |
@@ -639,3 +646,196 @@ tests depending on it are named — none was resolved silently.
 Where an assumption is wrong, the file's named correction point is the
 one place to change. **Correcting a probe is a fixture correction.
 Editing what a test asserts, to match what the code produced, is not.**
+
+
+---
+
+# Addendum (2026-08-29, second pass)
+
+A second `openspec-test-writer` dispatch, **narrowly scoped**: the
+`launch-playbook` MODIFIED requirement *Gate sequence orders the launch*
+was added to the delta after the first pass ran, so none of its
+scenarios appears above. The dispatch scoped test-writing to its **two
+new** scenarios; the three it retains are accounted for here as
+reproduced unchanged, and were not re-derived.
+
+Everything above this line is the first pass's record and was **not**
+edited, beyond the one pointer note inserted under *Scenario
+accounting*. The first pass's basis still holds — the delta was extended,
+not revised — which is why this is an addendum rather than a
+replacement.
+
+**This pass is additive only.** It adds one test file and this
+addendum. No existing test was edited, deleted or disabled, and no
+implementation was written.
+
+## Baseline
+
+Taken at the worktree root (`/home/shatynska/projects/commerce-ops`,
+branch `contain-the-gap-record-fault`) on 2026-08-29, **before** the new
+file was written. Full, not scoped.
+
+| Command | Result |
+| --- | --- |
+| `uv run pytest tests/unit tests/agents` | **1650 passed, 0 failed** in 47.13s |
+| `uv run pytest tests/integration` | **1 failed, 125 passed, 1 skipped** in 50.20s |
+
+The one integration failure is **pre-existing and not this pass's**:
+`tests/integration/launch/test_registered_handlers_activate_nothing.py::test_every_seeded_human_step_is_still_active_after_registration`.
+The skip in that same file is the pre-existing one the first pass
+recorded.
+
+**After this pass** (same machine): `uv run pytest tests/unit
+tests/agents` — **1652 passed, 0 failed**. The count rises by exactly
+the two tests added, and no pre-existing test changed state. The
+integration tier was not re-run: nothing this pass touches reaches it.
+
+`uv run ruff check`, `uv run ruff format --check` and `uv run mypy .`
+are all clean over the whole tree with the new file present — unlike the
+first pass, whose 24 mypy errors were the absent-target state and are
+now resolved.
+
+## Situation: the target already exists
+
+The change is implemented. `StepDefinition` carries `starts_at_gate` and
+`after_steps`, the predicate is `Launch.has_released(playbook, step)`,
+and gate opening (`Launch.advance_gate`, `unsatisfied_conditions`) is
+deliberately left untouched by release. Per `ai-toolkit:testing` these
+two tests are therefore in the **target-exists** situation: a first-run
+pass is the expected result and establishes that the code behaves as
+asserted. They are **regression guards** — they exist so that a later
+edit letting a dependency leak into the commitment machinery goes red.
+Both passed on their first complete run, and no assertion was adjusted
+to make that happen.
+
+## Files this pass added
+
+| Path | Tier | Covers |
+| --- | --- | --- |
+| `tests/unit/launch/domain/test_dependency_commitment_neutrality.py` | unit | the two new scenarios of *Gate sequence orders the launch* |
+
+Level: the domain. Both scenarios are about what the commitment
+machinery does with a declaration — when `Launch.advance_gate` opens a
+gate, and what `LaunchPlaybook.conditions_for_gate` names — and a
+`LaunchPlaybook` with a `Launch` over it is the smallest unit that can
+observe either, with no I/O. The file deliberately mirrors
+`test_within_gate_order_commitment_neutrality.py`, which answers the
+same question about the *within-gate* ordering.
+
+Both scenarios are stated as comparisons against an absent declaration,
+so both tests build **two playbooks differing in `after_steps` and in
+nothing else** and compare the observations against each other. That
+comparison fixes no wording, gate name or condition ordering of its own,
+so it cannot be satisfied by machinery that is uniformly wrong — only by
+machinery that is uniformly indifferent, which is the claim. Each test
+additionally asserts the declaration was doing something in the subject
+run (its declarers are unreleased where the control's are released),
+without which both would pass against an implementation ignoring
+`after_steps` altogether.
+
+## Coverage — `launch-playbook`, MODIFIED *Gate sequence orders the launch* (5)
+
+| Scenario | Test |
+| --- | --- |
+| A dependency does not change when a gate opens | `test_dependency_commitment_neutrality.py::test_a_dependency_does_not_change_when_a_gate_opens` |
+| A dependency does not move a step's obligations | `test_dependency_commitment_neutrality.py::test_a_dependency_does_not_move_a_steps_obligations` |
+| Gates expose a stable order | reproduced unchanged → existing `test_launch_playbook.py::test_gates_expose_a_stable_order` |
+| Steps at a gate are served in their authored order | reproduced unchanged → existing `test_playbook_ordering_live.py::test_two_reads_with_no_intervening_write_serve_the_same_order` (integration) and `::test_a_reorder_is_served_on_the_next_read` |
+| Steps at the same gate are unordered | reproduced unchanged → existing `test_within_gate_order_commitment_neutrality.py` (both tests) and `test_launch_playbook.py::test_steps_at_the_same_gate_carry_no_ordering` |
+
+The three reproduced-unchanged scenarios appear in the delta **verbatim**
+as they stand in `openspec/specs/launch-playbook/spec.md`, the retained
+parenthetical included. What the delta changes for them is the
+surrounding prose, not the scenario text.
+
+Runner-selectable, individually:
+
+```
+uv run pytest "tests/unit/launch/domain/test_dependency_commitment_neutrality.py::test_a_dependency_does_not_change_when_a_gate_opens"
+uv run pytest "tests/unit/launch/domain/test_dependency_commitment_neutrality.py::test_a_dependency_does_not_move_a_steps_obligations"
+```
+
+## Uncovered, with reasons
+
+None. Both scenarios in this pass's scope carry a test.
+
+## Assertion provenance
+
+**SPECIFIED** — every assertion in the new file, each labelled inline:
+that the gate refuses while its own blocking step is unresolved and
+names it; that the refusal, the gate before, and the gate after are
+identical between the declaring and the control run; that the gate opens
+to `stock-ready` with the dependency still unresolved in both; that the
+declaring step is served under the gate it declares and under no other;
+that every gate's step obligations and condition counts are identical
+between the two playbooks; that a non-blocking dependency is named by no
+gate's conditions.
+
+**DERIVED** — two spellings, each with a single named correction point:
+
+| Derived assertion | Where | Why |
+| --- | --- | --- |
+| `starts_at_gate` / `after_steps` as **constructor keywords** on `StepDefinition` | `_step` | the delta fixes the field names, not the keyword form |
+| `Launch.has_released(playbook, step)` as the release predicate | `_released` | the delta names the concept "released", not a method |
+
+**DELIBERATELY UNTESTED** — the *wording* of the refusal a blocked gate
+raises. The test asserts the two runs agree on it and that it names the
+blocking step; it fixes no phrasing, because no artifact states one and
+a phrasing assertion here would constrain a message this requirement
+says nothing about.
+
+One fixture correction was made during the pass and is recorded rather
+than hidden: the first run failed because each launch was started with a
+freshly generated `ProductId`, and the refusal message embeds the
+product it refused for, so two runs differing only in a random
+identifier could never compare equal. That is failure **state 3** under
+`ai-toolkit:testing` — a defect in the test, not in the code — and it
+was fixed by fixing the identifier (`PRODUCT_ID`), not by weakening the
+assertion.
+
+## Obsolete tests — candidates for human confirmation
+
+Applicable: this requirement is `MODIFIED`. **No entry.**
+
+**Search bound.** `tests/**/test_*.py` and nowhere else, plus this
+file's own first-pass mapping as a scenario-to-test index. The
+superseded text is one sentence — "Gates SHALL remain the only
+*commitment* ordering primitive in the playbook" — so the search matched
+on that phrasing, on "ordering primitive", and on the three retained
+scenarios' names.
+
+It found exactly one bearing test,
+`tests/unit/launch/domain/test_launch_playbook.py::test_steps_at_the_same_gate_carry_no_ordering`
+— the same test the first pass listed as its one obsolete entry, on a
+different superseding delta. It is **not** listed again here, because
+the premise that entry flagged has since been reconciled: the comment
+block above `ORDERING_ATTRIBUTE_NAMES` in that file now states the
+`after_steps` distinction explicitly ("`after_steps` orders when work is
+*asked for*; gates order commitments", and that `after_steps` is
+deliberately absent from the list), which is exactly the recommended
+action the first pass recorded. Its assertions still hold and still
+guard what they were written to guard. Nothing about them is superseded
+by this amendment. This pass did not edit the file.
+
+For the rest: **no such test exists**, rather than "none was found". The
+reason is checkable — before this change no `StepDefinition` could
+declare a dependency at all, so no existing test could assert anything
+about a dependency's effect on gate opening or on a gate's obligations,
+which is the entirety of what this amendment adds.
+
+## Unresolved project questions
+
+`AGENTS.md` and `CLAUDE.md` were read again (`CLAUDE.md` is a one-line
+include of `AGENTS.md`). They settle the runner, the tiers, the
+test-path glob and the tooling. Two questions they do not settle were
+answered by assumption:
+
+| Question | Assumption taken | Tests depending on it |
+| --- | --- | --- |
+| What is the release predicate called? | `Launch.has_released(playbook, step)`, as the dispatch states and as the implemented code accepts; reached through the single helper `_released` | `test_a_dependency_does_not_change_when_a_gate_opens` |
+| How are the two declarations passed to `StepDefinition`? | as constructor keywords, reached through the single helper `_step` | both tests |
+
+A third question is recorded as **answered by the library, not by the
+project**: no skill for this stack's testing idiom is missing — `python`
+carries pytest practice and was loaded alongside `ai-toolkit:testing`, so
+the floor was not applied alone.
