@@ -505,6 +505,16 @@ SHALL be preserved so that the next render of the list applies it. A
 write SHALL NOT widen, clear, or otherwise alter what the page shows
 beyond the effect of the write itself.
 
+Retiring, un-retiring and changing status are submitted through the
+edit form now, not from the list, so a **rejection** of any of them
+follows the edit form's own rule above rather than rendering on the
+list — the same as a rejected field edit. An **accepted** retirement,
+un-retirement or status change still ends on the list, exactly as
+before: the write's own route re-renders the list on success regardless
+of which form submitted it. Move is the only write left that renders
+its rejection on the list itself, since it is the only one the list
+still submits directly.
+
 #### Scenario: An accepted write keeps the narrowing
 
 - **WHEN** a step is retired while a gate filter and a discipline filter are active
@@ -513,8 +523,9 @@ beyond the effect of the write itself.
 
 #### Scenario: A rejected list-level write keeps the narrowing
 
-- **WHEN** a retirement is rejected while a text search is active
-- **THEN** the re-rendered list reports the faults
+- **WHEN** a move is rejected while a text search is active — the one
+  write left that renders its rejection on the list itself
+- **THEN** the re-rendered list reports why the move did not land
 - **AND** still applies the search term
 
 #### Scenario: A rejected creation keeps the narrowing without leaving the create surface
@@ -527,6 +538,14 @@ beyond the effect of the write itself.
 
 - **WHEN** an edit is rejected while a gate filter is active
 - **THEN** the edit form re-renders with its faults and the submitted values, as the editing requirement requires
+- **AND** returning to the list from that form applies the gate filter
+
+#### Scenario: A rejected retirement keeps the narrowing without leaving the edit form
+
+- **WHEN** a retirement submitted through the edit form's `status`
+  field is rejected while a gate filter is active
+- **THEN** the edit form re-renders with the fault, exactly as any other
+  rejected edit does
 - **AND** returning to the list from that form applies the gate filter
 
 #### Scenario: Opening and leaving an edit form preserves the narrowing
@@ -674,10 +693,14 @@ that fault concerns, so that an admin reads which controls to touch
 rather than translating prose back into inputs.
 
 This requirement binds those two surfaces only. The step list also
-renders rejections — of a retirement, an un-retirement, a status change
-or a move — and carries no authorable form for a fault to be attributed
-against; those rejections SHALL keep rendering at page level exactly as
-they do.
+renders rejections of a move, and carries no authorable form for a
+fault to be attributed against; that rejection SHALL keep rendering at
+page level exactly as it does. Retiring, un-retiring and changing
+status are no longer list-level writes — they are submitted through
+the edit form's `status` field, the same write path an ordinary field
+edit uses — so a rejection of any of them is a rejection of the edit
+form, and SHALL be attributed exactly as any other edit-form rejection
+is, not exempted the way the list's own rejections are.
 
 Attribution SHALL be **additional to** the fault list, never a filter:
 every fault the write reported SHALL still be rendered in full, in the
@@ -695,9 +718,11 @@ differently:
   step carrying no automation brief is refused for the pair, and
   changing either the kind or the brief resolves it — so marking one
   would tell the admin to change that one.
-- A fault about the **step set as a whole, or about a gate**, SHALL mark
-  no field and SHALL be rendered at page level. Such a fault does not
-  concern anything the form in front of the admin carries.
+- A fault about the **step set as a whole, or about a gate** — a
+  retirement refused because it would leave a gate unheld included —
+  SHALL mark no field and SHALL be rendered at page level, on
+  whichever surface renders the rejection. Such a fault does not
+  concern anything a specific form field carries.
 
 Where more than one fault concerns the same field, that field SHALL be
 marked once and SHALL carry all of them, so that a field is not silently
@@ -736,6 +761,21 @@ half is currently un-offered would leave the refusal unexplained.
   active blocking step
 - **THEN** the re-rendered surface reports that fault at page level
 - **AND** marks no field with it
+
+#### Scenario: A blocked retirement is attributed like any other edit-form rejection
+
+- **WHEN** a retirement submitted through the edit form's `status`
+  field is rejected because it would leave a gate unheld
+- **THEN** the fault is reported at page level, on the edit form, since
+  it concerns the step set rather than a single field
+- **AND** the submitted `status` value is still in the form
+
+#### Scenario: A move's rejection still renders at the list, unattributed
+
+- **WHEN** a move is rejected
+- **THEN** the fault is reported at page level on the step list
+- **AND** no field is marked with it, since the list carries no
+  authorable form to mark one on
 
 #### Scenario: Attribution never shortens the fault list
 
@@ -801,70 +841,49 @@ be provoked cannot be checked by provoking it.
 
 ### Requirement: A step's actions are presented as one affordance vocabulary
 
-Every action a step's row offers — reordering, changing status, editing,
-retiring, un-retiring — SHALL be presented as a control of the same
-weight as its siblings, and a step's row SHALL occupy one line rather
-than stacking its controls one per line. Which actions a row offers is
-unchanged by this requirement: a step that offers no move today offers
-none after it.
+The one action a step's row still offers — reordering — SHALL be presented as a control carrying the same vocabulary this requirement has always used: the marker `row-action`, observable in the rendered response rather than expressed only visually. Editing, changing status, retiring and un-retiring are no longer row actions; they are reached by opening the step's own page through its name, and are governed there by the step form's own requirements, not by this one.
 
-Actions that act on the same thing SHALL be grouped with the thing they
-act on rather than pooled into one cell by virtue of all being controls.
-The reorder pair belongs beside the position it changes; the status
-control belongs in the status column. What the requirement forbids is
-the vertical stack that cost a step five lines of height, not a layout
-that reads by meaning — an admin looking for "where does this sit" and
-an admin looking for "retire this" are looking for different things.
+A step's row SHALL occupy one line, as it always has. What changes is only which controls sit in that line: the reorder pair, and nothing pooled beside it by virtue of being a control.
 
-The **destructive** action SHALL be distinguished by its own treatment
-rather than by being the most prominent control in the row. Retiring a
-step is the action an admin is least likely to want by accident, and a
-vocabulary in which it is the loudest thing on the row invites exactly
-that.
+There is no longer a destructive action on the row to distinguish: retiring, the row's one destructive action, moved to the step's edit page along with the rest. A row carries no control marked `danger`.
 
-Both the presentation and the destructive distinction SHALL be
-observable in the rendered response — each action control carries the
-marker `row-action`, and the destructive one carries the further marker
-`danger` — rather than being expressed only visually. This is the same
-standard the surface already holds for fault marking, and for the same
-reason: what an admin is told must be something a response can be asked
-for. The literal tokens are given because they are what a test is
-derived from, as this capability already does for its fault-rewriting
-rule.
+The markers are a necessary condition, not a sufficient one. That a row occupies one line cannot be established by a server response and SHALL be confirmed by direct inspection of the rendered page.
 
-The markers are a necessary condition, not a sufficient one. They
-establish that the vocabulary was applied; they cannot establish that a
-row occupies one line or that the destructive action is not the most
-prominent, which no server response can show. Those SHALL be confirmed
-by direct inspection of the rendered page.
-
-Nothing in this requirement licenses removing an action, changing what
-an action does, or changing which actions a row offers for a given step.
+Nothing in this requirement licenses removing the move controls, changing what a move does, or changing which rows offer one.
 
 #### Scenario: A row's actions share one vocabulary
 
-- **WHEN** an active step's row is rendered with its full set of actions
-- **THEN** every action control carries `row-action`
+- **WHEN** an active step's row that can move is rendered
+- **THEN** each move control carries `row-action`
 - **AND** no action is rendered as an unmarked link among marked controls
 
 #### Scenario: The destructive action is distinguished, not amplified
 
-- **WHEN** an active step's row is rendered
-- **THEN** the retire control carries `danger`
-- **AND** no other action control on that row carries it
+- **WHEN** any step's row is rendered, active or retired
+- **THEN** no control on that row carries `danger` — the row's one
+  destructive action, retiring, no longer lives on it, so distinguishing
+  it here means it is simply not present
 
 #### Scenario: A retired step's only action speaks the same vocabulary
 
 - **WHEN** a retired step's row is rendered from the view that reveals
   retired steps
-- **THEN** its un-retire control carries `row-action`
-- **AND** does not carry `danger`
+- **THEN** it carries no control marked `row-action` at all — retired
+  steps hold no slot to reorder, and every other action moved to the
+  step's edit page, so there is no longer an "only action" for the row
+  to offer, only the marker's continued absence
 
 #### Scenario: The vocabulary does not change which actions are offered
 
 - **WHEN** a step that cannot be moved further up is rendered
 - **THEN** its move control is still rendered inert, exactly as before
-- **AND** carries `row-action` like every other action
+- **AND** carries `row-action` like every other move control
+
+#### Scenario: The row offers no other action
+
+- **WHEN** any step's row is rendered, active or not
+- **THEN** no control marked `row-action` on that row changes the step's
+  status, edits it, retires it or un-retires it
 
 ### Requirement: The vocabulary never suppresses a marked control's fault
 
@@ -1182,19 +1201,12 @@ A submission the page does **not** enhance — one deliberately left un-boosted,
 
 ### Requirement: A step's name in the table opens its edit page
 
-Each step's row SHALL offer that step's edit page in one action through
-the step's own name, the way a launch's row already offers its detail
-page through the launch's label and a product's row already offers its
-dossier through the product's SKU. This is offered **alongside** the
-row's existing `edit` action, not instead of it — nothing here changes
-which actions a row offers or removes the `edit` control this capability
-already requires.
+Each step's row SHALL offer that step's edit page in one action through the step's own name, the way a launch's row already offers its detail page through the launch's label and a product's row already offers its dossier through the product's SKU. This is now the row's **only** way into a step: editing, changing status, retiring and un-retiring all happen on the page the name leads to, not on the row itself.
 
 #### Scenario: A step's name opens its edit page
 
-- **WHEN** an active step's row is rendered
+- **WHEN** any step's row is rendered
 - **THEN** its name offers that step's edit page in one action
-- **AND** the row's own `edit` action is still present and unchanged
 
 ### Requirement: The edit and create surfaces carry a breadcrumb to the step table
 

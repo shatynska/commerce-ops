@@ -922,6 +922,12 @@ def test_an_accepted_write_keeps_the_narrowing(
     THEN the re-rendered list still applies both filters
     AND shows the same gate and discipline selections as before the
     write.
+
+    Retiring is submitted through the step's edit form now
+    (`move-step-actions-into-step-pages`), the same `status` field an
+    ordinary field edit uses. An accepted write still ends on the list —
+    `save_edit` renders it on success regardless of which field
+    changed — so the narrowing-survival assertions below are unchanged.
     """
     store = _seeded_store(
         extra=_listable_gate(
@@ -934,10 +940,9 @@ def test_an_accepted_write_keeps_the_narrowing(
     narrowing = _narrowing(gate="listable", discipline=VISIBLE_DISCIPLINE)
     narrowed = _get_page(client, params=narrowing)
 
-    control = _require_control(
-        narrowed, contains=("listing.aye", "retire"), excludes=("unretire",)
-    )
-    response = _issue(client, control)
+    edit_page = _open_edit(client, narrowed, "listing.aye")
+    form = _edit_form_of(edit_page)
+    response = _issue(client, form, data=_fill(form.data(), status="retired"))
 
     assert response.status_code == 200, response.text
     body = response.text
@@ -964,41 +969,106 @@ def test_a_rejected_list_level_write_keeps_the_narrowing(
 ) -> None:
     """Scenario: A rejected list-level write keeps the narrowing.
 
-    WHEN a retirement is rejected while a description search is active
-    THEN the re-rendered list reports the faults
+    WHEN a move is rejected while a description search is active
+    THEN the re-rendered list reports why the move did not land
     AND still applies the search term.
 
+    Move is the one write left that renders its own rejection on the
+    list (`move-step-actions-into-step-pages`): retiring, un-retiring
+    and changing status are submitted through the edit form now, so a
+    rejection of any of those renders there instead — covered by `A
+    rejected retirement keeps the narrowing without leaving the edit
+    form`, below. A search makes reordering unavailable in its own
+    right (`Reordering is unavailable under a description search`),
+    which is what makes a move submitted under one a rejection this
+    scenario can exercise without also needing a stale or coherence-rule
+    setup.
+
+    The move is discovered live, under a discipline filter that leaves
+    reordering available, and then submitted with the search added —
+    exactly the submission the rendered controls under the search do
+    not themselves offer.
+    """
+    store = _seeded_store(extra=_listable_gate(*_SPREAD_GATE))
+    client = _signed_client(monkeypatch, store)
+    narrowing = _narrowing(gate="listable", discipline=VISIBLE_DISCIPLINE)
+    narrowed = _get_page(client, params=narrowing)
+    control = _move_control(
+        narrowed,
+        step="listing.aye",
+        names="listing.bee",
+        others=_SPREAD_ORDER,
+        direction="down",
+    )
+    order_before = _gate_order(store, "listable")
+    needle = "Work of listing"
+
+    response = _issue(
+        client,
+        control,
+        url=_with_query(control.url, {_FILTER_PARAMS["search"]: needle}),
+    )
+
+    body = response.text
+    # SPECIFIED: nothing is persisted, and the page says why the move was
+    # refused. DERIVED wording markers, as
+    # test_reordering_is_unavailable_under_a_description_search records.
+    assert store.saves == []
+    assert _gate_order(store, "listable") == order_before
+    assert any(word in body.lower() for word in _UNAVAILABLE_WORDS), (
+        f"the refusal states no reason: {body[:2000]}"
+    )
+    # SPECIFIED: and still applies the search term.
+    assert _rendered_filter(body, _FILTER_PARAMS["search"]) == needle
+
+
+def test_a_rejected_retirement_keeps_the_narrowing_without_leaving_the_edit_form(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Scenario: A rejected retirement keeps the narrowing without
+    leaving the edit form.
+
+    WHEN a retirement submitted through the edit form's `status` field
+    is rejected while a gate filter is active
+    THEN the edit form re-renders with the fault, exactly as any other
+    rejected edit does
+    AND returning to the list from that form applies the gate filter.
+
     `hold.stock-ready` is its gate's only blocking step, so retiring it
-    is refused; the search term matches its description and no other, so
-    the narrowing is unmistakable in what the re-render does and does not
-    hold.
+    is refused — the same fault
+    `test_playbook_admin_page.py::test_a_blocked_retirement_explains_itself`
+    exercises, here under an active narrowing to prove the narrowing
+    survives a *rejected* retirement the way it already does an
+    accepted one.
     """
     store = _seeded_store(
         extra=_listable_gate(("listing.aye", True), ("listing.bee", True))
     )
     client = _signed_client(monkeypatch, store)
-    needle = "stock-ready"
-    narrowed = _get_page(client, params=_narrowing(search=needle))
-    assert "hold.stock-ready" in narrowed
-    assert "hold.commit" not in narrowed  # the search really narrowed
+    # Filtered to `hold.stock-ready`'s own gate, so it stays visible and
+    # `listing.aye` (a different gate) does not — the marker the
+    # narrowing-survival assertions below read.
+    narrowed = _get_page(client, params=_narrowing(gate="stock-ready"))
+    assert "listing.aye" not in narrowed  # the gate filter really narrowed
 
-    control = _require_control(
-        narrowed, contains=("hold.stock-ready", "retire"), excludes=("unretire",)
-    )
-    response = _issue(client, control)
+    edit_page = _open_edit(client, narrowed, "hold.stock-ready")
+    form = _edit_form_of(edit_page)
+    response = _issue(client, form, data=_fill(form.data(), status="retired"))
 
-    body = response.text
-    # SPECIFIED: the write was rejected and reports its faults. DERIVED
-    # wording marker, as test_playbook_admin_page.py records for the same
-    # fault: the fault names the gate left unheld.
+    rejected = response.text
+    # SPECIFIED: the edit form re-renders with the fault — it did not
+    # become the list. DERIVED wording marker, as
+    # test_playbook_admin_page.py records for the same fault.
     assert store.saves == []
     assert not _is_retired(_record_named(store, "hold.stock-ready"))
-    assert "stock-ready" in body
-    # SPECIFIED: and still applies the search term — the steps it
-    # excludes are still excluded, and the term is still on the page.
-    assert "hold.commit" not in body
-    assert "listing.aye" not in body
-    assert _rendered_filter(body, _FILTER_PARAMS["search"]) == needle
+    assert "stock-ready" in rejected
+    # SPECIFIED: returning to the list from that form applies the gate
+    # filter.
+    listed = _back_to_list(client, rejected, marker="hold.stock-ready")
+    assert "listing.aye" not in listed, (
+        "leaving the rejected retirement's edit form widened the list "
+        "past the gate filter"
+    )
 
 
 def test_a_rejected_edit_keeps_the_narrowing_without_leaving_the_form(
@@ -1101,6 +1171,13 @@ def test_un_retiring_keeps_the_retired_steps_visible(
 
     Two retired steps, so that "still reveals retired steps" is
     observable on the one that was *not* un-retired.
+
+    Un-retiring is submitted through the step's edit form now
+    (`move-step-actions-into-step-pages`), the same `status` field an
+    ordinary field edit uses — the retired step's name still links to
+    its edit page, exactly as any other step's does. `unretire_step`
+    (`playbook_authoring.py`) always returns a step to `in-development`,
+    never `active`, so the edit form is filled with that value here.
     """
     retired = _listable_gate(
         ("listing.retired-one", True),
@@ -1118,8 +1195,9 @@ def test_un_retiring_keeps_the_retired_steps_visible(
     revealed = _retired_view(client, narrowing, "listing.retired-one")
     assert "listing.retired-two" in revealed
 
-    control = _require_control(revealed, contains=("listing.retired-one", "unretire"))
-    response = _issue(client, control)
+    edit_page = _open_edit(client, revealed, "listing.retired-one")
+    form = _edit_form_of(edit_page)
+    response = _issue(client, form, data=_fill(form.data(), status="in-development"))
 
     assert response.status_code == 200, response.text
     body = response.text

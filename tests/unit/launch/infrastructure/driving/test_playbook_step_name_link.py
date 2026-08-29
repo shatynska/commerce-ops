@@ -1,21 +1,19 @@
 """A step's name in the playbook steps table opens its edit page
-(`playbook-admin`, `add-admin-breadcrumb-navigation`).
+(`playbook-admin`).
 
-Derived strictly from the delta spec
-`openspec/changes/add-admin-breadcrumb-navigation/specs/playbook-admin/spec.md`
-— its first ADDED requirement and its one scenario:
+Derived from `openspec/specs/playbook-admin/spec.md`'s requirement *A
+step's name in the table opens its edit page*, as it stands after
+`move-step-actions-into-step-pages`:
 
-- ADDED *A step's name in the table opens its edit page*
-  - *A step's name opens its edit page*
+- *A step's name opens its edit page*
 
-The requirement's own prose states this is additive, not a replacement:
-"This is offered **alongside** the row's existing `edit` action, not
-instead of it — nothing here changes which actions a row offers or
-removes the `edit` control this capability already requires." The
-scenario's own second clause states the same thing
-("AND the row's own `edit` action is still present and unchanged"), so
-this file asserts both the new name-link and the pre-existing `edit`
-action are present at once, as two distinct controls.
+The requirement was ADDED, additively, by `add-admin-breadcrumb-
+navigation` — offered **alongside** the row's then-existing `edit`
+action. `move-step-actions-into-step-pages` removed that action (and
+every other row-level action but reordering) and modified this
+requirement in step: the name is now the row's **only** way into a
+step. This file's one test was rewritten to match — it no longer
+asserts a second, separate `edit` link exists.
 
 ## Level
 
@@ -326,9 +324,15 @@ def _edit_links(row: _Node, identifier: str) -> list[_Node]:
 def test_a_steps_name_opens_its_edit_page(monkeypatch: pytest.MonkeyPatch) -> None:
     """Scenario: A step's name opens its edit page.
 
-    WHEN an active step's row is rendered
-    THEN its name offers that step's edit page in one action
-    AND the row's own `edit` action is still present and unchanged.
+    WHEN any step's row is rendered
+    THEN its name offers that step's edit page in one action.
+
+    The row's own separate `edit` action — asserted here alongside the
+    name link when this requirement was first added — no longer exists:
+    `move-step-actions-into-step-pages` removed it, and the requirement
+    was modified in step, dropping the "alongside, not instead of"
+    caveat this test's docstring originally quoted. The name link is now
+    the row's only way in.
     """
     store = _seeded_store()
     client = _signed_client(monkeypatch, store)
@@ -348,23 +352,6 @@ def test_a_steps_name_opens_its_edit_page(monkeypatch: pytest.MonkeyPatch) -> No
         f"nothing in the row for {STEP_ID!r} wraps the step's name "
         f"({STEP_NAME!r}) in a link to its edit page — the edit-targeting "
         f"links present read {[_all_text(link) for link in edit_links]!r}"
-    )
-
-    # SPECIFIED: and the row's own `edit` action is *still present and
-    # unchanged* — a distinct link whose own text is exactly "edit",
-    # alongside the name link rather than replaced by it.
-    edit_action = [
-        link for link in edit_links if _all_text(link).strip().lower() == "edit"
-    ]
-    assert edit_action, (
-        f"the row for {STEP_ID!r} no longer carries an `edit`-labelled "
-        f"action — the edit-targeting links present read "
-        f"{[_all_text(link) for link in edit_links]!r}"
-    )
-    assert name_links[0] is not edit_action[0], (
-        "the name link and the row's own `edit` action resolved to the same "
-        "element, so the name replaced the existing action instead of "
-        "standing alongside it"
     )
 
     # DERIVED guard: the name link's target really serves the step's edit

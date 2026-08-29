@@ -728,7 +728,6 @@ def _row(record: Any, people: Mapping[str, Any]) -> dict[str, Any]:
         "kind": definition.kind.value,
         "needs_confirmation": definition.needs_confirmation,
         "status": definition.status.value,
-        "status_label": _STATUS_LABELS[definition.status],
         # By display name, since an author knows colleagues by name and
         # not by generated identifier. An identifier the roster no longer
         # carries is shown as itself rather than dropped — an assignee
