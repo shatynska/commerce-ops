@@ -499,6 +499,62 @@ sensibly be fixed together.
 Found by `openspec-change-reviewer` during that change's spec review and
 confirmed against `launch_repository.py`, 2026-08-28.
 
+### The step set's provenance is split across two files, one of which is stale
+
+`alembic/data/playbook_v1.yaml` (97 steps) and
+`alembic/data/playbook_reference.yaml` (352 steps) sit side by side in the same
+directory, and only the second describes the live set. The first is read by
+exactly one thing — migration `d2f8b3c64e17` — and its identifiers are a strict
+subset of the second's. Nothing says so at either file, and the name `v1` reads
+as *the current version* rather than *the set as it stood in August 2026*.
+
+**It has already cost a wrong analysis.** `let-a-step-say-when-it-starts` was
+scoped, counted and argued against `playbook_v1.yaml` on the assumption that it
+was the seed, and its proposal claimed the served set was 97 steps with 65 on
+`listable`. The real numbers are 95 served of 352 stored, with 64 on `listable`
+and 255 standing as `draft` — a backlog three times the size of what is served,
+and the single strongest argument for that change. The corrected reading changed
+what the change had to do, not merely what it said: the backfill had to widen
+from the served set to the authored one.
+
+**What is wanted.** `playbook_v1.yaml` should stop being referenced from the
+migrations or from anywhere else, leaving one file that describes the step set.
+The obstacle is only that `d2f8b3c64e17` reads it at runtime, so removing the
+file means reworking or collapsing that migration.
+
+**The obstacle is smaller than it looks, and this is the decision that unblocks
+it:** the deployed database is a test database and may be dropped to nothing.
+Migration history therefore does not have to be preserved across this — the
+seed chain may be collapsed, rewritten, or replaced by a single revision that
+establishes the current schema and lets `seed_playbook` deliver the content.
+Recorded here because that licence is not visible from the repository and a
+future reader would otherwise assume production data constrains it.
+
+**Two things want doing at the same time, and one of them is a defect.**
+
+*The status split is not what was intended.* `b8e5c04a1d39` mapped the v1
+`execution` values onto the current fields, sending 95 `human-attested` rows to
+`active` + `human` and the other two to `in-development` + `automated`. The two
+`in-development` rows were not a deliberate choice and were not known about
+until they were found while scoping `let-a-step-say-when-it-starts`. The
+intention is that the whole set is `active` and `human`. Whether that is a data
+correction or a rewritten seed depends on how the file consolidation above is
+resolved, which is why the two belong together.
+
+*A new field on a step reaches the stored rows twice, by two different routes,
+and the vendored file is the route that gets forgotten.* A migration backfills
+the rows that exist when it runs; `seed_playbook` inserts rows the vendored file
+names and the database does not, on **every container start**, and it builds
+each `StepDefinition` from the file's own keys. A field the file does not carry
+is therefore delivered at its dataclass default for every row seeded after the
+backfill — silently, and only for rows nobody had yet. Any change adding a field
+to a step owes `playbook_reference.yaml` and `seed_playbook.py` the same
+attention it owes the migration.
+
+**Trigger to close.** Any of: `playbook_v1.yaml` being referenced by nothing;
+the step set needing a status correction; or the next change that adds a field
+to a step definition.
+
 ### Small cleanups, not worth a change each
 
 Verified present at the time of writing; suitable for one chore commit.
