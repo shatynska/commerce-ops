@@ -467,6 +467,15 @@ class _PageParser(HTMLParser):
                 return
             if kind == "hidden":
                 self._form.hidden_names.add(name)
+            if kind == "checkbox":
+                # A checked checkbox is a selected value of its field, the
+                # same fact a selected `<option>` carries. Recorded here so
+                # `selected_of` reads a multi-valued control whichever way
+                # the surface draws it — this form's assignee and dependency
+                # controls became checkbox groups in
+                # `pick-steps-and-people-by-checkbox`, and the scenarios
+                # asserting what a rejection keeps are unchanged by that.
+                self._form.selections.setdefault(name, []).append(a.get("value", ""))
             default = "on" if kind == "checkbox" else ""
             self._form.fields[name] = a.get("value", default)
         elif tag == "button":

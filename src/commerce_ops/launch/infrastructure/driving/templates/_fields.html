@@ -229,16 +229,100 @@
 {% set assignees_marked = marks.get("assignees") %}
 {% set person_involved = values.get("kind", "human") == "human"
      or values.get("needs_confirmation", "false") in ("true", "on", "1", "yes") %}
-<label data-assignees-group="{{ 'pinned' if assignees_marked else 'toggles' }}"
-       {%- if not person_involved and not assignees_marked %} hidden{% endif %}>Assignees
-  <select name="assignees" multiple size="4">
+{# A fieldset and not a label: a `<label>` labels ONE control, and wrapping a
+   group of checkboxes in one makes every input in the group answer to it —
+   so anything walking the document reads the wrapper as each option's own
+   row, and a fault mark inside it then counts as inside the options. #}
+<fieldset class="control-group" data-assignees-group="{{ 'pinned' if assignees_marked else 'toggles' }}"
+       {%- if not person_involved and not assignees_marked %} hidden{% endif %}><legend>Assignees</legend>
+
+  {# Always submitted, so an emptied control posts a present-and-empty key.
+     Unchecked checkboxes post nothing at all, and an absent key would let a
+     write rejected on another field re-render from the submission and
+     restore what the author had just cleared.
+
+     Placed *before* the per-value controls deliberately. The real reader
+     takes every value of the name and drops the empty ones, so order is
+     nothing to it — but a reader that keeps only one value per name keeps
+     the last, and this sitting last would erase a whole chosen set. First
+     costs nothing and cannot do that. #}
+  <input type="hidden" name="assignees" value="">
+  <ul class="picker">
     {% for identifier, display_name in assignee_options %}
-    <option value="{{ identifier }}"{% if identifier in values.get("assignees", []) %} selected{% endif %}>{{ display_name }}</option>
+    <li class="row"><label for="assignee-{{ loop.index }}">{{ display_name }}</label></li>
     {% endfor %}
-  </select>
-  <small>The roster's active people. An active human step needs at least one.</small>
+  </ul>
+
+  {# The report's region always renders; `hidden-chosen` is added to it only
+     once a chosen option actually is hidden. The role/occurrence split this
+     capability draws for `write-failure-notice` against `write-failed`, and
+     necessary here because filtering never survives a render — so no
+     response can carry the occurrence at all. #}
+  <p class="hidden-chosen-notice" data-notice-for="after_steps"></p>
+  {# Filtering the OPTIONS. Not the page narrowing, and not the step list's
+     own gate filter: local to this control, on no link, and gone at the
+     write. Each gate states how many options it offers, which is what says
+     the set is lopsided before an author starts scrolling. #}
+  <span class="option-filters">
+    <button type="button" class="option-gate-filter on" data-gate="">all</button>
+    {% for group in dependency_options %}
+    <button type="button" class="option-gate-filter{% if group.later %} later{% endif %}" data-gate="{{ group.gate }}">{{ group.gate }} <span class="ct">{{ group.count }}</span>{% if group.later %} <span class="hint">after this step</span>{% endif %}</button>
+    {% endfor %}
+    <input type="search" class="option-filter" placeholder="Filter by identifier, name or gate…">
+  </span>
+  {# Always submitted, so an emptied control posts a present-and-empty key.
+     Unchecked checkboxes post nothing at all, and an absent key would let a
+     write rejected on another field re-render from the submission and
+     restore what the author had just cleared.
+
+     Placed *before* the per-value controls deliberately. The real reader
+     takes every value of the name and drops the empty ones, so order is
+     nothing to it — but a reader that keeps only one value per name keeps
+     the last, and this sitting last would erase a whole chosen set. First
+     costs nothing and cannot do that. #}
+  <input type="hidden" name="after_steps" value="">
+  {# The heading holds its own rows rather than preceding them: a group is
+     the element carrying the gate's name AND the options under it, which is
+     what makes "grouped by the gate they belong to" readable from the
+     document rather than inferred from document order. #}
+  <ul class="picker">
+    {% for group in dependency_options %}
+    <li class="grp{% if group.later %} later{% endif %}" data-gate="{{ group.gate }}">
+      <span class="grp-name">{{ group.gate }}</span>{% if group.later %} <span class="hint">after this step</span>{% endif %}
+      <ul class="grp-rows">
+        {% for identifier, display in group.options %}
+        <li class="row" data-gate="{{ group.gate }}" data-t="{{ (identifier ~ " " ~ display ~ " " ~ group.gate)|lower }}">
+          <label for="dep-{{ identifier }}" data-gate="{{ group.gate }}">{{ display }} <span class="row-gate">{{ group.gate }}</span></label>
+        </li>
+        {% endfor %}
+      </ul>
+    </li>
+    {% endfor %}
+    <li class="no-match" hidden>No step matches.</li>
+  </ul>
+  {# One input per value lives here, and a chip beside it only for a value
+     that is chosen — so a response names exactly what is chosen, and a
+     cleared control names nothing. The pair are siblings because a CSS rule
+     keyed on the input's checked state has to reach the chip, and a shared
+     stylesheet cannot carry a selector per value. The option row below is a
+     label bound to the SAME input, so clicking either acts on one control
+     and the checkboxes stay the only authority on what submits.
+
+     The chip's own affordance is that label, which is a toggle: unchecking
+     hides the chip by that CSS rule, so a second click cannot silently
+     restore the value. #}
+  <span class="chosen-set" data-chosen-for="assignees" data-field="assignees">
+    {% for identifier, display_name in assignee_options %}
+    {% set on = identifier in values.get("assignees", []) %}
+    <span class="chosen{% if not on %} off{% endif %}">
+      <input type="checkbox" id="assignee-{{ loop.index }}" name="assignees" value="{{ identifier }}"{% if on %} checked{% endif %}>
+      {% if on %}<label class="chip" for="assignee-{{ loop.index }}">{{ display_name }}<span class="chip-x" aria-hidden="true">×</span></label>{% endif %}
+    </span>
+    {% endfor %}
+  </span>
+  <small>The roster's active people. An active human step needs at least one. Click to add or remove; no modifier key.</small>
   {{ marked(marks, "assignees") }}
-</label>
+</fieldset>
 {# When the step may start — two fields, never one. They sit together and
    away from the step's own `gate` control, and are worded from *starting*
    rather than from *blocking*: this form already carries the blocking flag
@@ -265,19 +349,31 @@
   <small>The gate this launch must reach before the work may begin. Not the gate the step belongs to.</small>
   {{ marked(marks, "starts_at_gate") }}
 </label>
-<label>Waits on
-  <select name="after_steps" multiple size="6">
-    {% for gate, options in dependency_options %}
-    <optgroup label="{{ gate }}">
-      {% for identifier, display in options %}
-      <option value="{{ identifier }}"{% if identifier in values.get("after_steps", []) %} selected{% endif %}>{{ display }}</option>
-      {% endfor %}
-    </optgroup>
-    {% endfor %}
-  </select>
-  <small>Steps that must be resolved first — all of them, not any. Active steps only; this step is not among them.</small>
+{# A fieldset, for the reason the assignee group above carries. #}
+<fieldset class="control-group"><legend>Waits on</legend>
+  {# One input per value lives here, and a chip beside it only for a value
+     that is chosen — so a response names exactly what is chosen, and a
+     cleared control names nothing. The pair are siblings because a CSS rule
+     keyed on the input's checked state has to reach the chip, and a shared
+     stylesheet cannot carry a selector per value. The option row below is a
+     label bound to the SAME input, so clicking either acts on one control
+     and the checkboxes stay the only authority on what submits.
+
+     The chip's own affordance is that label, which is a toggle: unchecking
+     hides the chip by that CSS rule, so a second click cannot silently
+     restore the value. #}
+  <span class="chosen-set" data-chosen-for="after_steps" data-field="after_steps">
+    {% for group in dependency_options %}{% for identifier, display in group.options %}
+    {% set on = identifier in values.get("after_steps", []) %}
+    <span class="chosen{% if not on %} off{% endif %}">
+      <input type="checkbox" id="dep-{{ identifier }}" name="after_steps" value="{{ identifier }}"{% if on %} checked{% endif %}>
+      {% if on %}<label class="chip" for="dep-{{ identifier }}">{{ identifier }}<span class="chip-x" aria-hidden="true">×</span></label>{% endif %}
+    </span>
+    {% endfor %}{% endfor %}
+  </span>
+  <small>Steps that must be resolved first — all of them, not any. Active steps only; this step is not among them. Click to add or remove; no modifier key.</small>
   {{ marked(marks, "after_steps") }}
-</label>
+</fieldset>
 <label>Kind
   <select name="kind">
     {% for option in kind_options %}
@@ -374,5 +470,113 @@
 
     kind.addEventListener("change", apply);
     if (confirmation) confirmation.addEventListener("change", apply);
+  })();
+</script>
+
+{# The two multi-valued controls' enhancement, and no more than two things.
+
+   Filtering the dependency control's options, and adding a chip for a value
+   checked since the render. Everything else about these controls — the
+   grouping, the marks, and a chip going away when its box is unchecked — is
+   markup and CSS, so without this the controls still work and only the
+   convenience is gone.
+
+   It never touches the inputs. They live in `chosen-set` and are what
+   submits, so a script that regenerated that region would delete them and
+   take the author's whole choice with it. #}
+<script>
+  (function () {
+    document.querySelectorAll(".control-group").forEach(function (group) {
+      var picker = group.querySelector(".picker");
+      var chosen = group.querySelector(".chosen-set");
+      if (!picker || !chosen) return;
+
+      var text = group.querySelector(".option-filter");
+      var gates = group.querySelectorAll(".option-gate-filter");
+      var notice = group.querySelector(".hidden-chosen-notice");
+      var noMatch = picker.querySelector(".no-match");
+      var gate = "";
+
+      // A chip for a value checked since the render. The server renders one
+      // for every value that was chosen when the form was drawn; this covers
+      // the ones the author has chosen since, and removes only chips it
+      // added itself.
+      function chipFor(input) {
+        if (!input.value) return;
+        var holder = input.parentNode;
+        if (!holder || holder.querySelector(".chip")) return;
+        var chip = document.createElement("label");
+        chip.className = "chip";
+        chip.setAttribute("for", input.id);
+        chip.textContent = input.value;
+        var cross = document.createElement("span");
+        cross.className = "chip-x";
+        cross.setAttribute("aria-hidden", "true");
+        cross.textContent = "\u00d7";
+        chip.appendChild(cross);
+        holder.appendChild(chip);
+      }
+
+      chosen.addEventListener("change", function (event) {
+        if (event.target && event.target.checked) chipFor(event.target);
+        report();
+      });
+
+      // Filtering shows and hides. It never checks or unchecks anything, and
+      // a value chosen under one filtering is still submitted under another
+      // that hides it — which is why the report below exists.
+      function apply() {
+        var q = text ? text.value.trim().toLowerCase() : "";
+        var shown = 0;
+        picker.querySelectorAll(".row").forEach(function (row) {
+          var ok =
+            (gate === "" || row.dataset.gate === gate) &&
+            (q === "" || (row.dataset.t || "").indexOf(q) !== -1);
+          row.classList.toggle("hide", !ok);
+          if (ok) shown++;
+        });
+        picker.querySelectorAll(".grp").forEach(function (grp) {
+          var rows = grp.querySelectorAll(".row");
+          var any = false;
+          rows.forEach(function (row) {
+            if (!row.classList.contains("hide")) any = true;
+          });
+          grp.classList.toggle("hide", !any);
+        });
+        if (noMatch) noMatch.hidden = shown !== 0;
+        report();
+      }
+
+      // An author who has hidden a chosen row is looking at a control that
+      // appears to hold less than it will submit. Left unsaid that reads as a
+      // value stuck beyond their reach.
+      function report() {
+        if (!notice) return;
+        var hidden = 0;
+        picker.querySelectorAll(".row.hide").forEach(function (row) {
+          var label = row.querySelector("label[for]");
+          if (!label) return;
+          var input = document.getElementById(label.getAttribute("for"));
+          if (input && input.checked) hidden++;
+        });
+        notice.classList.toggle("hidden-chosen", hidden > 0);
+        notice.textContent = hidden
+          ? hidden +
+            (hidden > 1 ? " chosen steps are" : " chosen step is") +
+            " hidden by the filter \u2014 still chosen, and still submitted."
+          : "";
+      }
+
+      if (text) text.addEventListener("input", apply);
+      gates.forEach(function (button) {
+        button.addEventListener("click", function () {
+          gate = button.dataset.gate || "";
+          gates.forEach(function (other) {
+            other.classList.toggle("on", other === button);
+          });
+          apply();
+        });
+      });
+    });
   })();
 </script>

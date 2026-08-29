@@ -420,10 +420,35 @@ def _all_text(html: str) -> str:
 
 
 def _options_of(node: _Node) -> tuple[tuple[str, str], ...]:
-    return tuple(
+    """What a control offers, whichever way the surface draws it.
+
+    `<option>` and a per-value checkbox carry the same fact — a value the
+    control offers, and the words it is offered under. This form's assignee
+    control became a checkbox group in `pick-steps-and-people-by-checkbox`,
+    and what this file asserts about the roster reaching the page is
+    unchanged by that; only where the offer is written down moved.
+
+    A checkbox's own words are on the `<label>` bound to it rather than
+    inside it, so they are looked up by that binding.
+    """
+    options = tuple(
         (option.attrs.get("value", ""), _flat(" ".join(_texts(option))))
         for option in _elements(node)
         if option.tag == "option"
+    )
+    if options:
+        return options
+    labelled = {
+        element.attrs["for"]: _flat(" ".join(_texts(element)))
+        for element in _elements(node)
+        if element.tag == "label" and element.attrs.get("for")
+    }
+    return tuple(
+        (control.attrs.get("value", ""), labelled.get(control.attrs.get("id", ""), ""))
+        for control in _elements(node)
+        if control.tag == "input"
+        and (control.attrs.get("type") or "").lower() == "checkbox"
+        and control.attrs.get("value")
     )
 
 
@@ -529,11 +554,32 @@ def _require_control(
 
 
 def _states(html: str) -> dict[str, _Node]:
+    """The element standing for each named control.
+
+    A hidden input is skipped: since `pick-steps-and-people-by-checkbox` the
+    multi-valued controls carry one, always submitted so that an emptied
+    control still posts its key, and it is the first element of its name in
+    the document — taking it would hand back a control offering nothing.
+
+    Where the name belongs to a checkbox group the group's own container is
+    returned rather than one of its boxes, since what the callers here ask of
+    a control — what it offers, what it has selected — is a fact about the
+    whole group and not about any single box.
+    """
     found: dict[str, _Node] = {}
     for element in _elements(_tree(html)):
         name = element.attrs.get("name")
-        if name and element.tag in ("input", "select", "textarea"):
-            found.setdefault(name, element)
+        if not name or element.tag not in ("input", "select", "textarea"):
+            continue
+        if (element.attrs.get("type") or "").lower() == "hidden":
+            continue
+        if (element.attrs.get("type") or "").lower() == "checkbox":
+            walker = element.parent
+            while walker is not None and walker.tag != "fieldset":
+                walker = walker.parent
+            found.setdefault(name, walker if walker is not None else element)
+            continue
+        found.setdefault(name, element)
     return found
 
 
