@@ -229,8 +229,77 @@
 {% set assignees_marked = marks.get("assignees") %}
 {% set person_involved = values.get("kind", "human") == "human"
      or values.get("needs_confirmation", "false") in ("true", "on", "1", "yes") %}
-<label data-assignees-group="{{ 'pinned' if assignees_marked else 'toggles' }}"
-       {%- if not person_involved and not assignees_marked %} hidden{% endif %}>Assignees
+{# A fieldset and not a label: a `<label>` labels ONE control, and wrapping a
+   group of checkboxes in one makes every input in the group answer to it —
+   so anything walking the document reads the wrapper as each option's own
+   row, and a fault mark inside it then counts as inside the options. #}
+<fieldset class="control-group" data-assignees-group="{{ 'pinned' if assignees_marked else 'toggles' }}"
+       {%- if not person_involved and not assignees_marked %} hidden{% endif %}><legend>Assignees</legend>
+
+  {# Always submitted, so an emptied control posts a present-and-empty key.
+     Unchecked checkboxes post nothing at all, and an absent key would let a
+     write rejected on another field re-render from the submission and
+     restore what the author had just cleared.
+
+     Placed *before* the per-value controls deliberately. The real reader
+     takes every value of the name and drops the empty ones, so order is
+     nothing to it — but a reader that keeps only one value per name keeps
+     the last, and this sitting last would erase a whole chosen set. First
+     costs nothing and cannot do that. #}
+  <input type="hidden" name="assignees" value="">
+  <ul class="picker">
+    {% for identifier, display_name in assignee_options %}
+    <li class="row"><label for="assignee-{{ loop.index }}">{{ display_name }}</label></li>
+    {% endfor %}
+  </ul>
+
+  {# The report's region always renders; `hidden-chosen` is added to it only
+     once a chosen option actually is hidden. The role/occurrence split this
+     capability draws for `write-failure-notice` against `write-failed`, and
+     necessary here because filtering never survives a render — so no
+     response can carry the occurrence at all. #}
+  <p class="hidden-chosen-notice" data-notice-for="after_steps"></p>
+  {# Filtering the OPTIONS. Not the page narrowing, and not the step list's
+     own gate filter: local to this control, on no link, and gone at the
+     write. Each gate states how many options it offers, which is what says
+     the set is lopsided before an author starts scrolling. #}
+  <span class="option-filters">
+    <button type="button" class="option-gate-filter on" data-gate="">all</button>
+    {% for group in dependency_options %}
+    <button type="button" class="option-gate-filter{% if group.later %} later{% endif %}" data-gate="{{ group.gate }}">{{ group.gate }} <span class="ct">{{ group.count }}</span>{% if group.later %} <span class="hint">after this step</span>{% endif %}</button>
+    {% endfor %}
+    <input type="search" class="option-filter" placeholder="Filter by identifier, name or gate…">
+  </span>
+  {# Always submitted, so an emptied control posts a present-and-empty key.
+     Unchecked checkboxes post nothing at all, and an absent key would let a
+     write rejected on another field re-render from the submission and
+     restore what the author had just cleared.
+
+     Placed *before* the per-value controls deliberately. The real reader
+     takes every value of the name and drops the empty ones, so order is
+     nothing to it — but a reader that keeps only one value per name keeps
+     the last, and this sitting last would erase a whole chosen set. First
+     costs nothing and cannot do that. #}
+  <input type="hidden" name="after_steps" value="">
+  {# The heading holds its own rows rather than preceding them: a group is
+     the element carrying the gate's name AND the options under it, which is
+     what makes "grouped by the gate they belong to" readable from the
+     document rather than inferred from document order. #}
+  <ul class="picker">
+    {% for group in dependency_options %}
+    <li class="grp{% if group.later %} later{% endif %}" data-gate="{{ group.gate }}">
+      <span class="grp-name">{{ group.gate }}</span>{% if group.later %} <span class="hint">after this step</span>{% endif %}
+      <ul class="grp-rows">
+        {% for identifier, display in group.options %}
+        <li class="row" data-gate="{{ group.gate }}" data-t="{{ (identifier ~ " " ~ display ~ " " ~ group.gate)|lower }}">
+          <label for="dep-{{ identifier }}" data-gate="{{ group.gate }}">{{ display }} <span class="row-gate">{{ group.gate }}</span></label>
+        </li>
+        {% endfor %}
+      </ul>
+    </li>
+    {% endfor %}
+    <li class="no-match" hidden>No step matches.</li>
+  </ul>
   {# One input per value lives here, and a chip beside it only for a value
      that is chosen — so a response names exactly what is chosen, and a
      cleared control names nothing. The pair are siblings because a CSS rule
@@ -251,19 +320,9 @@
     </span>
     {% endfor %}
   </span>
-  {# Always submitted, so an emptied control posts a present-and-empty key.
-     Unchecked checkboxes post nothing at all, and an absent key would let a
-     write rejected on some other field re-render from the submission and
-     restore what the author had just cleared. #}
-  <input type="hidden" name="assignees" value="">
-  <ul class="picker">
-    {% for identifier, display_name in assignee_options %}
-    <li class="row"><label for="assignee-{{ loop.index }}">{{ display_name }}</label></li>
-    {% endfor %}
-  </ul>
-  <small>The roster's active people. An active human step needs at least one.</small>
+  <small>The roster's active people. An active human step needs at least one. Click to add or remove; no modifier key.</small>
   {{ marked(marks, "assignees") }}
-</label>
+</fieldset>
 {# When the step may start — two fields, never one. They sit together and
    away from the step's own `gate` control, and are worded from *starting*
    rather than from *blocking*: this form already carries the blocking flag
@@ -290,7 +349,8 @@
   <small>The gate this launch must reach before the work may begin. Not the gate the step belongs to.</small>
   {{ marked(marks, "starts_at_gate") }}
 </label>
-<label>Waits on
+{# A fieldset, for the reason the assignee group above carries. #}
+<fieldset class="control-group"><legend>Waits on</legend>
   {# One input per value lives here, and a chip beside it only for a value
      that is chosen — so a response names exactly what is chosen, and a
      cleared control names nothing. The pair are siblings because a CSS rule
@@ -311,46 +371,9 @@
     </span>
     {% endfor %}{% endfor %}
   </span>
-  <input type="hidden" name="after_steps" value="">
-  {# The report's region always renders; `hidden-chosen` is added to it only
-     once a chosen option actually is hidden. The role/occurrence split this
-     capability draws for `write-failure-notice` against `write-failed`, and
-     necessary here because filtering never survives a render — so no
-     response can carry the occurrence at all. #}
-  <p class="hidden-chosen-notice" data-notice-for="after_steps"></p>
-  {# Filtering the OPTIONS. Not the page narrowing, and not the step list's
-     own gate filter: local to this control, on no link, and gone at the
-     write. Each gate states how many options it offers, which is what says
-     the set is lopsided before an author starts scrolling. #}
-  <span class="option-filters">
-    <button type="button" class="option-gate-filter on" data-gate="">all</button>
-    {% for group in dependency_options %}
-    <button type="button" class="option-gate-filter{% if group.later %} later{% endif %}" data-gate="{{ group.gate }}">{{ group.gate }} <span class="ct">{{ group.count }}</span>{% if group.later %} <span class="hint">after this step</span>{% endif %}</button>
-    {% endfor %}
-    <input type="search" class="option-filter" placeholder="Filter by identifier, name or gate…">
-  </span>
-  {# The heading holds its own rows rather than preceding them: a group is
-     the element carrying the gate's name AND the options under it, which is
-     what makes "grouped by the gate they belong to" readable from the
-     document rather than inferred from document order. #}
-  <ul class="picker">
-    {% for group in dependency_options %}
-    <li class="grp{% if group.later %} later{% endif %}" data-gate="{{ group.gate }}">
-      <span class="grp-name">{{ group.gate }}</span>{% if group.later %} <span class="hint">after this step</span>{% endif %}
-      <ul class="grp-rows">
-        {% for identifier, display in group.options %}
-        <li class="row" data-gate="{{ group.gate }}" data-t="{{ (identifier ~ " " ~ display ~ " " ~ group.gate)|lower }}">
-          <label for="dep-{{ identifier }}">{{ display }}</label>
-        </li>
-        {% endfor %}
-      </ul>
-    </li>
-    {% endfor %}
-    <li class="no-match" hidden>No step matches.</li>
-  </ul>
   <small>Steps that must be resolved first — all of them, not any. Active steps only; this step is not among them. Click to add or remove; no modifier key.</small>
   {{ marked(marks, "after_steps") }}
-</label>
+</fieldset>
 <label>Kind
   <select name="kind">
     {% for option in kind_options %}

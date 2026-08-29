@@ -1134,7 +1134,12 @@ async def _render_new(
         narrowing=narrowing,
         assignee_options=_assignee_options(await _roster_people()),
         dependency_options=await _dependency_options_for(
-            editing=None, rendered_gate=str(values.get("gate", ""))
+            # The gate the create form will actually *show*: an unsubmitted
+            # create carries no gate, and its control then falls back to the
+            # first of the sequence — so the marks must be computed against
+            # that, not against an empty string that marks nothing later.
+            editing=None,
+            rendered_gate=str(values.get("gate") or GATE_SEQUENCE[0]),
         ),
         breadcrumb=[
             ("Playbook", f"{PAGE_PATH}{narrowing.suffix()}"),

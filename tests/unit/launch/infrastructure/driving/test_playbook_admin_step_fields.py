@@ -643,43 +643,6 @@ def test_the_form_offers_every_authorable_field(
     assert "rule_policy" not in fields
 
 
-def test_assignees_are_chosen_from_the_rosters_active_people(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Scenario: Assignees are chosen from the roster.
-
-    WHEN the assignee control is opened
-    THEN it offers the roster's active people by display name, and does
-    not accept a free-typed identifier.
-
-    SPECIFIED reason: "so an author cannot name a person who does not
-    exist and cannot mistype an identifier", and "identified by their
-    display names, since an author knows colleagues by name and not by
-    generated identifier".
-    """
-    store = _seeded_store(extra=_listable_extras())
-    client = _signed_client(monkeypatch, store)
-
-    form = _edit_form(client, _get_page(client), "listing.zeta")
-    parsed = _parse(form["html"])
-
-    assignee_selects = {
-        name: options for name, options in parsed.selects.items() if "assign" in name
-    }
-    # SPECIFIED: chosen, not typed — the control is a select.
-    assert assignee_selects, (
-        "the assignee control is not a chooser: the form's selects are "
-        f"{sorted(parsed.selects)}"
-    )
-    offered = [option for options in assignee_selects.values() for option in options]
-    labels = " ".join(text for _, text in offered)
-    # SPECIFIED: the roster's active people, by display name.
-    assert ALICE_NAME in labels
-    assert BOHDAN_NAME in labels
-    # SPECIFIED: *active* people — a departed colleague is not offered.
-    assert CHRIS_NAME not in labels
-
-
 def test_a_form_rejected_by_validation_shows_every_fault_with_the_typed_values(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

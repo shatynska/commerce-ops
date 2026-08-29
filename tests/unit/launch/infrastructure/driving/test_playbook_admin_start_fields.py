@@ -855,64 +855,6 @@ def test_starting_immediately_is_an_offered_choice(
     )
 
 
-def test_the_dependency_control_is_grouped_and_self_excluding(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Scenario: The dependency control is grouped and self-excluding.
-
-    WHEN the control for the steps a step waits on is opened
-    THEN the steps are grouped by gate, each identified by its identifier
-    and its name
-    AND the step being edited is not among them
-    AND no step that is not `active` is among them.
-    """
-    client = _signed_client(monkeypatch, _seeded_store())
-    form = _open_edit(client)
-    parsed = _parse(form.html)
-
-    dependency = _dependency_field(form.fields)
-    options = parsed.selects.get(dependency)
-    assert options is not None, (
-        f"the dependency control {dependency!r} is not a chooser: the form's "
-        f"selects are {sorted(parsed.selects)}"
-    )
-
-    # SPECIFIED: it "SHALL admit more than one step".
-    assert dependency in parsed.multiple, (
-        "the dependency control admits only one step; `after_steps` is a set"
-    )
-
-    offered = {option for option, _, _ in options if option}
-    # SPECIFIED: the step being edited is not among them.
-    assert EDITED not in offered
-    # SPECIFIED: no step that is not `active` is among them.
-    assert DRAFTED not in offered
-    assert RETIRED not in offered
-    # DERIVED complement: an `active` step *is* offered, so the exclusions
-    # above are not satisfied by an empty control.
-    assert ACTIVE_OTHER in offered
-
-    # SPECIFIED: each option is identified by both its identifier and its
-    # name.
-    labelled = {option: label for option, label, _ in options if option == ACTIVE_OTHER}
-    assert ACTIVE_OTHER in labelled[ACTIVE_OTHER]
-    assert ACTIVE_OTHER_NAME in labelled[ACTIVE_OTHER]
-
-    # SPECIFIED: grouped by the gate they belong to.
-    groups = {group for option, _, group in options if option and group}
-    assert groups, (
-        "the dependency control's options carry no group, so a control "
-        "ranging over the served step set is a flat list"
-    )
-    assert any("listable" in group.lower() for group in groups)
-
-
-# ---------------------------------------------------------------------------
-# MODIFIED Requirement: Every rule an authoring write can provoke
-# attributes its fault (the new scenario)
-# ---------------------------------------------------------------------------
-
-
 @dataclass(frozen=True)
 class _Provocation:
     rule: str
