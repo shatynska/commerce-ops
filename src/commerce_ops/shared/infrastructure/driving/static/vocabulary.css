@@ -1250,14 +1250,30 @@ section.finished .empty,
    sizing from content at all; the percentages below are what fixes it
    to instead, in column order (status, name, id, discipline, facts,
    timing, outcome), and hold across every gate's table on the page. */
+/* The scroll boundary a narrow viewport falls back to once the columns
+   below can't all honour both their percentage and their minimum at
+   once -- the table overflows this box instead of the page, and this
+   box, not the page, is what scrolls. */
+.gate-group .table-scroll {
+  overflow-x: auto;
+}
+
 .gate-group table {
   table-layout: fixed;
   width: 100%;
 }
 
+/* Percentage widths shrink with the viewport; a tag that carries
+   `white-space: nowrap` by design (`.outcome-tag`, `.mark`) does not,
+   and a `<td>` does not clip its own overflow -- so without a floor, a
+   narrow enough viewport lets the tag run into the column beside it
+   rather than the column simply reading tighter. `min-width` gives the
+   two tag-bearing columns that floor; every other column keeps only
+   its percentage. */
 .gate-group th:nth-child(1),
 .gate-group td:nth-child(1) {
   width: 9%;
+  min-width: 6rem;
 }
 
 .gate-group th:nth-child(2),
@@ -1278,6 +1294,7 @@ section.finished .empty,
 .gate-group th:nth-child(5),
 .gate-group td:nth-child(5) {
   width: 13%;
+  min-width: 7.5rem;
 }
 
 .gate-group th:nth-child(6),
