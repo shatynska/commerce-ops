@@ -231,11 +231,36 @@
      or values.get("needs_confirmation", "false") in ("true", "on", "1", "yes") %}
 <label data-assignees-group="{{ 'pinned' if assignees_marked else 'toggles' }}"
        {%- if not person_involved and not assignees_marked %} hidden{% endif %}>Assignees
-  <select name="assignees" multiple size="4">
+  {# One input per value lives here, and a chip beside it only for a value
+     that is chosen — so a response names exactly what is chosen, and a
+     cleared control names nothing. The pair are siblings because a CSS rule
+     keyed on the input's checked state has to reach the chip, and a shared
+     stylesheet cannot carry a selector per value. The option row below is a
+     label bound to the SAME input, so clicking either acts on one control
+     and the checkboxes stay the only authority on what submits.
+
+     The chip's own affordance is that label, which is a toggle: unchecking
+     hides the chip by that CSS rule, so a second click cannot silently
+     restore the value. #}
+  <span class="chosen-set" data-chosen-for="assignees" data-field="assignees">
     {% for identifier, display_name in assignee_options %}
-    <option value="{{ identifier }}"{% if identifier in values.get("assignees", []) %} selected{% endif %}>{{ display_name }}</option>
+    {% set on = identifier in values.get("assignees", []) %}
+    <span class="chosen{% if not on %} off{% endif %}">
+      <input type="checkbox" id="assignee-{{ loop.index }}" name="assignees" value="{{ identifier }}"{% if on %} checked{% endif %}>
+      {% if on %}<label class="chip" for="assignee-{{ loop.index }}">{{ display_name }}<span class="chip-x" aria-hidden="true">×</span></label>{% endif %}
+    </span>
     {% endfor %}
-  </select>
+  </span>
+  {# Always submitted, so an emptied control posts a present-and-empty key.
+     Unchecked checkboxes post nothing at all, and an absent key would let a
+     write rejected on some other field re-render from the submission and
+     restore what the author had just cleared. #}
+  <input type="hidden" name="assignees" value="">
+  <ul class="picker">
+    {% for identifier, display_name in assignee_options %}
+    <li class="row"><label for="assignee-{{ loop.index }}">{{ display_name }}</label></li>
+    {% endfor %}
+  </ul>
   <small>The roster's active people. An active human step needs at least one.</small>
   {{ marked(marks, "assignees") }}
 </label>
@@ -266,16 +291,64 @@
   {{ marked(marks, "starts_at_gate") }}
 </label>
 <label>Waits on
-  <select name="after_steps" multiple size="6">
-    {% for gate, options in dependency_options %}
-    <optgroup label="{{ gate }}">
-      {% for identifier, display in options %}
-      <option value="{{ identifier }}"{% if identifier in values.get("after_steps", []) %} selected{% endif %}>{{ display }}</option>
-      {% endfor %}
-    </optgroup>
+  {# One input per value lives here, and a chip beside it only for a value
+     that is chosen — so a response names exactly what is chosen, and a
+     cleared control names nothing. The pair are siblings because a CSS rule
+     keyed on the input's checked state has to reach the chip, and a shared
+     stylesheet cannot carry a selector per value. The option row below is a
+     label bound to the SAME input, so clicking either acts on one control
+     and the checkboxes stay the only authority on what submits.
+
+     The chip's own affordance is that label, which is a toggle: unchecking
+     hides the chip by that CSS rule, so a second click cannot silently
+     restore the value. #}
+  <span class="chosen-set" data-chosen-for="after_steps" data-field="after_steps">
+    {% for group in dependency_options %}{% for identifier, display in group.options %}
+    {% set on = identifier in values.get("after_steps", []) %}
+    <span class="chosen{% if not on %} off{% endif %}">
+      <input type="checkbox" id="dep-{{ identifier }}" name="after_steps" value="{{ identifier }}"{% if on %} checked{% endif %}>
+      {% if on %}<label class="chip" for="dep-{{ identifier }}">{{ identifier }}<span class="chip-x" aria-hidden="true">×</span></label>{% endif %}
+    </span>
+    {% endfor %}{% endfor %}
+  </span>
+  <input type="hidden" name="after_steps" value="">
+  {# The report's region always renders; `hidden-chosen` is added to it only
+     once a chosen option actually is hidden. The role/occurrence split this
+     capability draws for `write-failure-notice` against `write-failed`, and
+     necessary here because filtering never survives a render — so no
+     response can carry the occurrence at all. #}
+  <p class="hidden-chosen-notice" data-notice-for="after_steps"></p>
+  {# Filtering the OPTIONS. Not the page narrowing, and not the step list's
+     own gate filter: local to this control, on no link, and gone at the
+     write. Each gate states how many options it offers, which is what says
+     the set is lopsided before an author starts scrolling. #}
+  <span class="option-filters">
+    <button type="button" class="option-gate-filter on" data-gate="">all</button>
+    {% for group in dependency_options %}
+    <button type="button" class="option-gate-filter{% if group.later %} later{% endif %}" data-gate="{{ group.gate }}">{{ group.gate }} <span class="ct">{{ group.count }}</span>{% if group.later %} <span class="hint">after this step</span>{% endif %}</button>
     {% endfor %}
-  </select>
-  <small>Steps that must be resolved first — all of them, not any. Active steps only; this step is not among them.</small>
+    <input type="search" class="option-filter" placeholder="Filter by identifier, name or gate…">
+  </span>
+  {# The heading holds its own rows rather than preceding them: a group is
+     the element carrying the gate's name AND the options under it, which is
+     what makes "grouped by the gate they belong to" readable from the
+     document rather than inferred from document order. #}
+  <ul class="picker">
+    {% for group in dependency_options %}
+    <li class="grp{% if group.later %} later{% endif %}" data-gate="{{ group.gate }}">
+      <span class="grp-name">{{ group.gate }}</span>{% if group.later %} <span class="hint">after this step</span>{% endif %}
+      <ul class="grp-rows">
+        {% for identifier, display in group.options %}
+        <li class="row" data-gate="{{ group.gate }}" data-t="{{ (identifier ~ " " ~ display ~ " " ~ group.gate)|lower }}">
+          <label for="dep-{{ identifier }}">{{ display }}</label>
+        </li>
+        {% endfor %}
+      </ul>
+    </li>
+    {% endfor %}
+    <li class="no-match" hidden>No step matches.</li>
+  </ul>
+  <small>Steps that must be resolved first — all of them, not any. Active steps only; this step is not among them. Click to add or remove; no modifier key.</small>
   {{ marked(marks, "after_steps") }}
 </label>
 <label>Kind

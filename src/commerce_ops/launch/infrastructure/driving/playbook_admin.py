@@ -806,8 +806,8 @@ def _option_context() -> dict[str, Any]:
 
 
 async def _dependency_options_for(
-    *, editing: str | None
-) -> list[tuple[str, list[tuple[str, str]]]]:
+    *, editing: str | None, rendered_gate: str
+) -> list[_DependencyGroup]:
     """`_dependency_options` for the surfaces that hold no loaded set.
 
     The create and edit pages render from a submitted form rather than
@@ -826,12 +826,24 @@ async def _dependency_options_for(
             exc_info=True,
         )
         return []
-    return _dependency_options(records, editing=editing)
+    return _dependency_options(records, editing=editing, rendered_gate=rendered_gate)
+
+
+@dataclass(frozen=True, slots=True)
+class _DependencyGroup:
+    """One gate's offered options, with the two facts the control renders
+    beside them: how many it offers, and whether it is later than the gate
+    the form was rendered with."""
+
+    gate: str
+    options: list[tuple[str, str]]
+    count: int
+    later: bool
 
 
 def _dependency_options(
-    records: Sequence[Any], *, editing: str | None
-) -> list[tuple[str, list[tuple[str, str]]]]:
+    records: Sequence[Any], *, editing: str | None, rendered_gate: str
+) -> list[_DependencyGroup]:
     """The steps a step may be authored to wait on, grouped by gate.
 
     Only the `active` ones, and never the step being edited. Both
@@ -857,7 +869,28 @@ def _dependency_options(
             by_gate[definition.gate].append(
                 (definition.identifier, f"{definition.identifier} — {definition.name}")
             )
-    return [(gate, options) for gate, options in by_gate.items() if options]
+    # `rendered_gate` and never the gate control's live value: the marks are
+    # rendered once, with the form, so an author who changes the gate without
+    # submitting reads the marks they arrived with. Computing them live would
+    # move them into the enhancement, which the degradation rule then owes.
+    standing = (
+        GATE_SEQUENCE.index(rendered_gate) if rendered_gate in GATE_SEQUENCE else None
+    )
+    return [
+        _DependencyGroup(
+            gate=gate,
+            options=options,
+            # What the control *offers*, so on an edit the step's own gate is
+            # one short of that gate's true size. The count is the reason to
+            # filter; discovered by scrolling it is only an obstacle.
+            count=len(options),
+            # Where the rendered gate names no gate of the sequence — which a
+            # re-rendered submission can carry — nothing is later than it.
+            later=standing is not None and GATE_SEQUENCE.index(gate) > standing,
+        )
+        for gate, options in by_gate.items()
+        if options
+    ]
 
 
 def _slot_key(record: Any) -> tuple[int, str]:
@@ -1075,7 +1108,7 @@ async def _render_page(
             else None
         ),
         assignee_options=_assignee_options(list(people.values())),
-        dependency_options=_dependency_options(records, editing=None),
+        dependency_options=_dependency_options(records, editing=None, rendered_gate=""),
         **_option_context(),
     )
     return HTMLResponse(html)
@@ -1100,7 +1133,9 @@ async def _render_new(
         notice=notice,
         narrowing=narrowing,
         assignee_options=_assignee_options(await _roster_people()),
-        dependency_options=await _dependency_options_for(editing=None),
+        dependency_options=await _dependency_options_for(
+            editing=None, rendered_gate=str(values.get("gate", ""))
+        ),
         breadcrumb=[
             ("Playbook", f"{PAGE_PATH}{narrowing.suffix()}"),
             ("New step", None),
@@ -1134,7 +1169,9 @@ async def _render_edit(
         notice=notice,
         narrowing=narrowing,
         assignee_options=_assignee_options(await _roster_people()),
-        dependency_options=await _dependency_options_for(editing=step_id),
+        dependency_options=await _dependency_options_for(
+            editing=step_id, rendered_gate=str(values.get("gate", ""))
+        ),
         breadcrumb=[
             ("Playbook", f"{PAGE_PATH}{narrowing.suffix()}"),
             (values["name"], None),
