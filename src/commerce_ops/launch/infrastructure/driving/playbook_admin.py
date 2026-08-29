@@ -998,7 +998,7 @@ async def _render_new(
         narrowing=narrowing,
         assignee_options=_assignee_options(await _roster_people()),
         breadcrumb=[
-            ("Playbook steps", f"{PAGE_PATH}{narrowing.suffix()}"),
+            ("Playbook", f"{PAGE_PATH}{narrowing.suffix()}"),
             ("New step", None),
         ],
         # `new.html`'s own `<body>` carries no `hx-boost`, unlike
@@ -1031,7 +1031,7 @@ async def _render_edit(
         narrowing=narrowing,
         assignee_options=_assignee_options(await _roster_people()),
         breadcrumb=[
-            ("Playbook steps", f"{PAGE_PATH}{narrowing.suffix()}"),
+            ("Playbook", f"{PAGE_PATH}{narrowing.suffix()}"),
             (values["name"], None),
         ],
         **_option_context(),
