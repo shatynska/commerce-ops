@@ -191,7 +191,7 @@ Resolving names SHALL NOT be able to fail the page: where the playbook cannot be
 
 The dossier SHALL present the produced record as the results that were **retained for a decision**, and SHALL NOT present it as every outcome an automated step produced for the product.
 
-Only a terminal proposal on a step whose confirmation flag is true is retained; a result needing no confirmation, and every non-terminal outcome, is recorded against the launch and never reaches this record. A page that offered the retained set as the complete automated history would be wrong in a way a reader cannot detect from the page, and would be most wrong precisely for the products whose steps need no confirmation.
+Only a terminal proposal on a step naming a confirmer is retained; a result on a step naming no confirmer, and every non-terminal outcome, is recorded against the launch and never reaches this record. A page that offered the retained set as the complete automated history would be wrong in a way a reader cannot detect from the page, and would be most wrong precisely for the products whose steps name no confirmer.
 
 The record's container SHALL carry the literal marker `retained-for-decision`, whatever the wording it is introduced with, so that the qualification cannot be dropped by a later edit to the prose without a test noticing.
 
