@@ -205,10 +205,9 @@ def test_every_step_is_an_unowned_human_draft(steps: list[dict[str, Any]]) -> No
     for step in steps:
         assert step["status"] == "draft", step["identifier"]
         assert step["kind"] == "human", step["identifier"]
-        assert step["needs_confirmation"] is False, step["identifier"]
         assert step["assignees"] == [], step["identifier"]
         # A human step may carry neither; the domain rejects a set that does.
-        assert "automation_brief" not in step
+        assert "confirmer" not in step
         assert "handler" not in step
         # SPECIFIED (design): a slot belongs to an active step, so a seeded
         # draft carries none.

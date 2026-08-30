@@ -60,9 +60,9 @@ question with its correction point named:
   input's `type`), so that a rejection under `window` comes from the
   field fault this file intends and not from an unparseable anchor.
   Correction point: `_plausible_value`.
-- The fault used to provoke a rejection: an `automation_brief` on a
-  `human` step — the fault `test_playbook_admin_step_fields.py` already
-  uses for the same purpose.
+- The fault used to provoke a rejection: a `handler` on a `human` step —
+  the fault `test_playbook_admin_step_fields.py` already uses for the
+  same purpose.
 
 ## Expected first-run state
 
@@ -124,7 +124,7 @@ ALICE: Final = "prs_01HQ8Z6M4A"
 ALICE_NAME: Final = "Alice Admin"
 
 _CREATE_HINTS: Final = ("new", "create", "add")
-_A_BRIEF: Final = "A brief no human step may carry"
+_A_HANDLER: Final = "no.such.registered.use-case"
 
 #: The word each anchor input's field name carries, beyond `anchor`.
 _ANCHOR_INPUT_WORDS: Final = ("days", "start", "end", "cadence")
@@ -182,11 +182,9 @@ def _step(**overrides: Any) -> StepDefinition:
         "timing_anchor": OffsetAnchor(days=-7),
         "blocking": False,
         "kind": StepKind.HUMAN,
-        "needs_confirmation": False,
         "status": StepStatus.ACTIVE,
         "hazard": Hazard.NONE,
         "assignees": (ALICE,),
-        "automation_brief": None,
         "handler": None,
         "provenance": None,
     }
@@ -867,7 +865,7 @@ def _valid_create_values(
     )
     values[_anchor_kind_field(states).name] = _anchor_kind_value(states, "offset")
     for key in list(values):
-        if "automation_brief" in key or "handler" in key:
+        if "handler" in key:
             values[key] = ""
     return values
 
@@ -883,15 +881,15 @@ def _rejected_under(
     """Submit a create the write refuses, carrying the given anchor kind;
     answer the re-rendered surface.
 
-    The refusal is a field fault — an automation brief on a `human` step
-    — so the anchor plays no part in *why* it was rejected, which is what
-    makes the re-render's anchor state attributable to the submitted
-    anchor kind alone.
+    The refusal is a field fault — a handler on a `human` step — so the
+    anchor plays no part in *why* it was rejected, which is what makes
+    the re-render's anchor state attributable to the submitted anchor
+    kind alone.
     """
     states = _parse(surface).states
     values = _valid_create_values(states, form, name="Work whose create is refused")
     values[_anchor_kind_field(states).name] = _anchor_kind_value(states, kind_hint)
-    values = _fill(values, automation_brief=_A_BRIEF)
+    values = _fill(values, handler=_A_HANDLER)
     for word, ordinal in (("start", 0), ("end", 1)):
         values = _fill(
             values,

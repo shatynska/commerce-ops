@@ -131,9 +131,7 @@ def _step(**overrides: Any) -> StepDefinition:
         "blocking": False,
         "kind": StepKind.HUMAN,
         "status": StepStatus.ACTIVE,
-        "needs_confirmation": False,
         "hazard": Hazard.NONE,
-        "automation_brief": None,
         "provenance": None,
     }
     attributes.update(overrides)
@@ -156,7 +154,6 @@ def _hold(gate: str) -> StepDefinition:
         blocking=True,
         kind=StepKind.AUTOMATED,
         status=StepStatus.ACTIVE,
-        automation_brief="Held until the automated check reports green.",
         handler="fixture.holding_check",
     )
 
@@ -329,7 +326,7 @@ def test_unauthored_optional_attributes_are_absent() -> None:
     (read_back,) = _playbook(steps=(step,)).steps_for_gate("commit")
 
     # SPECIFIED: present only if authored.
-    assert read_back.automation_brief is None
+    assert read_back.confirmer is None
     assert read_back.provenance is None
     # SPECIFIED: hazard classification defaults to `none` when the author
     # declared nothing, and is one of the three classifications.

@@ -112,11 +112,9 @@ def _step(**overrides: Any) -> StepDefinition:
         "timing_anchor": OffsetAnchor(days=-7),
         "blocking": False,
         "kind": StepKind.HUMAN,
-        "needs_confirmation": False,
         "status": StepStatus.ACTIVE,
         "hazard": Hazard.NONE,
         "assignees": (),
-        "automation_brief": None,
         "handler": None,
         "provenance": None,
     }
@@ -392,8 +390,8 @@ def test_two_violations_of_the_new_rules_are_reported_together() -> None:
     THEN loading fails once, and the failure names both.
 
     Exercised with two faults this change introduces — a `human` step
-    carrying a handler, and an `automated` step past `draft` with no
-    brief — so the new rules are established as participants in the
+    carrying a handler, and an `automated`, `active` step with no
+    handler — so the new rules are established as participants in the
     aggregated error rather than as early-exit checks. The pre-change
     test of this scenario pairs an empty description with a lesson-bound
     blocking step, and **neither of those faults exists after this
@@ -404,17 +402,18 @@ def test_two_violations_of_the_new_rules_are_reported_together() -> None:
         kind=StepKind.HUMAN,
         handler="listing.title_conforms",
     )
-    automated_without_brief = _step(
+    automated_without_handler = _step(
         identifier="price.buy-box-check",
         gate="live",
         kind=StepKind.AUTOMATED,
-        status=StepStatus.IN_DEVELOPMENT,
-        automation_brief=None,
+        status=StepStatus.ACTIVE,
+        assignees=(),
+        handler=None,
     )
 
     # A single raised error is what establishes "fails once".
     with pytest.raises(InvalidPlaybookError) as caught:
-        _playbook(steps=(human_with_handler, automated_without_brief))
+        _playbook(steps=(human_with_handler, automated_without_handler))
 
     message = str(caught.value)
     # SPECIFIED: the failure names both.
@@ -430,7 +429,7 @@ def test_a_coherent_playbook_loads() -> None:
 
     "Coherent" as this change defines it: statuses across the range, an
     active human step naming nobody (a write-time matter, never a load-
-    time one), an automated step past draft with its brief, an active
+    time one), an automated step naming a confirmer, an active
     automated step with a handler nothing here registers, and a
     multi-line description.
     """
@@ -451,16 +450,14 @@ def test_a_coherent_playbook_loads() -> None:
             identifier="creative.image-brief",
             gate="ignition",
             kind=StepKind.AUTOMATED,
-            needs_confirmation=True,
+            confirmer="prs_confirmer",
             status=StepStatus.IN_DEVELOPMENT,
-            automation_brief="A hero image brief exists and reads coherently.",
         ),
         _step(
             identifier="price.buy-box-check",
             gate="live",
             kind=StepKind.AUTOMATED,
             status=StepStatus.ACTIVE,
-            automation_brief="Buy Box share is at or above 90% over a rolling week.",
             handler="price.buy_box_check",
         ),
         _step(

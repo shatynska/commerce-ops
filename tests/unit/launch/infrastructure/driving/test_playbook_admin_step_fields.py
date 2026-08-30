@@ -131,11 +131,9 @@ def _step(**overrides: Any) -> StepDefinition:
         "timing_anchor": OffsetAnchor(days=-7),
         "blocking": False,
         "kind": StepKind.HUMAN,
-        "needs_confirmation": False,
         "status": StepStatus.ACTIVE,
         "hazard": Hazard.NONE,
         "assignees": (ALICE,),
-        "automation_brief": None,
         "handler": None,
         "provenance": None,
     }
@@ -654,7 +652,7 @@ def test_a_form_rejected_by_validation_shows_every_fault_with_the_typed_values(
     was typed, and the step set is unchanged.
 
     The two faults below are both new: a name spanning lines, and a
-    `human` step carrying an automation brief.
+    `human` step carrying a handler.
     """
     store = _seeded_store(extra=_listable_extras())
     client = _signed_client(monkeypatch, store)
@@ -662,11 +660,11 @@ def test_a_form_rejected_by_validation_shows_every_fault_with_the_typed_values(
     form = _edit_form(client, page, "listing.zeta")
 
     typed_name = "A name that\nspans two lines"
-    typed_brief = "A brief no human step may carry"
+    typed_handler = "no.such.registered.use-case"
     submitted = _fill(
         dict(form["fields"]),
         name=typed_name,
-        automation_brief=typed_brief,
+        handler=typed_handler,
     )
 
     response = _submit(client, form["method"], form["url"], submitted)
@@ -676,9 +674,9 @@ def test_a_form_rejected_by_validation_shows_every_fault_with_the_typed_values(
     # SPECIFIED: both faults are reported. DERIVED wording markers.
     lowered = body.lower()
     assert "name" in lowered
-    assert "brief" in lowered
+    assert "handler" in lowered
     # SPECIFIED: the form still holds what was typed.
-    assert typed_brief in body
+    assert typed_handler in body
     assert "A name that" in body
     # SPECIFIED: the step set is unchanged.
     assert store.saves == []

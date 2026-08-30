@@ -390,11 +390,9 @@ def _step(identifier: str, **overrides: Any) -> StepDefinition:
         "timing_anchor": OffsetAnchor(days=-30),
         "blocking": False,
         "kind": StepKind.HUMAN,
-        "needs_confirmation": False,
         "status": StepStatus.ACTIVE,
         "hazard": Hazard.NONE,
         "assignees": (),
-        "automation_brief": None,
         "handler": None,
         "provenance": None,
     }

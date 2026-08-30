@@ -40,6 +40,7 @@ from commerce_ops.launch.domain.launch_playbook import (
     StepStatus,
     TimingAnchor,
     assignee_faults,
+    confirmer_faults,
     dependency_faults,
     framework_gates,
     gate_holding_faults,
@@ -268,18 +269,19 @@ async def _precondition_faults(
     declined to invent.
 
     The dependency rules are evaluated **whatever the caller supplies as
-    a roster, and whether or not one is supplied at all**. Only the two
-    assignee rules turn on the roster; a dependency is a function of the
-    step set alone, and skipping it because no roster arrived would leave
-    a step-set rule unevaluated for a reason having nothing to do with
-    it. They read the whole candidate set — that is where a named step's
-    status and hazard live — while still being *reported* only for the
-    steps the write touched.
+    a roster, and whether or not one is supplied at all**. Only the
+    assignee and confirmer rules turn on the roster; a dependency is a
+    function of the step set alone, and skipping it because no roster
+    arrived would leave a step-set rule unevaluated for a reason having
+    nothing to do with it. They read the whole candidate set — that is
+    where a named step's status and hazard live — while still being
+    *reported* only for the steps the write touched.
     """
     faults: list[str] = []
     if roster is not None:
         known, active = await _roster_identifiers(roster)
         faults.extend(assignee_faults(touched, known=known, active=active))
+        faults.extend(confirmer_faults(touched, known=known, active=active))
     faults.extend(dependency_faults(touched, defined=candidate))
     faults.extend(_registration_faults(touched, handlers))
     return faults
@@ -490,14 +492,13 @@ async def create_step(
     roster: RosterReader | None = None,
     handlers: Any = None,
     description: str | None = None,
-    needs_confirmation: bool = False,
     status: StepStatus = StepStatus.DRAFT,
     hazard: Hazard = Hazard.NONE,
     assignees: Sequence[str] = (),
     starts_at_gate: str | None = None,
     after_steps: Sequence[str] = (),
-    automation_brief: str | None = None,
     handler: str | None = None,
+    confirmer: str | None = None,
 ) -> StepRecord:
     """Create a step with a generated `mg.*` identifier, attributed to
     `principal`. Validated as the whole playbook it would produce, plus
@@ -516,14 +517,13 @@ async def create_step(
             blocking=blocking,
             kind=kind,
             description=description,
-            needs_confirmation=needs_confirmation,
             status=status,
             hazard=hazard,
             assignees=tuple(assignees),
             starts_at_gate=starts_at_gate,
             after_steps=tuple(after_steps),
-            automation_brief=automation_brief,
             handler=handler,
+            confirmer=confirmer,
         )
         record = StepRecord(
             definition=definition,

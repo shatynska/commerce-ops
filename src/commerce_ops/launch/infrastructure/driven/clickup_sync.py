@@ -210,7 +210,7 @@ def is_projectable(step: StepDefinition) -> bool:
 
     Only `active` human work does. An `automated` step resolves through
     its own path whether or not its result needs a person's
-    confirmation — the confirmation flag is not a way back into this
+    confirmation — naming a confirmer is not a way back into this
     projection. A step that is not `active` is not part of the launch's
     obligations at all, and a `prohibited-tactic` step can only ever be
     `Refused` — offering a person a task to tick would invite them to

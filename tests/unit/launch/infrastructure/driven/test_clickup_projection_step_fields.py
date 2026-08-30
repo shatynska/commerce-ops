@@ -177,11 +177,9 @@ def _step(**overrides: Any) -> StepDefinition:
         "timing_anchor": OffsetAnchor(days=-7),
         "blocking": False,
         "kind": StepKind.HUMAN,
-        "needs_confirmation": False,
         "status": StepStatus.ACTIVE,
         "hazard": Hazard.NONE,
         "assignees": (),
-        "automation_brief": None,
         "handler": None,
         "provenance": None,
     }
@@ -199,7 +197,6 @@ def _hold(gate: str) -> StepDefinition:
         blocking=True,
         kind=StepKind.AUTOMATED,
         status=StepStatus.ACTIVE,
-        automation_brief="Held until the automated check reports green.",
         handler=f"hold.{gate.replace('-', '_')}",
     )
 
@@ -1126,11 +1123,11 @@ async def test_automated_steps_are_never_projected() -> None:
     """Scenario: Automated steps are never projected.
 
     WHEN the reconciliation pass runs and a step's kind is `automated`
-    THEN no task is created for it, whether or not it needs confirmation.
+    THEN no task is created for it, whether or not it names a confirmer.
 
     The filter moves from the removed `human-attested` execution mode to
-    `kind`, and the confirmation flag is explicitly not part of it: an
-    implementation reading "needs confirmation" as "a person is
+    `kind`, and naming a confirmer is explicitly not part of it: an
+    implementation reading "names a confirmer" as "a person is
     involved, so project it" would project the step that used to be
     `ai-assisted`, which was never projected.
     """
@@ -1139,8 +1136,6 @@ async def test_automated_steps_are_never_projected() -> None:
         name="Watch the Buy Box",
         gate="live",
         kind=StepKind.AUTOMATED,
-        needs_confirmation=False,
-        automation_brief="Buy Box share is at or above 90%.",
         handler="price.buy_box_check",
     )
     confirmed = _step(
@@ -1148,10 +1143,9 @@ async def test_automated_steps_are_never_projected() -> None:
         name="Draft the hero image brief",
         gate="ignition",
         kind=StepKind.AUTOMATED,
-        needs_confirmation=True,
-        automation_brief="A hero image brief exists and reads coherently.",
+        confirmer=ALICE,
         handler="creative.image_brief",
-        assignees=(ALICE,),
+        assignees=(),
     )
     playbook = _playbook(steps=(unconfirmed, confirmed))
     collaborators = _Collaborators()

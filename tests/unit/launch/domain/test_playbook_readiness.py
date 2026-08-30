@@ -147,11 +147,9 @@ def _step(**overrides: Any) -> StepDefinition:
         "timing_anchor": OffsetAnchor(days=-7),
         "blocking": False,
         "kind": StepKind.HUMAN,
-        "needs_confirmation": False,
         "status": StepStatus.ACTIVE,
         "hazard": Hazard.NONE,
         "assignees": (),
-        "automation_brief": None,
         "handler": None,
         "provenance": None,
     }
@@ -652,12 +650,12 @@ def test_a_gate_with_no_active_blocking_step_is_not_rejected_at_load() -> None:
             (
                 _step(
                     identifier="price.buy-box-check",
-                    kind=StepKind.AUTOMATED,
-                    status=StepStatus.IN_DEVELOPMENT,
-                    automation_brief=None,
+                    kind=StepKind.HUMAN,
+                    handler="price.buy_box_checker",
+                    status=StepStatus.DRAFT,
                 ),
             ),
-            id="automation-past-draft-without-a-brief",
+            id="human-step-carrying-a-handler",
         ),
         pytest.param(
             "creative.competitor-copy",
@@ -689,8 +687,8 @@ def test_every_other_coherence_rule_still_rejects(
     Covers, from this requirement's scenario list: *Duplicate step
     identifier*, *Step references an unknown gate*, *A step with no name is
     rejected by identifier*, *A name spanning several lines is rejected*,
-    *Automation past draft without a brief*, and *A prohibited tactic
-    cannot block a gate*.
+    a `human` step carrying a handler, and *A prohibited tactic cannot
+    block a gate*.
     """
     with pytest.raises(InvalidPlaybookError) as caught:
         _playbook(steps)

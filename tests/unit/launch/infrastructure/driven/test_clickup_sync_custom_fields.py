@@ -243,11 +243,9 @@ def _step(**overrides: Any) -> StepDefinition:
         "timing_anchor": OffsetAnchor(days=-7),
         "blocking": False,
         "kind": StepKind.HUMAN,
-        "needs_confirmation": False,
         "status": StepStatus.ACTIVE,
         "hazard": Hazard.NONE,
         "assignees": (ALICE,),
-        "automation_brief": None,
         "handler": None,
         "provenance": None,
     }
@@ -278,7 +276,6 @@ def _hold(gate: str) -> StepDefinition:
         kind=StepKind.AUTOMATED,
         status=StepStatus.ACTIVE,
         assignees=(),
-        automation_brief="Held until the automated check reports green.",
         handler=f"hold.{gate.replace('-', '_')}",
     )
 
@@ -1364,9 +1361,8 @@ async def test_a_step_that_is_not_projected_is_given_no_values(
     since it cannot be expressed as an override on a step the playbook
     holds.
     """
-    attributes: dict[str, Any] = {"automation_brief": None, **overrides}
+    attributes: dict[str, Any] = {**overrides}
     if attributes.get("kind") is StepKind.AUTOMATED:
-        attributes["automation_brief"] = "Checked by the title conformance handler."
         attributes["assignees"] = ()
     playbook = _playbook((_step(**attributes), _control_step()))
     collaborators = _Collaborators()

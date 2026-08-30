@@ -126,11 +126,9 @@ def _hold(gate: str) -> StepDefinition:
         timing_anchor=OffsetAnchor(days=0),
         blocking=True,
         kind=StepKind.AUTOMATED,
-        needs_confirmation=False,
         status=StepStatus.ACTIVE,
         hazard=Hazard.NONE,
         assignees=(),
-        automation_brief="Held until the automated check reports green.",
         handler="fixture.holding_check",
         provenance=None,
     )

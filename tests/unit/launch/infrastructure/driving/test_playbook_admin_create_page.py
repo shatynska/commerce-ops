@@ -78,12 +78,12 @@ question with its correction point named:
   correction; dropping the assertion is not. The notice's *offer*, by
   contrast, is read behaviourally — a control carrying the `created`
   parameter, which `tasks.md` 3.12/3.14 make the offer's signature.
-- The two faults used to provoke a rejection: an `automation_brief` on a
-  `human` step (the fault the sibling test
-  `test_playbook_admin_step_fields.py` already uses) together with an
-  `active` `human` step naming no assignee. Both are field rules of the
-  served `playbook-authoring`/`playbook-admin` specs, not invented
-  rules; the *wording markers* asserted on them are DERIVED.
+- The two faults used to provoke a rejection: a `handler` on a `human`
+  step (the fault the sibling test `test_playbook_admin_step_fields.py`
+  already uses) together with an `active` `human` step naming no
+  assignee. Both are field rules of the served
+  `playbook-authoring`/`playbook-admin` specs, not invented rules; the
+  *wording markers* asserted on them are DERIVED.
 
 ## Expected first-run state
 
@@ -194,11 +194,9 @@ def _step(**overrides: Any) -> StepDefinition:
         "timing_anchor": OffsetAnchor(days=-7),
         "blocking": False,
         "kind": StepKind.HUMAN,
-        "needs_confirmation": False,
         "status": StepStatus.ACTIVE,
         "hazard": Hazard.NONE,
         "assignees": (ALICE,),
-        "automation_brief": None,
         "handler": None,
         "provenance": None,
     }
@@ -858,8 +856,7 @@ def _valid_create_values(
     discipline: Discipline | None = None,
 ) -> dict[str, str]:
     """A create payload the authoring write accepts: a `human` step
-    naming an active assignee, with an offset anchor and no automation
-    brief or handler."""
+    naming an active assignee, with an offset anchor and no handler."""
     values = _fill(
         form.data(),
         name=name,
@@ -877,20 +874,20 @@ def _valid_create_values(
     if discipline is not None:
         values = _fill(values, discipline=discipline.value)
     for key in list(values):
-        if "automation_brief" in key or "handler" in key:
+        if "handler" in key:
             values[key] = ""
     return values
 
 
 def _rejecting(values: dict[str, str]) -> dict[str, str]:
     """The same payload with two field faults at once: an `active`
-    `human` step naming no assignee, and a `human` step carrying an
-    automation brief."""
-    rejected = _fill(dict(values), automation_brief=_A_BRIEF)
+    `human` step naming no assignee, and a `human` step carrying a
+    handler."""
+    rejected = _fill(dict(values), handler=_A_HANDLER)
     return _without(rejected, "assignee")
 
 
-_A_BRIEF: Final = "A brief no human step may carry"
+_A_HANDLER: Final = "no.such.registered.use-case"
 
 
 def _land(client: TestClient, response: Any) -> tuple[str, str]:
@@ -1448,7 +1445,7 @@ def test_a_rejected_create_keeps_every_submitted_value(
     )
     # SPECIFIED: every fault the write reported. DERIVED wording markers.
     lowered = body.lower()
-    assert "brief" in lowered, "the automation-brief fault is not reported"
+    assert "handler" in lowered, "the handler fault is not reported"
     assert "assignee" in lowered or "person" in lowered, (
         "the missing-assignee fault is not reported"
     )
@@ -1493,7 +1490,7 @@ def test_a_rejected_create_keeps_every_assignee_that_was_named(
         gate="listable",
         status=StepStatus.ACTIVE,
     )
-    values = _fill(values, automation_brief=_A_BRIEF)  # the one fault
+    values = _fill(values, handler=_A_HANDLER)  # the one fault
     assignee_field = _field_named(values, "assignee")
     # A dict whose value is a list, not a list of pairs: httpx2 refuses to
     # form-encode a sequence of tuples — it treats the sequence as raw
@@ -1558,7 +1555,7 @@ def test_a_rejected_create_keeps_the_submitted_discipline(
         status=StepStatus.ACTIVE,
         discipline=ANOTHER_DISCIPLINE,
     )
-    values = _fill(values, automation_brief=_A_BRIEF)  # the one fault
+    values = _fill(values, handler=_A_HANDLER)  # the one fault
     response = _issue(client, form, data=values, follow_redirects=False)
 
     assert response.status_code < 500, response.text
@@ -1575,7 +1572,7 @@ def test_a_rejected_create_keeps_the_submitted_discipline(
     )
     # SPECIFIED: a corrected resubmission generates an identifier
     # carrying that discipline.
-    corrected = _fill(rerendered.data(), automation_brief="", assignee=ALICE)
+    corrected = _fill(rerendered.data(), handler="", assignee=ALICE)
     landed = _issue(client, rerendered, data=corrected, follow_redirects=False)
     _land(client, landed)
     identifier = _the_one_created(store, before).definition.identifier
@@ -1777,7 +1774,7 @@ def test_a_rejected_creation_keeps_the_narrowing_without_leaving_the_create_surf
         f"the rejection left the create surface: {rejected[:2000]}"
     )
     assert typed in rejected
-    assert "brief" in rejected.lower()
+    assert "handler" in rejected.lower()
     # SPECIFIED: returning to the list from that surface applies the
     # search term.
     listed = _back_to_list(client, rejected, marker="hold.stock-ready")

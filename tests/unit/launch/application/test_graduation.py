@@ -143,7 +143,6 @@ def _hold(gate: str) -> StepDefinition:
         kind=StepKind.AUTOMATED,
         status=StepStatus.ACTIVE,
         hazard=Hazard.NONE,
-        automation_brief="Held until the automated check reports green.",
         handler="fixture.holding_check",
         provenance=None,
     )

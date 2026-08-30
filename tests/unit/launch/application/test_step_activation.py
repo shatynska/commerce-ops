@@ -103,7 +103,6 @@ SPECIFIED_GATE_ORDER: Final = (
 PRINCIPAL: Final = "helen"
 A_DISCIPLINE: Final = next(iter(Discipline))
 
-A_BRIEF: Final = "Buy Box share is at or above 90% over a rolling week."
 REGISTERED_HANDLER: Final = "price.buy_box_check"
 UNREGISTERED_HANDLER: Final = "price.a_handler_no_deploy_answers_for"
 
@@ -138,11 +137,9 @@ def _step(**overrides: Any) -> StepDefinition:
         "timing_anchor": OffsetAnchor(days=-7),
         "blocking": False,
         "kind": StepKind.HUMAN,
-        "needs_confirmation": False,
         "status": StepStatus.ACTIVE,
         "hazard": Hazard.NONE,
         "assignees": (PERSON_ACTIVE,),
-        "automation_brief": None,
         "handler": None,
         "provenance": None,
     }
@@ -292,11 +289,9 @@ _CREATE_DEFAULTS: Final = {
     "timing_anchor": OffsetAnchor(days=-3),
     "blocking": False,
     "kind": StepKind.HUMAN,
-    "needs_confirmation": False,
     "status": StepStatus.DRAFT,
     "hazard": Hazard.NONE,
     "assignees": (),
-    "automation_brief": None,
     "handler": None,
 }
 
@@ -401,8 +396,7 @@ def _startup_report() -> Any:
 async def test_an_activation_that_satisfies_its_kinds_rules_lands() -> None:
     """Scenario: An activation that satisfies its kind's rules lands.
 
-    WHEN an `automated` step carrying a brief and a registered handler is
-    activated
+    WHEN an `automated` step carrying a registered handler is activated
     THEN the write lands and the next read serves the step.
 
     The serving half is the adapter's and is integration-tier; here "the
@@ -414,7 +408,6 @@ async def test_an_activation_that_satisfies_its_kinds_rules_lands() -> None:
             gate="live",
             kind=StepKind.AUTOMATED,
             status=StepStatus.IN_DEVELOPMENT,
-            automation_brief=A_BRIEF,
             handler=REGISTERED_HANDLER,
             assignees=(),
         )
@@ -485,7 +478,6 @@ async def test_registering_a_handler_does_not_activate_anything() -> None:
             gate="live",
             kind=StepKind.AUTOMATED,
             status=StepStatus.IN_DEVELOPMENT,
-            automation_brief=A_BRIEF,
             handler=REGISTERED_HANDLER,
             assignees=(),
         )
@@ -529,41 +521,8 @@ async def test_un_activating_a_gates_last_blocking_step_is_refused() -> None:
 
 
 # ---------------------------------------------------------------------------
-# launch-playbook's two write-shaped scenarios
+# launch-playbook's write-shaped scenarios
 # ---------------------------------------------------------------------------
-
-
-async def test_leaving_draft_requires_the_brief() -> None:
-    """Scenario (launch-playbook): Leaving draft requires the brief.
-
-    WHEN an `automated` step with no automation brief is moved out of
-    `draft`
-    THEN the write is rejected with a fault naming the step and the
-    missing brief.
-    """
-    draft = _Record(
-        _step(
-            identifier="creative.image-brief",
-            gate="ignition",
-            kind=StepKind.AUTOMATED,
-            status=StepStatus.DRAFT,
-            automation_brief=None,
-            handler=None,
-            assignees=(),
-        )
-    )
-    store = _store(extra=(draft,))
-
-    with pytest.raises(REJECTED) as caught:
-        await _set_status(store, "creative.image-brief", StepStatus.IN_DEVELOPMENT)
-
-    message = str(caught.value)
-    # SPECIFIED: the fault names the step...
-    assert "creative.image-brief" in message
-    # ...and the missing brief. DERIVED wording marker.
-    assert "brief" in message.lower()
-    assert store.saves == []
-    assert _status(store, "creative.image-brief") is StepStatus.DRAFT
 
 
 async def test_a_handler_the_code_does_not_register_cannot_be_activated() -> None:
@@ -575,9 +534,8 @@ async def test_a_handler_the_code_does_not_register_cannot_be_activated() -> Non
     THEN the write is rejected with a fault naming the step and the
     unknown handler.
 
-    This is the *only* place registration is checked. That a load does
-    not re-check it is covered in
-    `tests/unit/launch/domain/test_step_automation_brief_and_handler.py`.
+    This is the *only* place registration is checked; a load does not
+    re-check it.
     """
     unregistered = _Record(
         _step(
@@ -585,7 +543,6 @@ async def test_a_handler_the_code_does_not_register_cannot_be_activated() -> Non
             gate="live",
             kind=StepKind.AUTOMATED,
             status=StepStatus.IN_DEVELOPMENT,
-            automation_brief=A_BRIEF,
             handler=UNREGISTERED_HANDLER,
             assignees=(),
         )
@@ -607,11 +564,11 @@ async def test_a_handler_the_code_does_not_register_cannot_be_activated() -> Non
     assert store.saves == []
 
 
-async def test_a_human_step_written_with_automation_fields_is_refused() -> None:
-    """Scenario (launch-playbook): A human step carries no automation
-    fields — the write half.
+async def test_a_human_step_written_with_a_handler_is_refused() -> None:
+    """Scenario (launch-playbook): A human step carries no handler —
+    the write half.
 
-    WHEN a `human` step is written with an automation brief or a handler
+    WHEN a `human` step is written with a handler
     THEN the write is rejected with a fault naming the step.
     """
     store = _store()
@@ -619,12 +576,12 @@ async def test_a_human_step_written_with_automation_fields_is_refused() -> None:
     with pytest.raises(REJECTED) as caught:
         await _create(
             store,
-            name="A human step someone tried to give a brief",
+            name="A human step someone tried to give a handler",
             kind=StepKind.HUMAN,
-            automation_brief=A_BRIEF,
+            handler=REGISTERED_HANDLER,
         )
 
-    assert "brief" in str(caught.value).lower()
+    assert "handler" in str(caught.value).lower()
     assert store.saves == []
 
 
@@ -652,7 +609,6 @@ async def test_a_deploy_dropping_an_active_steps_handler_is_reported_at_startup(
         gate="live",
         kind=StepKind.AUTOMATED,
         status=StepStatus.ACTIVE,
-        automation_brief=A_BRIEF,
         handler=UNREGISTERED_HANDLER,
         assignees=(),
     )
@@ -661,7 +617,6 @@ async def test_a_deploy_dropping_an_active_steps_handler_is_reported_at_startup(
         gate="ignition",
         kind=StepKind.AUTOMATED,
         status=StepStatus.IN_DEVELOPMENT,
-        automation_brief=A_BRIEF,
         handler=UNREGISTERED_HANDLER,
         assignees=(),
     )
@@ -670,7 +625,6 @@ async def test_a_deploy_dropping_an_active_steps_handler_is_reported_at_startup(
         gate="live",
         kind=StepKind.AUTOMATED,
         status=StepStatus.ACTIVE,
-        automation_brief="Every listed ASIN is indexed for its main keyword.",
         handler=REGISTERED_HANDLER,
         assignees=(),
     )

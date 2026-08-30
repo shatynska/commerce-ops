@@ -442,18 +442,18 @@ async def test_every_discipline_is_represented() -> None:
 async def test_kinds_confirmation_and_the_compliance_hazard_are_represented() -> None:
     """Scenario: Execution modes and the compliance hazard are
     represented (retained scenario title; the vocabulary is now kind and
-    confirmation).
+    confirmer).
 
-    WHEN the seeded step set is grouped by kind and confirmation and
+    WHEN the seeded step set is grouped by kind and confirmer and
     filtered by hazard
     THEN `human` and `automated` are each represented, an automated step
-    needing confirmation and one not needing it are both present, and at
+    naming a confirmer and one naming none are both present, and at
     least one `compliance-obligation` step exists.
 
     This is the migration's vocabulary mapping made checkable: the one
-    `ai-assisted` row becomes `automated` needing confirmation and the
-    one `automated` row becomes `automated` without it, so a mapping that
-    collapsed both to the same confirmation value fails here.
+    `ai-assisted` row becomes `automated` naming a confirmer and the
+    one `automated` row becomes `automated` naming none, so a mapping
+    that collapsed both to the same confirmer state fails here.
     """
     steps = _seeded(await _authored_steps())
 
@@ -462,11 +462,11 @@ async def test_kinds_confirmation_and_the_compliance_hazard_are_represented() ->
     assert StepKind.AUTOMATED in kinds
 
     automated = [step for step in steps if step.kind is StepKind.AUTOMATED]
-    assert any(step.needs_confirmation for step in automated), (
-        "no seeded automated step needs confirmation"
+    assert any(step.confirmer is not None for step in automated), (
+        "no seeded automated step names a confirmer"
     )
-    assert any(not step.needs_confirmation for step in automated), (
-        "every seeded automated step needs confirmation"
+    assert any(step.confirmer is None for step in automated), (
+        "every seeded automated step names a confirmer"
     )
 
     assert any(step.hazard is Hazard.COMPLIANCE_OBLIGATION for step in steps)
@@ -522,47 +522,17 @@ async def test_every_seeded_human_step_is_active_and_the_automated_ones_are_not(
 # ---------------------------------------------------------------------------
 
 
-async def test_no_seeded_human_step_carries_an_automation_brief() -> None:
-    """Migration Plan step 2: "`automation_brief` ← `rule_policy` **only
-    for rows becoming `automated`**; null on `human` rows, which the
-    rules forbid from carrying one."
-
-    `tasks.md` 3.2 states the consequence of getting this wrong outright:
-    "Copying `rule_policy` unconditionally produces 95 human steps
-    carrying a brief, which is an unloadable playbook." The load would
-    fail before this assertion could — so this test's value is that it
-    names *which* rows are at fault rather than reporting an aggregate
-    failure.
+async def test_no_seeded_human_step_carries_a_handler() -> None:
+    """A `human` step SHALL carry no handler (`launch-playbook`,
+    unaffected by `add-step-confirmer`'s removal of `automation_brief`,
+    which this test previously checked alongside it).
     """
     offenders = [
         step.identifier
         for step in _seeded(await _authored_steps())
-        if step.kind is StepKind.HUMAN
-        and (step.automation_brief is not None or step.handler is not None)
+        if step.kind is StepKind.HUMAN and step.handler is not None
     ]
-    assert offenders == [], (
-        f"seeded human steps carrying automation fields: {offenders}"
-    )
-
-
-async def test_every_seeded_automated_step_carries_its_brief() -> None:
-    """Migration Plan step 2, the other half: the brief is carried across
-    from `rule_policy` for rows becoming `automated`.
-
-    Both automated rows land at `in-development`, which is beyond
-    `draft`, so each owes a brief — a backfill that dropped `rule_policy`
-    entirely would produce a set that does not load.
-    """
-    automated = [
-        step
-        for step in _seeded(await _authored_steps())
-        if step.kind is StepKind.AUTOMATED and step.status is not StepStatus.RETIRED
-    ]
-    assert automated, "the seed carries no automated step"
-    for step in automated:
-        assert step.automation_brief, (
-            f"{step.identifier} is automated and beyond draft with no brief"
-        )
+    assert offenders == [], f"seeded human steps carrying a handler: {offenders}"
 
 
 async def test_migrated_steps_are_unowned_and_carry_no_description() -> None:

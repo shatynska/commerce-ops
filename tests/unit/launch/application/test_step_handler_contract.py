@@ -172,11 +172,10 @@ def _step(**overrides: Any) -> StepDefinition:
         "timing_anchor": OffsetAnchor(days=-7),
         "blocking": False,
         "kind": StepKind.AUTOMATED,
-        "needs_confirmation": True,
+        "confirmer": ALICE,
         "status": StepStatus.ACTIVE,
         "hazard": Hazard.NONE,
         "assignees": (),
-        "automation_brief": "Propose the Amazon sub-category node.",
         "handler": HANDLER_NAME,
         "provenance": None,
     }
@@ -191,9 +190,8 @@ def _hold(gate: str) -> StepDefinition:
         gate=gate,
         blocking=True,
         kind=StepKind.HUMAN,
-        needs_confirmation=False,
         assignees=(ALICE,),
-        automation_brief=None,
+        confirmer=None,
         handler=None,
     )
 

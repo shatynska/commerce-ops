@@ -128,9 +128,7 @@ def _step(**overrides: Any) -> StepDefinition:
         "kind": StepKind.HUMAN,
         "assignees": (ASSIGNEE,),
         "status": StepStatus.ACTIVE,
-        "needs_confirmation": False,
         "hazard": Hazard.NONE,
-        "automation_brief": None,
         "handler": None,
         "provenance": None,
     }

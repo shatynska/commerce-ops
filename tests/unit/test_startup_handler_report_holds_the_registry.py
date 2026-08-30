@@ -250,9 +250,7 @@ def _definition(entry):
         blocking=False,
         kind=StepKind.AUTOMATED,
         status=StepStatus.ACTIVE,
-        needs_confirmation=False,
         hazard=Hazard.NONE,
-        automation_brief="What the automated check must establish.",
         handler=entry["handler"],
         provenance=None,
     )
