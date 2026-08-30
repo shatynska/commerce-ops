@@ -567,6 +567,52 @@ attention it owes the migration.
 the step set needing a status correction; or the next change that adds a field
 to a step definition.
 
+### `clickup_sync_job`'s reconciliation cadence was never lowered
+
+`shift-clickup-completions-to-webhook` shipped in two intended stages: register
+the ClickUp webhook as an idempotent deploy step (done — `register_clickup_webhook.py`
+is live), then, only after confirming delivery is reliable in production over a
+real observation period, lower `SYNC_SCHEDULE` from `*/10 * * * *` to twice daily
+and `SYNC_TOLERANCE` to 24h (`design.md`'s "Cadence: twice daily, not once"
+decision). Only the first stage happened. The change was archived once the
+webhook was confirmed *working* — after fixing a signature mismatch found on
+rollout (see below) — not once it had been observed reliable over days, which
+is what `tasks.md`'s own human-confirmation gate (3.4) actually asked for.
+
+The pass is still running at `*/10` today. Nothing is broken by that — it is
+simply the cadence this change set out to relax and did not get to. Picking
+this up means: confirm real deliveries have been reliable for a few days
+(`clickup_webhook.py` recording outcomes with provenance source `clickup`
+matching when tasks actually closed, or each ClickUp subscription's own
+`health.status` staying `active`), then change the two constants and update
+`tests/unit/launch/infrastructure/driving/test_clickup_sync_job_schedule.py`'s
+`EXPECTED_INTERVAL_SECONDS` to `12 * 60 * 60`, exactly as the archived
+change's `tasks.md` section 4 already spells out.
+
+Doing this also sharpens *`LaunchRepository.save` overwrites the whole
+aggregate, with no optimistic concurrency*, above: that entry's accepted
+self-healing window is bounded by this pass's interval, and stays at ten
+minutes until this cadence change actually lands.
+
+**A second finding from rollout, worth knowing before touching this again.**
+ClickUp's team turned out to already have a second, unrelated webhook
+subscription pointed at the same endpoint — unscoped (`folder_id: None`, so
+every task event in the whole workspace, not just this deployment's launch
+folder), already `suspended` by ClickUp after 106 accumulated delivery
+failures, predating `register_clickup_webhook.py` entirely (which never
+creates an unscoped subscription — its own idempotency check requires a
+folder match). It briefly caused real confusion during rollout: an ad hoc
+lookup script that filtered only by `endpoint` (not `endpoint` **and**
+`folder_id`, the way the production idempotency check correctly does)
+picked up that stale subscription's secret instead of the real one, and it
+took a second, fuller lookup to find both. It was left in place rather than
+deleted, since removing another team's ClickUp resource is a decision for
+whoever owns that workspace, not something to do by the way.
+
+**Recorded in**: `shift-clickup-completions-to-webhook`'s `design.md`
+("Cadence: twice daily, not once") and `tasks.md` (sections 3 and 4), now at
+`openspec/changes/archive/2026-08-30-shift-clickup-completions-to-webhook/`.
+
 ### Small cleanups, not worth a change each
 
 Verified present at the time of writing; suitable for one chore commit.
