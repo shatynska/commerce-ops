@@ -44,8 +44,13 @@ from typing import Any
 from commerce_ops.launch.application.playbook_authoring import (
     RosterReader,
     UnreadableRosterError,
+    person_identifier,
 )
-from commerce_ops.launch.domain.launch_playbook import Blocked, LaunchPlaybook
+from commerce_ops.launch.domain.launch_playbook import (
+    Blocked,
+    LaunchPlaybook,
+    StepDefinition,
+)
 from commerce_ops.launch.domain.launch_run import Provenance
 from commerce_ops.shared.domain.identity import ProductId
 
@@ -121,6 +126,12 @@ def _serves(playbook: LaunchPlaybook, step_id: str) -> bool:
     return any(step.identifier == step_id for step in playbook.served_steps)
 
 
+def _step_for(playbook: LaunchPlaybook, step_id: str) -> StepDefinition | None:
+    return next(
+        (step for step in playbook.served_steps if step.identifier == step_id), None
+    )
+
+
 async def _decide(
     *,
     results: Any,
@@ -172,6 +183,18 @@ async def _decide(
         return _refuse(
             "the playbook no longer serves that step, so the result was "
             "withdrawn rather than recorded"
+        )
+
+    # Checked once the step is known to be served, so a step the playbook
+    # no longer serves keeps the refusal above rather than this one — a
+    # confirmer comparison against a step that no longer exists would be
+    # meaningless anyway. Only a known, active *and* named person may
+    # decide now: any other identity, active or not, is refused here.
+    step = _step_for(playbook, step_id)
+    if step is None or person_identifier(person) != step.confirmer:
+        return _refuse(
+            "that person is not this step's named confirmer, so the "
+            "decision was not recorded"
         )
 
     who = getattr(person, "display_name", None) or getattr(person, "id", slack_identity)

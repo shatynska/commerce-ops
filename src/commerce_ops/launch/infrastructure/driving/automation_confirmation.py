@@ -1,10 +1,13 @@
 """Driving adapter: putting a produced result in front of a person.
 
 `launch-step-automation`'s "A pending result is delivered for a decision"
-and the decision half of "Only a known, active person may decide". A
-pending result becomes a Slack message naming the product, the step, the
-outcome the handler proposed and the produced text **in full**, carrying
-an accept and a reject control; pressing one runs the matching use case.
+and the decision half of "Only the step's named confirmer may decide a
+pending result". A pending result becomes a Slack message naming the
+product, the step, the outcome the handler proposed and the produced
+text **in full**, carrying an accept and a reject control; pressing one
+runs the matching use case, which is where the confirmer identity is
+actually checked — this adapter stays a thin relay of whichever Slack
+identity pressed the button.
 
 The produced text goes in whole rather than truncated. It is the thing
 being decided — a person asked to accept a recommendation they can only

@@ -70,7 +70,6 @@ from commerce_ops.shared.domain.discipline import Discipline
 A_DISCIPLINE: Final = Discipline("strategy")
 ANOTHER_DISCIPLINE: Final = Discipline("price")
 
-A_BRIEF: Final = "Buy Box share is at or above 90% over a rolling week."
 REGISTERED_HANDLER: Final = "price.buy_box_check"
 
 ALICE: Final = "prs_01HQ8Z6M4A"
@@ -88,11 +87,9 @@ def _step(**overrides: Any) -> StepDefinition:
         "timing_anchor": OffsetAnchor(days=-7),
         "blocking": False,
         "kind": StepKind.HUMAN,
-        "needs_confirmation": False,
         "status": StepStatus.ACTIVE,
         "hazard": Hazard.NONE,
         "assignees": (ALICE,),
-        "automation_brief": None,
         "handler": None,
         "provenance": None,
     }
@@ -202,27 +199,26 @@ def test_steps_that_cannot_be_activated_are_listed_with_their_reason() -> None:
     reason.
 
     WHEN the report is requested against a set holding one ready step and
-    one automated draft with no brief
+    one automated draft with no handler
     THEN exactly the draft is reported, with its identifier, gate,
-    discipline and status, and the missing brief named.
+    discipline and status, and the missing handler named.
     """
     ready = _step(
         identifier="listing.title-conforms",
         status=StepStatus.ACTIVE,
         assignees=(ALICE,),
     )
-    draft_without_brief = _step(
+    draft_without_handler = _step(
         identifier="price.buy-box-check",
         gate="live",
         discipline=ANOTHER_DISCIPLINE,
         kind=StepKind.AUTOMATED,
         status=StepStatus.DRAFT,
-        automation_brief=None,
         handler=None,
         assignees=(),
     )
 
-    rows = _blockers((ready, draft_without_brief))
+    rows = _blockers((ready, draft_without_handler))
 
     # SPECIFIED: exactly the draft is reported.
     assert [getattr(row, "identifier", None) for row in rows] == ["price.buy-box-check"]
@@ -232,11 +228,11 @@ def test_steps_that_cannot_be_activated_are_listed_with_their_reason() -> None:
     assert row.gate == "live"
     assert row.discipline is ANOTHER_DISCIPLINE
     assert row.status is StepStatus.DRAFT
-    # SPECIFIED: and the missing brief named. DERIVED wording marker —
+    # SPECIFIED: and the missing handler named. DERIVED wording marker —
     # correcting the substring to the implemented spelling is a fixture
     # correction; dropping the assertion is not, because "what it is
     # missing" is the whole reason this report replaced the last one.
-    assert "brief" in _row_text(row).lower()
+    assert "handler" in _row_text(row).lower()
 
 
 def test_a_set_of_ready_steps_reports_nothing() -> None:
@@ -247,8 +243,8 @@ def test_a_set_of_ready_steps_reports_nothing() -> None:
     THEN the report is empty.
 
     "Ready" spans both kinds here — an owned human step and an automated
-    step with a brief and a registered handler — so a report that
-    over-reported either kind fails.
+    step with a registered handler — so a report that over-reported
+    either kind fails.
     """
     ready_human = _step(
         identifier="listing.title-conforms",
@@ -260,7 +256,6 @@ def test_a_set_of_ready_steps_reports_nothing() -> None:
         gate="live",
         kind=StepKind.AUTOMATED,
         status=StepStatus.IN_DEVELOPMENT,
-        automation_brief=A_BRIEF,
         handler=REGISTERED_HANDLER,
         assignees=(),
     )
@@ -274,8 +269,8 @@ def test_a_set_of_ready_steps_reports_nothing() -> None:
 
 
 def test_a_step_missing_a_registered_handler_is_reported() -> None:
-    """Requirement statement: the report says "what it is missing — an
-    automation brief, a registered handler, or an active assignee".
+    """Requirement statement: the report says "what it is missing — a
+    registered handler, or an active assignee".
 
     The handler case is stated in the requirement but in neither
     scenario, and it is the one that reaches outside the step set: a step
@@ -287,7 +282,6 @@ def test_a_step_missing_a_registered_handler_is_reported() -> None:
         gate="live",
         kind=StepKind.AUTOMATED,
         status=StepStatus.IN_DEVELOPMENT,
-        automation_brief=A_BRIEF,
         handler="price.nothing_answers_for_this",
         assignees=(),
     )

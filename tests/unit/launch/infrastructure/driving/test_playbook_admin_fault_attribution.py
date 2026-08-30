@@ -189,7 +189,6 @@ _GENERATED_NAMESPACE: Final = "mg."
 _NOT_A_VALUE: Final = "not-an-offered-value"
 _NOT_A_NUMBER: Final = "soon"
 
-_A_BRIEF: Final = "A brief describing what the automation does"
 _A_HANDLER: Final = "no.such.registered.use-case"
 _NOT_ON_THE_ROSTER: Final = "prs_00NOBODYATALL"
 
@@ -278,11 +277,9 @@ def _step(**overrides: Any) -> StepDefinition:
         "timing_anchor": OffsetAnchor(days=-7),
         "blocking": False,
         "kind": StepKind.HUMAN,
-        "needs_confirmation": False,
         "status": StepStatus.ACTIVE,
         "hazard": Hazard.NONE,
         "assignees": (ALICE,),
-        "automation_brief": None,
         "handler": None,
         "provenance": None,
     }
@@ -1150,10 +1147,9 @@ def test_a_fault_about_a_combination_marks_every_field_in_it(
 ) -> None:
     """Scenario: A fault about a combination marks every field in it.
 
-    WHEN a write is rejected because a `human` step carries an automation
-    brief
+    WHEN a write is rejected because a `human` step carries a handler
     THEN the re-rendered surface marks both the kind field and the
-    automation brief field with that fault.
+    handler field with that fault.
 
     The requirement's own prose is asserted alongside the scenario: the
     automation controls render un-offered on a `human` step, and marking
@@ -1167,29 +1163,29 @@ def test_a_fault_about_a_combination_marks_every_field_in_it(
     values[_field_name(values, "kind", excluding=("anchor",))] = _kind_value(
         StepKind.HUMAN
     )
-    values = _fill(values, automation_brief=_A_BRIEF)
+    values = _fill(values, handler=_A_HANDLER)
     rejected = _submit(client, surface, values)
 
     kind_field = _field_name(values, "kind", excluding=("anchor",))
-    brief_field = _field_name(values, "automation_brief")
+    handler_field = _field_name(values, "handler")
     marked = _marked_fields(rejected, surface.html)
     # SPECIFIED: both fields in the combination are marked — neither
     # value is wrong on its own, and either is a valid thing to change.
     assert marked.get(kind_field), (
         f"the refused pair marked nothing on {kind_field!r} (marked: "
-        f"{sorted(marked)}), so the admin is told to change the brief alone"
+        f"{sorted(marked)}), so the admin is told to change the handler alone"
     )
-    assert marked.get(brief_field), (
-        f"the refused pair marked nothing on {brief_field!r} (marked: "
+    assert marked.get(handler_field), (
+        f"the refused pair marked nothing on {handler_field!r} (marked: "
         f"{sorted(marked)}), so half the refused pair is left unexplained"
     )
     # SPECIFIED: marking renders the fault adjacent to a control the
     # surface does not offer, just as for any other, and does not change
     # whether it is offered.
-    brief_state = _states(rejected)[brief_field]
-    assert brief_state.disabled, (
-        "marking made the automation brief offered on a `human` step, so it "
-        "changed whether the control is offered rather than only saying the "
+    handler_state = _states(rejected)[handler_field]
+    assert handler_state.disabled, (
+        "marking made the handler offered on a `human` step, so it changed "
+        "whether the control is offered rather than only saying the "
         "submitted value was refused"
     )
     assert store.saves == []
@@ -1307,7 +1303,7 @@ def test_a_field_two_faults_concern_carries_both(
     THEN the kind field is marked once
     AND carries both faults.
 
-    The two: a `human` step cannot carry an automation brief, and a
+    The two: an `active` `human` step names no active assignee, and a
     `human` step cannot name a handler. Both name `kind`, so `kind` is
     the field more than one fault concerns.
     """
@@ -1318,11 +1314,13 @@ def test_a_field_two_faults_concern_carries_both(
     values = _valid_edit_values(surface)
     kind_field = _field_name(values, "kind", excluding=("anchor",))
     values[kind_field] = _kind_value(StepKind.HUMAN)
-    brief_only = _fill(dict(values), automation_brief=_A_BRIEF)
+    no_assignee_only = _without(dict(values), "assignee")
     handler_only = _fill(dict(values), handler=_A_HANDLER)
-    both = _fill(dict(values), automation_brief=_A_BRIEF, handler=_A_HANDLER)
+    both = _fill(_without(dict(values), "assignee"), handler=_A_HANDLER)
 
-    marks_brief = _marks(_submit(client, surface, brief_only), surface.html, kind_field)
+    marks_brief = _marks(
+        _submit(client, surface, no_assignee_only), surface.html, kind_field
+    )
     marks_handler = _marks(
         _submit(client, surface, handler_only), surface.html, kind_field
     )
@@ -1564,8 +1562,8 @@ def test_a_rejected_create_does_not_name_the_step_it_did_not_persist(
     identifier
     AND no step carrying that identifier is in the served set.
 
-    A `human` step carrying an automation brief: a step-level fault, so
-    it opens with the `step '<identifier>' ` the delta says is removed.
+    A `human` step carrying a handler: a step-level fault, so it opens
+    with the `step '<identifier>' ` the delta says is removed.
     """
     store = _seeded_store()
     client = _signed_client(monkeypatch, store)
@@ -1576,7 +1574,7 @@ def test_a_rejected_create_does_not_name_the_step_it_did_not_persist(
     values[_field_name(values, "kind", excluding=("anchor",))] = _kind_value(
         StepKind.HUMAN
     )
-    values = _fill(values, automation_brief=_A_BRIEF)
+    values = _fill(values, handler=_A_HANDLER)
     rejected = _submit(client, surface, values)
 
     reported = _page_level(rejected, surface.html)
@@ -1774,24 +1772,10 @@ _PROVOCATIONS: Final = (
         _compose(_set("hazard", str(PROHIBITED_TACTIC.value)), _block),
     ),
     _Provocation(
-        "automated, beyond draft, no automation brief",
-        "create",
-        ("kind", "status", "automation_brief"),
-        _compose(_AUTOMATED, _ACTIVE, _set("automation_brief", "")),
-    ),
-    _Provocation(
         "automated and active but names no handler",
         "create",
         ("kind", "status", "handler"),
-        _compose(
-            _AUTOMATED, _ACTIVE, _set("automation_brief", _A_BRIEF), _set("handler", "")
-        ),
-    ),
-    _Provocation(
-        "human step cannot carry an automation brief",
-        "create",
-        ("kind", "automation_brief"),
-        _compose(_HUMAN, _set("automation_brief", _A_BRIEF)),
+        _compose(_AUTOMATED, _ACTIVE, _set("handler", "")),
     ),
     _Provocation(
         "human step cannot name a handler",
@@ -1818,11 +1802,29 @@ _PROVOCATIONS: Final = (
         "names handler no registered use case answers to",
         "create",
         ("handler",),
+        _compose(_AUTOMATED, _ACTIVE, _set("handler", _A_HANDLER)),
+    ),
+    _Provocation(
+        "names its sole assignee as its confirmer",
+        "create",
+        ("assignees", "confirmer"),
+        _set("confirmer", ALICE),
+    ),
+    _Provocation(
+        "names confirmer the roster does not carry",
+        "create",
+        ("confirmer",),
+        _set("confirmer", _NOT_ON_THE_ROSTER),
+    ),
+    _Provocation(
+        "active automated step names confirmer not active on the roster",
+        "create",
+        ("confirmer",),
         _compose(
             _AUTOMATED,
             _ACTIVE,
-            _set("automation_brief", _A_BRIEF),
             _set("handler", _A_HANDLER),
+            _set("confirmer", CHRIS_DEPARTED),
         ),
     ),
     # --- Recognised, held at page level, provokable by a write (1) -----

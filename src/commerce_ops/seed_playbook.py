@@ -133,7 +133,6 @@ def vendored_definitions(path: Path | None = None) -> tuple[StepDefinition, ...]
             timing_anchor=_anchor(step["timing_anchor"]),
             blocking=step["blocking"],
             kind=StepKind(step["kind"]),
-            needs_confirmation=step["needs_confirmation"],
             status=StepStatus(step["status"]),
             hazard=Hazard(step["hazard"]),
             assignees=tuple(step["assignees"]),

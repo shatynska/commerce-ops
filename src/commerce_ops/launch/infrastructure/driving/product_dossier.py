@@ -24,9 +24,10 @@ Two things the record does that are easy to get wrong:
   rather than making one, and presenting it as a rejection attributes to
   the person who tried to decide a judgement they never made.
 - The record is labelled as the results retained **for a decision**, not
-  as everything produced. Only a terminal proposal on a confirmable step
-  reaches the store; a page implying otherwise would be wrong invisibly,
-  and totally so for a product whose automated steps need no confirmation.
+  as everything produced. Only a terminal proposal on a step naming a
+  confirmer reaches the store; a page implying otherwise would be wrong
+  invisibly, and totally so for a product whose automated steps name no
+  confirmer.
 
 The decider is rendered as recorded and never re-resolved against the
 roster, which is why this module has no roster seam at all.

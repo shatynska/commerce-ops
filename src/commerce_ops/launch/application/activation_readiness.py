@@ -7,8 +7,8 @@ same question from opposite ends: *is this step ready to hold a gate?*
 being authored, so the outstanding work of getting a step ready stays
 visible rather than surfacing one step at a time when someone tries to
 activate it. It replaces the undecided-rule-policy report, whose subject
-was one field; this one covers the brief, the handler and an active
-human step's assignees.
+was one field; this one covers the handler and an active human step's
+assignees.
 
 `report_unregistered_handlers` runs at startup, over the set a
 deployment is about to serve. That a handler is *registered* is a
@@ -38,7 +38,6 @@ from commerce_ops.launch.domain.launch_playbook import (
 )
 from commerce_ops.shared.domain.discipline import Discipline
 
-MISSING_BRIEF = "an automation brief"
 MISSING_HANDLER = "a handler the deployed code registers"
 MISSING_ASSIGNEE = "an assignee who is active on the roster"
 
@@ -103,8 +102,6 @@ def _what_is_missing(
 ) -> tuple[str, ...]:
     missing: list[str] = []
     if step.kind is StepKind.AUTOMATED:
-        if step.automation_brief is None:
-            missing.append(MISSING_BRIEF)
         if step.handler is None or step.handler not in registered:
             missing.append(MISSING_HANDLER)
     elif not any(identifier in active_people for identifier in step.assignees):

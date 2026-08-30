@@ -97,7 +97,7 @@ class StepKind(Enum):
     resolving code calls a language model is an implementation detail of
     that code and no rule in this system reacts to it; what the launch
     reacts to is whether a person must accept the result, which
-    `StepDefinition.needs_confirmation` carries as a separate fact.
+    `StepDefinition.confirmer` carries as a separate fact.
     """
 
     HUMAN = "human"
@@ -123,15 +123,6 @@ class StepStatus(Enum):
     IN_DEVELOPMENT = "in-development"
     ACTIVE = "active"
     RETIRED = "retired"
-
-
-BEYOND_DRAFT: frozenset[StepStatus] = frozenset(
-    {StepStatus.IN_DEVELOPMENT, StepStatus.ACTIVE}
-)
-"""What "beyond `draft`" means, and deliberately not "any status other
-than `draft`": a step abandoned before its automation was ever specified
-is retired without ever owing a brief. Reading the phrase the other way
-would make such a step unretirable and its playbook unloadable."""
 
 
 class Hazard(Enum):
@@ -343,11 +334,14 @@ class StepDefinition:
     single line; the description is what they read once they have
     decided to do it, so it is optional and may span lines.
 
-    `assignees` reference roster people by the roster's own generated
-    identifier, never by name or Slack identity, so that correcting a
-    person's details never rewrites the steps pointing at them. That an
-    assignee exists and is active is a *write-time* precondition and
-    never a load-time rule — see `assignee_faults`.
+    `assignees` and `confirmer` reference roster people by the roster's
+    own generated identifier, never by name or Slack identity, so that
+    correcting a person's details never rewrites the steps pointing at
+    them. That an assignee or a confirmer exists and is active is a
+    *write-time* precondition and never a load-time rule — see
+    `assignee_faults` and `confirmer_faults`. Naming a confirmer is what
+    makes a step's automated result require confirmation; there is no
+    separate flag.
 
     `starts_at_gate` and `after_steps` say when the step may *start*,
     which is a different question from `gate` — the gate it must be
@@ -372,14 +366,13 @@ class StepDefinition:
     blocking: bool
     kind: StepKind
     description: str | None = None
-    needs_confirmation: bool = False
     status: StepStatus = StepStatus.DRAFT
     hazard: Hazard = Hazard.NONE
     assignees: tuple[str, ...] = ()
     starts_at_gate: str | None = None
     after_steps: tuple[str, ...] = ()
-    automation_brief: str | None = None
     handler: str | None = None
+    confirmer: str | None = None
     provenance: str | None = None
 
     def __post_init__(self) -> None:
@@ -560,6 +553,9 @@ def _step_faults(
             )
         faults.extend(_automation_faults(step))
         faults.extend(_start_gate_faults(step))
+        confirmer_shape_fault = _confirmer_shape_fault(step)
+        if confirmer_shape_fault is not None:
+            faults.append(confirmer_shape_fault)
         if step.hazard is Hazard.PROHIBITED_TACTIC and step.blocking:
             faults.append(
                 f"step '{step.identifier}' is classified 'prohibited-tactic' "
@@ -724,38 +720,43 @@ def _dependency_faults(steps: tuple[StepDefinition, ...]) -> list[str]:
 def _automation_faults(step: StepDefinition) -> list[str]:
     """What a step's kind and status oblige it to carry, or to leave off.
 
-    The brief is owed on leaving `draft` — a step nobody can state the
-    acceptance criterion for is not ready to be built — and the handler
-    on becoming `active`. That a handler is *present* is a property of
-    the step set and belongs here; that the deployed code **registers**
-    it is a property of the deployment, checked at activation and never
-    at load, so a rename in the registry reports a deployment fault
-    rather than making every stored playbook unloadable.
+    The handler is owed on becoming `active`. That a handler is *present*
+    is a property of the step set and belongs here; that the deployed
+    code **registers** it is a property of the deployment, checked at
+    activation and never at load, so a rename in the registry reports a
+    deployment fault rather than making every stored playbook unloadable.
     """
     faults: list[str] = []
     if step.kind is StepKind.AUTOMATED:
-        if step.status in BEYOND_DRAFT and step.automation_brief is None:
-            faults.append(
-                f"step '{step.identifier}' is automated and beyond draft "
-                f"(status '{step.status.value}') but carries no automation "
-                f"brief"
-            )
         if step.status is StepStatus.ACTIVE and step.handler is None:
             faults.append(
                 f"step '{step.identifier}' is automated and active but names "
                 f"no handler — nothing would resolve it"
             )
         return faults
-    if step.automation_brief is not None:
-        faults.append(
-            f"step '{step.identifier}' is a human step and cannot carry an "
-            f"automation brief"
-        )
     if step.handler is not None:
         faults.append(
             f"step '{step.identifier}' is a human step and cannot name a handler"
         )
     return faults
+
+
+def _confirmer_shape_fault(step: StepDefinition) -> str | None:
+    """Whether this step's `confirmer` is also its only assignee.
+
+    A pure function of the step's own `assignees` and `confirmer`
+    fields, kind-independent — see `confirmer_faults` for the roster-
+    dependent known/active preconditions this is deliberately not part
+    of. A single actor confirming their own work is not a second
+    opinion, and the shape can never produce one no matter how many
+    times it is pressed.
+    """
+    if len(step.assignees) == 1 and step.assignees[0] == step.confirmer:
+        return (
+            f"step '{step.identifier}' names its sole assignee as its "
+            f"confirmer — that is not a second opinion"
+        )
+    return None
 
 
 def _unheld_gates(
@@ -1028,5 +1029,48 @@ def assignee_faults(
                 f"step '{step.identifier}' is an active human step and names "
                 f"no assignee who is active on the roster — human work "
                 f"nobody is responsible for is work that will not happen"
+            )
+    return tuple(faults)
+
+
+def confirmer_faults(
+    steps: Sequence[StepDefinition],
+    *,
+    known: Collection[str],
+    active: Collection[str],
+) -> tuple[str, ...]:
+    """The two confirmer rules, over the steps a write touches.
+
+    `assignee_faults`' sibling and reasoning exactly: a confirmer's
+    existence and active status are functions of the *roster*, not of
+    the step set, so this is a write-time precondition and never a
+    load-time coherence rule — a step whose confirmer has since been
+    deactivated continues to load and be served (see `deactivated
+    confirmer` in `launch-step-automation`'s decision-authority rule).
+
+    The single-assignee-equals-confirmer shape is deliberately not here:
+    it is a pure function of the step set alone, needing no roster, and
+    is checked at load time by `_confirmer_shape_fault` instead.
+    """
+    faults: list[str] = []
+    known_ids = set(known)
+    active_ids = set(active)
+    for step in steps:
+        if step.confirmer is None:
+            continue
+        if step.confirmer not in known_ids:
+            faults.append(
+                f"step '{step.identifier}' names confirmer '{step.confirmer}', "
+                f"whom the roster does not carry"
+            )
+        elif (
+            step.kind is StepKind.AUTOMATED
+            and step.status is StepStatus.ACTIVE
+            and step.confirmer not in active_ids
+        ):
+            faults.append(
+                f"step '{step.identifier}' is an active automated step and "
+                f"names confirmer '{step.confirmer}', who is not active on "
+                f"the roster"
             )
     return tuple(faults)

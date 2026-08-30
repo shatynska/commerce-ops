@@ -165,7 +165,7 @@
      step take five lines. #}
   <td>
     <span class="mark">{{ step.kind }}</span>
-    {%- if step.needs_confirmation %}<span class="mark">needs confirmation</span>{% endif %}
+    {%- if step.confirmer %}<span class="mark">confirmed by {{ step.confirmer }}</span>{% endif %}
     {%- if step.blocking %}<span class="mark emphatic">blocks its gate</span>{% endif %}
   </td>
   {% endmacro %}

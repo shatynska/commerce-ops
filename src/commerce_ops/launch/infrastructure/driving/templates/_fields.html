@@ -9,9 +9,9 @@
    controls (the value must not reach the write) and `hidden` on the
    anchor groups (the value must survive and still submit). Marking says
    only that a *submitted* value was refused, so it never changes whether
-   a control is offered — a `human` step carrying an automation brief
-   marks both `kind` and `automation_brief`, and the brief stays disabled
-   while carrying its fault. The full fault list still renders at page
+   a control is offered — a `human` step carrying a handler marks both
+   `kind` and `handler`, and the handler stays disabled while carrying
+   its fault. The full fault list still renders at page
    level on both surfaces; this is additional to it, never a filter.
    Passed to the macro rather than read from the context, so an include
    that forgets it fails loudly instead of silently marking nothing. #}
@@ -199,89 +199,12 @@
     });
   })();
 </script>
-<fieldset class="field-group">
-  <legend>How it is resolved</legend>
-<label>Needs confirmation
-  <select name="needs_confirmation">
-    <option value="false"{% if values.get("needs_confirmation", "false") not in ("true", "on", "1", "yes") %} selected{% endif %}>no</option>
-    <option value="true"{% if values.get("needs_confirmation", "false") in ("true", "on", "1", "yes") %} selected{% endif %}>yes — a person accepts the result</option>
-  </select>
-  <small>Meaningless on a human step: the person doing the work is the person attesting it.</small>
-  {{ marked(marks, "needs_confirmation") }}
-</label>
-{# Offered when a person is involved at all — either they do the work
-   (`kind` is `human`) or they accept its result (`needs_confirmation`).
-   An automated step nobody has to sign off names nobody, and asking who
-   owns it invites an answer the step has no use for.
-
-   The condition is deliberately the *disjunction*. Gating on
-   `needs_confirmation` alone would hide the picker for an ordinary human
-   step — the great majority of the set — and those are exactly the steps
-   the write refuses without an assignee, so an author would be told to
-   name one with no field to name it in.
-
-   `hidden` on the LABEL, never on the `<select>`: a hidden field still
-   submits, so an assignee already chosen survives an author reconsidering
-   the kind. This is the same rule the anchor groups follow, and
-   `design.md` records why moving it to the control would break it. And
-   pinned open when marked, for the reason the automation section is —
-   "an active human step names no active assignee" marks this control. #}
-{% set assignees_marked = marks.get("assignees") %}
-{% set person_involved = values.get("kind", "human") == "human"
-     or values.get("needs_confirmation", "false") in ("true", "on", "1", "yes") %}
-{# A fieldset and not a label: a `<label>` labels ONE control, and wrapping a
-   group of checkboxes in one makes every input in the group answer to it —
-   so anything walking the document reads the wrapper as each option's own
-   row, and a fault mark inside it then counts as inside the options. #}
-<fieldset class="control-group" data-assignees-group="{{ 'pinned' if assignees_marked else 'toggles' }}"
-       {%- if not person_involved and not assignees_marked %} hidden{% endif %}><legend>Assignees</legend>
-  {# Always submitted, so an emptied control posts a present-and-empty key.
-     Unchecked checkboxes post nothing at all, and an absent key would let a
-     write rejected on another field re-render from the submission and
-     restore what the author had just cleared.
-
-     Placed *before* the per-value controls deliberately. The real reader
-     takes every value of the name and drops the empty ones, so order is
-     nothing to it — but a reader that keeps only one value per name keeps
-     the last, and this sitting last would erase a whole chosen set. #}
-  <input type="hidden" name="assignees" value="">
-  <ul class="picker">
-    {% for identifier, display_name in assignee_options %}
-    <li class="row"><label>
-      <input type="checkbox" name="assignees" value="{{ identifier }}"{% if identifier in values.get("assignees", []) %} checked{% endif %}>
-      <span class="nm">{{ display_name }}</span>
-    </label></li>
-    {% endfor %}
-  </ul>
-  {# Chips summarise what is chosen; they are not a second control. The
-     input lives in its option row, where a person ticks it, and that row's
-     own checkbox is the way back to none — always there, no modifier key,
-     nothing to run.
-
-     So a chip is deliberately NOT a label bound to its input: that would be
-     a toggle, and a toggle here could silently re-choose a value the author
-     had just cleared. The script gives each chip a remove control and keeps
-     the set in step; without it the chips are what the server rendered,
-     which is what the form was opened holding.
-
-     Written after the options and placed above them by the stylesheet, so
-     that the first label bound to a value is that option's own row. #}
-  <span class="chosen-set" data-chosen-for="assignees" data-field="assignees">
-    {% for identifier, display_name in assignee_options %}
-    {% if identifier in values.get("assignees", []) %}
-    <span class="chip person" data-value="{{ identifier }}">{{ display_name }}</span>
-    {% endif %}
-    {% endfor %}
-    {%- if not values.get("assignees") %}<span class="chip none">nobody assigned</span>{% endif %}
-  </span>
-  <small>The roster's active people. An active human step needs at least one. Click to add or remove; no modifier key.</small>
-  {{ marked(marks, "assignees") }}
-</fieldset>
-
 {# When the step may start — two fields, never one, worded from *starting*
    rather than from *blocking*: this form already carries the blocking flag
    and the launch surfaces carry a `Blocked` outcome, so a third sense of the
    word would make both unreadable. #}
+<fieldset>
+  <legend>When it starts</legend>
 <label>Starts at gate
   <select name="starts_at_gate">
     <option value=""{% if not values.get("starts_at_gate") %} selected{% endif %}>starts immediately</option>
@@ -363,6 +286,22 @@
   <small>Steps that must be resolved first — all of them, not any. Active steps only; this step is not among them. Click to add or remove; no modifier key.</small>
   {{ marked(marks, "after_steps") }}
 </fieldset>
+</fieldset>
+{# This whole group sits last: `confirmer`, `kind`, and then whichever of
+   `assignees` or `handler` the kind uses, in that order — see `design.md`,
+   *Form field order*. #}
+<fieldset class="field-group">
+  <legend>How it is resolved</legend>
+<label>Confirmer
+  <select name="confirmer">
+    <option value=""{% if not values.get("confirmer") %} selected{% endif %}>No confirmation needed</option>
+    {% for identifier, display_name in assignee_options %}
+    <option value="{{ identifier }}"{% if identifier == values.get("confirmer") %} selected{% endif %}>{{ display_name }}</option>
+    {% endfor %}
+  </select>
+  <small>The one person who must accept an automated result before the step counts as resolved. Carried but unused on a human step.</small>
+  {{ marked(marks, "confirmer") }}
+</label>
 <label>Kind
   <select name="kind">
     {% for option in kind_options %}
@@ -371,47 +310,97 @@
   </select>
   {{ marked(marks, "kind") }}
 </label>
+{% set automated = values.get("kind", "human") == "automated" %}
+{# Offered for a `human` step: that is the kind `assignees` means anything
+   for. `hidden` on the FIELDSET, never on its checkboxes: a hidden control
+   still submits, so a value chosen before flipping to `automated` survives
+   flipping back. Pinned open when marked, for the reason the handler
+   section is — "an active human step names no active assignee" marks
+   this control. #}
+{% set assignees_marked = marks.get("assignees") %}
+{# A fieldset and not a label: a `<label>` labels ONE control, and wrapping a
+   group of checkboxes in one makes every input in the group answer to it —
+   so anything walking the document reads the wrapper as each option's own
+   row, and a fault mark inside it then counts as inside the options. #}
+<fieldset class="control-group" data-assignees-group="{{ 'pinned' if assignees_marked else 'toggles' }}"
+       {%- if automated and not assignees_marked %} hidden{% endif %}><legend>Assignees</legend>
+  {# Always submitted, so an emptied control posts a present-and-empty key.
+     Unchecked checkboxes post nothing at all, and an absent key would let a
+     write rejected on another field re-render from the submission and
+     restore what the author had just cleared.
+
+     Placed *before* the per-value controls deliberately. The real reader
+     takes every value of the name and drops the empty ones, so order is
+     nothing to it — but a reader that keeps only one value per name keeps
+     the last, and this sitting last would erase a whole chosen set. #}
+  <input type="hidden" name="assignees" value="">
+  <ul class="picker">
+    {% for identifier, display_name in assignee_options %}
+    <li class="row"><label>
+      <input type="checkbox" name="assignees" value="{{ identifier }}"{% if identifier in values.get("assignees", []) %} checked{% endif %}>
+      <span class="nm">{{ display_name }}</span>
+    </label></li>
+    {% endfor %}
+  </ul>
+  {# Chips summarise what is chosen; they are not a second control. The
+     input lives in its option row, where a person ticks it, and that row's
+     own checkbox is the way back to none — always there, no modifier key,
+     nothing to run.
+
+     So a chip is deliberately NOT a label bound to its input: that would be
+     a toggle, and a toggle here could silently re-choose a value the author
+     had just cleared. The script gives each chip a remove control and keeps
+     the set in step; without it the chips are what the server rendered,
+     which is what the form was opened holding.
+
+     Written after the options and placed above them by the stylesheet, so
+     that the first label bound to a value is that option's own row. #}
+  <span class="chosen-set" data-chosen-for="assignees" data-field="assignees">
+    {% for identifier, display_name in assignee_options %}
+    {% if identifier in values.get("assignees", []) %}
+    <span class="chip person" data-value="{{ identifier }}">{{ display_name }}</span>
+    {% endif %}
+    {% endfor %}
+    {%- if not values.get("assignees") %}<span class="chip none">nobody assigned</span>{% endif %}
+  </span>
+  <small>The roster's active people. An active human step needs at least one. Click to add or remove; no modifier key.</small>
+  {{ marked(marks, "assignees") }}
 </fieldset>
-{# Automation carries no meaning for a human step, so the controls render
+{# Handler carries no meaning for a human step, so the control renders
    disabled there rather than inviting a value the write would refuse.
    Disabled and not removed: an author flipping the kind can see what the
-   other half of the form asks for. A refused pair marks both halves, so
-   a mark lands on a disabled control here whenever a human step carried
-   a brief or a handler — and telling the admin which pair was refused is
-   the point, so it renders exactly as any other mark does. #}
-{% set automated = values.get("kind", "human") == "automated" %}
+   other half of the form asks for. A refused value marks both halves, so
+   a mark lands on a disabled control here whenever a human step carried a
+   handler — and telling the admin which pair was refused is the point, so
+   it renders exactly as any other mark does. #}
 {# The section is hidden for a kind that cannot use it, the way the anchor
-   groups are — an author writing a human step is not asked to read past
-   two fields that carry no meaning for it.
+   groups are — an author writing a human step is not asked to read past a
+   field that carries no meaning for it.
 
-   **Except when it carries a mark.** A `human` step submitted with a brief
-   is refused for the pair and marks BOTH halves, so this is the one
-   not-offered control a fault can actually land on. Hiding it then would
-   put a fault in the response and nowhere on the page, which is exactly
-   what `attribute-faults-to-fields` guarantees against and what this
-   change's own *The vocabulary never suppresses a marked control's fault*
-   forbids. So a marked section is pinned open, and the script below
-   leaves a pinned section alone.
+   **Except when it carries a mark.** A `human` step submitted with a
+   handler is refused for the pair and marks both halves, so this is the
+   one not-offered control a fault can actually land on. Hiding it then
+   would put a fault in the response and nowhere on the page, which is
+   exactly what `attribute-faults-to-fields` guarantees against and what
+   this change's own *The vocabulary never suppresses a marked control's
+   fault* forbids. So a marked section is pinned open, and the script
+   below leaves a pinned section alone.
 
    This is why the anchor groups need no such exception and this does: a
    mark can never land on a not-offered anchor input, because the parse
    reads only the inputs the submitted kind uses. Automation is the
    opposite case, and it is the reason the two are not symmetrical. #}
-{% set automation_marked = marks.get("automation_brief") or marks.get("handler") %}
-<fieldset data-automation-group="{{ 'pinned' if automation_marked else 'toggles' }}"
+{% set handler_marked = marks.get("handler") %}
+<fieldset data-automation-group="{{ 'pinned' if handler_marked else 'toggles' }}"
           {%- if not automated %} class="inapplicable"{% endif %}
-          {%- if not automated and not automation_marked %} hidden{% endif %}>
+          {%- if not automated and not handler_marked %} hidden{% endif %}>
   <legend>Automation (automated steps only)</legend>
-  <label>Automation brief
-    <textarea name="automation_brief" rows="2"{% if not automated %} disabled{% endif %}>{{ values.get("automation_brief", "") }}</textarea>
-    <small>What the code must establish. Required to leave draft.</small>
-    {{ marked(marks, "automation_brief") }}
-  </label>
   <label>Handler
     <input name="handler" value="{{ values.get("handler", "") }}"{% if not automated %} disabled{% endif %}>
     <small>The registered use case that resolves it. Required to become active.</small>
     {{ marked(marks, "handler") }}
   </label>
+</fieldset>
 </fieldset>
 {# Inside the swapped region with the fields it serves, for the reason the
    anchor script above records: the edit surface arrives by a boosted swap
@@ -426,18 +415,15 @@
    that is selected. Without the script the rendered kind is still
    correct — the degradation is live-to-per-render, as with the anchor. #}
 {# One block, and placed here rather than beside each group it serves,
-   because it reads `kind` — which is rendered *after* the assignees group
-   it also governs. A script beside that group would run during parsing,
-   find no `kind` select yet, and bind nothing. #}
+   because it reads `kind` and governs both the assignees group and the
+   handler group that follow it. A script run from inside either group
+   would fire before the other existed. #}
 <script>
   (function () {
     var kind = document.querySelector('select[name="kind"]');
-    var confirmation = document.querySelector('select[name="needs_confirmation"]');
     var automation = document.querySelector("[data-automation-group]");
     var assignees = document.querySelector("[data-assignees-group]");
     if (!kind) return;
-
-    var truthy = { "true": 1, on: 1, "1": 1, yes: 1 };
 
     function apply() {
       var automated = kind.value === "automated";
@@ -451,14 +437,11 @@
         });
       }
       if (assignees && assignees.dataset.assigneesGroup !== "pinned") {
-        // A person does the work, or a person accepts its result.
-        var confirmed = confirmation && truthy[confirmation.value] === 1;
-        assignees.hidden = !(!automated || confirmed);
+        assignees.hidden = automated;
       }
     }
 
     kind.addEventListener("change", apply);
-    if (confirmation) confirmation.addEventListener("change", apply);
   })();
 </script>
 

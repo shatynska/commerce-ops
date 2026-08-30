@@ -174,9 +174,7 @@ def _step(**overrides: Any) -> StepDefinition:
         "blocking": False,
         "kind": StepKind.HUMAN,
         "status": StepStatus.ACTIVE,
-        "needs_confirmation": False,
         "hazard": Hazard.NONE,
-        "automation_brief": None,
         "provenance": None,
     }
     attributes.update(overrides)
@@ -195,7 +193,6 @@ def _hold(gate: str) -> StepDefinition:
         blocking=True,
         kind=StepKind.AUTOMATED,
         status=StepStatus.ACTIVE,
-        automation_brief="Held until the automated check reports green.",
         handler="fixture.holding_check",
     )
 
@@ -779,10 +776,8 @@ async def test_a_prohibited_tactic_step_is_never_projected() -> None:
             hazard=Hazard.PROHIBITED_TACTIC,
             blocking=False,
             kind=kind,
-            # An `automated` step beyond draft owes a brief, and an
-            # `active` one owes a handler, for the playbook to be
-            # coherent (launch-playbook spec).
-            automation_brief=None if kind is StepKind.HUMAN else "decided",
+            # An `active` `automated` step owes a handler, for the
+            # playbook to be coherent (launch-playbook spec).
             handler=None if kind is StepKind.HUMAN else "fixture.tactic_check",
         )
         for kind in (StepKind.HUMAN, StepKind.AUTOMATED)

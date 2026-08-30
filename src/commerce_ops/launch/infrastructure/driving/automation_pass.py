@@ -11,8 +11,8 @@ steps that are still open. Delivery goes first so a Slack outage costs at
 most one cycle rather than stranding a result until something else
 produces one.
 
-**Terminality, not the confirmation flag, decides what is held.** A
-non-terminal outcome is recorded directly whatever the step says about
+**Terminality, not whether a confirmer is named, decides what is held.**
+A non-terminal outcome is recorded directly whatever the step says about
 confirmation: it is a handler reporting that the step is *not* resolved,
 and holding it would ask a person to accept "in progress" — a proposal
 with nothing in it to agree with, which would then suppress re-invocation
@@ -730,7 +730,7 @@ async def _settle(
         )
         return
 
-    if terminal and step.needs_confirmation:
+    if terminal and step.confirmer is not None:
         await results.store(
             product_id=launch.product_id,
             step_id=step.identifier,

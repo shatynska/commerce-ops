@@ -119,9 +119,7 @@ def _step(**overrides: Any) -> StepDefinition:
         "blocking": False,
         "kind": StepKind.HUMAN,
         "status": StepStatus.ACTIVE,
-        "needs_confirmation": False,
         "hazard": Hazard.NONE,
-        "automation_brief": None,
         "provenance": None,
     }
     attributes.update(overrides)
@@ -140,7 +138,6 @@ def _hold(gate: str) -> StepDefinition:
         blocking=True,
         kind=StepKind.AUTOMATED,
         status=StepStatus.ACTIVE,
-        automation_brief="Held until the automated check reports green.",
         handler="fixture.holding_check",
     )
 

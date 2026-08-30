@@ -375,10 +375,9 @@ def _step(**overrides: Any) -> StepDefinition:
         "blocking": False,
         "kind": StepKind.AUTOMATED,
         "status": StepStatus.ACTIVE,
-        "needs_confirmation": True,
+        "confirmer": "prs_confirmer",
         "hazard": Hazard.NONE,
         "assignees": (),
-        "automation_brief": "Propose the Amazon sub-category node.",
         "handler": HANDLER_NAME,
         "provenance": None,
     }
@@ -391,8 +390,6 @@ def _hold(gate: str) -> StepDefinition:
         identifier=f"hold.{gate}",
         gate=gate,
         blocking=True,
-        needs_confirmation=False,
-        automation_brief="Held until the automated check reports green.",
         handler=f"hold.{gate.replace('-', '_')}",
     )
 

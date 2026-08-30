@@ -118,11 +118,9 @@ def _step(**overrides: Any) -> StepDefinition:
         "timing_anchor": OffsetAnchor(days=-7),
         "blocking": False,
         "kind": StepKind.HUMAN,
-        "needs_confirmation": False,
         "status": StepStatus.ACTIVE,
         "hazard": Hazard.NONE,
         "assignees": (),
-        "automation_brief": None,
         "handler": None,
         "provenance": None,
     }
@@ -248,8 +246,6 @@ def test_a_step_may_name_zero_one_or_several_people() -> None:
     automated_with_people = _step(
         identifier="price.buy-box-check",
         kind=StepKind.AUTOMATED,
-        needs_confirmation=True,
-        automation_brief="Buy Box share is at or above 90% over a rolling week.",
         handler="price.buy_box_check",
         assignees=(PERSON_B,),
     )
@@ -262,8 +258,8 @@ def test_a_step_may_name_zero_one_or_several_people() -> None:
     assert served["listing.unowned"].assignees == ()
     assert served["listing.owned"].assignees == (PERSON_A,)
     assert tuple(served["listing.shared"].assignees) == (PERSON_A, PERSON_B)
-    # SPECIFIED: an automated step may name people — where it needs
-    # confirmation they are who is asked.
+    # SPECIFIED: an automated step may name assignees or none; naming
+    # them no longer says who is asked to confirm a result.
     assert served["price.buy-box-check"].assignees == (PERSON_B,)
 
 

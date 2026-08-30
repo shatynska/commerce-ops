@@ -11,7 +11,6 @@ steps:
     days: -90
   blocking: true
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -29,7 +28,6 @@ steps:
     days: -60
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -47,7 +45,6 @@ steps:
     days: -90
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -64,7 +61,6 @@ steps:
     days: -90
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -82,7 +78,6 @@ steps:
     days: -90
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -100,7 +95,6 @@ steps:
     days: -90
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: compliance-obligation
   assignees: []
@@ -119,7 +113,6 @@ steps:
     days: -90
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -137,7 +130,6 @@ steps:
     days: -90
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -154,7 +146,6 @@ steps:
     days: -60
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -171,7 +162,6 @@ steps:
     days: -60
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -188,7 +178,6 @@ steps:
     days: -90
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -206,7 +195,6 @@ steps:
     days: -90
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -224,7 +212,6 @@ steps:
     days: -90
   blocking: true
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -242,7 +229,6 @@ steps:
     days: -90
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -260,7 +246,6 @@ steps:
     days: -90
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -278,7 +263,6 @@ steps:
     days: -90
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -295,7 +279,6 @@ steps:
     days: -90
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -313,7 +296,6 @@ steps:
     days: -90
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -331,7 +313,6 @@ steps:
     days: -90
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -349,7 +330,6 @@ steps:
     days: -60
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -366,7 +346,6 @@ steps:
     days: -90
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -384,7 +363,6 @@ steps:
     days: -90
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -402,7 +380,6 @@ steps:
     days: -60
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -420,7 +397,6 @@ steps:
     days: -60
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -438,7 +414,6 @@ steps:
     days: -60
   blocking: true
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -456,7 +431,6 @@ steps:
     days: -60
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -474,7 +448,6 @@ steps:
     days: -60
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -491,7 +464,6 @@ steps:
     days: -60
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -509,7 +481,6 @@ steps:
     days: -90
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -527,7 +498,6 @@ steps:
     days: -90
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -544,7 +514,6 @@ steps:
     days: -60
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -562,7 +531,6 @@ steps:
     days: -60
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -579,7 +547,6 @@ steps:
     days: -60
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -597,7 +564,6 @@ steps:
     days: -90
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -615,7 +581,6 @@ steps:
     days: -90
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -633,7 +598,6 @@ steps:
     days: -60
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -651,7 +615,6 @@ steps:
     days: -30
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -670,7 +633,6 @@ steps:
     days: -60
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -688,7 +650,6 @@ steps:
     days: -90
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -705,7 +666,6 @@ steps:
     days: -90
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -723,7 +683,6 @@ steps:
     days: -60
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -741,7 +700,6 @@ steps:
     days: -90
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: compliance-obligation
   assignees: []
@@ -759,7 +717,6 @@ steps:
     days: -60
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -776,7 +733,6 @@ steps:
     days: -60
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -794,7 +750,6 @@ steps:
     days: -60
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -813,7 +768,6 @@ steps:
     days: -30
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -830,7 +784,6 @@ steps:
     days: -60
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -848,7 +801,6 @@ steps:
     days: -60
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -866,7 +818,6 @@ steps:
     days: -30
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -884,7 +835,6 @@ steps:
     days: -60
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -901,7 +851,6 @@ steps:
     days: -60
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -919,7 +868,6 @@ steps:
     days: -90
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -937,7 +885,6 @@ steps:
     days: -90
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -955,7 +902,6 @@ steps:
     days: -90
   blocking: true
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -972,7 +918,6 @@ steps:
     days: -60
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -990,7 +935,6 @@ steps:
     days: -60
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -1007,7 +951,6 @@ steps:
     days: -60
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -1025,7 +968,6 @@ steps:
     days: -30
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -1044,7 +986,6 @@ steps:
     days: -30
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -1061,7 +1002,6 @@ steps:
     days: -90
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -1078,7 +1018,6 @@ steps:
     days: -90
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -1096,7 +1035,6 @@ steps:
     days: -60
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -1114,7 +1052,6 @@ steps:
     days: -60
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -1132,7 +1069,6 @@ steps:
     days: -60
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -1149,7 +1085,6 @@ steps:
     days: -90
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -1167,7 +1102,6 @@ steps:
     days: -60
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -1185,7 +1119,6 @@ steps:
     days: -60
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -1203,7 +1136,6 @@ steps:
     days: -60
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -1221,7 +1153,6 @@ steps:
     days: -60
   blocking: true
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -1239,7 +1170,6 @@ steps:
     days: -30
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -1257,7 +1187,6 @@ steps:
     days: -60
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -1276,7 +1205,6 @@ steps:
     days: -60
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -1294,7 +1222,6 @@ steps:
     days: -60
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -1311,7 +1238,6 @@ steps:
     days: -60
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -1329,7 +1255,6 @@ steps:
     days: -60
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -1347,7 +1272,6 @@ steps:
     days: -60
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: compliance-obligation
   assignees: []
@@ -1364,7 +1288,6 @@ steps:
     days: -60
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -1382,7 +1305,6 @@ steps:
     days: -30
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -1400,7 +1322,6 @@ steps:
     days: -30
   blocking: true
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -1417,7 +1338,6 @@ steps:
     days: -14
   blocking: true
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -1435,7 +1355,6 @@ steps:
     days: -30
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -1453,7 +1372,6 @@ steps:
     days: -30
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -1470,7 +1388,6 @@ steps:
     days: -30
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -1488,7 +1405,6 @@ steps:
     days: -60
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -1506,7 +1422,6 @@ steps:
     days: -60
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -1524,7 +1439,6 @@ steps:
     days: -60
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -1542,7 +1456,6 @@ steps:
     days: -60
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -1560,7 +1473,6 @@ steps:
     days: -60
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -1578,7 +1490,6 @@ steps:
     days: -60
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -1595,7 +1506,6 @@ steps:
     days: -30
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -1613,7 +1523,6 @@ steps:
     days: -30
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: prohibited-tactic
   assignees: []
@@ -1631,7 +1540,6 @@ steps:
     days: -14
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: compliance-obligation
   assignees: []
@@ -1648,7 +1556,6 @@ steps:
     days: -7
   blocking: true
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -1665,7 +1572,6 @@ steps:
     days: -14
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -1683,7 +1589,6 @@ steps:
     days: -15
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -1701,7 +1606,6 @@ steps:
     days: -30
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -1720,7 +1624,6 @@ steps:
     days: -30
   blocking: true
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -1738,7 +1641,6 @@ steps:
     days: -14
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -1756,7 +1658,6 @@ steps:
     days: -30
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -1774,7 +1675,6 @@ steps:
     days: -30
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -1792,7 +1692,6 @@ steps:
     days: 0
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -1810,7 +1709,6 @@ steps:
     days: -15
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -1828,7 +1726,6 @@ steps:
     days: -30
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -1846,7 +1743,6 @@ steps:
     days: -14
   blocking: true
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -1864,7 +1760,6 @@ steps:
     days: -30
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -1881,7 +1776,6 @@ steps:
     days: -14
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -1899,7 +1793,6 @@ steps:
     days: -30
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -1916,7 +1809,6 @@ steps:
     days: -30
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -1934,7 +1826,6 @@ steps:
     days: -60
   blocking: true
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -1952,7 +1843,6 @@ steps:
     days: -30
   blocking: true
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -1969,7 +1859,6 @@ steps:
     days: -30
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -1987,7 +1876,6 @@ steps:
     days: -60
   blocking: true
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -2005,7 +1893,6 @@ steps:
     days: -30
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -2023,7 +1910,6 @@ steps:
     days: -30
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -2041,7 +1927,6 @@ steps:
     days: -30
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -2059,7 +1944,6 @@ steps:
     days: -30
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -2077,7 +1961,6 @@ steps:
     days: -30
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -2095,7 +1978,6 @@ steps:
     days: -60
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -2112,7 +1994,6 @@ steps:
     days: -14
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -2130,7 +2011,6 @@ steps:
     days: -30
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -2148,7 +2028,6 @@ steps:
     days: -30
   blocking: true
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -2165,7 +2044,6 @@ steps:
     days: -14
   blocking: true
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -2183,7 +2061,6 @@ steps:
     days: -60
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -2201,7 +2078,6 @@ steps:
     days: -60
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -2218,7 +2094,6 @@ steps:
     days: -60
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -2235,7 +2110,6 @@ steps:
     days: -30
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -2253,7 +2127,6 @@ steps:
     days: -30
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -2271,7 +2144,6 @@ steps:
     days: -30
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -2288,7 +2160,6 @@ steps:
     days: -30
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -2306,7 +2177,6 @@ steps:
     days: -30
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -2324,7 +2194,6 @@ steps:
     days: -30
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -2342,7 +2211,6 @@ steps:
     days: -30
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -2360,7 +2228,6 @@ steps:
     days: -30
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -2377,7 +2244,6 @@ steps:
     days: -14
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -2395,7 +2261,6 @@ steps:
     days: -30
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -2413,7 +2278,6 @@ steps:
     days: 0
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -2430,7 +2294,6 @@ steps:
     days: -14
   blocking: true
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -2448,7 +2311,6 @@ steps:
     days: -14
   blocking: true
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -2466,7 +2328,6 @@ steps:
     days: -60
   blocking: true
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -2483,7 +2344,6 @@ steps:
     days: -14
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -2500,7 +2360,6 @@ steps:
     days: -7
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -2518,7 +2377,6 @@ steps:
     days: -30
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -2536,7 +2394,6 @@ steps:
     days: -14
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -2554,7 +2411,6 @@ steps:
     days: -7
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -2572,7 +2428,6 @@ steps:
     days: -30
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -2590,7 +2445,6 @@ steps:
     days: -7
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -2608,7 +2462,6 @@ steps:
     days: -7
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -2625,7 +2478,6 @@ steps:
     days: -30
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -2642,7 +2494,6 @@ steps:
     days: -14
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -2660,7 +2511,6 @@ steps:
     days: -7
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -2678,7 +2528,6 @@ steps:
     days: -14
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -2695,7 +2544,6 @@ steps:
     days: -14
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -2713,7 +2561,6 @@ steps:
     days: -30
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -2730,7 +2577,6 @@ steps:
     days: -30
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -2748,7 +2594,6 @@ steps:
     days: -30
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -2766,7 +2611,6 @@ steps:
     days: -30
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -2783,7 +2627,6 @@ steps:
     start: 59
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -2800,7 +2643,6 @@ steps:
     days: -30
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -2818,7 +2660,6 @@ steps:
     days: -30
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -2836,7 +2677,6 @@ steps:
     days: -7
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -2854,7 +2694,6 @@ steps:
     days: -7
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: prohibited-tactic
   assignees: []
@@ -2871,7 +2710,6 @@ steps:
     days: -14
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -2888,7 +2726,6 @@ steps:
     days: -7
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -2906,7 +2743,6 @@ steps:
     days: -7
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -2924,7 +2760,6 @@ steps:
     days: -7
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -2942,7 +2777,6 @@ steps:
     days: -30
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -2960,7 +2794,6 @@ steps:
     days: -7
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -2979,7 +2812,6 @@ steps:
     days: -7
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -2996,7 +2828,6 @@ steps:
     days: -7
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -3013,7 +2844,6 @@ steps:
     days: -30
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -3031,7 +2861,6 @@ steps:
     days: -60
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -3049,7 +2878,6 @@ steps:
     days: -30
   blocking: true
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -3067,7 +2895,6 @@ steps:
     days: -30
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -3085,7 +2912,6 @@ steps:
     days: -60
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -3102,7 +2928,6 @@ steps:
     days: -60
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -3119,7 +2944,6 @@ steps:
     days: -60
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -3136,7 +2960,6 @@ steps:
     days: -30
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -3154,7 +2977,6 @@ steps:
     days: -30
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -3171,7 +2993,6 @@ steps:
     days: -30
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -3189,7 +3010,6 @@ steps:
     days: -15
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -3206,7 +3026,6 @@ steps:
     days: -30
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -3224,7 +3043,6 @@ steps:
     cadence: weekly
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -3242,7 +3060,6 @@ steps:
     days: -14
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -3260,7 +3077,6 @@ steps:
     days: -30
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -3279,7 +3095,6 @@ steps:
     end: 55
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -3297,7 +3112,6 @@ steps:
     days: -60
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -3315,7 +3129,6 @@ steps:
     days: -60
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -3332,7 +3145,6 @@ steps:
     days: -30
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -3350,7 +3162,6 @@ steps:
     days: -30
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -3368,7 +3179,6 @@ steps:
     cadence: weekly
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -3386,7 +3196,6 @@ steps:
     days: -7
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -3404,7 +3213,6 @@ steps:
     days: -7
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -3423,7 +3231,6 @@ steps:
     days: -14
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -3441,7 +3248,6 @@ steps:
     days: -60
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -3458,7 +3264,6 @@ steps:
     days: -7
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -3477,7 +3282,6 @@ steps:
     days: -14
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -3495,7 +3299,6 @@ steps:
     days: -14
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -3512,7 +3315,6 @@ steps:
     days: -7
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -3530,7 +3332,6 @@ steps:
     days: -7
   blocking: true
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -3547,7 +3348,6 @@ steps:
     days: -7
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -3565,7 +3365,6 @@ steps:
     days: -14
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -3583,7 +3382,6 @@ steps:
     days: -7
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -3601,7 +3399,6 @@ steps:
     days: -7
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -3619,7 +3416,6 @@ steps:
     days: -7
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -3637,7 +3433,6 @@ steps:
     days: -7
   blocking: true
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -3654,7 +3449,6 @@ steps:
     days: -7
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -3673,7 +3467,6 @@ steps:
     end: 6
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -3691,7 +3484,6 @@ steps:
     days: 0
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -3709,7 +3501,6 @@ steps:
     days: 0
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -3727,7 +3518,6 @@ steps:
     days: 0
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -3745,7 +3535,6 @@ steps:
     end: 6
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -3762,7 +3551,6 @@ steps:
     days: 0
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -3779,7 +3567,6 @@ steps:
     days: 0
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -3796,7 +3583,6 @@ steps:
     cadence: daily
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -3816,7 +3602,6 @@ steps:
     end: 6
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -3834,7 +3619,6 @@ steps:
     days: 0
   blocking: true
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -3852,7 +3636,6 @@ steps:
     days: 0
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -3870,7 +3653,6 @@ steps:
     days: 0
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -3888,7 +3670,6 @@ steps:
     days: 0
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -3907,7 +3688,6 @@ steps:
     end: 6
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -3926,7 +3706,6 @@ steps:
     end: 6
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -3944,7 +3723,6 @@ steps:
     cadence: daily
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -3961,7 +3739,6 @@ steps:
     days: 0
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -3979,7 +3756,6 @@ steps:
     end: 6
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -3997,7 +3773,6 @@ steps:
     days: -7
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -4015,7 +3790,6 @@ steps:
     end: 6
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -4033,7 +3807,6 @@ steps:
     days: 0
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -4050,7 +3823,6 @@ steps:
     days: 0
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -4068,7 +3840,6 @@ steps:
     days: 0
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -4085,7 +3856,6 @@ steps:
     days: 0
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -4104,7 +3874,6 @@ steps:
     end: 6
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -4123,7 +3892,6 @@ steps:
     end: 6
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -4142,7 +3910,6 @@ steps:
     end: 6
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -4161,7 +3928,6 @@ steps:
     end: 55
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -4179,7 +3945,6 @@ steps:
     days: 0
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -4198,7 +3963,6 @@ steps:
     end: 27
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -4217,7 +3981,6 @@ steps:
     end: 55
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -4237,7 +4000,6 @@ steps:
     end: 6
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: prohibited-tactic
   assignees: []
@@ -4254,7 +4016,6 @@ steps:
     cadence: weekly
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -4272,7 +4033,6 @@ steps:
     end: 6
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -4290,7 +4050,6 @@ steps:
     cadence: weekly
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -4308,7 +4067,6 @@ steps:
     cadence: daily
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -4327,7 +4085,6 @@ steps:
     end: 55
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -4345,7 +4102,6 @@ steps:
     end: 27
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -4364,7 +4120,6 @@ steps:
     end: 6
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -4381,7 +4136,6 @@ steps:
     cadence: weekly
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -4400,7 +4154,6 @@ steps:
     end: 55
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -4419,7 +4172,6 @@ steps:
     end: 27
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -4438,7 +4190,6 @@ steps:
     end: 6
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -4457,7 +4208,6 @@ steps:
     end: 27
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -4476,7 +4226,6 @@ steps:
     end: 27
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -4493,7 +4242,6 @@ steps:
     cadence: biweekly
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -4511,7 +4259,6 @@ steps:
     cadence: biweekly
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -4530,7 +4277,6 @@ steps:
     end: 13
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -4548,7 +4294,6 @@ steps:
     end: 27
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -4567,7 +4312,6 @@ steps:
     end: 55
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -4585,7 +4329,6 @@ steps:
     cadence: weekly
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -4603,7 +4346,6 @@ steps:
     end: 55
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -4622,7 +4364,6 @@ steps:
     end: 27
   blocking: true
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -4641,7 +4382,6 @@ steps:
     end: 27
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -4659,7 +4399,6 @@ steps:
     end: 27
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -4678,7 +4417,6 @@ steps:
     end: 55
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -4696,7 +4434,6 @@ steps:
     end: 27
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -4715,7 +4452,6 @@ steps:
     end: 27
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -4733,7 +4469,6 @@ steps:
     cadence: weekly
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -4751,7 +4486,6 @@ steps:
     cadence: weekly
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -4770,7 +4504,6 @@ steps:
     end: 27
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -4789,7 +4522,6 @@ steps:
     end: 27
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -4807,7 +4539,6 @@ steps:
     cadence: weekly
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -4824,7 +4555,6 @@ steps:
     cadence: weekly
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -4841,7 +4571,6 @@ steps:
     cadence: weekly
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -4859,7 +4588,6 @@ steps:
     start: 59
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -4878,7 +4606,6 @@ steps:
     end: 55
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -4895,7 +4622,6 @@ steps:
     cadence: weekly
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -4913,7 +4639,6 @@ steps:
     cadence: weekly
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -4931,7 +4656,6 @@ steps:
     end: 27
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -4950,7 +4674,6 @@ steps:
     end: 55
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -4968,7 +4691,6 @@ steps:
     cadence: weekly
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -4986,7 +4708,6 @@ steps:
     cadence: weekly
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -5003,7 +4724,6 @@ steps:
     cadence: weekly
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -5021,7 +4741,6 @@ steps:
     end: 6
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -5040,7 +4759,6 @@ steps:
     cadence: daily
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -5059,7 +4777,6 @@ steps:
     end: 6
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -5078,7 +4795,6 @@ steps:
     end: 6
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -5096,7 +4812,6 @@ steps:
     end: 27
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -5115,7 +4830,6 @@ steps:
     end: 27
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -5133,7 +4847,6 @@ steps:
     end: 6
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -5151,7 +4864,6 @@ steps:
     days: 0
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -5169,7 +4881,6 @@ steps:
     end: 27
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -5187,7 +4898,6 @@ steps:
     end: 27
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -5205,7 +4915,6 @@ steps:
     cadence: weekly
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -5222,7 +4931,6 @@ steps:
     cadence: weekly
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -5240,7 +4948,6 @@ steps:
     cadence: daily
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -5258,7 +4965,6 @@ steps:
     cadence: daily
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -5276,7 +4982,6 @@ steps:
     cadence: daily
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -5293,7 +4998,6 @@ steps:
     cadence: weekly
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -5310,7 +5014,6 @@ steps:
     cadence: weekly
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -5328,7 +5031,6 @@ steps:
     end: 55
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -5346,7 +5048,6 @@ steps:
     cadence: biweekly
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -5365,7 +5066,6 @@ steps:
     end: 27
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -5384,7 +5084,6 @@ steps:
     end: 27
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -5401,7 +5100,6 @@ steps:
     start: 59
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -5420,7 +5118,6 @@ steps:
     cadence: monthly
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -5439,7 +5136,6 @@ steps:
     end: 27
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -5457,7 +5153,6 @@ steps:
     end: 27
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -5475,7 +5170,6 @@ steps:
     end: 6
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -5493,7 +5187,6 @@ steps:
     end: 55
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -5512,7 +5205,6 @@ steps:
     end: 55
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -5532,7 +5224,6 @@ steps:
     end: 6
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -5550,7 +5241,6 @@ steps:
     end: 27
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -5569,7 +5259,6 @@ steps:
     end: 55
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -5588,7 +5277,6 @@ steps:
     end: 27
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -5607,7 +5295,6 @@ steps:
     end: 55
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -5626,7 +5313,6 @@ steps:
     end: 55
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -5645,7 +5331,6 @@ steps:
     end: 27
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -5664,7 +5349,6 @@ steps:
     end: 27
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -5683,7 +5367,6 @@ steps:
     end: 27
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -5702,7 +5385,6 @@ steps:
     end: 55
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -5720,7 +5402,6 @@ steps:
     start: 59
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -5739,7 +5420,6 @@ steps:
     cadence: weekly
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -5757,7 +5437,6 @@ steps:
     start: 59
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -5775,7 +5454,6 @@ steps:
     start: 59
   blocking: true
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -5793,7 +5471,6 @@ steps:
     start: 59
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -5811,7 +5488,6 @@ steps:
     cadence: biweekly
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -5829,7 +5505,6 @@ steps:
     start: 59
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -5847,7 +5522,6 @@ steps:
     start: 59
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -5865,7 +5539,6 @@ steps:
     start: 59
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -5883,7 +5556,6 @@ steps:
     end: 55
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -5900,7 +5572,6 @@ steps:
     start: 59
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -5917,7 +5588,6 @@ steps:
     start: 59
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -5934,7 +5604,6 @@ steps:
     start: 59
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -5953,7 +5622,6 @@ steps:
     cadence: weekly
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -5970,7 +5638,6 @@ steps:
     cadence: weekly
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -5988,7 +5655,6 @@ steps:
     end: 55
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -6005,7 +5671,6 @@ steps:
     start: 59
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -6025,7 +5690,6 @@ steps:
     end: 55
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -6042,7 +5706,6 @@ steps:
     start: 59
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -6060,7 +5723,6 @@ steps:
     start: 59
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -6078,7 +5740,6 @@ steps:
     start: 59
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -6096,7 +5757,6 @@ steps:
     start: 59
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -6114,7 +5774,6 @@ steps:
     cadence: weekly
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -6132,7 +5791,6 @@ steps:
     cadence: weekly
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -6151,7 +5809,6 @@ steps:
     end: 55
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -6169,7 +5826,6 @@ steps:
     end: 55
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -6188,7 +5844,6 @@ steps:
     end: 55
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -6206,7 +5861,6 @@ steps:
     start: 59
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -6225,7 +5879,6 @@ steps:
     end: 55
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -6245,7 +5898,6 @@ steps:
     end: 55
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -6264,7 +5916,6 @@ steps:
     end: 55
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -6282,7 +5933,6 @@ steps:
     start: 59
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -6299,7 +5949,6 @@ steps:
     start: 59
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
@@ -6317,7 +5966,6 @@ steps:
     start: 59
   blocking: false
   kind: human
-  needs_confirmation: false
   status: draft
   hazard: none
   assignees: []
