@@ -439,21 +439,23 @@ async def test_every_discipline_is_represented() -> None:
     assert missing == [], f"disciplines with no seeded step: {missing}"
 
 
-async def test_kinds_confirmation_and_the_compliance_hazard_are_represented() -> None:
+async def test_kinds_and_the_compliance_hazard_are_represented() -> None:
     """Scenario: Execution modes and the compliance hazard are
     represented (retained scenario title; the vocabulary is now kind and
     confirmer).
 
-    WHEN the seeded step set is grouped by kind and confirmer and
-    filtered by hazard
-    THEN `human` and `automated` are each represented, an automated step
-    naming a confirmer and one naming none are both present, and at
-    least one `compliance-obligation` step exists.
+    WHEN the seeded step set is grouped by kind and filtered by hazard
+    THEN `human` and `automated` are each represented, and at least one
+    `compliance-obligation` step exists.
 
-    This is the migration's vocabulary mapping made checkable: the one
-    `ai-assisted` row becomes `automated` naming a confirmer and the
-    one `automated` row becomes `automated` naming none, so a mapping
-    that collapsed both to the same confirmer state fails here.
+    The confirmation half of this scenario's original vocabulary check —
+    that the migration's one `ai-assisted` row and one `automated` row
+    land on different confirmation states — is retired by
+    `add-step-confirmer`: `confirmer` replaces the boolean flag with a
+    named roster person, which no migration can invent for a row it
+    never asked anyone to name, so both migration-era automated rows
+    carry no confirmer post-migration. That consequence is asserted on
+    its own below, in `test_no_migration_era_automated_step_names_a_confirmer`.
     """
     steps = _seeded(await _authored_steps())
 
@@ -461,15 +463,28 @@ async def test_kinds_confirmation_and_the_compliance_hazard_are_represented() ->
     assert StepKind.HUMAN in kinds
     assert StepKind.AUTOMATED in kinds
 
-    automated = [step for step in steps if step.kind is StepKind.AUTOMATED]
-    assert any(step.confirmer is not None for step in automated), (
-        "no seeded automated step names a confirmer"
-    )
-    assert any(step.confirmer is None for step in automated), (
-        "every seeded automated step names a confirmer"
-    )
-
     assert any(step.hazard is Hazard.COMPLIANCE_OBLIGATION for step in steps)
+
+
+async def test_no_migration_era_automated_step_names_a_confirmer() -> None:
+    """`add-step-confirmer`'s no-backfill decision, made checkable: the
+    `needs_confirmation` column `redesign-step-fields`'s backfill once
+    set `true` on the `ai-assisted` row is dropped without carrying a
+    confirmer across, since no migration may invent who that person is.
+
+    A regression here means a later migration accidentally backfilled a
+    confirmer nobody authored, or the drop migration silently kept the
+    old column's data alive under the new name.
+    """
+    automated = [
+        step
+        for step in _seeded(await _authored_steps())
+        if step.kind is StepKind.AUTOMATED
+    ]
+    assert automated, "the seed carries no automated step"
+    assert all(step.confirmer is None for step in automated), (
+        "a migration-era automated step names a confirmer nobody authored"
+    )
 
 
 async def test_prohibited_tactics_are_present_and_never_block() -> None:
