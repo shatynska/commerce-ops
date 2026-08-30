@@ -1,7 +1,7 @@
 # launch-step-automation Specification
 
 ## Purpose
-Runs the code an `automated` step names, and decides what becomes of what that code produced: recorded against the launch straight away, or held until a person accepts it. This is what makes `kind`, `handler` and `needs_confirmation` do something rather than merely be declared.
+Runs the code an `automated` step names, and decides what becomes of what that code produced: recorded against the launch straight away, or held until a person accepts it. This is what makes `kind`, `handler` and `confirmer` do something rather than merely be declared.
 
 ## Requirements
 
