@@ -138,6 +138,9 @@ from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.launch.infrastructure.driven.clickup_mapping import (
     ClickUpMappingRepository,
 )
+from commerce_ops.launch.infrastructure.driven.launch_repository import (
+    LaunchRepository,
+)
 from commerce_ops.shared.domain.clickup import ClickUpListState
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import MarketplaceId, ProductId, Sku
@@ -282,6 +285,21 @@ async def _new_product(engine: AsyncEngine) -> ProductId:
     return product.id
 
 
+async def _persist_launch(engine: AsyncEngine, launch: Launch) -> None:
+    """Writes a `launch_positions` row for `launch.product_id` — a real
+    launch record, matching `test_webhook_advance_atomicity_live.py`'s own
+    `_launch_standing_at` precedent. Required: `launch_clickup_lists` and
+    `launch_clickup_tasks` both carry a foreign key to `launch_positions`,
+    so `converge_launch`'s own writes (through `ClickUpMappingRepository`)
+    fail without one — `converge_launch` itself never reads this row back,
+    since it takes the `Launch` it converges as an argument, but the row
+    still has to exist for its writes to be accepted.
+    """
+    maker = async_sessionmaker(engine, expire_on_commit=False)
+    async with maker() as session:
+        await LaunchRepository(session).save(launch)
+
+
 # ---------------------------------------------------------------------------
 # A fake ClickUp — in-memory, transcribed from `test_clickup_sync_projection.py`
 # ---------------------------------------------------------------------------
@@ -292,6 +310,10 @@ class _FakeTask:
     id: str
     name: str
     list_id: str
+    #: `converge_launch` reads this (`_as_date(task.due_date)`) for every
+    #: already-mapped task it re-encounters; `None` is a task with no due
+    #: date set, which `_as_date` already handles.
+    due_date: Any = None
 
 
 @dataclass(frozen=True)
@@ -508,6 +530,10 @@ async def test_two_concurrent_eager_calls_for_a_brand_new_launch_produce_one_lis
     playbook = _playbook((_step(),))
     launch_a = _launch(product_id, playbook)
     launch_b = _launch(product_id, playbook)
+    # A real `launch_positions` row: `launch_clickup_lists` carries a
+    # foreign key to it, so either concurrent caller's `converge_launch`
+    # write would otherwise fail before the lock is even reached.
+    await _persist_launch(engine, _launch(product_id, playbook))
     catalog = _FakeCatalog(
         _CatalogProduct(name="Bamboo Cutting Board", sku=_unique_sku())
     )
@@ -577,6 +603,7 @@ async def test_a_failure_partway_through_the_eager_run_leaves_real_prior_writes_
     product_id = await _new_product(engine)
     playbook = _playbook((_step(), _second_step()))
     launch = _launch(product_id, playbook)
+    await _persist_launch(engine, _launch(product_id, playbook))
     catalog = _FakeCatalog(
         _CatalogProduct(name="Bamboo Cutting Board", sku=_unique_sku())
     )
