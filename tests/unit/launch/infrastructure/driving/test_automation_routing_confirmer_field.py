@@ -427,6 +427,11 @@ class _InertNotifier:
         return None
 
 
+async def _inert_establish_thread(*args: Any, **kwargs: Any) -> tuple[str, None]:
+    """Thread-establishment nothing in this file exercises."""
+    return "FAKE_THREAD_TS", None
+
+
 async def _run_pass(collaborators: _Collaborators) -> Any:
     entry = _pass_entry()
     supplied: dict[str, Any] = {
@@ -439,6 +444,7 @@ async def _run_pass(collaborators: _Collaborators) -> Any:
         "deliver": collaborators.delivery,
         "backoff": _InertBackoff(),
         "notifier": _InertNotifier(),
+        "establish_thread": _inert_establish_thread,
         "now": NOW,
     }
     accepted = set(inspect.signature(entry).parameters)

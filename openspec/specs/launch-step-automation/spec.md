@@ -70,7 +70,7 @@ Invocation SHALL NOT be reachable from outside the deployment.
 
 A handler SHALL be given the step definition it is resolving, a read of the launch it is resolving against, the catalog product that launch is for, and the moment the pass is running as of. The catalog product SHALL be resolved by the system and supplied to the handler, never fetched by the handler itself — a handler is a function of the context it is given and nothing else, which is what allows it to be exercised without a database and keeps the catalog read in one place rather than one place per handler.
 
-A handler SHALL return an outcome from the `launch-playbook` outcome vocabulary together with the result it produced, expressed as text a person can read. The produced text SHALL NOT be empty: it becomes the recorded evidence, which `launch-instance` requires of every recording.
+A handler SHALL return an outcome from the `launch-playbook` outcome vocabulary together with the result it produced, expressed as text a person can read. The produced text SHALL NOT be empty: it becomes the recorded evidence, which `launch-instance` requires of every recording. A handler MAY additionally report a typed finding alongside its outcome and result — see *A handler MAY report a typed finding alongside its outcome*. Doing so changes nothing about the outcome or the result: both continue to mean exactly what they mean for a handler that reports no finding at all.
 
 A handler with nothing conclusive to report SHALL say so through a **non-terminal** outcome whose reason states why — never by proposing a terminal outcome it cannot support, and never by failing. Of the three non-terminal outcomes only `Blocked` can itself carry a reason; where a handler proposes one that cannot, the produced text SHALL state the reason instead, so that a stalled step is legible rather than merely quiet.
 
@@ -90,6 +90,11 @@ A handler SHALL NOT supply its own recording provenance. The system SHALL constr
 
 - **WHEN** a handler attempts to supply provenance of its own
 - **THEN** the system rejects it and the provenance the system constructed stands
+
+#### Scenario: A finding changes nothing about the outcome or the result
+
+- **WHEN** a handler reports a typed finding alongside its outcome and result
+- **THEN** the outcome is recorded, and the result is stored as evidence, exactly as they would be for a handler reporting no finding
 
 ### Requirement: A non-terminal outcome is recorded directly and never held for a decision
 
@@ -191,14 +196,14 @@ At most one pending result SHALL stand for a launch and step at any moment. A st
 
 ### Requirement: A pending result is delivered for a decision, and delivery failure does not lose it
 
-The system SHALL deliver each pending result to Slack, naming the product, the step, the outcome the handler proposed and the produced text in full, and offering an accept and a reject decision.
+The system SHALL deliver each pending result to Slack, as a reply within that launch's Slack thread — establishing the thread first if it does not yet exist — naming the product, the step, the outcome the handler proposed and the produced text in full, offering an accept and a reject decision, and tagging the step's named confirmer.
 
 A failure to deliver SHALL NOT discard the pending result and SHALL NOT record an outcome. The failure SHALL be reported, and the pending result SHALL remain available to be delivered again — the same decoupling the daily briefing keeps between assembling a report and delivering it.
 
 #### Scenario: A pending result reaches Slack
 
 - **WHEN** a pending result is stored
-- **THEN** a Slack message is delivered naming the product, the step, the proposed outcome and the produced text, offering an accept and a reject decision
+- **THEN** a Slack message tagging the step's confirmer is delivered as a reply within the launch's thread, naming the product, the step, the proposed outcome and the produced text, offering an accept and a reject decision
 
 #### Scenario: Undelivered is not undone
 
@@ -209,6 +214,11 @@ A failure to deliver SHALL NOT discard the pending result and SHALL NOT record a
 
 - **WHEN** a delivery failed and a later pass runs
 - **THEN** delivery of that pending result is attempted again
+
+#### Scenario: A pending result for a launch with no thread yet establishes one
+
+- **WHEN** a pending result is delivered for a launch that has no Slack thread reference
+- **THEN** an anchor message is posted for that launch first, and the pending result is delivered as a reply within the newly established thread
 
 ### Requirement: Only the step's named confirmer may decide a pending result
 
@@ -509,7 +519,7 @@ Where the shared store cannot be restored to a usable state after such a failure
 
 ### Requirement: A step whose handler has stopped making progress is reported once
 
-Where a handler repeats a non-terminal outcome and the step is cooled off, the system SHALL report that step once — naming the launch, the step, and **what the handler produced as its result**, which for a `Blocked` outcome is also the reason it carries — so that a person can supply what the handler is missing. A handler that cannot resolve a step is reporting work only a person can do, and a record nobody reads is not a report. The result is reported as what the handler said, never asserted as a fact about the product.
+Where a handler repeats a non-terminal outcome and the step is cooled off, the system SHALL report that step once — as a reply within the launch's Slack thread, establishing the thread first if it does not yet exist — naming the launch, the step, and **what the handler produced as its result**, which for a `Blocked` outcome is also the reason it carries, and tagging the step's named confirmer where the step names one, the launch's submitter otherwise, so that a person can supply what the handler is missing. A handler that cannot resolve a step is reporting work only a person can do, and a record nobody reads is not a report. The result is reported as what the handler said, never asserted as a fact about the product.
 
 The report SHALL be delivered once for as long as the step stays stuck, and SHALL NOT be repeated on every pass **nor on each expiry of the cool-off**: a step stuck for a week is one message, not seven. A step whose recorded outcome later changes, or which reaches an outcome its hazard permits as terminal, SHALL become eligible to be reported again if it later gets stuck.
 
@@ -524,7 +534,17 @@ A failure to deliver the report SHALL NOT fail the pass, SHALL NOT stop the rema
 #### Scenario: A newly cooled-off step is reported
 
 - **WHEN** a handler repeats a non-terminal outcome and the step is cooled off for the first time
-- **THEN** a report naming the launch, the step and what the handler produced as its result is delivered
+- **THEN** a report naming the launch, the step and what the handler produced as its result is delivered as a reply within the launch's Slack thread
+
+#### Scenario: A stuck step naming a confirmer tags that confirmer
+
+- **WHEN** a report is delivered for a stuck step that names a confirmer
+- **THEN** the message tags that confirmer
+
+#### Scenario: A stuck step naming no confirmer tags the submitter
+
+- **WHEN** a report is delivered for a stuck step that names no confirmer
+- **THEN** the message tags the launch's submitter instead
 
 #### Scenario: A step that stays stuck is not reported again
 
@@ -555,3 +575,56 @@ A failure to deliver the report SHALL NOT fail the pass, SHALL NOT stop the rema
 
 - **WHEN** delivery of the report fails for one launch's step
 - **THEN** the pass continues with the remaining steps and launches, and the pass is still recorded as a successful run
+
+### Requirement: A handler MAY report a typed finding alongside its outcome
+
+A handler's resolution MAY carry, in addition to its outcome and its result text, a typed finding expressed as either a success carrying a value or a failure carrying an error, either of which MAY carry an additional comment — the same generic shape regardless of which handler produced it. A handler that has nothing for another part of the system to consume beyond its outcome and result text SHALL simply not report one; this is the case for every handler that predates this requirement, and is expected to remain the common case.
+
+A finding is not a second copy of the outcome. The outcome answers what becomes of the *step*; a finding, where reported, answers what the handler *discovered* that something outside the launch itself — a product, a later automated step — might need to read. The two SHALL be reported independently: a handler MAY resolve a step `Satisfied` while reporting no finding, and nothing about a reported finding's presence or content SHALL influence which outcome is treated as terminal or how it is held for confirmation.
+
+#### Scenario: A handler reports no finding by default
+
+- **WHEN** a handler that does not report a finding resolves a step
+- **THEN** no finding is recorded anywhere on its behalf, and nothing about the step's resolution is affected by its absence
+
+#### Scenario: A finding's presence does not change confirmation
+
+- **WHEN** a handler reports a finding alongside a terminal outcome for a step whose confirmation flag is true
+- **THEN** the outcome is still held as a pending result exactly as it would be without a finding
+
+### Requirement: A handler's supported finding is recorded independently of the step's own confirmation
+
+Where a handler reports a finding that is a success, and the deployment has supplied a recording capability for that specific step, the system SHALL invoke that capability with the finding's value as soon as the handler returns and its proposed outcome has passed the hazard-permission check *A terminal outcome the step's hazard forbids is a handler fault, not a recording* — whether or not the outcome that passed is terminal, and whether or not it is held for a person's confirmation. This recording is provisional: it is not an assertion that the step is resolved, only that the handler discovered something worth making available immediately.
+
+Where a handler's proposed outcome fails that hazard-permission check, the whole proposal is a handler fault: nothing is recorded for the step, and the recording capability SHALL NOT be invoked either, for the same reason — a finding produced alongside an outcome the system is treating as though the handler had crashed is not a finding to trust with a write of its own.
+
+Where no recording capability has been supplied for a step, a reported success finding SHALL simply not be recorded anywhere; this is not an error; a handler reporting a finding without the deployment having wired anywhere to put it is exactly the shape every handler took before this requirement existed.
+
+A failure to record a finding SHALL NOT be recorded as any step outcome, SHALL NOT stop the pass, and SHALL be reported naming the launch, the step and the handler — the same treatment `launch-step-automation` already gives a handler failure, because a finding that could not be recorded is a fact about the recording, not a fact about the step's own progress.
+
+Because this recording is provisional, a step's own outcome and the last value recorded from its finding MAY disagree — most concretely, a person rejecting the step's pending result in Slack leaves the step `Blocked` while a value from the proposal that was rejected may already be recorded elsewhere. Reconciling the two is not this requirement's concern.
+
+#### Scenario: A supported finding is recorded immediately
+
+- **WHEN** a handler reports a success finding for a step whose confirmation flag is true, and a recording capability is supplied for that step
+- **THEN** the finding's value is recorded before any Slack decision is sought, and independent of what that decision later is
+
+#### Scenario: No recording capability means no recording, silently
+
+- **WHEN** a handler reports a success finding for a step no recording capability has been supplied for
+- **THEN** nothing is recorded on the finding's behalf, and this is not reported as a fault
+
+#### Scenario: A failure finding is never recorded this way
+
+- **WHEN** a handler reports a finding that is a failure
+- **THEN** no recording capability is invoked — a failure finding carries nothing to record
+
+#### Scenario: An impermissible proposal's finding is never recorded
+
+- **WHEN** a handler proposes a terminal outcome the step's hazard does not permit, alongside a success finding
+- **THEN** the recording capability is not invoked, exactly as no step outcome is recorded for that proposal
+
+#### Scenario: A recording failure does not stop the pass
+
+- **WHEN** invoking a step's recording capability fails
+- **THEN** no step outcome is recorded as a result of that failure, the failure is reported naming the launch, the step and the handler, and the pass continues

@@ -31,6 +31,7 @@ from typing import Any
 
 from commerce_ops.launch.domain.launch_playbook import StepDefinition
 from commerce_ops.launch.domain.launch_run import Launch, StepOutcomeValue
+from commerce_ops.shared.domain.result import Result
 
 __all__ = ["StepContext", "StepHandler", "StepResolution"]
 
@@ -63,10 +64,19 @@ class StepResolution:
     `result` is plain text rather than a structure because both its
     consumers want text: the Slack message a person reads, and the
     `evidence` field of the recording it becomes.
+
+    `finding` is additive and optional: what the handler discovered that
+    something outside the launch itself — a product, a later automated
+    step — might need to read, independent of what `outcome` and `result`
+    already mean (`launch-step-automation`'s *A handler MAY report a typed
+    finding alongside its outcome*). A handler with nothing to hand
+    downstream — every handler before this field existed, and most future
+    ones — simply leaves it `None`.
     """
 
     outcome: StepOutcomeValue
     result: str
+    finding: Result[Any, Any] | None = None
 
     def __post_init__(self) -> None:
         # Empty evidence is refused by `Provenance` itself, one layer

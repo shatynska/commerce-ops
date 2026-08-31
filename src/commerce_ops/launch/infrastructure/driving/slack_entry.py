@@ -58,8 +58,15 @@ from commerce_ops.launch.infrastructure.driven.launch_journal_repository import 
 from commerce_ops.launch.infrastructure.driven.launch_repository import (
     LaunchRepository,
 )
+from commerce_ops.launch.infrastructure.driven.launch_thread_delivery import (
+    establish_thread_and_resolve_mention,
+)
 from commerce_ops.launch.infrastructure.driven.playbook_repository import (
     PlaybookRepository,
+)
+from commerce_ops.launch.infrastructure.driven.slack_notifier import (
+    launches_channel,
+    post_monitoring_message,
 )
 from commerce_ops.shared.domain.identity import Asin, MarketplaceId, ProductId, Sku
 from commerce_ops.shared.infrastructure.driven import clickup_client as clickup
@@ -76,6 +83,9 @@ __all__ = [
     "ClickUpMappingRepository",
     "clickup",
     "converge_launch_eagerly",
+    "establish_thread_and_resolve_mention",
+    "launches_channel",
+    "post_monitoring_message",
     "read_people",
     "read_product",
     "register_catalog_product",
@@ -553,41 +563,19 @@ def _get_handler() -> AsyncSlackRequestHandler:
 
         # Establish thread and post confirmation reply
         try:
-            from commerce_ops.launch.application.thread_establishment import (
-                ensure_launch_thread,
-                resolve_mention_target,
+            thread_ts, mention = await establish_thread_and_resolve_mention(
+                product_id,
+                submission.name,
+                submission.sku.value,
+                submission.marketplace_id.value,
+                step=None,
             )
-            from commerce_ops.launch.infrastructure.driven.launch_thread_lock import (
-                hold_launch_thread_establishment_lock,
+            mention_tag = f"<@{mention}> " if mention else ""
+            await post_monitoring_message(
+                channel=launches_channel(),
+                text=mention_tag + _confirmation_text(submission),
+                thread_ts=thread_ts,
             )
-            from commerce_ops.launch.infrastructure.driven.slack_notifier import (
-                launches_channel,
-                post_monitoring_message,
-            )
-
-            async with transaction() as db_session:
-                thread_ts = await ensure_launch_thread(
-                    db_session,
-                    LaunchRepository(db_session),
-                    product_id,
-                    submission.name,
-                    submission.sku.value,
-                    submission.marketplace_id.value,
-                    hold_lock=hold_launch_thread_establishment_lock,
-                    channel=launches_channel,
-                )
-                launch = await LaunchRepository(db_session).get_by_product_id(
-                    product_id
-                )
-                mention = (
-                    await resolve_mention_target(launch, step=None) if launch else None
-                )
-                mention_tag = f"<@{mention}> " if mention else ""
-                await post_monitoring_message(
-                    channel=launches_channel(),
-                    text=mention_tag + _confirmation_text(submission),
-                    thread_ts=thread_ts,
-                )
         except Exception:
             # Log but don't fail: confirmation delivery failure after ack is handled
             # separately, and thread establishment failure means thread wasn't needed

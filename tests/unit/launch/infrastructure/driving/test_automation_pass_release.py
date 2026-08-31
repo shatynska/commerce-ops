@@ -400,6 +400,16 @@ class _RecordingNotifier:
         await self.post_monitoring_message(message)
 
 
+async def _inert_establish_thread(*args: Any, **kwargs: Any) -> tuple[str, None]:
+    """Thread-establishment nothing in this file exercises.
+
+    Added by `thread-launch-slack-notifications`, which made it a required
+    collaborator like `backoff` and `notifier` above — inert here for the
+    same reason: nothing below asserts on threading or tagging.
+    """
+    return "FAKE_THREAD_TS", None
+
+
 @dataclass
 class _Collaborators:
     launches: _FakeLaunches
@@ -445,6 +455,7 @@ async def _run_pass(collaborators: _Collaborators, *, now: datetime = NOW) -> An
         "deliver": collaborators.delivery,
         "backoff": collaborators.backoff,
         "notifier": collaborators.notifier,
+        "establish_thread": _inert_establish_thread,
         "now": now,
     }
     accepted = set(inspect.signature(entry).parameters)

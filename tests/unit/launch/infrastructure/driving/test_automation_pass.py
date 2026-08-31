@@ -644,6 +644,17 @@ class _InertNotifier:
         return None
 
 
+async def _inert_establish_thread(*args: Any, **kwargs: Any) -> tuple[str, None]:
+    """Thread-establishment nothing in this file exercises.
+
+    Added by `thread-launch-slack-notifications`, which made it a required
+    collaborator like `backoff` and `notifier` above -- inert here for the
+    same reason: nothing below asserts on threading or tagging, that has
+    its own file.
+    """
+    return "FAKE_THREAD_TS", None
+
+
 async def _run_pass(collaborators: _Collaborators, *, now: datetime = NOW) -> Any:
     """INVENTED call shape — the single correction point."""
     entry = _pass_entry()
@@ -662,6 +673,7 @@ async def _run_pass(collaborators: _Collaborators, *, now: datetime = NOW) -> An
         # own file.
         "backoff": _InertBackoff(),
         "notifier": _InertNotifier(),
+        "establish_thread": _inert_establish_thread,
         "now": now,
     }
     accepted = set(inspect.signature(entry).parameters)

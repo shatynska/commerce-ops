@@ -89,7 +89,8 @@ HANDLER_NAME: Final = "listing.subcategory_advisor"
 
 PRODUCED_AT: Final = datetime(2027, 1, 6, 9, 30, tzinfo=UTC)
 
-CHANNEL_ID: Final = "C0MONITORING"
+LAUNCHES_CHANNEL_ID: Final = "C0LAUNCHES"
+SLACK_THREAD_TS: Final = "1700000000.000100"
 
 # Long enough, and specific enough, that a truncating implementation
 # loses the tail: "in full" is what the scenario asks for, and the tail
@@ -190,6 +191,32 @@ def _install_poster(
     )
 
 
+_THREAD_NAMES: Final = ("establish_thread_and_resolve_mention",)
+
+
+def _install_thread_establishment(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Substitute the thread-and-mention preamble `thread-launch-slack-
+    notifications` added ahead of delivery, with a canned result -- this
+    file's own concern is the message this scenario originally specified
+    (product, step, outcome, text in full, two decisions), not thread
+    establishment, which `tests/unit/launch/application/
+    test_thread_establishment_race.py` covers directly.
+    """
+    for name in _THREAD_NAMES:
+        if hasattr(automation_confirmation, name):
+
+            async def _fake(*args: Any, **kwargs: Any) -> tuple[str, str | None]:
+                return SLACK_THREAD_TS, None
+
+            monkeypatch.setattr(automation_confirmation, name, _fake)
+            return
+    pytest.fail(
+        "the automation confirmation adapter exposes no substitutable "
+        f"thread-establishment collaborator under any of {_THREAD_NAMES} — "
+        "correct this file's probe to the implemented collaborator"
+    )
+
+
 _DELIVERY_NAMES: Final = (
     "deliver_pending_result",
     "deliver",
@@ -242,7 +269,8 @@ async def test_a_pending_result_reaches_slack(monkeypatch: pytest.MonkeyPatch) -
     proposed outcome and the produced text in full, offering an accept
     and a reject decision.
     """
-    monkeypatch.setenv("PRODUCT_AGENT_MONITORING_CHANNEL_ID", CHANNEL_ID)
+    monkeypatch.setenv("PRODUCT_AGENT_LAUNCHES_CHANNEL_ID", LAUNCHES_CHANNEL_ID)
+    _install_thread_establishment(monkeypatch)
     poster = _install_poster(monkeypatch, _CapturingPoster())
 
     await _deliver()
@@ -269,24 +297,29 @@ async def test_a_pending_result_reaches_slack(monkeypatch: pytest.MonkeyPatch) -
     assert "reject" in lowered
 
 
-async def test_the_message_goes_to_the_monitoring_channel(
+async def test_the_message_goes_to_the_launches_channel_as_a_thread_reply(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """`tasks.md` 6.1: posted to `PRODUCT_AGENT_MONITORING_CHANNEL_ID`.
-
-    DERIVED with respect to the spec, which says only that the result is
-    delivered to Slack; the channel is fixed by the artifacts and by the
-    proposal's commitment to no new configuration (the briefing notifier
-    already reads this pair). Recorded as derived in `test-manifest.md`.
+    """`thread-launch-slack-notifications`, `launch-step-automation`
+    MODIFIED: "delivered ... as a reply within that launch's Slack thread"
+    — supersedes this test's original `monitoring_channel` assertion
+    (`tasks.md` 6.1, pre-dating that change) per its own `test-manifest.md`
+    ("launch-step-automation obsolete tests").
     """
-    monkeypatch.setenv("PRODUCT_AGENT_MONITORING_CHANNEL_ID", CHANNEL_ID)
+    monkeypatch.setenv("PRODUCT_AGENT_LAUNCHES_CHANNEL_ID", LAUNCHES_CHANNEL_ID)
+    _install_thread_establishment(monkeypatch)
     poster = _install_poster(monkeypatch, _CapturingPoster())
 
     await _deliver()
 
-    assert CHANNEL_ID in poster.rendered, (
-        "the confirmation request was posted somewhere other than the "
-        "monitoring channel the change commits to reusing"
+    assert LAUNCHES_CHANNEL_ID in poster.rendered, (
+        "the confirmation request was not posted to the launches channel "
+        f"this change moved per-launch messages to: {poster.rendered!r}"
+    )
+    assert SLACK_THREAD_TS in poster.rendered, (
+        "the confirmation request did not carry the established thread's "
+        f"reference, so it was not posted as a reply within it: "
+        f"{poster.rendered!r}"
     )
 
 
@@ -306,7 +339,8 @@ async def test_a_delivery_failure_reaches_the_caller(
     pass-side half is asserted in
     `tests/unit/launch/infrastructure/driving/test_automation_pass.py`.
     """
-    monkeypatch.setenv("PRODUCT_AGENT_MONITORING_CHANNEL_ID", CHANNEL_ID)
+    monkeypatch.setenv("PRODUCT_AGENT_LAUNCHES_CHANNEL_ID", LAUNCHES_CHANNEL_ID)
+    _install_thread_establishment(monkeypatch)
     _install_poster(monkeypatch, _CapturingPoster(failing=True))
 
     with pytest.raises(Exception):  # noqa: B017 -- any failure, not a chosen type

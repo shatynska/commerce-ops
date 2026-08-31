@@ -61,10 +61,14 @@ from commerce_ops.launch.infrastructure.driven.launch_journal_repository import 
     LaunchJournalRepository,
 )
 from commerce_ops.launch.infrastructure.driven.launch_repository import LaunchRepository
+from commerce_ops.launch.infrastructure.driven.launch_thread_delivery import (
+    establish_thread_and_resolve_mention,
+)
 from commerce_ops.launch.infrastructure.driven.playbook_repository import (
     PlaybookRepository,
 )
 from commerce_ops.launch.infrastructure.driven.slack_notifier import (
+    launches_channel,
     monitoring_channel,
     post_monitoring_message,
 )
@@ -84,6 +88,7 @@ __all__ = [
     "compose_message",
     "converge_launch_eagerly",
     "handle_gate_decision",
+    "launches_channel",
     "monitoring_channel",
     "post_gate_ask",
     "post_monitoring_message",
@@ -234,51 +239,29 @@ async def post_gate_ask(
             )
             product = None
     message = compose_message(product=product, product_id=product_id, gate_id=gate_id)
-    # Establish thread and get mention target (gates have no confirmer, so always submitter)
-    from commerce_ops.launch.application.thread_establishment import (
-        ensure_launch_thread,
-        resolve_mention_target,
+    sku_value = ""
+    marketplace_value = ""
+    if product:
+        sku = getattr(product, "sku", None)
+        sku_value = sku.value if sku else ""
+        marketplace = getattr(product, "marketplace_id", None)
+        marketplace_value = marketplace.value if marketplace else ""
+    # Gates have no confirmer of their own, so this always resolves to the
+    # launch's submitter (`step=None`).
+    thread_ts, mention = await establish_thread_and_resolve_mention(
+        product_id,
+        product.name if product else product_id.value,
+        sku_value,
+        marketplace_value,
+        step=None,
     )
-    from commerce_ops.launch.infrastructure.driven.launch_repository import (
-        LaunchRepository,
+    mention_tag = f" <@{mention}>" if mention else ""
+    await post_monitoring_message(
+        channel=launches_channel(),
+        text=mention_tag + message,
+        blocks=compose_blocks(product_id=product_id, gate_id=gate_id, message=message),
+        thread_ts=thread_ts,
     )
-    from commerce_ops.launch.infrastructure.driven.launch_thread_lock import (
-        hold_launch_thread_establishment_lock,
-    )
-    from commerce_ops.launch.infrastructure.driven.slack_notifier import (
-        launches_channel,
-    )
-    from commerce_ops.shared.infrastructure.driven.database import transaction
-
-    async with transaction() as db_session:
-        sku_value = ""
-        marketplace_value = ""
-        if product:
-            sku = getattr(product, "sku", None)
-            sku_value = sku.value if sku else ""
-            marketplace = getattr(product, "marketplace_id", None)
-            marketplace_value = marketplace.value if marketplace else ""
-        thread_ts = await ensure_launch_thread(
-            db_session,
-            LaunchRepository(db_session),
-            product_id,
-            product.name if product else product_id.value,
-            sku_value,
-            marketplace_value,
-            hold_lock=hold_launch_thread_establishment_lock,
-            channel=launches_channel,
-        )
-        launch = await LaunchRepository(db_session).get_by_product_id(product_id)
-        mention = await resolve_mention_target(launch, step=None) if launch else None
-        mention_tag = f" <@{mention}>" if mention else ""
-        await post_monitoring_message(
-            channel=launches_channel(),
-            text=mention_tag + message,
-            blocks=compose_blocks(
-                product_id=product_id, gate_id=gate_id, message=message
-            ),
-            thread_ts=thread_ts,
-        )
     _logger.info(
         "gate confirmation: asked for the '%s' gate on product %s",
         gate_id,
