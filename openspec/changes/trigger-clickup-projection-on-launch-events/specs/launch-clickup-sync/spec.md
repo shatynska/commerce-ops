@@ -4,7 +4,9 @@
 
 In addition to the periodic reconciliation pass, the system SHALL run the creation/update half of projection — the same convergence *Each launch is projected into its own ClickUp list*, *Task due dates derive from the launch schedule*, *Human steps are projected as tasks carrying their name, description and assignees* and *A projected task carries its step's gate and discipline as Custom Field values* already define — for one launch immediately when that launch starts, and again immediately whenever that launch's gate crosses, so that a launch's first released steps and a gate's newly released steps get their ClickUp tasks without waiting for the pass's next run.
 
-The eager run SHALL apply every projection and eligibility rule exactly as the pass applies them — release, kind, status, hazard, retained-composition healing, Custom Field resolution and correction included — because it is the same convergence, run early, not a second rule. Nothing about a task's eligibility, content, or the corrections applied to it SHALL differ depending on whether the pass or the eager trigger created or last touched it.
+The eager run SHALL apply every projection and eligibility rule exactly as the pass applies them — release, kind, status, hazard, and retained-composition healing included — because it is the same convergence, run early, not a second rule. Nothing about a task's eligibility, its name, or its body SHALL differ depending on whether the pass or the eager trigger created or last touched it.
+
+The eager run is exempted from one part of that convergence: resolving and correcting a task's Custom Field values (`A projected task carries its step's gate and discipline as Custom Field values`) requires reading ClickUp's field definitions and, on a gap, reporting it — work whose cost and reporting cadence that requirement scopes to a pass run, not to an event. The eager run SHALL write no Custom Field value and SHALL report no configuration gap; a task it creates or corrects is left exactly as if the periodic pass had not yet reached it for that concern, and the next periodic pass resolves and corrects its Custom Field values as it would for any task carrying none — the existing healing rule for "a task projected before the fields existed," reached here by a different route.
 
 The eager run SHALL cover only the creation/update half. It SHALL NOT read back ClickUp state or record any outcome — that remains exactly as *Completion flows from ClickUp to the launch as a recorded outcome*, the webhook, and the pass's own reconciliation half already provide for, untouched by this requirement.
 
@@ -30,6 +32,12 @@ The eager run SHALL be suppressed under exactly the condition *Projection and in
 
 - **WHEN** the eager run is triggered for a launch carrying a step that is not `active`, is not `human`, carries the `prohibited-tactic` hazard, or is not yet released
 - **THEN** no task is created for that step, exactly as the periodic pass would not create one for it
+
+#### Scenario: Custom Field values on an eagerly created task are left to the next pass
+
+- **WHEN** the eager run creates a task for a step
+- **THEN** no Custom Field value is written for that task and no configuration gap is reported by the eager run
+- **AND** the next periodic pass gives the task its gate and discipline values, exactly as it would for a task carrying none
 
 #### Scenario: The eager run does not record completions
 

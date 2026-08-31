@@ -46,6 +46,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from commerce_ops.catalog.application import DuplicateSkuError
 from commerce_ops.launch.application import start_launch
 from commerce_ops.launch.domain.launch_playbook import PlaybookNotReadyError
+from commerce_ops.launch.infrastructure.driven.clickup_mapping import (
+    ClickUpMappingRepository,
+)
+from commerce_ops.launch.infrastructure.driven.clickup_sync import (
+    converge_launch_eagerly,
+)
 from commerce_ops.launch.infrastructure.driven.launch_journal_repository import (
     LaunchJournalRepository,
 )
@@ -56,7 +62,8 @@ from commerce_ops.launch.infrastructure.driven.playbook_repository import (
     PlaybookRepository,
 )
 from commerce_ops.shared.domain.identity import Asin, MarketplaceId, ProductId, Sku
-from commerce_ops.shared.infrastructure.driven.database import transaction
+from commerce_ops.shared.infrastructure.driven import clickup_client as clickup
+from commerce_ops.shared.infrastructure.driven.database import session, transaction
 from commerce_ops.shared.infrastructure.driving.slack_app import (
     SlackAppSpec,
     get_slack_app,
@@ -66,9 +73,15 @@ from commerce_ops.shared.infrastructure.driving.slack_app import (
 __all__ = [
     "SLACK_APP_IDENTITY",
     "CatalogRegistrar",
+    "ClickUpMappingRepository",
+    "clickup",
+    "converge_launch_eagerly",
+    "read_people",
+    "read_product",
     "register_catalog_product",
     "reset_handler_cache",
     "router",
+    "session",
     "start_launch",
     "transaction",
     "will_reply",
@@ -100,7 +113,13 @@ AMAZON_US_LABEL: Final = "Amazon US"
 # How long the ClickUp completion loop may take to project the new launch's
 # work. Named in the confirmation on purpose: otherwise the first question
 # after a successful start is "where are the tasks?" (design.md Decision 6).
-CLICKUP_SYNC_CADENCE_DESCRIPTION: Final = "within about 10 minutes"
+#
+# `trigger-clickup-projection-on-launch-events` triggers projection eagerly
+# right after this launch starts, so tasks normally appear immediately; the
+# wording says "shortly" rather than promising an exact bound, since the
+# eager path can fail open onto `clickup_sync_job`'s twice-daily fallback
+# pass (`SYNC_SCHEDULE`, `0 6,18 * * *`) for a launch it could not reach.
+CLICKUP_SYNC_CADENCE_DESCRIPTION: Final = "shortly"
 
 
 class CatalogRegistrar(Protocol):
@@ -127,6 +146,35 @@ class CatalogRegistrar(Protocol):
 # `clickup_sync_job.read_product`'s monkeypatch-friendly pattern; a missing
 # injection fails loudly at first use rather than silently at import.
 register_catalog_product: CatalogRegistrar | None = None
+
+# The eager-convergence call below (`trigger-clickup-projection-on-launch-
+# events`) needs the same two readers `clickup_sync_job.py` injects for the
+# periodic pass — `converge_launch` requires `read_product`, with no
+# default, to name the launch's ClickUp list; `roster` is optional. Injected
+# by `main.py`, this process's own composition root, not shared with the
+# worker's.
+read_product: Any = None
+read_people: Any = None
+
+
+def _launch_folder_id() -> str | None:
+    # A literal variable name, so the environment-drift check can see this
+    # read (see `clickup_sync_job`'s and `gate_progression_job`'s own notes).
+    return os.environ.get("CLICKUP_LAUNCH_FOLDER_ID")
+
+
+async def _read_product_or_fail(product_id: ProductId) -> Any:
+    # Matching `clickup_sync_job._read_product_or_fail`'s pattern: narrows
+    # the optional `read_product` global to what `converge_launch_eagerly`
+    # needs, failing loudly rather than with a bare `TypeError` if `main.py`
+    # never injected one.
+    if read_product is None:
+        raise RuntimeError(
+            "eager convergence needs to name a launch's ClickUp list after "
+            "its catalog product, but no product reader was injected; "
+            "main.py supplies one after register_all()"
+        )
+    return await read_product(product_id)
 
 
 def _signing_secret() -> str | None:
@@ -509,9 +557,6 @@ def _get_handler() -> AsyncSlackRequestHandler:
                 ensure_launch_thread,
                 resolve_mention_target,
             )
-            from commerce_ops.launch.infrastructure.driven.launch_repository import (
-                LaunchRepository,
-            )
             from commerce_ops.launch.infrastructure.driven.launch_thread_lock import (
                 hold_launch_thread_establishment_lock,
             )
@@ -547,6 +592,49 @@ def _get_handler() -> AsyncSlackRequestHandler:
             # Log but don't fail: confirmation delivery failure after ack is handled
             # separately, and thread establishment failure means thread wasn't needed
             logger.exception("could not post confirmation to thread")
+
+        # Eager, single-launch projection (`trigger-clickup-projection-on-
+        # launch-events`): the newly started launch's first released steps
+        # should not wait for `clickup_sync_job`'s next twice-daily run.
+        # Reads the playbook and the launch fresh, rather than reusing the
+        # block above (which may not have run this far, or at all, if
+        # thread establishment itself failed) — matching `advance_and_ask`'s
+        # own per-trigger read. Guarded independently of
+        # `converge_launch_eagerly`'s own catch, exactly as
+        # `clickup_webhook.py`'s `_trigger_advance_and_ask` does not rely on
+        # `advance_and_ask` catching its own failures.
+        try:
+            async with transaction() as db_session:
+                playbook = await PlaybookRepository(db_session).get("live")
+                launch = await LaunchRepository(db_session).get_by_product_id(
+                    product_id
+                )
+                if launch is None:
+                    return
+                await converge_launch_eagerly(
+                    launch,
+                    playbook=playbook,
+                    clickup=clickup,
+                    mapping=ClickUpMappingRepository(db_session),
+                    read_product=_read_product_or_fail,
+                    roster=read_people,
+                    folder_id=_launch_folder_id(),
+                )
+        except PlaybookNotReadyError as unready:
+            logger.info(
+                "eager convergence standing down for product %s: the "
+                "playbook cannot hold a launch (gates: %s)",
+                product_id.value,
+                ", ".join(unready.unheld_gates),
+            )
+        except Exception:
+            logger.warning(
+                "eager convergence: could not be triggered for product %s; "
+                "it is left as it stands and the next periodic "
+                "clickup_sync_job pass will retry it",
+                product_id.value,
+                exc_info=True,
+            )
 
     return AsyncSlackRequestHandler(app)
 

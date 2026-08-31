@@ -279,6 +279,12 @@ class _FakeSession:
     async def close(self) -> None:
         return None
 
+    async def execute(self, *args: Any, **kwargs: Any) -> None:
+        # `hold_launch_advance_lock` (`trigger-clickup-projection-on-
+        # launch-events`) issues `SELECT pg_advisory_xact_lock(...)` and
+        # discards the result; a no-op is all this fake needs to support.
+        return None
+
 
 @asynccontextmanager
 async def _session_provider(*args: Any, **kwargs: Any) -> AsyncIterator[_FakeSession]:

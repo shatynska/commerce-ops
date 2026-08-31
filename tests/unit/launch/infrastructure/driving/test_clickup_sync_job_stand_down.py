@@ -327,9 +327,36 @@ class _FakeLaunches:
         return self._launches
 
 
+class _SessionlessStub:
+    """A session standing for nothing real: `converge_launch` and
+    `reconcile_launch` are substituted wholesale by `_RecordingPass` below,
+    so nothing here should need real DB access -- except that
+    `hold_launch_advance_lock` (`trigger-clickup-projection-on-launch-
+    events`) now wraps the (also-substituted) `converge_launch` call, and
+    still issues a real `execute()` on whatever session it is given.
+    `None` sufficed before that lock existed; a no-op stub is what it
+    needs now, and `rollback` covers the pass's own fault-recovery path.
+    """
+
+    async def execute(self, *args: Any, **kwargs: Any) -> None:
+        return None
+
+    async def rollback(self) -> None:
+        return None
+
+    async def commit(self) -> None:
+        return None
+
+    async def close(self) -> None:
+        return None
+
+    async def flush(self) -> None:
+        return None
+
+
 @asynccontextmanager
-async def _fake_session() -> AsyncIterator[None]:
-    yield None
+async def _fake_session() -> AsyncIterator[_SessionlessStub]:
+    yield _SessionlessStub()
 
 
 # ---------------------------------------------------------------------------
