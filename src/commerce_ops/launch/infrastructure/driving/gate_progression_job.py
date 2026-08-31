@@ -64,6 +64,7 @@ __all__ = [
     "GateAskSuppressionRepository",
     "LaunchRepository",
     "PlaybookRepository",
+    "advance_and_ask",
     "gate_progression_pass",
     "post_gate_ask",
     "progress_launch",
@@ -212,6 +213,65 @@ async def _ask_if_owed(
     # been asked -- the mistake `field_gap_suppression` documents for its
     # own row.
     await suppression.record_delivery(product_id, gate_id, now)
+
+
+async def advance_and_ask(
+    product_id: ProductId, *, now: datetime.datetime | None = None
+) -> None:
+    """Run the pass's own per-launch cascade for one launch, immediately.
+
+    `advance-gates-from-clickup-webhook`'s single named exception to
+    *Advancement is a convergence pass and not a consequence of recording
+    an outcome*: the ClickUp webhook calls this, off its response path,
+    for the one launch a delivery just completed a step on. Every rule
+    this module applies to the periodic walk — read-before-command, the
+    advisory lock, the 24-hour ask cool-off, the final-gate exclusion —
+    applies here unchanged; only the trigger differs.
+
+    Reads the served playbook in its own session rather than sharing the
+    walk's, since a single-launch trigger has no walk to amortize the read
+    over (`gate_confirmation.py`'s `_advance_after_approval` is the
+    existing precedent for a fresh per-trigger read). A stand-down
+    (`PlaybookNotReadyError`) is logged and stood down for this one
+    product; the periodic pass remains what recovers once the playbook is
+    ready again.
+
+    Never raises: a fault here is a pure latency optimization lost, not a
+    functional regression, since the identical `_advance_one`/
+    `progress_launch` path is exercised by the periodic pass every ten
+    minutes regardless.
+    """
+    now = now or datetime.datetime.now(tz=datetime.UTC)
+    try:
+        async with session() as db_session:
+            try:
+                playbook = await PlaybookRepository(db_session).get("live")
+            except PlaybookNotReadyError as unready:
+                _logger.info(
+                    "advance-and-ask trigger standing down for product %s: "
+                    "the playbook cannot hold a launch (gates: %s)",
+                    product_id.value,
+                    ", ".join(unready.unheld_gates),
+                )
+                return
+
+            progressed = await _advance_one(product_id=product_id, playbook=playbook)
+            gate_id = _awaiting_gate(progressed)
+            if gate_id is not None:
+                await _ask_if_owed(
+                    product_id=product_id,
+                    gate_id=gate_id,
+                    db_session=db_session,
+                    now=now,
+                )
+    except Exception:
+        _logger.warning(
+            "advance-and-ask trigger: the launch for product %s could not "
+            "be advanced; it is left as it stands and the next periodic "
+            "pass will retry it",
+            product_id.value,
+            exc_info=True,
+        )
 
 
 async def run_gate_progression_pass(now: datetime.datetime | None = None) -> None:
