@@ -67,6 +67,7 @@ def skip_database_dependent_tests(request: pytest.FixtureRequest) -> None:
     database_tests = {
         "test_automation_confirmation_delivery.py",
         "test_automation_pass_repeat_backoff.py",
+        "test_gate_ask_message.py",
         "test_slack_entry_ack_and_failure_visibility.py",
         "test_slack_entry_anchor_and_confirmation.py",
         "test_slack_entry_field_validation.py",
