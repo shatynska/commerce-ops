@@ -61,10 +61,14 @@ from commerce_ops.launch.infrastructure.driven.launch_journal_repository import 
 from commerce_ops.launch.infrastructure.driven.launch_repository import (
     LaunchRepository,
 )
+from commerce_ops.launch.infrastructure.driven.launch_thread_delivery import (
+    establish_thread_and_resolve_mention,
+)
 from commerce_ops.launch.infrastructure.driven.playbook_repository import (
     PlaybookRepository,
     ServedPlaybooks,
 )
+from commerce_ops.launch.infrastructure.driven.slack_notifier import launches_channel
 from commerce_ops.launch.infrastructure.driving import automation_confirmation
 from commerce_ops.shared.application.ports import MonitoringNotifier
 from commerce_ops.shared.domain.identity import ProductId
@@ -233,6 +237,7 @@ async def run_automation_pass(
     deliver: Callable[..., Awaitable[Any]],
     backoff: Any,
     notifier: Any,
+    establish_thread: Callable[..., Awaitable[tuple[str, str | None]]],
     now: datetime.datetime,
 ) -> None:
     """Deliver what is waiting, then resolve what is open.
@@ -240,7 +245,12 @@ async def run_automation_pass(
     `backoff` and `notifier` are required rather than defaulted, for the
     reason `add-launch-journal` made its own port required: a defaulted
     collaborator is one a composing adapter can forget silently, and the
-    feature then does nothing while every test still passes.
+    feature then does nothing while every test still passes. `establish_thread`
+    is the same rule applied to the stuck-step report's own thread-and-mention
+    preamble (`launch_thread_delivery.establish_thread_and_resolve_mention`
+    in production) -- threaded as an argument like every other collaborator
+    here, not a module global, which is what lets this pass be exercised
+    without a database.
     """
     active: Sequence[Launch] = await launches.list_active()
 
@@ -263,6 +273,7 @@ async def run_automation_pass(
             deliver=deliver,
             backoff=backoff,
             notifier=notifier,
+            establish_thread=establish_thread,
             now=now,
         )
 
@@ -288,9 +299,10 @@ async def _deliver_waiting(
     between assembling a report and delivering it. Nothing is recorded
     either way: an undelivered proposal is not a decided one.
     """
-    named = {step.identifier: step.name for step in playbook.served_steps}
+    steps_by_id = {step.identifier: step for step in playbook.served_steps}
     for row in await results.undelivered():
         step_id = getattr(row, "step_id", None)
+        step = steps_by_id.get(str(step_id))
         try:
             # The row carries the identifier as the database spells it; the
             # catalog read wants the value object. A stored row is read back
@@ -300,7 +312,8 @@ async def _deliver_waiting(
             await deliver(
                 result=row,
                 product=product,
-                step_name=named.get(str(step_id)),
+                step_name=step.name if step else None,
+                step=step,
             )
         except Exception:
             _logger.warning(
@@ -326,6 +339,7 @@ async def _walk_launch(
     deliver: Callable[..., Awaitable[Any]],
     backoff: Any,
     notifier: Any,
+    establish_thread: Callable[..., Awaitable[tuple[str, str | None]]],
     now: datetime.datetime,
 ) -> None:
     if launch.current_gate == "graduated":
@@ -370,6 +384,7 @@ async def _walk_launch(
                 produced=_recorded_result(launch, step),
                 backoff=backoff,
                 notifier=notifier,
+                establish_thread=establish_thread,
                 product=product,
                 now=now,
             )
@@ -420,6 +435,7 @@ async def _walk_launch(
             row_ok=row_ok,
             backoff=backoff,
             notifier=notifier,
+            establish_thread=establish_thread,
             product=product,
             now=now,
         )
@@ -448,6 +464,7 @@ async def _note_repeat(
     row_ok: bool,
     backoff: Any,
     notifier: Any,
+    establish_thread: Callable[..., Awaitable[tuple[str, str | None]]],
     product: Any,
     now: datetime.datetime,
 ) -> None:
@@ -492,6 +509,7 @@ async def _note_repeat(
         produced=resolution.result,
         backoff=backoff,
         notifier=notifier,
+        establish_thread=establish_thread,
         product=product,
         now=now,
     )
@@ -518,6 +536,7 @@ async def _report_stuck_step(
     produced: str,
     backoff: Any,
     notifier: Any,
+    establish_thread: Callable[..., Awaitable[tuple[str, str | None]]],
     product: Any,
     now: datetime.datetime,
 ) -> None:
@@ -541,47 +560,26 @@ async def _report_stuck_step(
         launch=launch, step=step, produced=produced, product=product
     )
     try:
-        # Establish thread and get mention target (step's confirmer or submitter)
-        from commerce_ops.launch.application.thread_establishment import (
-            ensure_launch_thread,
-            resolve_mention_target,
+        sku_value = ""
+        marketplace_value = ""
+        if product:
+            sku = getattr(product, "sku", None)
+            sku_value = sku.value if sku else ""
+            marketplace = getattr(product, "marketplace_id", None)
+            marketplace_value = marketplace.value if marketplace else ""
+        thread_ts, mention = await establish_thread(
+            launch.product_id,
+            product.name if product else str(launch.product_id),
+            sku_value,
+            marketplace_value,
+            step=step,
         )
-        from commerce_ops.launch.infrastructure.driven.launch_repository import (
-            LaunchRepository,
+        mention_tag = f" <@{mention}>" if mention else ""
+        await notifier.post_monitoring_message(
+            channel=launches_channel(),
+            text=mention_tag + message,
+            thread_ts=thread_ts,
         )
-        from commerce_ops.launch.infrastructure.driven.launch_thread_lock import (
-            hold_launch_thread_establishment_lock,
-        )
-        from commerce_ops.launch.infrastructure.driven.slack_notifier import (
-            launches_channel,
-        )
-        from commerce_ops.shared.infrastructure.driven.database import transaction
-
-        async with transaction() as db_session:
-            sku_value = ""
-            marketplace_value = ""
-            if product:
-                sku = getattr(product, "sku", None)
-                sku_value = sku.value if sku else ""
-                marketplace = getattr(product, "marketplace_id", None)
-                marketplace_value = marketplace.value if marketplace else ""
-            thread_ts = await ensure_launch_thread(
-                db_session,
-                LaunchRepository(db_session),
-                launch.product_id,
-                product.name if product else str(launch.product_id),
-                sku_value,
-                marketplace_value,
-                hold_lock=hold_launch_thread_establishment_lock,
-                channel=launches_channel,
-            )
-            mention = await resolve_mention_target(launch, step=step)
-            mention_tag = f" <@{mention}>" if mention else ""
-            await notifier.post_monitoring_message(
-                channel=launches_channel(),
-                text=mention_tag + message,
-                thread_ts=thread_ts,
-            )
     except Exception:
         _logger.warning(
             "automation pass: could not report that step '%s' on product "
@@ -855,5 +853,6 @@ async def resolve_automated_steps(timestamp: int) -> None:
             deliver=automation_confirmation.deliver_pending_result,
             backoff=AutomatedStepBackoffRepository(db_session),
             notifier=notifier,
+            establish_thread=establish_thread_and_resolve_mention,
             now=datetime.datetime.now(datetime.UTC),
         )

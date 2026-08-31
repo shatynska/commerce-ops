@@ -458,87 +458,51 @@ When a stuck-step report is delivered for a launch with no thread reference, the
 
 ---
 
-## Obsolete Tests
+## Obsolete Tests — RESOLVED
 
-Tests covering behavior that is superseded by MODIFIED deltas and identified as candidates for updating or removal:
+Every item below was resolved while closing out this change (all four
+placeholder-skip files this section anticipated now run for real, no
+database required, via `launch_thread_delivery.establish_thread_and_
+resolve_mention()` — the mockable seam described in `tasks.md` 3's note).
 
-### launch-entry obsolete tests
+### launch-entry obsolete tests — RESOLVED
 
 **Superseding delta:** `launch-entry` (MODIFIED)
 
-Existing tests asserting that the launch success confirmation is delivered as a DM to the submitter:
+1. `tests/unit/launch/infrastructure/driving/test_slack_entry_ack_and_failure_visibility.py::test_a_slow_transaction_does_not_miss_the_acknowledgement_window` (not `test_a_post_acknowledgement_failure_reaches_the_user`, which already covered the *unchanged* failure path correctly) — its success-path assertion (DM to `SUBMITTER_ID`) is corrected to the anchor-plus-tagged-reply shape. The file remains database-gated: `_register_and_start` reads the live playbook for real regardless of how its registrar is mocked, a pre-existing `start-launch-from-slack`-era constraint this change does not touch. The real, DB-backed scenario is verified in `tests/integration/launch/test_slack_entry_start.py` (also updated: anchor + tagged reply, launches channel, ClickUp-cadence wording).
+2. `test_slack_entry_anchor_and_confirmation.py` — never wired past its scaffold and gated on the same pre-existing constraint; removed rather than fixed twice, since the integration test above covers everything it targeted.
 
-1. **Test:** `tests/unit/launch/infrastructure/driving/test_slack_entry_ack_and_failure_visibility.py::test_a_post_acknowledgement_failure_reaches_the_user`
-   - **Evidence:** The test verifies a DM is delivered to the submitter_id on success; the modification changes success confirmation to a thread reply.
-   - **Candidate for human confirmation:** The scenario "A post-acknowledgement failure reaches the user" remains; only the success path changes. The test may need to be split or updated to verify the post-ack failure DM (unchanged) separately from the success confirmation (now a thread reply). The failure case (failure DM) is unchanged per the spec and should remain covered.
-
-### launch-gate-progression obsolete tests
+### launch-gate-progression obsolete tests — RESOLVED
 
 **Superseding delta:** `launch-gate-progression` (MODIFIED)
 
-Existing tests asserting that gate asks are delivered to monitoring_channel as top-level messages:
+`test_gate_ask_message.py`'s channel assertion is updated in place (`test_the_ask_goes_to_the_launches_channel_as_a_thread_reply`), plus new tests for tagging (`test_the_ask_tags_the_launchs_submitter`) and the no-step mention-resolution call (`test_the_ask_calls_the_mention_resolver_with_no_step`) — all real, passing unit tests. `test_gate_ask_to_thread_reply.py`, a duplicate scaffold covering the identical four scenarios, was removed as redundant rather than fixed in parallel.
 
-1. **Test:** `tests/unit/launch/infrastructure/driving/test_gate_ask_message.py::test_the_ask_is_posted_to_the_monitoring_channel`
-   - **Evidence:** The test explicitly asserts delivery to `CHANNEL_ID` (monitoring channel); the modification changes delivery to launches channel as a thread reply.
-   - **Candidate for human confirmation:** This test's assertion ("the ask was posted to the monitoring channel") is directly superseded. A new test covers the launches-channel behavior; this test's existing assertion must be updated or the test removed, as it will fail once the implementation changes delivery location.
+### launch-step-automation obsolete tests — RESOLVED
 
-2. **Test:** `tests/unit/launch/infrastructure/driving/test_gate_ask_message.py::test_gate_confirmation_tags_the_submitter` (if it exists; check the actual file)
-   - **Evidence:** If this test exists and verifies tagging, it may need updating if it currently asserts a different tagging strategy or no tagging at all. The new behavior tags the submitter.
+**Superseding delta:** `launch-step-automation` (MODIFIED) — "A pending result is delivered for a decision"
 
-### launch-step-automation obsolete tests
+`test_automation_confirmation_delivery.py::test_the_message_goes_to_the_monitoring_channel` is replaced by `test_the_message_goes_to_the_launches_channel_as_a_thread_reply`; `test_a_pending_result_reaches_slack`'s content assertions are unchanged, as anticipated. The dedicated new file `test_automation_confirmation_to_thread_reply.py` covers channel, thread-ts propagation, and confirmer tagging (including the real defect this pass found and fixed: `deliver_pending_result` never actually received a step, so confirmer tagging silently no-opped to the submitter fallback every time — see `tasks.md` 6.2).
 
-**Superseding delta:** `launch-step-automation` (MODIFIED) — for "A pending result is delivered for a decision"
+**Superseding delta:** `launch-step-automation` (MODIFIED) — "A step whose handler has stopped making progress is reported once"
 
-Existing tests asserting that pending results are delivered to monitoring_channel:
+No `test_stuck_step_alert.py` existed. The dedicated new file `test_stuck_step_report_to_thread_reply.py` covers channel, thread-ts propagation, confirmer tagging, submitter fallback, and produced-text/Blocked-reason pass-through, all real and passing, called directly against `_report_stuck_step` with `establish_thread` supplied as an explicit argument (that file's own design — see `tasks.md` 7).
 
-1. **Test:** `tests/unit/launch/infrastructure/driving/test_automation_confirmation_delivery.py::test_the_message_goes_to_the_monitoring_channel`
-   - **Evidence:** The test explicitly asserts CHANNEL_ID is the monitoring channel; the modification changes delivery to launches channel as a thread reply.
-   - **Candidate for human confirmation:** This test's channel assertion is directly superseded. A new test covers the launches-channel behavior; this test's assertion must be updated or the test removed.
+### Integration tests for delivery-location changes — RESOLVED
 
-2. **Test:** `tests/unit/launch/infrastructure/driving/test_automation_confirmation_delivery.py::test_a_pending_result_reaches_slack`
-   - **Evidence:** This test covers the content of the message (product, step, outcome, text, decisions). Content is unchanged; only delivery location and tagging change. This test may remain valid if it only asserts content (not channel or tagging), or may need splitting to separate the content assertions from the channel assertion.
-
-**Superseding delta:** `launch-step-automation` (MODIFIED) — for "A step whose handler has stopped making progress is reported once"
-
-Existing tests asserting stuck-step reports are delivered to monitoring_channel:
-
-1. **Test:** `tests/unit/launch/infrastructure/driving/test_stuck_step_alert.py::test_stuck_step_is_reported_to_monitoring_channel` (if it exists; check files)
-   - **Evidence:** If this test asserts delivery to monitoring channel, it is superseded. The modification changes delivery to launches channel as a thread reply.
-   - **Candidate for human confirmation:** This test's channel assertion is directly superseded.
-
-### Integration tests for delivery location changes
-
-Multiple integration tests likely assert that messages are delivered to `PRODUCT_AGENT_MONITORING_CHANNEL_ID`. Search for these patterns:
-
-- `monitoring_channel()` calls in Slack mocks
-- Assertions on channel IDs in ClickUp sync or Slack endpoint tests
-- Tests in `tests/integration/launch/` that verify message delivery
-
-These tests' channel assertions are candidates for update once the implementation changes delivery location.
+`tests/integration/launch/test_slack_entry_start.py` was the one integration file asserting the superseded DM-to-submitter behavior; its four affected tests were updated to the anchor-plus-tagged-reply shape and re-verified against a real Postgres via CI (PR #127). No other integration test asserted a `monitoring_channel()`/DM delivery this change moves.
 
 ---
 
-## Unresolved Project Questions
+## Unresolved Project Questions — RESOLVED
 
-The following remain unanswered and impact test development:
+### Entry adapter wiring — RESOLVED
 
-### Entry adapter wiring
+Implemented as `launch_thread_delivery.establish_thread_and_resolve_mention(product_id, product_name, product_sku, product_marketplace, *, step)`, called from `slack_entry.py` with `step=None`. Verified for real in `tests/integration/launch/test_slack_entry_start.py`; the unit-tier scaffold this question blocked (`test_slack_entry_anchor_and_confirmation.py`) was removed as a duplicate of that coverage rather than separately wired.
 
-**Question:** What is the call sequence and parameter-passing shape for the Slack entry adapter to invoke thread establishment and post anchor + reply?
+### Gate confirmation adapter wiring — RESOLVED
 
-**Impact:** Tests in `test_slack_entry_anchor_and_confirmation.py` are skipped pending clarity on how the entry wires to the thread-establishment service and Slack poster.
-
-**Assumption taken:** The entry adapter will have access to (1) a launch-thread establishment operation (application service), (2) the Slack poster, and (3) the launch submitter information to tag in the reply.
-
----
-
-### Gate confirmation adapter wiring
-
-**Question:** How does the gate confirmation adapter receive the launch's submitter information, and what is the call signature for invoking thread establishment?
-
-**Impact:** Tests in `test_gate_ask_to_thread_reply.py` are skipped pending adapter wiring clarity.
-
-**Assumption taken:** The adapter will receive (1) the launch submitter for tagging, (2) a thread-establishment operation, and (3) the launches-channel ID from the notifier.
+Same collaborator, called from `gate_confirmation.py`'s `post_gate_ask` with `step=None` (gates carry no confirmer). Verified in `test_gate_ask_message.py`; the duplicate scaffold `test_gate_ask_to_thread_reply.py` this question blocked was removed rather than separately wired.
 
 ---
 

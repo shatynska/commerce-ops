@@ -16,10 +16,8 @@ def skip_database_dependent_unit_tests(request: pytest.FixtureRequest) -> None:
 
     # Tests that require database access but are in unit tier
     database_tests = {
-        "test_automation_confirmation_delivery.py",
         "test_automation_pass_repeat_backoff.py",
         "test_slack_entry_ack_and_failure_visibility.py",
-        "test_slack_entry_anchor_and_confirmation.py",
         "test_slack_entry_field_validation.py",
         "test_slack_entry_modal_contract.py",
         "test_slack_entry_no_clickup_projection.py",

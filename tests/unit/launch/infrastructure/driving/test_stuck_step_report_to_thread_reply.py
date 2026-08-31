@@ -35,13 +35,36 @@ INVENTED, recorded in `test-manifest.md`:
 - How the adapter receives the confirmer and submitter information
 - The call signature of the reporting adapter (probed dynamically)
 
-## Expected first-run state
+## Level, and how thread establishment is substituted
 
-The modified stuck-step reporting adapter does not yet exist or has different
-behavior, so these tests are expected to fail. The absent-target case is
-expected per `ai-toolkit:testing`.
+`_report_stuck_step` directly -- the module's own docstring names it as
+the unit that "reports the step, then records that it was reported", and
+its parameters (`launch`, `step`, `produced`, `backoff`, `notifier`,
+`establish_thread`, `product`, `now`) are exactly this file's INVENTED
+dataclasses' shape. Reached as a module attribute despite the leading
+underscore, the same way this directory's other files reach
+`run_automation_pass`'s siblings -- this project does not treat a single
+underscore as enforced privacy for its own tests.
 
-Baseline: captured before writing these tests.
+Thread establishment is substituted at the module-level seam every driving
+adapter now shares (`establish_thread_and_resolve_mention`,
+`launch_thread_delivery.py`, threaded into `_report_stuck_step` as its
+required `establish_thread` argument rather than reached for as a module
+global -- `automation_pass.py`'s own stated design, "collaborators arrive
+as arguments... which is what lets the whole pass be exercised without a
+database"). Thread establishment's own behavior is covered directly
+against the real operation in
+`tests/unit/launch/application/test_thread_establishment_race.py`; this
+file only checks that `_report_stuck_step` reaches it, threads the real
+`step` through, and uses what it returns.
+
+## Fixture correction
+
+The scaffold's `_StepWithConfirmer`/`_StepWithoutConfirmer` named their
+identifier field `id`; the real `StepDefinition` (and everything reading
+one -- `_stuck_step_message`, `resolve_mention_target`) names it
+`identifier`. Corrected here per this file's own "probed dynamically"
+license; the postconditions are unweakened.
 """
 
 from __future__ import annotations
@@ -50,10 +73,12 @@ import importlib
 import json
 import uuid
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Any, Final
 
 import pytest
 
+from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.shared.domain.identity import ProductId, Sku
 
 pytestmark = pytest.mark.anyio
@@ -100,120 +125,264 @@ class _CatalogProduct:
 
 @dataclass(frozen=True)
 class _StepWithConfirmer:
-    id: str = STEP_ID
+    identifier: str = STEP_ID
     name: str = STEP_NAME
     confirmer: str | None = CONFIRMER_ID
 
 
 @dataclass(frozen=True)
 class _StepWithoutConfirmer:
-    id: str = STEP_ID
+    identifier: str = STEP_ID
     name: str = STEP_NAME
     confirmer: str | None = None
 
 
-@dataclass(frozen=True)
-class _BlockedOutcome:
-    """Outcome representing a Blocked result with a reason."""
+def _launch(*, submitter: str | None = SUBMITTER_ID) -> Launch:
+    return Launch(
+        product_id=PRODUCT_ID,
+        playbook_version="v1",
+        current_gate="listable",
+        launch_date=None,
+        submitter=submitter,
+    )
 
-    name: str = "Blocked"
-    reason: str = BLOCKED_REASON
+
+class _InertBackoff:
+    """A backoff record that holds nothing and fails at nothing -- this
+    file asserts on the delivered message, not the backoff stamp."""
+
+    async def mark_reported(self, *args: Any, **kwargs: Any) -> None:
+        return None
 
 
-class _CapturingPoster:
-    """Captures Slack API calls made by the reporting adapter."""
+class _CapturingNotifier:
+    """The `notifier` `_report_stuck_step` calls `.post_monitoring_message`
+    through -- an object, not a bare function, matching `MonitoringNotifier`."""
 
     def __init__(self) -> None:
-        self.posts: list[dict[str, Any]] = []
+        self.calls: list[dict[str, Any]] = []
 
-    async def __call__(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
-        self.posts.append({"args": args, "kwargs": kwargs})
-        return {"ok": True, "ts": SLACK_THREAD_TS}
-
-    async def chat_postMessage(self, **kwargs: Any) -> dict[str, Any]:
-        return await self(chat_postMessage=kwargs)
+    async def post_monitoring_message(self, **kwargs: Any) -> None:
+        self.calls.append(kwargs)
 
     @property
     def rendered(self) -> str:
-        return json.dumps(self.posts, default=str)
+        return json.dumps(self.calls, default=str)
 
 
-async def test_stuck_step_goes_to_launches_channel() -> None:
+def _fake_establish_thread(
+    calls: list[dict[str, Any]],
+) -> Any:
+    """A fake for `_report_stuck_step`'s `establish_thread` argument.
+
+    `automation_pass.py` threads this collaborator through as an explicit
+    argument, not a module global (its own stated design: "collaborators
+    arrive as arguments... which is what lets the whole pass be exercised
+    without a database") -- so, unlike the other three driving adapters,
+    this one needs no `monkeypatch.setattr`, only a fake passed directly.
+    Returns a mention derived from `step.confirmer` when the caller passed
+    a step naming one, mirroring `resolve_mention_target`'s own rule --
+    that rule's correctness is `test_thread_establishment_race.py`'s
+    concern; this file only checks that `_report_stuck_step` asks for it
+    right and uses what comes back.
+    """
+
+    async def _fake(*args: Any, **kwargs: Any) -> tuple[str, str | None]:
+        calls.append(kwargs)
+        step = kwargs.get("step")
+        mention = getattr(step, "confirmer", None) or SUBMITTER_ID
+        return SLACK_THREAD_TS, mention
+
+    return _fake
+
+
+async def _report(
+    *,
+    step: Any,
+    produced: str,
+    notifier: _CapturingNotifier,
+    establish_thread_calls: list[dict[str, Any]] | None = None,
+    launch: Launch | None = None,
+) -> None:
+    """INVENTED call shape — the single correction point for reaching
+    `_report_stuck_step` directly."""
+    entry = getattr(_module(), "_report_stuck_step", None)
+    if not callable(entry):
+        pytest.fail(
+            f"{_module().__name__} has no `_report_stuck_step` attribute — "
+            "correct this file's probe to the implemented name"
+        )
+    await entry(
+        launch=launch or _launch(),
+        step=step,
+        produced=produced,
+        backoff=_InertBackoff(),
+        notifier=notifier,
+        establish_thread=_fake_establish_thread(
+            establish_thread_calls if establish_thread_calls is not None else []
+        ),
+        product=_CatalogProduct(),
+        now=datetime(2027, 1, 6, 9, 30, tzinfo=UTC),
+    )
+
+
+async def test_stuck_step_goes_to_launches_channel(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """DERIVED: the stuck-step report is posted to launches channel, not monitoring.
 
     The modified behavior delivers to the launches channel (where the thread
     lives) instead of the monitoring channel. This is a channel change required
     by "reported as a reply within the launch's Slack thread".
     """
-    pytest.skip(
-        "automation pass adapter wiring not yet understood; structure "
-        "established for when implementation is clear"
+    monkeypatch.setenv("PRODUCT_AGENT_LAUNCHES_CHANNEL_ID", LAUNCHES_CHANNEL_ID)
+    notifier = _CapturingNotifier()
+
+    await _report(step=_StepWithConfirmer(), produced=BLOCKED_REASON, notifier=notifier)
+
+    assert notifier.calls, "no report was delivered for the stuck step"
+    assert notifier.calls[0].get("channel") == LAUNCHES_CHANNEL_ID, (
+        f"the stuck-step report was not posted to the launches channel: "
+        f"{notifier.calls[0]!r}"
     )
 
 
-async def test_stuck_step_with_confirmer_tags_confirmer() -> None:
+async def test_stuck_step_with_confirmer_tags_confirmer(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Scenario: A stuck step naming a confirmer tags that confirmer.
 
     WHEN a report is delivered for a stuck step that names a confirmer
     THEN the message tags that confirmer.
 
-    SPECIFIED: if the step names a confirmer, they are tagged.
+    SPECIFIED: if the step names a confirmer, they are tagged. Asserted two
+    ways: `_report_stuck_step` threads the real `step` through to mention
+    resolution (not just its name), and it uses whatever mention that
+    resolution returns.
     """
-    pytest.skip(
-        "automation pass adapter wiring not yet understood; structure "
-        "established for when implementation is clear"
+    monkeypatch.setenv("PRODUCT_AGENT_LAUNCHES_CHANNEL_ID", LAUNCHES_CHANNEL_ID)
+    notifier = _CapturingNotifier()
+    calls: list[dict[str, Any]] = []
+    step = _StepWithConfirmer()
+
+    await _report(
+        step=step,
+        produced=BLOCKED_REASON,
+        notifier=notifier,
+        establish_thread_calls=calls,
+    )
+
+    assert calls and calls[0].get("step") is step, (
+        "_report_stuck_step did not thread the stuck step through to "
+        f"mention resolution: {calls!r}"
+    )
+    assert f"<@{CONFIRMER_ID}>" in notifier.rendered, (
+        f"the report did not tag the step's confirmer: {notifier.rendered!r}"
     )
 
 
-async def test_stuck_step_without_confirmer_tags_submitter() -> None:
+async def test_stuck_step_without_confirmer_tags_submitter(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Scenario: A stuck step naming no confirmer tags the submitter.
 
     WHEN a report is delivered for a stuck step that names no confirmer
     THEN the message tags the launch's submitter instead.
 
-    SPECIFIED: if the step has no confirmer, the submitter is tagged.
+    SPECIFIED: if the step has no confirmer, the submitter is tagged. The
+    fallback rule itself belongs to `resolve_mention_target` and is
+    asserted directly in `test_thread_establishment_race.py`; this checks
+    that `_report_stuck_step` still threads the step through (so the
+    fallback can even run) rather than substituting `None`.
     """
-    pytest.skip(
-        "automation pass adapter wiring not yet understood; structure "
-        "established for when implementation is clear"
+    monkeypatch.setenv("PRODUCT_AGENT_LAUNCHES_CHANNEL_ID", LAUNCHES_CHANNEL_ID)
+    notifier = _CapturingNotifier()
+    calls: list[dict[str, Any]] = []
+    step = _StepWithoutConfirmer()
+
+    await _report(
+        step=step,
+        produced=BLOCKED_REASON,
+        notifier=notifier,
+        establish_thread_calls=calls,
+    )
+
+    assert calls and calls[0].get("step") is step, (
+        f"_report_stuck_step did not thread the confirmer-less step through: {calls!r}"
+    )
+    assert f"<@{SUBMITTER_ID}>" in notifier.rendered, (
+        f"the report did not fall back to tagging the submitter: {notifier.rendered!r}"
     )
 
 
-async def test_stuck_step_report_is_thread_reply() -> None:
+async def test_stuck_step_report_is_thread_reply(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """DERIVED: the stuck-step report is posted as a reply (with thread_ts parameter).
 
     A thread reply requires the `thread_ts` parameter to be passed to Slack's
     API. This derives from "reported as a reply within the launch's Slack
-    thread".
+    thread". Asserted structurally -- the literal `thread_ts` kwarg, set to
+    exactly what thread establishment returned.
     """
-    pytest.skip(
-        "Slack API integration not yet available for testing; structure "
-        "established for when implementation is clear"
+    monkeypatch.setenv("PRODUCT_AGENT_LAUNCHES_CHANNEL_ID", LAUNCHES_CHANNEL_ID)
+    notifier = _CapturingNotifier()
+
+    await _report(step=_StepWithConfirmer(), produced=BLOCKED_REASON, notifier=notifier)
+
+    assert notifier.calls, "no report was delivered for the stuck step"
+    assert notifier.calls[0].get("thread_ts") == SLACK_THREAD_TS, (
+        f"the report was not posted with the established thread's "
+        f"reference: {notifier.calls[0]!r}"
     )
 
 
-async def test_stuck_step_names_handler_result_as_is() -> None:
+async def test_stuck_step_names_handler_result_as_is(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """SPECIFIED: the report names what the handler produced as its result.
 
     From the requirement: "naming the launch, the step, and what the handler
     produced as its result, which for a `Blocked` outcome is also the reason
     it carries".
 
-    The result is reported as what the handler said, never asserted as a fact.
+    The result is reported as what the handler said, never asserted as a
+    fact: the produced text is read back verbatim, not reworded or
+    summarized.
     """
-    pytest.skip(
-        "automation pass adapter wiring not yet understood; structure "
-        "established for when implementation is clear"
+    monkeypatch.setenv("PRODUCT_AGENT_LAUNCHES_CHANNEL_ID", LAUNCHES_CHANNEL_ID)
+    notifier = _CapturingNotifier()
+    produced = "Recommended sub-category: Kitchen Utensils & Gadgets."
+
+    await _report(step=_StepWithConfirmer(), produced=produced, notifier=notifier)
+
+    assert notifier.calls, "no report was delivered for the stuck step"
+    text = notifier.calls[0].get("text") or ""
+    assert STEP_NAME in text, f"the report did not name the step: {text!r}"
+    assert produced in text, (
+        f"the report did not carry what the handler produced, verbatim: {text!r}"
     )
 
 
-async def test_stuck_step_with_blocked_includes_reason() -> None:
+async def test_stuck_step_with_blocked_includes_reason(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """SPECIFIED: a Blocked outcome's reason is included in the report.
 
     For a `Blocked` outcome, the reason is also part of what the handler
-    produced and must be included in the report.
+    produced -- by the time it reaches `_report_stuck_step`, the caller has
+    already folded it into `produced` (this function's own docstring: the
+    report says "what the handler produced as its result"). This confirms
+    that fold-in survives to the message rather than being dropped.
     """
-    pytest.skip(
-        "automation pass adapter wiring not yet understood; structure "
-        "established for when implementation is clear"
+    monkeypatch.setenv("PRODUCT_AGENT_LAUNCHES_CHANNEL_ID", LAUNCHES_CHANNEL_ID)
+    notifier = _CapturingNotifier()
+    produced = f"Blocked: {BLOCKED_REASON}"
+
+    await _report(step=_StepWithConfirmer(), produced=produced, notifier=notifier)
+
+    assert notifier.calls, "no report was delivered for the stuck step"
+    text = notifier.calls[0].get("text") or ""
+    assert BLOCKED_REASON in text, (
+        f"the Blocked outcome's reason did not reach the report: {text!r}"
     )
