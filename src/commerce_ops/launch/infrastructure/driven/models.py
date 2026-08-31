@@ -73,6 +73,8 @@ class LaunchPosition(Base):
     playbook_version: Mapped[str] = mapped_column(String, nullable=False)
     current_gate: Mapped[str] = mapped_column(String, nullable=False)
     launch_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    submitter: Mapped[str | None] = mapped_column(String, nullable=True)
+    slack_thread_id: Mapped[str | None] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

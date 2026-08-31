@@ -128,6 +128,7 @@ class Settings(BaseSettings):
     omni_agent_slack_bot_token: NonEmpty
     product_agent_slack_bot_token: NonEmpty
     product_agent_monitoring_channel_id: NonEmpty
+    product_agent_launches_channel_id: NonEmpty
     # Required as of `start-launch-from-slack`, its first consumer: the
     # `product_agent` app now receives inbound Slack traffic, so a
     # deployment without this is misconfigured rather than merely

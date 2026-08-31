@@ -225,6 +225,8 @@ class LaunchRepository:
                 )
                 for row in attestation_rows
             ),
+            submitter=position.submitter,
+            slack_thread_id=position.slack_thread_id,
         )
         self._managed[row_id] = launch
         return launch
@@ -236,6 +238,8 @@ class LaunchRepository:
                 playbook_version=launch.playbook_version,
                 current_gate=launch.current_gate,
                 launch_date=launch.launch_date,
+                submitter=launch.submitter,
+                slack_thread_id=launch.slack_thread_id,
             )
         )
         try:
@@ -265,6 +269,8 @@ class LaunchRepository:
         position.playbook_version = launch.playbook_version
         position.current_gate = launch.current_gate
         position.launch_date = launch.launch_date
+        position.submitter = launch.submitter
+        position.slack_thread_id = launch.slack_thread_id
         for model in (
             LaunchStepProgress,
             LaunchGateApproval,

@@ -362,7 +362,7 @@ def _read_submission(
 # --------------------------------------------------------------------------
 
 
-async def _register_and_start(submission: _Submission) -> None:
+async def _register_and_start(submission: _Submission, submitter: str | None = None) -> None:
     """Registers the product and starts its launch, in one transaction.
 
     Both writes share one `transaction()` scope, so the catalog row and
@@ -406,6 +406,7 @@ async def _register_and_start(submission: _Submission) -> None:
             playbook,
             product_id=product_id,
             launch_date=submission.launch_date,
+            submitter=submitter,
             journal=LaunchJournalRepository(db_session),
         )
 
@@ -493,7 +494,7 @@ def _get_handler() -> AsyncSlackRequestHandler:
         submitter = (body.get("user") or {}).get("id")
 
         try:
-            await _register_and_start(submission)
+            await _register_and_start(submission, submitter=submitter)
         except Exception as error:
             logger.exception("starting a launch from Slack failed")
             await _post(client, submitter, _failure_text(submission, error))

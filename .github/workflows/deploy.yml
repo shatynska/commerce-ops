@@ -128,6 +128,7 @@ jobs:
             echo "PRODUCT_AGENT_SLACK_BOT_TOKEN=${{ secrets.PRODUCT_AGENT_SLACK_BOT_TOKEN }}"
             echo "PRODUCT_AGENT_SLACK_SIGNING_SECRET=${{ secrets.PRODUCT_AGENT_SLACK_SIGNING_SECRET }}"
             echo "PRODUCT_AGENT_MONITORING_CHANNEL_ID=${{ secrets.PRODUCT_AGENT_MONITORING_CHANNEL_ID }}"
+            echo "PRODUCT_AGENT_LAUNCHES_CHANNEL_ID=${{ secrets.PRODUCT_AGENT_LAUNCHES_CHANNEL_ID }}"
             # The completion loop's three variables, registered as
             # `production` secrets since 2026-08-23 but never rendered until
             # now. Nothing else sets them on the host, and both services read
