@@ -110,7 +110,7 @@ Containment covers errors raised by the work itself. It SHALL NOT contain a canc
 
 ### Requirement: A gate awaiting only confirmation is asked about in Slack
 
-Where a launch's current gate requires confirmation, every blocking condition attached to it is satisfied, and no approving approval has been recorded for it, the system SHALL ask for that approval as a message delivered to Slack; which channel carries it is configuration and not a property of this requirement. The message SHALL name the product and the gate, and SHALL carry the controls by which the decision is made.
+Where a launch's current gate requires confirmation, every blocking condition attached to it is satisfied, and no approving approval has been recorded for it, the system SHALL ask for that approval as a message delivered to Slack, as a reply within that launch's Slack thread — establishing the thread first if it does not yet exist. The message SHALL name the product and the gate, SHALL carry the controls by which the decision is made, and SHALL tag the launch's submitter: a gate carries no confirmer of its own.
 
 The ask SHALL be made only for a gate that is awaiting confirmation in exactly the sense `launch-instance` defines: a gate with an unsatisfied blocking condition SHALL NOT be asked about, because the decision it would request cannot yet be acted on.
 
@@ -121,7 +121,7 @@ A delivery that fails SHALL be reported and SHALL leave the gate eligible to be 
 #### Scenario: A satisfied confirmation gate is asked about
 
 - **WHEN** the pass runs against a launch whose current gate requires confirmation, has every blocking condition satisfied, and has no approving approval recorded
-- **THEN** a message naming the product and the gate is posted, carrying the decision controls
+- **THEN** a message naming the product and the gate, tagging the launch's submitter, is posted as a reply within the launch's Slack thread, carrying the decision controls
 
 #### Scenario: The final gate is not asked about
 
@@ -137,6 +137,11 @@ A delivery that fails SHALL be reported and SHALL leave the gate eligible to be 
 
 - **WHEN** posting the ask fails
 - **THEN** the failure is reported, no delivery is recorded, the run is not failed by it, and the ask is attempted again on the next pass while the gate is still awaiting confirmation
+
+#### Scenario: An ask for a launch with no thread yet establishes one
+
+- **WHEN** the pass asks about a gate for a launch that has no Slack thread reference
+- **THEN** an anchor message is posted for that launch before the ask, and the ask is delivered as a reply within the newly established thread
 
 ### Requirement: A gate is asked about at most once a day
 
