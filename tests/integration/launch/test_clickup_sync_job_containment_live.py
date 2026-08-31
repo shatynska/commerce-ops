@@ -412,6 +412,30 @@ def driven_job(
             "fixture to the provider it does use"
         )
         monkeypatch.setattr(job_module, "session", _provider)
+
+        if hasattr(job_module, "transaction"):
+            # `trigger-clickup-projection-on-launch-events`: the pass now
+            # also opens `transaction()` per launch, solely to hold
+            # `hold_launch_advance_lock`. Left unpatched, that call falls
+            # through to the real application engine singleton — a second,
+            # long-lived connection pool this test's own `engine` fixture
+            # does not own or dispose, whose connections can outlive this
+            # test's event loop and get handed to a *later* test's, on a
+            # *different* loop, once pytest-asyncio/anyio tears this one
+            # down. A genuinely separate connection from `walk.session`
+            # (never bound to `walk.session` itself), still from this
+            # test's own `engine`, so the property under test — the lock
+            # and `converge_launch`'s writes living on different
+            # connections — still holds.
+            @asynccontextmanager
+            async def _lock_provider(
+                *args: Any, **kwargs: Any
+            ) -> AsyncIterator[AsyncSession]:
+                async with maker() as lock_session:
+                    yield lock_session
+
+            monkeypatch.setattr(job_module, "transaction", _lock_provider)
+
         monkeypatch.setattr(job_module, "PlaybookRepository", _FakePlaybookRepository)
         monkeypatch.setattr(
             job_module,
