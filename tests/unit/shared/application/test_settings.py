@@ -59,6 +59,10 @@ REQUIRED_NOT_STARTUP_CRITICAL = frozenset(
         "OMNI_AGENT_SLACK_BOT_TOKEN",
         "PRODUCT_AGENT_SLACK_BOT_TOKEN",
         "PRODUCT_AGENT_MONITORING_CHANNEL_ID",
+        # Added by thread-launch-slack-notifications: the dedicated channel
+        # for per-product launch messages and thread replies. Required but
+        # not startup-critical, like other Slack channel IDs.
+        "PRODUCT_AGENT_LAUNCHES_CHANNEL_ID",
         # Moved here from OPTIONAL by start-launch-from-slack (tasks 1.1):
         # the launch-entry surface is its first consumer, so a deployment
         # without it is misconfigured rather than merely feature-less. Not

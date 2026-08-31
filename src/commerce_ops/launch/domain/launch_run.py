@@ -298,6 +298,8 @@ class Launch:
         step_progress: Mapping[str, StepProgress] | None = None,
         approvals: Mapping[str, GateApproval] | None = None,
         attestations: Iterable[MetricAttestation] = (),
+        submitter: str | None = None,
+        slack_thread_id: str | None = None,
     ) -> None:
         if current_gate not in GATE_SEQUENCE:
             raise LaunchError(
@@ -311,6 +313,8 @@ class Launch:
         self._approvals: dict[str, GateApproval] = dict(approvals or {})
         self._attestations: list[MetricAttestation] = list(attestations)
         self._graduated = False
+        self.submitter = submitter
+        self._slack_thread_id = slack_thread_id
 
     @classmethod
     def start(
@@ -319,6 +323,7 @@ class Launch:
         product_id: ProductId,
         playbook: LaunchPlaybook,
         launch_date: date | None = None,
+        submitter: str | None = None,
     ) -> tuple[Launch, LaunchStarted]:
         """A new launch begins at `commit`, the first gate — the start
         path offers no way to begin anywhere else — with the playbook
@@ -328,6 +333,7 @@ class Launch:
             playbook_version=playbook.version,
             current_gate=GATE_SEQUENCE[0],
             launch_date=launch_date,
+            submitter=submitter,
         )
         return launch, LaunchStarted(
             product_id=product_id, playbook_version=playbook.version
@@ -352,6 +358,14 @@ class Launch:
     @property
     def approved_gate_ids(self) -> tuple[str, ...]:
         return tuple(self._approvals)
+
+    @property
+    def slack_thread_id(self) -> str | None:
+        return self._slack_thread_id
+
+    @slack_thread_id.setter
+    def slack_thread_id(self, ts: str | None) -> None:
+        self._slack_thread_id = ts
 
     # -- commands -----------------------------------------------------------
 

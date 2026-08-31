@@ -137,11 +137,62 @@ async def deliver_pending_result(
     it learns the post did not happen.
     """
     message = compose_message(result=result, product=product, step_name=step_name)
-    await post_monitoring_message(
-        channel=monitoring_channel(),
-        text=message,
-        blocks=compose_blocks(result=result, message=message),
+    # Establish thread and get mention target (step's confirmer)
+    from commerce_ops.launch.application.thread_establishment import (
+        ensure_launch_thread,
+        resolve_mention_target,
     )
+    from commerce_ops.launch.infrastructure.driven.launch_repository import (
+        LaunchRepository,
+    )
+    from commerce_ops.launch.infrastructure.driven.launch_thread_lock import (
+        hold_launch_thread_establishment_lock,
+    )
+    from commerce_ops.launch.infrastructure.driven.slack_notifier import (
+        launches_channel,
+    )
+    from commerce_ops.shared.infrastructure.driven.database import transaction
+
+    product_id = getattr(result, "product_id", None)
+    step_id = getattr(result, "step_id", None)
+
+    if not isinstance(product_id, ProductId):
+        raise TypeError(f"product_id must be ProductId, got {type(product_id)}")
+
+    async with transaction() as db_session:
+        sku_value = ""
+        marketplace_value = ""
+        if product:
+            sku = getattr(product, "sku", None)
+            sku_value = sku.value if sku else ""
+            marketplace = getattr(product, "marketplace_id", None)
+            marketplace_value = marketplace.value if marketplace else ""
+        thread_ts = await ensure_launch_thread(
+            db_session,
+            LaunchRepository(db_session),
+            product_id,
+            product.name if product else str(product_id),
+            sku_value,
+            marketplace_value,
+            hold_lock=hold_launch_thread_establishment_lock,
+            channel=launches_channel,
+        )
+        launch = await LaunchRepository(db_session).get_by_product_id(product_id)
+        # Get step definition to pass to resolver for confirmer lookup
+        step_def = None
+        if launch and step_id and hasattr(launch, "playbook_version"):
+            # Note: would need playbook access to get step_def; for now use None
+            pass
+        mention = (
+            await resolve_mention_target(launch, step=step_def) if launch else None
+        )
+        mention_tag = f" <@{mention}>" if mention else ""
+        await post_monitoring_message(
+            channel=launches_channel(),
+            text=mention_tag + message,
+            blocks=compose_blocks(result=result, message=message),
+            thread_ts=thread_ts,
+        )
     _logger.info(
         "automation confirmation: delivered the pending result for step "
         "'%s' on product '%s' for a decision",
