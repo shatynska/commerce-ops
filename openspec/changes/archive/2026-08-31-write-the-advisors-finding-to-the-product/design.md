@@ -28,13 +28,17 @@ See proposal.md for motivation. Three constraints shape everything below:
 # shared/domain/result.py
 @dataclass(frozen=True, slots=True)
 class Success(Generic[T]):
-    value: T                     # laconic — exactly what gets recorded
-    comment: str | None = None   # optional — additional information, for a person or for tuning
+    value: T  # laconic — exactly what gets recorded
+    comment: str | None = (
+        None  # optional — additional information, for a person or for tuning
+    )
+
 
 @dataclass(frozen=True, slots=True)
 class Failure(Generic[E]):
-    error: E                     # laconic — why nothing was recorded
+    error: E  # laconic — why nothing was recorded
     comment: str | None = None
+
 
 Result = Success[T] | Failure[E]
 ```
@@ -50,7 +54,7 @@ This widens the shape from an earlier draft that put `comment` only on this one 
 class StepResolution:
     outcome: StepOutcomeValue
     result: str
-    finding: Result[Any, Any] | None = None   # NEW, defaults to None
+    finding: Result[Any, Any] | None = None  # NEW, defaults to None
 ```
 
 `outcome` and `result` keep meaning exactly what they mean today — the launch's own outcome vocabulary and its evidence text. `finding` is additive: a handler that has nothing to hand downstream (every handler today, and most future ones) simply never sets it, and nothing about existing behavior changes. `subcategory_advisor` is the first handler to populate it: `Success(value=sub_category, comment=...)` on a supported result, `Failure(error=reason, comment=...)` on an unsupported one.
@@ -64,13 +68,15 @@ class StepResolution:
 ```python
 class Supported(BaseModel):
     ok: Literal[True]
-    value: str                 # the sub-category node, as a full path — becomes Success.value
-    comment: str | None = None # everything else — becomes Success.comment
+    value: str  # the sub-category node, as a full path — becomes Success.value
+    comment: str | None = None  # everything else — becomes Success.comment
+
 
 class Unsupported(BaseModel):
     ok: Literal[False]
-    error: str                 # non-empty — becomes Failure.error
+    error: str  # non-empty — becomes Failure.error
     comment: str | None = None
+
 
 AdvisorResult = Supported | Unsupported
 ```
