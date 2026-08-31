@@ -83,25 +83,33 @@ _logger = logging.getLogger(__name__)
 
 TASK_NAME = "launch.clickup.completion_pass"
 
-# Every 10 minutes. The webhook is what makes completion prompt; this pass
-# exists to catch what it missed, so its cadence sets how long a dropped
-# delivery can go unnoticed, not how quickly completion is normally seen.
+# Twice daily. The webhook is now the primary path completion travels;
+# this pass is the safety net for what it missed, so its cadence sets how
+# long a dropped delivery can go unnoticed, not how quickly completion is
+# normally seen.
 #
-# Lowered from 30 minutes on 2026-08-24. That figure was sized for a pass
-# standing behind a working webhook; until one is registered, this pass is
-# the only path completion travels, and half an hour of it is felt by
-# whoever ticked the task. Steady-state cost is two ClickUp reads per
-# active launch per pass, so tripling the rate stays far inside the
-# ~100 req/min budget. The first projection of a new launch (~185 calls)
-# is unaffected -- that spike is per launch, not per pass.
-SYNC_SCHEDULE = "*/10 * * * *"
+# Lowered from */10 on 2026-08-31, completing the second of the two stages
+# `shift-clickup-completions-to-webhook` planned (`design.md` -- "Cadence:
+# twice daily, not once"). That change's own `tasks.md` (4, 3.4) made this
+# conditional on first confirming reliable webhook delivery over a real
+# observation period -- which did not happen; the change was archived once
+# the webhook was merely confirmed *working*, not observed reliable over
+# days. This cadence change was made anyway, on an explicit decision to
+# accept that unmet precondition: real ClickUp 429s from the combined load
+# of this pass and the automation pass needed relieving immediately (a
+# separate, parallel change addresses 429 handling itself), and only test
+# data is at stake while no real production launch exists yet. See that
+# archived change's `tasks.md`, section 4's note, for the full record, and
+# `docs/deferred-work.md`'s `LaunchRepository.save` entry for the
+# self-healing window this widened.
+SYNC_SCHEDULE = "0 6,18 * * *"
 
 # Comfortably longer than the worker's own liveness tolerance, which
 # `scheduled-jobs` requires of every piece of work it runs: an absent
 # worker must become visible before the work it failed to run does. Also
-# far longer than the 10-minute gap, so a merely delayed run is never
+# far longer than the 12-hour gap, so a merely delayed run is never
 # reported overdue.
-SYNC_TOLERANCE = datetime.timedelta(hours=6)
+SYNC_TOLERANCE = datetime.timedelta(hours=24)
 
 
 # Injected by `worker.py` after `register_all()`, never at import and never

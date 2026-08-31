@@ -33,15 +33,28 @@ This section is this change's first mergeable unit. **Do not begin section 4 in 
 - [ ] 3.3 Observe real deliveries over a few days of actual ClickUp task closures: confirm `clickup_webhook.py` is recording outcomes (application logs, or comparing journal entries with provenance source `clickup` against when tasks were actually closed) rather than everything still arriving only via the `*/10` poll.
 - [ ] 3.4 **STOP — human confirmation gate.** Section 4 (the cadence change) is not to be started, by a person or an agent working through this checklist, until a person has explicitly confirmed that 3.3's observation period showed reliable delivery. This is a precondition on continuing this change, not a task to check off unilaterally — `design.md`'s whole argument for why the widened `LaunchRepository.save` self-healing window (see 4.3) is safe to accept depends on the webhook actually being the primary path by the time the cadence changes, not on trusting that it will be.
 
+**3.3/3.4 never happened, and section 4 was started anyway.** This change was
+archived once PR 1 shipped (see 4.5's note below), before either 3.3's
+observation period or 3.4's confirmation gate. Section 4 was picked up on
+2026-08-31, on an explicit decision to accept that unmet precondition —
+real ClickUp `429`s from the combined load of this pass and the automation
+pass needed relieving immediately (a separate, parallel change addresses
+`429` handling itself), and only test data was at stake, with no real
+production launch yet, making the accepted risk (a wider, unobserved
+`LaunchRepository.save` clobber window — see 4.3) tolerable. Left unchecked
+above because the observation itself still never happened, not because the
+decision to proceed without it was an oversight.
+
 ## 4. PR 2 — lower the reconciliation cadence (only after 3.4 is confirmed)
 
 Its own PR, opened after 3.4, not a continuation commit on PR 1's branch.
+**Actually opened 2026-08-31 without 3.4's confirmation — see the note above.**
 
-- [ ] 4.1 Change `clickup_sync_job.SYNC_SCHEDULE` to `"0 6,18 * * *"` and `SYNC_TOLERANCE` to `datetime.timedelta(hours=24)`, updating the module's own comment to explain the new cadence the way the current one explains `*/10` (referencing that the webhook is now the primary path, this pass the safety net).
-- [ ] 4.2 Update `tests/unit/launch/infrastructure/driving/test_clickup_sync_job_schedule.py`: `EXPECTED_INTERVAL_SECONDS` to `12 * 60 * 60`, and its docstring's cadence reference — this file's own comments already anticipate this ("If the cadence is revised again, this figure is the thing to correct").
-- [ ] 4.3 Add a note to `docs/deferred-work.md`'s existing `LaunchRepository.save` entry recording that this change widened its self-healing window from ~10 minutes to up to ~12 hours, so the item's priority can be reassessed with current information rather than the figure it was originally accepted under.
+- [x] 4.1 Change `clickup_sync_job.SYNC_SCHEDULE` to `"0 6,18 * * *"` and `SYNC_TOLERANCE` to `datetime.timedelta(hours=24)`, updating the module's own comment to explain the new cadence the way the current one explains `*/10` (referencing that the webhook is now the primary path, this pass the safety net).
+- [x] 4.2 Update `tests/unit/launch/infrastructure/driving/test_clickup_sync_job_schedule.py`: `EXPECTED_INTERVAL_SECONDS` to `12 * 60 * 60`, and its docstring's cadence reference — this file's own comments already anticipate this ("If the cadence is revised again, this figure is the thing to correct").
+- [x] 4.3 Add a note to `docs/deferred-work.md`'s existing `LaunchRepository.save` entry recording that this change widened its self-healing window from ~10 minutes to up to ~12 hours, so the item's priority can be reassessed with current information rather than the figure it was originally accepted under.
 - [ ] 4.4 Merge and deploy this PR separately from PR 1.
-- [ ] 4.5 Archive this change (`openspec archive shift-clickup-completions-to-webhook --yes`) as the last commit before PR 2's merge, per `AGENTS.md` — not after PR 1. The spec delta describes only the registration step PR 1 implements, but this change stays open (and its tasks.md incomplete) until PR 2 also lands, so the archive waits for the whole change to be done rather than splitting it across two merges.
+- [x] 4.5 ~~Archive this change...~~ Already archived with PR 1, out of order — see the note above 4.1. Nothing left to archive here; this section's own tasks.md is being updated in place as the durable record instead.
 
 ## 5. Verification
 
