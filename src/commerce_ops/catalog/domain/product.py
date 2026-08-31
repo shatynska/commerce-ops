@@ -79,6 +79,7 @@ class Product:
         stage: LifecycleStage,
         stage_entered_at: datetime,
         stage_confirmed_by: str | None,
+        sub_category: str | None = None,
     ) -> None:
         self.id = id
         self.sku = sku
@@ -88,6 +89,7 @@ class Product:
         self.stage = stage
         self.stage_entered_at = stage_entered_at
         self.stage_confirmed_by = stage_confirmed_by
+        self.sub_category = sub_category
 
     @classmethod
     def register(
@@ -115,6 +117,12 @@ class Product:
 
     def record_asin(self, asin: Asin) -> None:
         self.asin = asin
+
+    def record_sub_category(self, sub_category: str) -> None:
+        """A standalone fact, not part of the stage machine: overwritable,
+        no confirmer tracked, recordable in any stage — mirrors
+        `record_asin` exactly."""
+        self.sub_category = sub_category
 
     def change_stage(
         self,

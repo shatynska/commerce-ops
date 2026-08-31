@@ -1,8 +1,9 @@
 """The sub-category advisor: its graph, and its registration as a handler.
 
 `subcategory-advisor`: given a product's name and its marketplace, propose
-the Amazon sub-category node it belongs in and name the compliance fields
-and certifications that node then demands — the work `lp.listing.007`
+the Amazon sub-category node it belongs in and, in a comment, name the
+compliance fields and certifications that node demands and the
+alternative node rejected in its favour — the work `lp.listing.007`
 describes.
 
 Shaped like `omni_agent/application/graph.py`, including its
@@ -22,10 +23,21 @@ proposing satisfaction alongside "I cannot tell you the category" would
 leave a compliance-relevant step one unread paragraph from being recorded
 `Satisfied`.
 
-A model failure, and a response whose content is not a plain string, both
-surface. A masked failure here would not merely return a poor answer — it
-would reach a person as a recommendation to accept and become the evidence
-for a compliance-relevant decision.
+**Support comes from a schema-validated discriminant, not from reading
+prose.** The model's answer is constrained to `AdvisorResult` — `Supported`
+or `Unsupported`, distinguished by `ok` — so a supported result is read
+from that field, never searched for in text. The one place prose can still
+withhold support is `Supported.comment`: it is where all of the advisor's
+narrative now lives, so it is also the one place a model could still write
+"actually I'm not sure" despite setting `ok: true`; `_advisor_refuses`
+narrowly vetoes exactly that (`propose()`). Whether a non-empty comment
+actually *contains* the compliance demands and rejected alternative it was
+prompted for is never checked — only that it is non-empty. A model or
+transport failure, and a response that fails schema validation against
+both variants, both surface rather than being masked: a masked failure
+here would not merely return a poor answer — it would reach a person as a
+recommendation to accept and become the evidence for a
+compliance-relevant decision.
 
 **Which processes import this module is load-bearing.** Registration
 happens where the handler is defined, through `register_step_handler` —
@@ -67,7 +79,9 @@ from __future__ import annotations
 import functools
 import re
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, TypedDict
+from typing import TYPE_CHECKING, Any, Literal, TypedDict, cast
+
+from pydantic import BaseModel
 
 from commerce_ops.launch.application import (
     Blocked,
@@ -76,15 +90,18 @@ from commerce_ops.launch.application import (
     StepResolution,
     register_step_handler,
 )
+from commerce_ops.shared.domain.result import Success
 
 if TYPE_CHECKING:
     from langchain_core.language_models import BaseChatModel
 
 __all__ = [
     "HANDLER_NAME",
+    "AdvisorResult",
     "AdvisorState",
-    "NonStringRecommendationError",
     "Proposal",
+    "Supported",
+    "Unsupported",
     "advise_sub_category",
     "build_graph",
     "build_production_graph",
@@ -92,14 +109,6 @@ __all__ = [
 ]
 
 HANDLER_NAME = "listing.subcategory_advisor"
-
-#: The two values the verdict may carry. Anything else — including a
-#: verdict the model never reported — is not support, which is the
-#: fail-safe direction: a supported result wrongly withheld costs a pass,
-#: while an unsupported one wrongly accepted puts a false terminal
-#: outcome in front of a person.
-SUPPORTED = "supported"
-UNSUPPORTED = "unsupported"
 
 #: Who the refusal has to be *about* for the veto to fire. The veto reads
 #: a statement that the **advisor** cannot make a choice; a recommendation
@@ -125,40 +134,84 @@ You are advising on where an Amazon product listing belongs.
 Product: {product_name}
 Marketplace: {marketplace}
 
-Name the sub-category node this product belongs in, expressed as the full
-path from the top-level category down. Then name the compliance fields and
-certifications that node demands. Then name the alternative node a reader
-would most plausibly have chosen instead, and why this one was preferred.
+Propose the sub-category node this product belongs in, expressed as the
+full path from the top-level category down. In your comment, name the
+compliance fields and certifications that node demands, then name the
+alternative node a reader would most plausibly have chosen instead, and
+why this one was preferred.
 
 If the category structure gives you no confident answer for this product
-and marketplace, say plainly that you cannot support a node choice, and do
-not name a node as though it were supported.
-
-Begin your answer with a single line reading exactly `Verdict: supported`
-or `Verdict: unsupported`, then a blank line, then the answer itself. The
-verdict line is read by the system; everything after it is read by a
-person, so state a refusal there in your own words as well.
+and marketplace, report that you cannot support a node choice rather than
+naming one.
 """
 
-#: Reads the verdict line the prompt asks for and takes it off the front
-#: of the recommendation, so the prose a person reads carries no machine
-#: scaffolding. A missing line yields `None` -- not a default -- because
-#: "never reported" and "reported as something unrecognised" are
-#: different facts the caller has to be able to tell apart.
-_VERDICT_LINE = re.compile(
-    r"^[ \t]*verdict[ \t]*:[ \t]*(?P<value>[^\r\n]*)", re.IGNORECASE
+#: Shared by both fail-safe routes below (no verdict validated at all, and
+#: a supported verdict whose comment was empty): a shortfall in what the
+#: model produced, not a finding about the product, so both read as one
+#: reason rather than two.
+_NO_VERDICT_REASON = (
+    "the sub-category advisor reported no verdict that could be read for "
+    "'{product_name}' on '{marketplace}', so whether a node choice could "
+    "be supported is unknown rather than settled"
 )
 
 
-def _split_verdict(content: str) -> tuple[str | None, str]:
-    """The verdict the model reported, and the recommendation without it."""
-    match = _VERDICT_LINE.match(content)
-    if match is None:
-        return None, content
-    verdict = match.group("value").strip()
-    prose = content[match.end() :].lstrip("\r\n")
-    # A `Verdict:` line with nothing after it reported no verdict at all.
-    return (verdict or None), prose
+def _no_verdict_reason(product_name: str, marketplace: str) -> str:
+    return _NO_VERDICT_REASON.format(product_name=product_name, marketplace=marketplace)
+
+
+def _contradiction_reason(product_name: str, marketplace: str) -> str:
+    return (
+        "the sub-category advisor reported a supporting verdict that its "
+        "own comment contradicts, so the verdict and the comment disagree "
+        f"and no node choice was accepted for '{product_name}' on "
+        f"'{marketplace}'"
+    )
+
+
+def _unsupported_reason(error: str, product_name: str, marketplace: str) -> str:
+    return (
+        "the sub-category advisor could not support a node choice for "
+        f"'{product_name}' on '{marketplace}': {error}"
+    )
+
+
+def _render_unsupported(error: str, comment: str | None) -> str:
+    text = f"The sub-category advisor could not support a node choice: {error}."
+    if comment:
+        text = f"{text}\n\n{comment}"
+    return text
+
+
+def _render_supported(value: str, comment: str) -> str:
+    return f"{value}\n\n{comment}"
+
+
+class Supported(BaseModel):
+    """The model's structured answer where it can support a node choice.
+
+    `value` is the sub-category node alone — becomes `Success.value` if
+    the recommendation is accepted. `comment` carries everything else: the
+    compliance fields and certifications the node demands, and the
+    alternative node rejected in its favour. That content is a prompting
+    obligation, not something code parses out of it — only that it is
+    non-empty is checked.
+    """
+
+    ok: Literal[True]
+    value: str
+    comment: str | None = None
+
+
+class Unsupported(BaseModel):
+    """The model's structured answer where it cannot support a choice."""
+
+    ok: Literal[False]
+    error: str
+    comment: str | None = None
+
+
+AdvisorResult = Supported | Unsupported
 
 
 class AdvisorState(TypedDict, total=False):
@@ -166,29 +219,21 @@ class AdvisorState(TypedDict, total=False):
 
     product_name: str
     marketplace: str
-    recommendation: str
-    #: Whether the advisor could support a node choice, as its own value
-    #: rather than something read back out of `recommendation`. Absent is
-    #: a state the fail-safe answers, which is why this is not defaulted.
-    verdict: str
-
-
-class NonStringRecommendationError(Exception):
-    """The model answered with content that is not a plain string.
-
-    Named rather than coerced, following `omni_agent`'s
-    `NonStringAnswerError` precedent for the same words: a `str(...)` of a
-    content block list is a fabricated recommendation, which is exactly
-    what the requirement forbids.
-    """
+    #: The model's structured answer, or `None` where the structured call
+    #: completed but validated against neither variant. Absent-vs-`None`
+    #: is not a distinction this state needs to preserve: a call that
+    #: never ran surfaces as an exception, not as a state without this key.
+    parsed: Supported | Unsupported | None
 
 
 @dataclass(frozen=True, slots=True)
 class Proposal:
-    """What the advisor hands the runtime: an outcome and the text."""
+    """What the advisor hands the runtime: an outcome, the text, and —
+    where it could support a choice — a typed finding."""
 
     outcome: Any
     result: str
+    finding: Any = None
 
 
 def build_graph(model: BaseChatModel) -> Any:
@@ -200,30 +245,26 @@ def build_graph(model: BaseChatModel) -> Any:
     from langchain_core.messages import HumanMessage
     from langgraph.graph import END, START, StateGraph
 
-    def recommend(state: AdvisorState) -> dict[str, str]:
+    def recommend(state: AdvisorState) -> dict[str, Any]:
         prompt = _PROMPT.format(
             product_name=state.get("product_name", ""),
             marketplace=state.get("marketplace", ""),
         )
-        # No `try` around this: a model that is unavailable or errors must
-        # surface, not become a recommendation.
-        response = model.invoke([HumanMessage(content=prompt)])
-        content = response.content
-        if not isinstance(content, str):
-            raise NonStringRecommendationError(
-                "the language model answered with content that is not a "
-                f"plain string ({type(content).__name__}); refusing to "
-                "build a recommendation from it"
-            )
-        verdict, prose = _split_verdict(content)
-        # The verdict is omitted from the returned state when the model did
-        # not give one, rather than defaulted: `propose` has to be able to
-        # tell "not reported" from "reported as something unrecognised",
-        # and a default would erase that distinction here.
-        produced: dict[str, str] = {"recommendation": prose}
-        if verdict is not None:
-            produced["verdict"] = verdict
-        return produced
+        # `with_structured_output`'s stub declares `schema: dict | type`,
+        # narrower than what it accepts at runtime -- a union of Pydantic
+        # models is exactly how a discriminated multi-variant response is
+        # requested, and is not expressible as a single `type`.
+        structured = model.with_structured_output(
+            cast(type, AdvisorResult), include_raw=True
+        )
+        # No `try` around this: a model or transport fault must surface,
+        # not become a recommendation.
+        response = structured.invoke([HumanMessage(content=prompt)])
+        # `include_raw=True` always answers a dict of `raw`/`parsed`/
+        # `parsing_error` (the docstring says so; the stub's return type
+        # does not encode it, since it carries no `include_raw` overload).
+        assert isinstance(response, dict)
+        return {"parsed": response.get("parsed")}
 
     graph = StateGraph(AdvisorState)
     graph.add_node("recommend", recommend)
@@ -241,17 +282,18 @@ def build_production_graph() -> Any:
     return build_graph(ChatOpenAI(model="gpt-4o-mini"))
 
 
-def _advisor_refuses(recommendation: str) -> bool:
-    """Whether the recommendation says *the advisor* cannot make a choice.
+def _advisor_refuses(comment: str) -> bool:
+    """Whether the comment says *the advisor* cannot make a choice.
 
-    Deliberately narrower than the substring list this change deletes.
-    That list would also match a rejected alternative described as unable
-    to support some particular demand -- a statement about that node, not
-    about the advisor -- and vetoing on it would block the step on every
-    pass for the product, since the same prompt yields the same shape.
-    So the subject is what is matched, not the phrase.
+    Deliberately narrower than a substring list. That would also match a
+    rejected alternative described as unable to support some particular
+    demand -- a statement about that node, not about the advisor -- and
+    vetoing on it would block the step on every pass for the product,
+    since the same prompt yields the same shape. So the subject is what is
+    matched, not the phrase. Runs only over `comment`: `value` carries no
+    prose to misread at all.
     """
-    return _ADVISOR_REFUSES.search(recommendation) is not None
+    return _ADVISOR_REFUSES.search(comment) is not None
 
 
 def propose(
@@ -268,75 +310,49 @@ def propose(
     """
     running = graph if graph is not None else build_production_graph()
     state = running.invoke({"product_name": product_name, "marketplace": marketplace})
-    recommendation = state["recommendation"]
+    parsed = state.get("parsed")
 
-    # Read, never inferred. The verdict is the only thing that can
-    # *establish* support; the prose below can only withhold it.
-    reported = state.get("verdict")
-    verdict = reported.strip().lower() if isinstance(reported, str) else None
-
-    if verdict == SUPPORTED:
-        # The one direction prose may act in. A verdict claiming support
-        # while the recommendation refuses is the state the served
-        # prohibition on "a satisfying one accompanied by text admitting
-        # there is no answer" exists to forbid, and without this check
-        # nothing would enforce it once the old matcher is gone.
-        if _advisor_refuses(recommendation):
+    if isinstance(parsed, Supported):
+        comment = parsed.comment
+        # Route 2: validated as supported, but the comment is empty — a
+        # shortfall in what the model produced, not evidence to be trusted
+        # with satisfaction. Shares its reason with route 1 below.
+        if not comment:
+            reason = _no_verdict_reason(product_name, marketplace)
+            return Proposal(outcome=Blocked(reason=reason), result=reason)
+        # Route 3: the one direction prose may still act in. A verdict
+        # claiming support while its own comment refuses is the state the
+        # served prohibition on "a satisfying one accompanied by text
+        # admitting there is no answer" exists to forbid.
+        if _advisor_refuses(comment):
+            reason = _contradiction_reason(product_name, marketplace)
             return Proposal(
-                outcome=Blocked(
-                    reason=(
-                        "the sub-category advisor reported a supporting "
-                        "verdict that its own recommendation contradicts, so "
-                        "the verdict and the prose disagree and no node "
-                        f"choice was accepted for '{product_name}' on "
-                        f"'{marketplace}'"
-                    )
-                ),
-                result=recommendation,
+                outcome=Blocked(reason=reason),
+                result=_render_supported(parsed.value, comment),
             )
-        return Proposal(outcome=Satisfied, result=recommendation)
-
-    if verdict == UNSUPPORTED:
-        # A classification considered and declined -- the only one of the
-        # four withheld paths that is a finding about the product, and the
-        # only one keeping this wording.
         return Proposal(
-            outcome=Blocked(
-                reason=(
-                    "the sub-category advisor could not support a node "
-                    f"choice for '{product_name}' on '{marketplace}'"
-                )
-            ),
-            result=recommendation,
+            outcome=Satisfied,
+            result=_render_supported(parsed.value, comment),
+            finding=Success(value=parsed.value, comment=comment),
         )
 
-    if reported is None:
-        # A shortfall, not a finding. Saying "could not support a node
-        # choice" here would record a model omission on the launch as the
-        # advisor's judgement about the product.
+    if isinstance(parsed, Unsupported):
+        # A classification considered and declined -- a finding about the
+        # product, unlike the two shortfall routes above and below.
         return Proposal(
             outcome=Blocked(
-                reason=(
-                    "the sub-category advisor reported no verdict for "
-                    f"'{product_name}' on '{marketplace}', so whether a node "
-                    "choice could be supported is unknown rather than settled"
-                )
+                reason=_unsupported_reason(parsed.error, product_name, marketplace)
             ),
-            result=recommendation,
+            result=_render_unsupported(parsed.error, parsed.comment),
         )
 
-    # Reported, but as neither value. Distinct from absence, and the
-    # offending value is named: an operator cannot act on "unreadable".
-    return Proposal(
-        outcome=Blocked(
-            reason=(
-                "the sub-category advisor reported the unrecognised verdict "
-                f"'{reported}' for '{product_name}' on '{marketplace}', which "
-                "is neither supported nor unsupported"
-            )
-        ),
-        result=recommendation,
-    )
+    # Route 1: the structured call completed but validated against neither
+    # variant -- the same condition a value fitting neither `supported` nor
+    # `unsupported` described before structured output existed. Saying
+    # "could not support a node choice" here would record a model omission
+    # on the launch as the advisor's own judgement about the product.
+    reason = _no_verdict_reason(product_name, marketplace)
+    return Proposal(outcome=Blocked(reason=reason), result=reason)
 
 
 @functools.lru_cache
@@ -368,4 +384,6 @@ async def advise_sub_category(context: StepContext) -> StepResolution:
         marketplace=str(getattr(marketplace, "value", marketplace)),
         graph=_graph(),
     )
-    return StepResolution(outcome=proposal.outcome, result=proposal.result)
+    return StepResolution(
+        outcome=proposal.outcome, result=proposal.result, finding=proposal.finding
+    )
