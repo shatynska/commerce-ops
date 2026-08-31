@@ -191,14 +191,14 @@ At most one pending result SHALL stand for a launch and step at any moment. A st
 
 ### Requirement: A pending result is delivered for a decision, and delivery failure does not lose it
 
-The system SHALL deliver each pending result to Slack, naming the product, the step, the outcome the handler proposed and the produced text in full, and offering an accept and a reject decision.
+The system SHALL deliver each pending result to Slack, as a reply within that launch's Slack thread — establishing the thread first if it does not yet exist — naming the product, the step, the outcome the handler proposed and the produced text in full, offering an accept and a reject decision, and tagging the step's named confirmer.
 
 A failure to deliver SHALL NOT discard the pending result and SHALL NOT record an outcome. The failure SHALL be reported, and the pending result SHALL remain available to be delivered again — the same decoupling the daily briefing keeps between assembling a report and delivering it.
 
 #### Scenario: A pending result reaches Slack
 
 - **WHEN** a pending result is stored
-- **THEN** a Slack message is delivered naming the product, the step, the proposed outcome and the produced text, offering an accept and a reject decision
+- **THEN** a Slack message tagging the step's confirmer is delivered as a reply within the launch's thread, naming the product, the step, the proposed outcome and the produced text, offering an accept and a reject decision
 
 #### Scenario: Undelivered is not undone
 
@@ -209,6 +209,11 @@ A failure to deliver SHALL NOT discard the pending result and SHALL NOT record a
 
 - **WHEN** a delivery failed and a later pass runs
 - **THEN** delivery of that pending result is attempted again
+
+#### Scenario: A pending result for a launch with no thread yet establishes one
+
+- **WHEN** a pending result is delivered for a launch that has no Slack thread reference
+- **THEN** an anchor message is posted for that launch first, and the pending result is delivered as a reply within the newly established thread
 
 ### Requirement: Only the step's named confirmer may decide a pending result
 
@@ -509,7 +514,7 @@ Where the shared store cannot be restored to a usable state after such a failure
 
 ### Requirement: A step whose handler has stopped making progress is reported once
 
-Where a handler repeats a non-terminal outcome and the step is cooled off, the system SHALL report that step once — naming the launch, the step, and **what the handler produced as its result**, which for a `Blocked` outcome is also the reason it carries — so that a person can supply what the handler is missing. A handler that cannot resolve a step is reporting work only a person can do, and a record nobody reads is not a report. The result is reported as what the handler said, never asserted as a fact about the product.
+Where a handler repeats a non-terminal outcome and the step is cooled off, the system SHALL report that step once — as a reply within the launch's Slack thread, establishing the thread first if it does not yet exist — naming the launch, the step, and **what the handler produced as its result**, which for a `Blocked` outcome is also the reason it carries, and tagging the step's named confirmer where the step names one, the launch's submitter otherwise, so that a person can supply what the handler is missing. A handler that cannot resolve a step is reporting work only a person can do, and a record nobody reads is not a report. The result is reported as what the handler said, never asserted as a fact about the product.
 
 The report SHALL be delivered once for as long as the step stays stuck, and SHALL NOT be repeated on every pass **nor on each expiry of the cool-off**: a step stuck for a week is one message, not seven. A step whose recorded outcome later changes, or which reaches an outcome its hazard permits as terminal, SHALL become eligible to be reported again if it later gets stuck.
 
@@ -524,7 +529,17 @@ A failure to deliver the report SHALL NOT fail the pass, SHALL NOT stop the rema
 #### Scenario: A newly cooled-off step is reported
 
 - **WHEN** a handler repeats a non-terminal outcome and the step is cooled off for the first time
-- **THEN** a report naming the launch, the step and what the handler produced as its result is delivered
+- **THEN** a report naming the launch, the step and what the handler produced as its result is delivered as a reply within the launch's Slack thread
+
+#### Scenario: A stuck step naming a confirmer tags that confirmer
+
+- **WHEN** a report is delivered for a stuck step that names a confirmer
+- **THEN** the message tags that confirmer
+
+#### Scenario: A stuck step naming no confirmer tags the submitter
+
+- **WHEN** a report is delivered for a stuck step that names no confirmer
+- **THEN** the message tags the launch's submitter instead
 
 #### Scenario: A step that stays stuck is not reported again
 

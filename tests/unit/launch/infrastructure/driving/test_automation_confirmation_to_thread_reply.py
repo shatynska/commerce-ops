@@ -31,13 +31,19 @@ INVENTED, recorded in `test-manifest.md`:
 - How the adapter receives the confirmer information (from step field)
 - The call signature of the delivery adapter (probed dynamically)
 
-## Expected first-run state
+## Level, and how thread establishment is substituted
 
-The modified automation confirmation adapter does not yet exist or has
-different behavior, so these tests are expected to fail. The absent-target
-case is expected per `ai-toolkit:testing`.
-
-Baseline: captured before writing these tests.
+Unit tests of the automation confirmation adapter over a captured Slack
+poster, with the thread-and-mention preamble substituted at the
+module-level seam every driving adapter shares
+(`establish_thread_and_resolve_mention`, `launch_thread_delivery.py`,
+imported at module scope in `automation_confirmation.py` for exactly this
+reason). Thread establishment's own behavior — first caller posts the
+anchor, a concurrent race produces exactly one, reuse skips it — is
+covered directly against the real operation in
+`tests/unit/launch/application/test_thread_establishment_race.py`; this
+file only checks that `deliver_pending_result` reaches that collaborator,
+threads `step` through it correctly, and uses what it returns.
 """
 
 from __future__ import annotations
@@ -130,76 +136,174 @@ class _PendingRow:
 
 
 class _CapturingPoster:
-    """Captures Slack API calls made by the confirmation adapter."""
+    """Captures Slack API calls made by the confirmation adapter.
+
+    `deliver_pending_result` reaches `post_monitoring_message` (imported at
+    module scope, called with keyword arguments — `channel`, `text`,
+    `blocks`, `thread_ts`), so this is substituted in place of that
+    function directly, and each call's kwargs recorded as-is.
+    """
 
     def __init__(self) -> None:
-        self.posts: list[dict[str, Any]] = []
+        self.calls: list[dict[str, Any]] = []
 
-    async def __call__(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
-        self.posts.append({"args": args, "kwargs": kwargs})
-        return {"ok": True, "ts": SLACK_THREAD_TS}
-
-    async def chat_postMessage(self, **kwargs: Any) -> dict[str, Any]:
-        return await self(chat_postMessage=kwargs)
+    async def __call__(self, **kwargs: Any) -> None:
+        self.calls.append(kwargs)
 
     @property
     def rendered(self) -> str:
-        return json.dumps(self.posts, default=str)
+        return json.dumps(self.calls, default=str)
 
 
-async def test_pending_result_goes_to_launches_channel() -> None:
+_POSTER_NAMES: Final = ("post_monitoring_message",)
+
+
+def _install_poster(
+    monkeypatch: pytest.MonkeyPatch, poster: _CapturingPoster
+) -> _CapturingPoster:
+    module = _module()
+    for name in _POSTER_NAMES:
+        if hasattr(module, name):
+            monkeypatch.setattr(module, name, poster)
+            return poster
+    pytest.fail(
+        "the automation confirmation adapter exposes no substitutable "
+        f"Slack poster under any of {_POSTER_NAMES} — correct this file's "
+        "probe to the implemented collaborator"
+    )
+
+
+_THREAD_NAMES: Final = ("establish_thread_and_resolve_mention",)
+
+
+def _install_thread_establishment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> list[dict[str, Any]]:
+    """Substitute the thread-and-mention preamble, recording each call's
+    arguments so a test can confirm `step` was threaded through correctly.
+
+    Returns a mention derived from `step.confirmer` when the caller passed
+    a step naming one, mirroring `resolve_mention_target`'s own rule —
+    that rule's correctness is `test_thread_establishment_race.py`'s
+    concern; this file only checks that the adapter asks for it right.
+    """
+    module = _module()
+    calls: list[dict[str, Any]] = []
+
+    async def _fake(*args: Any, **kwargs: Any) -> tuple[str, str | None]:
+        calls.append(kwargs)
+        step = kwargs.get("step")
+        mention = getattr(step, "confirmer", None) or SUBMITTER_ID
+        return SLACK_THREAD_TS, mention
+
+    for name in _THREAD_NAMES:
+        if hasattr(module, name):
+            monkeypatch.setattr(module, name, _fake)
+            return calls
+    pytest.fail(
+        "the automation confirmation adapter exposes no substitutable "
+        f"thread-establishment collaborator under any of {_THREAD_NAMES} — "
+        "correct this file's probe to the implemented collaborator"
+    )
+
+
+async def test_pending_result_goes_to_launches_channel(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """DERIVED: the pending result is posted to launches channel, not monitoring.
 
     The modified behavior delivers to the launches channel (where the thread
     lives) instead of the monitoring channel. This is a channel change required
     by "delivered as a reply within that launch's Slack thread".
     """
-    pytest.skip(
-        "automation confirmation adapter wiring not yet understood; structure "
-        "established for when implementation is clear"
+    monkeypatch.setenv("PRODUCT_AGENT_LAUNCHES_CHANNEL_ID", LAUNCHES_CHANNEL_ID)
+    _install_thread_establishment(monkeypatch)
+    poster = _install_poster(monkeypatch, _CapturingPoster())
+
+    entry = _module().deliver_pending_result
+    await entry(result=_PendingRow(), product=_CatalogProduct(), step_name=STEP_NAME)
+
+    assert poster.calls, "no Slack message was delivered for the pending result"
+    assert poster.calls[0].get("channel") == LAUNCHES_CHANNEL_ID, (
+        f"the pending result was not posted to the launches channel: "
+        f"{poster.calls[0]!r}"
     )
 
 
-async def test_pending_result_tags_confirmer() -> None:
+async def test_pending_result_tags_confirmer(monkeypatch: pytest.MonkeyPatch) -> None:
     """Scenario part: A pending result reaches Slack (with confirmer tag).
 
     WHEN a pending result is stored
     THEN a Slack message ... is delivered as a reply within the launch's
     thread, ... tagging the step's named confirmer.
 
-    SPECIFIED: the message tags the step's confirmer.
+    SPECIFIED: the message tags the step's confirmer. Asserted two ways:
+    the adapter threads the real `step` through to mention resolution (not
+    just its name), and it uses whatever mention that resolution returns.
     """
-    pytest.skip(
-        "automation confirmation adapter wiring not yet understood; structure "
-        "established for when implementation is clear"
+    monkeypatch.setenv("PRODUCT_AGENT_LAUNCHES_CHANNEL_ID", LAUNCHES_CHANNEL_ID)
+    calls = _install_thread_establishment(monkeypatch)
+    poster = _install_poster(monkeypatch, _CapturingPoster())
+
+    step = _StepWithConfirmer()
+    entry = _module().deliver_pending_result
+    await entry(
+        result=_PendingRow(), product=_CatalogProduct(), step_name=STEP_NAME, step=step
+    )
+
+    assert calls and calls[0].get("step") is step, (
+        "deliver_pending_result did not thread the pending result's own "
+        f"step through to mention resolution: {calls!r}"
+    )
+    assert f"<@{CONFIRMER_ID}>" in poster.rendered, (
+        f"the pending result did not tag the step's confirmer: {poster.rendered!r}"
     )
 
 
-async def test_pending_result_with_no_thread_establishes_one() -> None:
-    """Scenario: A pending result for a launch with no thread yet establishes one.
-
-    WHEN a pending result is delivered for a launch that has no Slack thread
-    reference
-    THEN an anchor message is posted for that launch first, and the pending
-    result is delivered as a reply within the newly established thread.
-
-    SPECIFIED: if the launch has no thread, one is created before the result
-    is posted as a reply to it.
+async def test_pending_result_with_no_confirmer_still_threads_the_step(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`resolve_mention_target`'s fallback (a step naming no confirmer tags
+    the launch's submitter instead) is `test_thread_establishment_race.py`'s
+    concern; this file's share is narrower — that `deliver_pending_result`
+    still passes the real step through even when it names no confirmer,
+    rather than substituting `None` and silently losing the fallback path.
     """
-    pytest.skip(
-        "thread establishment integration not yet available; structure "
-        "established for when implementation is clear"
+    monkeypatch.setenv("PRODUCT_AGENT_LAUNCHES_CHANNEL_ID", LAUNCHES_CHANNEL_ID)
+    calls = _install_thread_establishment(monkeypatch)
+    _install_poster(monkeypatch, _CapturingPoster())
+
+    step = _StepWithConfirmer(confirmer=None)
+    entry = _module().deliver_pending_result
+    await entry(
+        result=_PendingRow(), product=_CatalogProduct(), step_name=STEP_NAME, step=step
+    )
+
+    assert calls and calls[0].get("step") is step, (
+        f"deliver_pending_result did not thread the step through when it "
+        f"names no confirmer: {calls!r}"
     )
 
 
-async def test_pending_result_is_thread_reply() -> None:
+async def test_pending_result_is_thread_reply(monkeypatch: pytest.MonkeyPatch) -> None:
     """DERIVED: the pending result is posted as a reply (with thread_ts parameter).
 
     A thread reply requires the `thread_ts` parameter to be passed to Slack's
     API. This derives from "delivered as a reply within that launch's Slack
-    thread".
+    thread". Asserted structurally -- the literal `thread_ts` kwarg, not the
+    value's mere presence somewhere in the rendered text -- and that it is
+    exactly what thread establishment returned, not a value the adapter
+    invented.
     """
-    pytest.skip(
-        "Slack API integration not yet available for testing; structure "
-        "established for when implementation is clear"
+    monkeypatch.setenv("PRODUCT_AGENT_LAUNCHES_CHANNEL_ID", LAUNCHES_CHANNEL_ID)
+    _install_thread_establishment(monkeypatch)
+    poster = _install_poster(monkeypatch, _CapturingPoster())
+
+    entry = _module().deliver_pending_result
+    await entry(result=_PendingRow(), product=_CatalogProduct(), step_name=STEP_NAME)
+
+    assert poster.calls, "no Slack message was delivered for the pending result"
+    assert poster.calls[0].get("thread_ts") == SLACK_THREAD_TS, (
+        "the pending result was not posted with the established thread's "
+        f"reference: {poster.calls[0]!r}"
     )

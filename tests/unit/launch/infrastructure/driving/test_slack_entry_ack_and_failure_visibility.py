@@ -71,6 +71,8 @@ BOT_TOKEN = "xoxb-test-product-agent-not-a-real-token"  # not a real credential
 
 SIGNING_SECRET_VAR = "PRODUCT_AGENT_SLACK_SIGNING_SECRET"
 BOT_TOKEN_VAR = "PRODUCT_AGENT_SLACK_BOT_TOKEN"  # ASSUMED
+LAUNCHES_CHANNEL_VAR = "PRODUCT_AGENT_LAUNCHES_CHANNEL_ID"
+LAUNCHES_CHANNEL_ID = "C0LAUNCHES"  # not a real channel
 
 CALLBACK_ID = "start_launch_modal"  # ASSUMED
 SUBMITTER_ID = "U0SUBMITTER"
@@ -347,6 +349,9 @@ def served_playbook(monkeypatch: pytest.MonkeyPatch) -> None:
 def slack_env(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     monkeypatch.setenv(SIGNING_SECRET_VAR, SIGNING_SECRET)
     monkeypatch.setenv(BOT_TOKEN_VAR, BOT_TOKEN)
+    # thread-launch-slack-notifications: a successful submission's anchor
+    # and confirmation reply both land in the launches channel.
+    monkeypatch.setenv(LAUNCHES_CHANNEL_VAR, LAUNCHES_CHANNEL_ID)
     _reset_slack_caches()
     yield
     _reset_slack_caches()
@@ -485,6 +490,20 @@ def test_a_slow_transaction_does_not_miss_the_acknowledgement_window(
     window
     THEN the submission was already acknowledged within the window, and the
     outcome is delivered afterwards as a message.
+
+    thread-launch-slack-notifications, `launch-entry` MODIFIED: a
+    successful outcome is no longer a DM (design.md Decision 6 covered only
+    the *failure* path, which is unchanged) -- it is an anchor message plus
+    a tagged reply within the launch's thread, both in the launches
+    channel. Updated per this file's own module docstring instruction
+    (`tasks.md` 8.3) and the change's `test-manifest.md`, which named this
+    scenario's success-path assertion as a candidate for exactly this. Not
+    independently verified against a real database here: `_register_and_start`
+    reads the live playbook for real regardless of how its registrar and
+    `start_launch` are mocked, which is why this whole file stays gated on
+    `DATABASE_URL` -- a pre-existing, `start-launch-from-slack`-era
+    constraint this change does not remove. The full, DB-backed scenario is
+    verified for real in `tests/integration/launch/test_slack_entry_start.py`.
     """
     module = _require_slack_entry_module()
     slow_registrar = _SlowRegistrar(delay=SLOW_PERSISTENCE_SECONDS)
@@ -519,16 +538,21 @@ def test_a_slow_transaction_does_not_miss_the_acknowledgement_window(
         "before the slow persistence had even completed"
     )
 
-    _wait_for_posts(slack_api, count=1)
+    _wait_for_posts(slack_api, count=2)
 
-    assert len(slack_api.posts) == 1, (
-        "expected exactly one outcome message once the slow persistence "
-        f"completed, observed: {slack_api.posts}"
+    assert len(slack_api.posts) == 2, (
+        "expected an anchor message and a threaded confirmation reply once "
+        f"the slow persistence completed, observed: {slack_api.posts}"
     )
-    assert slack_api.posts[0].get("channel") == SUBMITTER_ID, (
-        "the outcome message must be delivered to the submitting user "
-        f"directly (design.md Decision 6), got channel="
-        f"{slack_api.posts[0].get('channel')!r}"
+    anchor, reply = slack_api.posts
+    assert anchor.get("channel") == LAUNCHES_CHANNEL_ID, (
+        f"the anchor message did not go to the launches channel: {anchor!r}"
+    )
+    assert reply.get("channel") == LAUNCHES_CHANNEL_ID, (
+        f"the confirmation reply did not go to the launches channel: {reply!r}"
+    )
+    assert f"<@{SUBMITTER_ID}>" in (reply.get("text") or ""), (
+        f"the confirmation reply did not tag the submitter: {reply!r}"
     )
 
 

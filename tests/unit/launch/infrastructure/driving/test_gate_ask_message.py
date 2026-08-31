@@ -1,18 +1,32 @@
 """What the Slack message asking for a gate's approval says, and offers.
 
-Derived strictly from the delta spec of the OpenSpec change
-`advance-gates-and-confirm-in-slack`:
-`openspec/changes/advance-gates-and-confirm-in-slack/specs/launch-gate-progression/spec.md`
+Originally derived from the OpenSpec change `advance-gates-and-confirm-in-slack`.
+The delivery half of the requirement it covered was since MODIFIED by
+`thread-launch-slack-notifications`:
+`openspec/changes/thread-launch-slack-notifications/specs/launch-gate-progression/spec.md`
+— the ask now goes to `launches_channel()` as a reply within the launch's
+thread (establishing it first if needed) and tags the launch's submitter,
+superseding this file's earlier "posted to `monitoring_channel` as a
+top-level message" assertions per that change's own `test-manifest.md`
+("launch-gate-progression obsolete tests"). This file is that update, not a
+rewrite from scratch: the message-content assertions (product, gate, two
+controls, the button value) are unchanged, only delivery is.
 
-Covers the message half of one scenario, from the ADDED requirement *A
-gate awaiting only confirmation is asked about in Slack*:
+Covers the message half of the requirement's main scenario:
 
     #### Scenario: A satisfied confirmation gate is asked about
     - **WHEN** the pass runs against a launch whose current gate requires
       confirmation, has every blocking condition satisfied, and has no
       approving approval recorded
-    - **THEN** a message naming the product and the gate is posted,
-      carrying the decision controls
+    - **THEN** a message naming the product and the gate, tagging the
+      launch's submitter, is posted as a reply within the launch's Slack
+      thread, carrying the decision controls
+
+and, from `launch-instance`'s ADDED requirement, the entry point's share of
+establishing that thread on first use (the operation itself is covered
+directly in `tests/unit/launch/application/test_thread_establishment_race.py`;
+this file only checks that `post_gate_ask` reaches it and uses what it
+returns).
 
 *When* an ask is owed, and when it is withheld, is the pass's and is in
 `tests/unit/launch/infrastructure/driving/test_gate_progression_pass.py`.
@@ -26,17 +40,21 @@ See `test-manifest.md` at the change root for the full accounting.
 
 ## Level
 
-The ask adapter over a captured Slack poster. The message's content is
-decided here and nowhere else, so this is the smallest unit that can
-observe it — and the only one that can observe what was actually sent.
+The ask adapter over a captured Slack poster, with thread establishment
+substituted at the module-level seam `launch_thread_delivery.py` gives
+every driving adapter (`establish_thread_and_resolve_mention`, imported at
+module scope in `gate_confirmation.py` for exactly this reason). The
+message's content is decided here and nowhere else, so this is the
+smallest unit that can observe it — and the only one that can observe what
+was actually sent.
 
 ## What is fixed, and what is INVENTED
 
-Fixed by this change's artifacts: the module
-`launch/infrastructure/driving/gate_confirmation.py` (`tasks.md` 5.1);
-that the message carries the product, the gate, an approve control and a
-reject control; and that the button value carries `{product_id, gate_id}`
-(`tasks.md` 5.1; `design.md` — Decision 9).
+Fixed by this change's artifacts: that the message carries the product,
+the gate, an approve control and a reject control; that the button value
+carries `{product_id, gate_id}` (`design.md` — Decision 9, from
+`advance-gates-and-confirm-in-slack`); that delivery is a thread reply in
+`launches_channel()`, tagging the submitter (`thread-launch-slack-notifications`).
 
 INVENTED, each recorded in `test-manifest.md` with its correction point:
 
@@ -48,26 +66,14 @@ INVENTED, each recorded in `test-manifest.md` with its correction point:
   `raising=True` so a differently named collaborator fails loudly here
   rather than leaving a test green against an unpatched real client — the
   convention `test_clickup_webhook.py` records.
-- Which channel the ask lands in. `design.md` — Open Questions leaves it
-  as configuration and settles on `monitoring_channel` because
-  `automation_confirmation` uses it; the channel assertion is DERIVED and
-  named as such below.
+- The name of the module-level thread-establishment collaborator
+  (`_install_thread_establishment`), same convention.
 
 Deliberately **not** pinned: the message's layout, wording, or whether it
 is plain text or Block Kit. Everything is read off a flattened rendering
 of whatever was posted, so an implementation is free to choose the shape;
 what it is not free to do is omit the product, omit the gate, or offer
 fewer than two decisions.
-
-## Expected first-run state
-
-`gate_confirmation.py` does not exist (`tasks.md` 5.1), so every test here
-is expected to fail on an absent target. Per `ai-toolkit:testing` that
-establishes absence only.
-
-Baseline recorded before these tests were written, at the worktree root,
-commit `656f1c4`, clean tree: `uv run pytest tests/unit tests/agents` —
-1472 passed, 0 failed.
 """
 
 from __future__ import annotations
@@ -94,7 +100,9 @@ PRODUCT_SKU: Final = Sku("BCB-2027-01")
 
 GATE_ID: Final = "commit"
 
-CHANNEL_ID: Final = "C0MONITORING"
+LAUNCHES_CHANNEL_ID: Final = "C0LAUNCHES"
+SUBMITTER_ID: Final = "U0SUBMITTER"
+SLACK_THREAD_TS: Final = "1700000000.000100"
 
 
 @pytest.fixture(scope="module")
@@ -170,6 +178,38 @@ def _install_poster(
     )
 
 
+_THREAD_NAMES: Final = ("establish_thread_and_resolve_mention",)
+
+
+def _install_thread_establishment(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    mention: str | None = SUBMITTER_ID,
+    thread_ts: str = SLACK_THREAD_TS,
+) -> None:
+    """Substitute the thread-and-mention preamble with a canned result.
+
+    This file's own concern is what `post_gate_ask` composes and posts
+    once it has a thread reference and a mention -- not thread
+    establishment itself, which `test_thread_establishment_race.py` covers
+    directly against the real operation.
+    """
+    module = _module()
+    for name in _THREAD_NAMES:
+        if hasattr(module, name):
+
+            async def _fake(*args: Any, **kwargs: Any) -> tuple[str, str | None]:
+                return thread_ts, mention
+
+            monkeypatch.setattr(module, name, _fake)
+            return
+    pytest.fail(
+        "the gate ask adapter exposes no substitutable thread-establishment "
+        f"collaborator under any of {_THREAD_NAMES} — correct this file's "
+        "probe to the implemented collaborator"
+    )
+
+
 _ASK_NAMES: Final = (
     "post_gate_ask",
     "deliver_gate_ask",
@@ -234,7 +274,8 @@ async def test_the_ask_names_the_product_and_the_gate_and_carries_the_controls(
     THEN a message naming the product and the gate is posted, carrying the
     decision controls.
     """
-    monkeypatch.setenv("PRODUCT_AGENT_MONITORING_CHANNEL_ID", CHANNEL_ID)
+    monkeypatch.setenv("PRODUCT_AGENT_LAUNCHES_CHANNEL_ID", LAUNCHES_CHANNEL_ID)
+    _install_thread_establishment(monkeypatch)
     poster = _install_poster(monkeypatch, _CapturingPoster())
 
     _, supplied = await _post_ask()
@@ -279,7 +320,8 @@ async def test_the_ask_carries_the_product_and_gate_in_its_control_value(
     gate that is not the launch's current one (delta R7), and it can only
     do that if the press says which gate it was for.
     """
-    monkeypatch.setenv("PRODUCT_AGENT_MONITORING_CHANNEL_ID", CHANNEL_ID)
+    monkeypatch.setenv("PRODUCT_AGENT_LAUNCHES_CHANNEL_ID", LAUNCHES_CHANNEL_ID)
+    _install_thread_establishment(monkeypatch)
     poster = _install_poster(monkeypatch, _CapturingPoster())
 
     await _post_ask()
@@ -295,27 +337,83 @@ async def test_the_ask_carries_the_product_and_gate_in_its_control_value(
     )
 
 
-async def test_the_ask_goes_to_the_monitoring_channel(
+async def test_the_ask_goes_to_the_launches_channel_as_a_thread_reply(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """`design.md` — Open Questions: the ask "uses `monitoring_channel`
-    because `automation_confirmation` does, and the two are the same kind
-    of message".
-
-    DERIVED with respect to the delta, which says explicitly that "which
-    channel carries it is configuration and not a property of this
-    requirement". Asserted anyway because the change commits to adding no
-    runtime variable, and a channel chosen elsewhere would be one; recorded
-    as derived in `test-manifest.md`.
+    """`thread-launch-slack-notifications`, `launch-gate-progression`
+    MODIFIED: "posted as a reply within that launch's Slack thread ...
+    established first if it does not yet exist" — supersedes this file's
+    earlier `monitoring_channel` assertion per that change's
+    `test-manifest.md` ("launch-gate-progression obsolete tests").
     """
-    monkeypatch.setenv("PRODUCT_AGENT_MONITORING_CHANNEL_ID", CHANNEL_ID)
+    monkeypatch.setenv("PRODUCT_AGENT_LAUNCHES_CHANNEL_ID", LAUNCHES_CHANNEL_ID)
+    _install_thread_establishment(monkeypatch)
     poster = _install_poster(monkeypatch, _CapturingPoster())
 
     await _post_ask()
 
-    assert CHANNEL_ID in poster.rendered, (
-        "the gate ask was posted somewhere other than the monitoring "
-        "channel the change commits to reusing"
+    assert LAUNCHES_CHANNEL_ID in poster.rendered, (
+        "the gate ask was not posted to the launches channel this change "
+        f"moved per-launch messages to: {poster.rendered!r}"
+    )
+    assert SLACK_THREAD_TS in poster.rendered, (
+        "the gate ask did not carry the established thread's reference, so "
+        f"it was not posted as a reply within it: {poster.rendered!r}"
+    )
+
+
+async def test_the_ask_tags_the_launchs_submitter(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`thread-launch-slack-notifications`, `launch-gate-progression`
+    MODIFIED: "SHALL tag the launch's submitter: a gate carries no
+    confirmer of its own." `post_gate_ask` resolves the mention with no
+    step (`test_the_ask_calls_the_mention_resolver_with_no_step` covers
+    that it asks for the submitter fallback specifically); this asserts
+    what the message does with whatever the resolver returns.
+    """
+    monkeypatch.setenv("PRODUCT_AGENT_LAUNCHES_CHANNEL_ID", LAUNCHES_CHANNEL_ID)
+    _install_thread_establishment(monkeypatch, mention=SUBMITTER_ID)
+    poster = _install_poster(monkeypatch, _CapturingPoster())
+
+    await _post_ask()
+
+    assert f"<@{SUBMITTER_ID}>" in poster.rendered, (
+        f"the gate ask did not tag the launch's submitter: {poster.rendered!r}"
+    )
+
+
+async def test_the_ask_calls_the_mention_resolver_with_no_step(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """ "a gate carries no confirmer of its own" — `design.md`'s shared
+    mention-resolution function falls back to the launch's submitter
+    exactly when it is asked about no step at all. `post_gate_ask` must
+    call it that way rather than with some invented stand-in step, or a
+    gate could end up tagging a stray confirmer no gate has.
+    """
+    monkeypatch.setenv("PRODUCT_AGENT_LAUNCHES_CHANNEL_ID", LAUNCHES_CHANNEL_ID)
+    _install_poster(monkeypatch, _CapturingPoster())
+    module = _module()
+    calls: list[dict[str, Any]] = []
+
+    async def _recording_establish(*args: Any, **kwargs: Any) -> tuple[str, str | None]:
+        calls.append(kwargs)
+        return SLACK_THREAD_TS, SUBMITTER_ID
+
+    for name in _THREAD_NAMES:
+        if hasattr(module, name):
+            monkeypatch.setattr(module, name, _recording_establish)
+            break
+    else:
+        pytest.fail(f"no thread-establishment collaborator under {_THREAD_NAMES}")
+
+    await _post_ask()
+
+    assert calls, "post_gate_ask never reached the thread-establishment collaborator"
+    assert calls[0].get("step") is None, (
+        "post_gate_ask passed a step to mention resolution; a gate has no "
+        f"confirmer of its own and must resolve with no step: {calls[0]!r}"
     )
 
 
@@ -333,7 +431,8 @@ async def test_a_delivery_failure_reaches_the_caller(
     Decision 5 writes the record after delivery to prevent. The pass-side
     half is asserted in `test_gate_progression_pass.py`.
     """
-    monkeypatch.setenv("PRODUCT_AGENT_MONITORING_CHANNEL_ID", CHANNEL_ID)
+    monkeypatch.setenv("PRODUCT_AGENT_LAUNCHES_CHANNEL_ID", LAUNCHES_CHANNEL_ID)
+    _install_thread_establishment(monkeypatch)
     _install_poster(monkeypatch, _CapturingPoster(failing=True))
 
     with pytest.raises(Exception):  # noqa: B017 -- any failure, not a chosen type

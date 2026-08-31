@@ -514,6 +514,16 @@ async def test_a_launch_is_started_with_a_date(
     assert f"<@{SUBMITTER_ID}>" in (reply.get("text") or ""), (
         f"the confirmation reply did not tag the submitter: {reply!r}"
     )
+    # SPECIFIED: an anchor message naming that launch date is posted.
+    assert launch_date in (anchor.get("text") or ""), (
+        f"the anchor message did not name the launch date: {anchor!r}"
+    )
+    # SPECIFIED: the confirmation names that tracked work appears in
+    # ClickUp on the sync cadence. No exact wording is fixed by any
+    # artifact.
+    assert "clickup" in (reply.get("text") or "").lower(), (
+        f"the confirmation reply did not name ClickUp sync: {reply!r}"
+    )
 
 
 async def test_a_launch_is_started_without_a_date(
