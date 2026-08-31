@@ -437,6 +437,18 @@ Related: *Repositories commit their own writes, so a caller cannot own a
 transaction*, above, is the same object's other structural defect, and both would
 sensibly be fixed together.
 
+**Widened on 2026-08-31.** `clickup_sync_job`'s reconciliation cadence moved
+from `*/10 * * * *` to twice daily, ahead of the reliability-observation
+period `shift-clickup-completions-to-webhook`'s own `tasks.md` (3.4) had made
+a precondition for that — an explicit decision, made under pressure from real
+ClickUp `429`s and accepted because only test data is at stake while no real
+production launch exists yet (a separate, parallel change addresses the `429`
+handling itself). This pass is one of the four recording paths that clobber
+the whole aggregate on save, so the self-healing window this entry accepts
+widened with it, from ~10 minutes to up to ~12 hours. The urgency behind
+fixing this properly is correspondingly higher for as long as that cadence
+stands.
+
 **Recorded in**: `advance-gates-and-confirm-in-slack`'s `design.md` (Decision 11).
 Found by `openspec-change-reviewer` during that change's spec review and
 confirmed against `launch_repository.py`, 2026-08-28.
@@ -567,34 +579,8 @@ attention it owes the migration.
 the step set needing a status correction; or the next change that adds a field
 to a step definition.
 
-### `clickup_sync_job`'s reconciliation cadence was never lowered
+### A stray, unscoped ClickUp webhook subscription predates this project's own
 
-`shift-clickup-completions-to-webhook` shipped in two intended stages: register
-the ClickUp webhook as an idempotent deploy step (done — `register_clickup_webhook.py`
-is live), then, only after confirming delivery is reliable in production over a
-real observation period, lower `SYNC_SCHEDULE` from `*/10 * * * *` to twice daily
-and `SYNC_TOLERANCE` to 24h (`design.md`'s "Cadence: twice daily, not once"
-decision). Only the first stage happened. The change was archived once the
-webhook was confirmed *working* — after fixing a signature mismatch found on
-rollout (see below) — not once it had been observed reliable over days, which
-is what `tasks.md`'s own human-confirmation gate (3.4) actually asked for.
-
-The pass is still running at `*/10` today. Nothing is broken by that — it is
-simply the cadence this change set out to relax and did not get to. Picking
-this up means: confirm real deliveries have been reliable for a few days
-(`clickup_webhook.py` recording outcomes with provenance source `clickup`
-matching when tasks actually closed, or each ClickUp subscription's own
-`health.status` staying `active`), then change the two constants and update
-`tests/unit/launch/infrastructure/driving/test_clickup_sync_job_schedule.py`'s
-`EXPECTED_INTERVAL_SECONDS` to `12 * 60 * 60`, exactly as the archived
-change's `tasks.md` section 4 already spells out.
-
-Doing this also sharpens *`LaunchRepository.save` overwrites the whole
-aggregate, with no optimistic concurrency*, above: that entry's accepted
-self-healing window is bounded by this pass's interval, and stays at ten
-minutes until this cadence change actually lands.
-
-**A second finding from rollout, worth knowing before touching this again.**
 ClickUp's team turned out to already have a second, unrelated webhook
 subscription pointed at the same endpoint — unscoped (`folder_id: None`, so
 every task event in the whole workspace, not just this deployment's launch
@@ -609,8 +595,7 @@ took a second, fuller lookup to find both. It was left in place rather than
 deleted, since removing another team's ClickUp resource is a decision for
 whoever owns that workspace, not something to do by the way.
 
-**Recorded in**: `shift-clickup-completions-to-webhook`'s `design.md`
-("Cadence: twice daily, not once") and `tasks.md` (sections 3 and 4), now at
+**Recorded in**: `shift-clickup-completions-to-webhook`'s `tasks.md`, now at
 `openspec/changes/archive/2026-08-30-shift-clickup-completions-to-webhook/`.
 
 ### Small cleanups, not worth a change each
