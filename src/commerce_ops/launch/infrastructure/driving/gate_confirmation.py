@@ -203,27 +203,41 @@ async def post_gate_ask(
     from commerce_ops.launch.infrastructure.driven.launch_repository import (
         LaunchRepository,
     )
+    from commerce_ops.launch.infrastructure.driven.launch_thread_lock import (
+        hold_launch_thread_establishment_lock,
+    )
     from commerce_ops.launch.infrastructure.driven.slack_notifier import (
         launches_channel,
     )
     from commerce_ops.shared.infrastructure.driven.database import transaction
 
     async with transaction() as db_session:
+        sku_value = ""
+        marketplace_value = ""
+        if product:
+            sku = getattr(product, "sku", None)
+            sku_value = sku.value if sku else ""
+            marketplace = getattr(product, "marketplace_id", None)
+            marketplace_value = marketplace.value if marketplace else ""
         thread_ts = await ensure_launch_thread(
             db_session,
             LaunchRepository(db_session),
             product_id,
             product.name if product else product_id.value,
-            product.sku.value if product else "",
-            product.marketplace_id.value if product else "",
+            sku_value,
+            marketplace_value,
+            hold_lock=hold_launch_thread_establishment_lock,
+            channel=launches_channel(),
         )
         launch = await LaunchRepository(db_session).get_by_product_id(product_id)
-        mention = await resolve_mention_target(launch, step=None)
+        mention = await resolve_mention_target(launch, step=None) if launch else None
         mention_tag = f" <@{mention}>" if mention else ""
         await post_monitoring_message(
             channel=launches_channel(),
             text=mention_tag + message,
-            blocks=compose_blocks(product_id=product_id, gate_id=gate_id, message=message),
+            blocks=compose_blocks(
+                product_id=product_id, gate_id=gate_id, message=message
+            ),
             thread_ts=thread_ts,
         )
     _logger.info(

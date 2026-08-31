@@ -106,17 +106,13 @@ def test_submitter_is_persisted_on_launch(monkeypatch: pytest.MonkeyPatch) -> No
     launch = _create_launch(submitter=SUBMITTER_SLACK_ID)
 
     # SPECIFIED: the launch records its submitter
-    assert hasattr(launch, "submitter") or hasattr(
-        launch, "slack_user_id"
-    ), (
+    assert hasattr(launch, "submitter") or hasattr(launch, "slack_user_id"), (
         "Launch entity has no submitter/slack_user_id field; check the "
         "domain entity definition"
     )
 
     submitter_value = getattr(
-        launch,
-        "submitter",
-        getattr(launch, "slack_user_id", None)
+        launch, "submitter", getattr(launch, "slack_user_id", None)
     )
     assert submitter_value == SUBMITTER_SLACK_ID, (
         f"submitter was not persisted correctly; expected {SUBMITTER_SLACK_ID}, "

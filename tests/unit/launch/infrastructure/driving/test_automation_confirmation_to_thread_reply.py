@@ -56,7 +56,9 @@ from commerce_ops.shared.domain.identity import ProductId, Sku
 
 pytestmark = pytest.mark.anyio
 
-MODULE_PATH: Final = "commerce_ops.launch.infrastructure.driving.automation_confirmation"
+MODULE_PATH: Final = (
+    "commerce_ops.launch.infrastructure.driving.automation_confirmation"
+)
 
 PRODUCT_ID: Final = ProductId(str(uuid.uuid4()))
 PRODUCT_NAME: Final = "Bamboo Cutting Board"

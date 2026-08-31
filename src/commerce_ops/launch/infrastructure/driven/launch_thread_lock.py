@@ -69,4 +69,6 @@ async def hold_launch_thread_establishment_lock(
     repositories' own commits would end the transaction and release the
     lock mid-cascade, which is the failure this exists to prevent.
     """
-    await db_session.execute(_ACQUIRE, {"key": thread_establishment_lock_key(product_id)})
+    await db_session.execute(
+        _ACQUIRE, {"key": thread_establishment_lock_key(product_id)}
+    )

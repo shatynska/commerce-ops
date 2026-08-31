@@ -16,16 +16,13 @@ from __future__ import annotations
 
 import functools
 import os
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 from slack_sdk.web.async_client import AsyncWebClient
 
 from commerce_ops.launch.application.ports import LaunchStore
 from commerce_ops.launch.domain.launch_run import Launch
-from commerce_ops.launch.infrastructure.driven.launch_thread_lock import (
-    hold_launch_thread_establishment_lock,
-)
-from commerce_ops.launch.infrastructure.driven.slack_notifier import launches_channel
 from commerce_ops.shared.domain.identity import ProductId
 
 if TYPE_CHECKING:
@@ -48,6 +45,9 @@ async def ensure_launch_thread(
     product_name: str,
     product_sku: str,
     product_marketplace: str,
+    *,
+    hold_lock: Callable[[AsyncSession, ProductId], Any],
+    channel: str,
 ) -> str:
     """Establish or reuse a launch's Slack thread, returning its reference.
 
@@ -60,7 +60,7 @@ async def ensure_launch_thread(
     """
     # Acquire the lock, reload the launch to re-check the thread reference
     # under lock, and post if absent.
-    await hold_launch_thread_establishment_lock(db_session, product_id)
+    await hold_lock(db_session, product_id)
     launch = await launch_store.get_by_product_id(product_id)
     if launch is None:
         raise RuntimeError(f"no launch found for product {product_id.value}")
@@ -75,9 +75,9 @@ async def ensure_launch_thread(
     # the returned ts becomes the thread reference for this and all future
     # per-product messages.
     response = await _get_slack_client().chat_postMessage(
-        channel=launches_channel(), text=anchor_text
+        channel=channel, text=anchor_text
     )
-    thread_ts = response["ts"]
+    thread_ts: str = response["ts"]
     launch.slack_thread_id = thread_ts
     await launch_store.save(launch)
     return thread_ts

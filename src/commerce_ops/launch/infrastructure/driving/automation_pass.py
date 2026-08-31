@@ -549,19 +549,31 @@ async def _report_stuck_step(
         from commerce_ops.launch.infrastructure.driven.launch_repository import (
             LaunchRepository,
         )
+        from commerce_ops.launch.infrastructure.driven.launch_thread_lock import (
+            hold_launch_thread_establishment_lock,
+        )
         from commerce_ops.launch.infrastructure.driven.slack_notifier import (
             launches_channel,
         )
         from commerce_ops.shared.infrastructure.driven.database import transaction
 
         async with transaction() as db_session:
+            sku_value = ""
+            marketplace_value = ""
+            if product:
+                sku = getattr(product, "sku", None)
+                sku_value = sku.value if sku else ""
+                marketplace = getattr(product, "marketplace_id", None)
+                marketplace_value = marketplace.value if marketplace else ""
             thread_ts = await ensure_launch_thread(
                 db_session,
                 LaunchRepository(db_session),
                 launch.product_id,
                 product.name if product else str(launch.product_id),
-                product.sku.value if product else "",
-                product.marketplace_id.value if product else "",
+                sku_value,
+                marketplace_value,
+                hold_lock=hold_launch_thread_establishment_lock,
+                channel=launches_channel(),
             )
             mention = await resolve_mention_target(launch, step=step)
             mention_tag = f" <@{mention}>" if mention else ""

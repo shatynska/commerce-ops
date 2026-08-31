@@ -38,7 +38,9 @@ from commerce_ops.launch.infrastructure.driven import slack_notifier
 LAUNCHES_CHANNEL_ID: Final = "C0LAUNCHES"
 
 
-def test_launches_channel_reads_environment_variable(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_launches_channel_reads_environment_variable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """DERIVED: the launches channel ID is read from the environment.
 
     This parallels the existing `monitoring_channel()` pattern.

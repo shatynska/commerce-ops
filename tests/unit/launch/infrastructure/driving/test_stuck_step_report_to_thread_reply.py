@@ -115,6 +115,7 @@ class _StepWithoutConfirmer:
 @dataclass(frozen=True)
 class _BlockedOutcome:
     """Outcome representing a Blocked result with a reason."""
+
     name: str = "Blocked"
     reason: str = BLOCKED_REASON
 

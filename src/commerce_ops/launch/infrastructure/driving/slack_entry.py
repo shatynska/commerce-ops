@@ -362,7 +362,9 @@ def _read_submission(
 # --------------------------------------------------------------------------
 
 
-async def _register_and_start(submission: _Submission, submitter: str | None = None) -> None:
+async def _register_and_start(
+    submission: _Submission, submitter: str | None = None
+) -> ProductId:
     """Registers the product and starts its launch, in one transaction.
 
     Both writes share one `transaction()` scope, so the catalog row and
@@ -409,6 +411,7 @@ async def _register_and_start(submission: _Submission, submitter: str | None = N
             submitter=submitter,
             journal=LaunchJournalRepository(db_session),
         )
+        return product_id
 
 
 def _confirmation_text(submission: _Submission) -> str:
@@ -494,7 +497,7 @@ def _get_handler() -> AsyncSlackRequestHandler:
         submitter = (body.get("user") or {}).get("id")
 
         try:
-            await _register_and_start(submission, submitter=submitter)
+            product_id = await _register_and_start(submission, submitter=submitter)
         except Exception as error:
             logger.exception("starting a launch from Slack failed")
             await _post(client, submitter, _failure_text(submission, error))
@@ -509,12 +512,14 @@ def _get_handler() -> AsyncSlackRequestHandler:
             from commerce_ops.launch.infrastructure.driven.launch_repository import (
                 LaunchRepository,
             )
+            from commerce_ops.launch.infrastructure.driven.launch_thread_lock import (
+                hold_launch_thread_establishment_lock,
+            )
             from commerce_ops.launch.infrastructure.driven.slack_notifier import (
                 launches_channel,
                 post_monitoring_message,
             )
 
-            product_id = ProductId(submission.sku.value)  # Temp: will be proper registration
             async with transaction() as db_session:
                 thread_ts = await ensure_launch_thread(
                     db_session,
@@ -523,9 +528,15 @@ def _get_handler() -> AsyncSlackRequestHandler:
                     submission.name,
                     submission.sku.value,
                     submission.marketplace_id.value,
+                    hold_lock=hold_launch_thread_establishment_lock,
+                    channel=launches_channel(),
                 )
-                launch = await LaunchRepository(db_session).get_by_product_id(product_id)
-                mention = await resolve_mention_target(launch, step=None)
+                launch = await LaunchRepository(db_session).get_by_product_id(
+                    product_id
+                )
+                mention = (
+                    await resolve_mention_target(launch, step=None) if launch else None
+                )
                 mention_tag = f"<@{mention}> " if mention else ""
                 await post_monitoring_message(
                     channel=launches_channel(),
