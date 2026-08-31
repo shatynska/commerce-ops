@@ -195,11 +195,37 @@ async def post_gate_ask(
             )
             product = None
     message = compose_message(product=product, product_id=product_id, gate_id=gate_id)
-    await post_monitoring_message(
-        channel=monitoring_channel(),
-        text=message,
-        blocks=compose_blocks(product_id=product_id, gate_id=gate_id, message=message),
+    # Establish thread and get mention target (gates have no confirmer, so always submitter)
+    from commerce_ops.launch.application.thread_establishment import (
+        ensure_launch_thread,
+        resolve_mention_target,
     )
+    from commerce_ops.launch.infrastructure.driven.launch_repository import (
+        LaunchRepository,
+    )
+    from commerce_ops.launch.infrastructure.driven.slack_notifier import (
+        launches_channel,
+    )
+    from commerce_ops.shared.infrastructure.driven.database import transaction
+
+    async with transaction() as db_session:
+        thread_ts = await ensure_launch_thread(
+            db_session,
+            LaunchRepository(db_session),
+            product_id,
+            product.name if product else product_id.value,
+            product.sku.value if product else "",
+            product.marketplace_id.value if product else "",
+        )
+        launch = await LaunchRepository(db_session).get_by_product_id(product_id)
+        mention = await resolve_mention_target(launch, step=None)
+        mention_tag = f" <@{mention}>" if mention else ""
+        await post_monitoring_message(
+            channel=launches_channel(),
+            text=mention_tag + message,
+            blocks=compose_blocks(product_id=product_id, gate_id=gate_id, message=message),
+            thread_ts=thread_ts,
+        )
     _logger.info(
         "gate confirmation: asked for the '%s' gate on product %s",
         gate_id,

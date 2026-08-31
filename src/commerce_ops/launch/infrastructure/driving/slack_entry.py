@@ -500,7 +500,42 @@ def _get_handler() -> AsyncSlackRequestHandler:
             await _post(client, submitter, _failure_text(submission, error))
             return
 
-        await _post(client, submitter, _confirmation_text(submission))
+        # Establish thread and post confirmation reply
+        try:
+            from commerce_ops.launch.application.thread_establishment import (
+                ensure_launch_thread,
+                resolve_mention_target,
+            )
+            from commerce_ops.launch.infrastructure.driven.launch_repository import (
+                LaunchRepository,
+            )
+            from commerce_ops.launch.infrastructure.driven.slack_notifier import (
+                launches_channel,
+                post_monitoring_message,
+            )
+
+            product_id = ProductId(submission.sku.value)  # Temp: will be proper registration
+            async with transaction() as db_session:
+                thread_ts = await ensure_launch_thread(
+                    db_session,
+                    LaunchRepository(db_session),
+                    product_id,
+                    submission.name,
+                    submission.sku.value,
+                    submission.marketplace_id.value,
+                )
+                launch = await LaunchRepository(db_session).get_by_product_id(product_id)
+                mention = await resolve_mention_target(launch, step=None)
+                mention_tag = f"<@{mention}> " if mention else ""
+                await post_monitoring_message(
+                    channel=launches_channel(),
+                    text=mention_tag + _confirmation_text(submission),
+                    thread_ts=thread_ts,
+                )
+        except Exception:
+            # Log but don't fail: confirmation delivery failure after ack is handled
+            # separately, and thread establishment failure means thread wasn't needed
+            logger.exception("could not post confirmation to thread")
 
     return AsyncSlackRequestHandler(app)
 

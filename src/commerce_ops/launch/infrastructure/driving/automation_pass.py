@@ -541,7 +541,35 @@ async def _report_stuck_step(
         launch=launch, step=step, produced=produced, product=product
     )
     try:
-        await notifier.post_monitoring_message(message)
+        # Establish thread and get mention target (step's confirmer or submitter)
+        from commerce_ops.launch.application.thread_establishment import (
+            ensure_launch_thread,
+            resolve_mention_target,
+        )
+        from commerce_ops.launch.infrastructure.driven.launch_repository import (
+            LaunchRepository,
+        )
+        from commerce_ops.launch.infrastructure.driven.slack_notifier import (
+            launches_channel,
+        )
+        from commerce_ops.shared.infrastructure.driven.database import transaction
+
+        async with transaction() as db_session:
+            thread_ts = await ensure_launch_thread(
+                db_session,
+                LaunchRepository(db_session),
+                launch.product_id,
+                product.name if product else str(launch.product_id),
+                product.sku.value if product else "",
+                product.marketplace_id.value if product else "",
+            )
+            mention = await resolve_mention_target(launch, step=step)
+            mention_tag = f" <@{mention}>" if mention else ""
+            await notifier.post_monitoring_message(
+                channel=launches_channel(),
+                text=mention_tag + message,
+                thread_ts=thread_ts,
+            )
     except Exception:
         _logger.warning(
             "automation pass: could not report that step '%s' on product "

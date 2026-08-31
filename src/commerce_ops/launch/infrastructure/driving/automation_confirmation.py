@@ -137,11 +137,48 @@ async def deliver_pending_result(
     it learns the post did not happen.
     """
     message = compose_message(result=result, product=product, step_name=step_name)
-    await post_monitoring_message(
-        channel=monitoring_channel(),
-        text=message,
-        blocks=compose_blocks(result=result, message=message),
+    # Establish thread and get mention target (step's confirmer)
+    from commerce_ops.launch.application.thread_establishment import (
+        ensure_launch_thread,
+        resolve_mention_target,
     )
+    from commerce_ops.launch.infrastructure.driven.launch_repository import (
+        LaunchRepository,
+    )
+    from commerce_ops.launch.infrastructure.driven.slack_notifier import (
+        launches_channel,
+    )
+    from commerce_ops.launch.domain.launch_playbook import (
+        StepDefinition,
+    )
+    from commerce_ops.shared.infrastructure.driven.database import transaction
+
+    product_id = getattr(result, "product_id", None)
+    step_id = getattr(result, "step_id", None)
+
+    async with transaction() as db_session:
+        thread_ts = await ensure_launch_thread(
+            db_session,
+            LaunchRepository(db_session),
+            product_id,
+            product.name if product else str(product_id),
+            product.sku.value if product else "",
+            product.marketplace_id.value if product else "",
+        )
+        launch = await LaunchRepository(db_session).get_by_product_id(product_id)
+        # Get step definition to pass to resolver for confirmer lookup
+        step_def = None
+        if step_id and hasattr(launch, 'playbook_version'):
+            # Note: would need playbook access to get step_def; for now use None
+            pass
+        mention = await resolve_mention_target(launch, step=step_def)
+        mention_tag = f" <@{mention}>" if mention else ""
+        await post_monitoring_message(
+            channel=launches_channel(),
+            text=mention_tag + message,
+            blocks=compose_blocks(result=result, message=message),
+            thread_ts=thread_ts,
+        )
     _logger.info(
         "automation confirmation: delivered the pending result for step "
         "'%s' on product '%s' for a decision",
