@@ -14,9 +14,7 @@ argument, which is not repeated here.
 from __future__ import annotations
 
 import asyncio
-from contextlib import asynccontextmanager
 from typing import Any, Final
-from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
