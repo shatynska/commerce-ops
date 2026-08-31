@@ -10,10 +10,12 @@ failure that never produces a response at all, propagates uncaught -- see
 
 from __future__ import annotations
 
+import asyncio
 import functools
 import os
 from collections.abc import Mapping, Sequence
 from datetime import UTC, date, datetime
+from typing import Any
 from urllib.parse import quote
 
 import httpx
@@ -38,6 +40,58 @@ _CLOSED_STATUS_TYPE = "closed"
 def get_client() -> httpx.AsyncClient:
     token = os.environ["CLICKUP_API_TOKEN"]
     return httpx.AsyncClient(headers={"Authorization": token})
+
+
+# DERIVED in `retry-clickup-rate-limits`' design.md, "Bounded backoff, Retry-
+# After honored and capped" -- the clickup-task-client spec delta states only
+# "a bounded number of attempts" / "a fixed maximum wait"; these are the
+# concrete values chosen.
+_MAX_ATTEMPTS = 4  # up to 3 retries
+_MAX_RETRY_WAIT_SECONDS = 10.0
+_BACKOFF_SECONDS: tuple[float, ...] = (1.0, 2.0, 4.0)
+
+
+async def _wait_before_retry(response: httpx.Response, attempt: int) -> None:
+    """The wait before the next attempt on a `429`.
+
+    `Retry-After` is honored when present and parseable as a plain count of
+    seconds, capped at `_MAX_RETRY_WAIT_SECONDS`. Absent or unparseable are
+    treated identically -- both fall back to the client's own backoff,
+    indexed by `attempt` (the number of retries already made).
+    """
+    retry_after = response.headers.get("Retry-After")
+    if retry_after is not None:
+        try:
+            seconds = float(retry_after)
+        except ValueError:
+            pass
+        else:
+            await asyncio.sleep(min(seconds, _MAX_RETRY_WAIT_SECONDS))
+            return
+    await asyncio.sleep(_BACKOFF_SECONDS[min(attempt, len(_BACKOFF_SECONDS) - 1)])
+
+
+async def _send(method: str, url: str, **kwargs: Any) -> httpx.Response:
+    """Send one request, retrying a `429` with backoff before surfacing it.
+
+    Implements `clickup-task-client`'s *A rate-limited request is retried
+    before it is surfaced* (`retry-clickup-rate-limits`). Every other non-
+    success status, and a connection failure, propagate on the first
+    attempt -- only `429` is retried, and only up to `_MAX_ATTEMPTS`.
+
+    The single choke point every operation below routes through, replacing
+    each one's own direct `get_client().<verb>(...)` + `raise_for_status()`
+    pair -- see design.md, "One shared low-level send helper".
+    """
+    client = get_client()
+    for attempt in range(_MAX_ATTEMPTS):
+        response = await client.request(method, url, **kwargs)
+        if response.status_code == 429 and attempt < _MAX_ATTEMPTS - 1:
+            await _wait_before_retry(response, attempt)
+            continue
+        response.raise_for_status()
+        return response
+    raise AssertionError("unreachable: the loop above always returns or raises")
 
 
 def _task_from_response(response: httpx.Response) -> ClickUpTask:
@@ -66,10 +120,7 @@ async def create_task(
     if tags:
         body["tags"] = list(tags)
 
-    response = await get_client().post(
-        f"{_BASE_URL}/api/v2/list/{list_id}/task", json=body
-    )
-    response.raise_for_status()
+    response = await _send("POST", f"{_BASE_URL}/api/v2/list/{list_id}/task", json=body)
     return _task_from_response(response)
 
 
@@ -87,17 +138,15 @@ async def add_task_tag(task_id: str, tag_name: str) -> None:
     holding no tags answered `200` and left that name in the space. This
     is why the projection seeds no vocabulary.
     """
-    response = await get_client().post(
-        f"{_BASE_URL}/api/v2/task/{task_id}/tag/{quote(tag_name, safe='')}"
+    await _send(
+        "POST", f"{_BASE_URL}/api/v2/task/{task_id}/tag/{quote(tag_name, safe='')}"
     )
-    response.raise_for_status()
 
 
 async def update_task(task_id: str, fields: Mapping[str, object]) -> ClickUpTask:
-    response = await get_client().put(
-        f"{_BASE_URL}/api/v2/task/{task_id}", json=dict(fields)
+    response = await _send(
+        "PUT", f"{_BASE_URL}/api/v2/task/{task_id}", json=dict(fields)
     )
-    response.raise_for_status()
     return _task_from_response(response)
 
 
@@ -109,10 +158,9 @@ async def create_list(folder_id: str, name: str) -> str:
     created list's identifier", and nothing downstream needs more of the
     created list than that.
     """
-    response = await get_client().post(
-        f"{_BASE_URL}/api/v2/folder/{folder_id}/list", json={"name": name}
+    response = await _send(
+        "POST", f"{_BASE_URL}/api/v2/folder/{folder_id}/list", json={"name": name}
     )
-    response.raise_for_status()
     return str(response.json()["id"])
 
 
@@ -132,8 +180,7 @@ async def read_list_state(list_id: str) -> ClickUpListState:
     produces — so this returns the fact or nothing at all. See
     `heal-a-launchs-deleted-list`'s design.md, Decision 4.
     """
-    response = await get_client().get(f"{_BASE_URL}/api/v2/list/{list_id}")
-    response.raise_for_status()
+    response = await _send("GET", f"{_BASE_URL}/api/v2/list/{list_id}")
     # Absent is read as "not deleted": ClickUp sends the flag on a
     # deleted list, and a live list is under no obligation to carry it.
     return ClickUpListState(deleted=bool(response.json().get("deleted", False)))
@@ -233,10 +280,9 @@ async def folder_fields(folder_id: str) -> tuple[ClickUpFieldDefinition, ...]:
     collected: list[ClickUpFieldDefinition] = []
     page = 0
     while True:
-        response = await get_client().get(
-            f"{_BASE_URL}/api/v2/folder/{folder_id}/field", params={"page": page}
+        response = await _send(
+            "GET", f"{_BASE_URL}/api/v2/folder/{folder_id}/field", params={"page": page}
         )
-        response.raise_for_status()
         payload = response.json()
         fields = payload.get("fields") or []
         collected.extend(
@@ -277,11 +323,11 @@ async def set_task_field(task_id: str, field_id: str, value: object) -> None:
     would clear the reported gap and silently destroy the ordering that is
     the entire reason a field is preferred to a tag.
     """
-    response = await get_client().post(
+    await _send(
+        "POST",
         f"{_BASE_URL}/api/v2/task/{task_id}/field/{field_id}",
         json={"value": value},
     )
-    response.raise_for_status()
 
 
 def _due_date_from(raw: object) -> date | None:
@@ -432,11 +478,11 @@ async def list_tasks(list_id: str) -> tuple[ClickUpTaskState, ...]:
     collected: list[ClickUpTaskState] = []
     page = 0
     while True:
-        response = await get_client().get(
+        response = await _send(
+            "GET",
             f"{_BASE_URL}/api/v2/list/{list_id}/task",
             params={"include_closed": "true", "page": page},
         )
-        response.raise_for_status()
         payload = response.json()
         tasks = payload.get("tasks") or []
         collected.extend(_task_state(raw) for raw in tasks)
