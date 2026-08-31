@@ -49,6 +49,14 @@ async def record_asin(store: CatalogStore, product_id: ProductId, asin: Asin) ->
     await store.save(product)
 
 
+async def record_sub_category(
+    store: CatalogStore, product_id: ProductId, sub_category: str
+) -> None:
+    product = await _existing(store, product_id)
+    product.record_sub_category(sub_category)
+    await store.save(product)
+
+
 async def change_stage(
     store: CatalogStore,
     product_id: ProductId,

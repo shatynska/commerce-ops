@@ -39,7 +39,7 @@ configure_logging()
 from commerce_ops.briefing.application import LaunchReportsUnavailableError
 from commerce_ops.briefing.infrastructure.driven import slack_notifier
 from commerce_ops.briefing.infrastructure.driving import daily_briefing_job
-from commerce_ops.catalog.application import get_product_by_id
+from commerce_ops.catalog.application import get_product_by_id, record_sub_category
 from commerce_ops.catalog.infrastructure.driven.product_repository import (
     CatalogProductRepository,
 )
@@ -111,6 +111,28 @@ clickup_sync_job.read_product = _read_catalog_product
 # ClickUp pass's: `launch` may not import catalog's store, and only this
 # module sits outside `.importlinter`'s containers.
 automation_pass.read_product = _read_catalog_product
+
+
+async def _record_sub_category(product_id: ProductId, sub_category: str) -> None:
+    """The sub-category advisor's recording capability for `lp.listing.007`.
+
+    Injected here for the same reason `_read_catalog_product` is: `launch`
+    may not import catalog's store (`SubCategoryRecorder`,
+    `launch/application/ports.py`), and only this module sits outside
+    `.importlinter`'s containers. Its own session, opened per call, for
+    the same reason the catalog reader's is: the pass may resolve many
+    launches, and this write is not part of any one launch's transaction.
+    """
+    async with session() as db_session:
+        await record_sub_category(
+            CatalogProductRepository(db_session), product_id, sub_category
+        )
+
+
+# Wired for `lp.listing.007` specifically, not for every automated step —
+# `launch-step-automation`'s recording capability is per-step, and this is
+# the only step this deployment writes a finding for today.
+automation_pass.recorders = {"lp.listing.007": _record_sub_category}
 
 # The gate-progression pass asks about a gate by naming the product, so the
 # ask adapter needs the same catalog reader for the same reason: `launch`

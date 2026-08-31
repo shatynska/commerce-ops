@@ -86,6 +86,7 @@ def _to_domain(row: CatalogProduct) -> Product:
         stage=_stage_from_columns(row.stage, row.launching_phase, row.posture),
         stage_entered_at=row.stage_entered_at,
         stage_confirmed_by=row.stage_confirmed_by,
+        sub_category=row.sub_category,
     )
 
 
@@ -106,6 +107,7 @@ class CatalogProductRepository:
             posture=posture,
             stage_entered_at=product.stage_entered_at,
             stage_confirmed_by=product.stage_confirmed_by,
+            sub_category=product.sub_category,
         )
         self._session.add(row)
         try:
@@ -151,4 +153,5 @@ class CatalogProductRepository:
         row.posture = posture
         row.stage_entered_at = product.stage_entered_at
         row.stage_confirmed_by = product.stage_confirmed_by
+        row.sub_category = product.sub_category
         await self._session.commit()

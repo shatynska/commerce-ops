@@ -60,6 +60,7 @@ class CatalogProduct(Base):
         DateTime(timezone=True), nullable=False
     )
     stage_confirmed_by: Mapped[str | None] = mapped_column(String, nullable=True)
+    sub_category: Mapped[str | None] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

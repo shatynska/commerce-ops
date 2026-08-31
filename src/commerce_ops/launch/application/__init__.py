@@ -54,6 +54,7 @@ from commerce_ops.launch.application.ports import (
     LaunchStore,
     Playbooks,
     SteadyStateStamper,
+    SubCategoryRecorder,
 )
 from commerce_ops.launch.application.retained_results import (
     RetainedResult,
@@ -118,6 +119,7 @@ __all__ = [
     "StepRecord",
     "StepResolution",
     "StepSetStore",
+    "SubCategoryRecorder",
     "UnreadableRosterError",
     "UnregisteredHandler",
     "accept_automated_result",

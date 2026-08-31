@@ -68,3 +68,13 @@ class SteadyStateStamper(Protocol):
     async def __call__(
         self, product_id: ProductId, stage: LifecycleStage, *, confirmed_by: str
     ) -> object: ...
+
+
+class SubCategoryRecorder(Protocol):
+    """Records a product's sub-category finding — `record_sub_category`'s
+    shape minus the store, so the launch module never sees catalog
+    internals. Satisfied by a partial application of
+    `catalog.application.record_sub_category`, wired at the composition
+    root the same way `SteadyStateStamper` is."""
+
+    async def __call__(self, product_id: ProductId, sub_category: str) -> object: ...

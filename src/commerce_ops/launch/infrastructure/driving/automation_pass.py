@@ -31,13 +31,14 @@ from __future__ import annotations
 import datetime
 import functools
 import logging
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from typing import Any
 
 from commerce_ops.launch.application import (
     HANDLERS,
     StepContext,
     StepResolution,
+    SubCategoryRecorder,
     record_step_outcome,
 )
 from commerce_ops.launch.domain.launch_playbook import (
@@ -72,6 +73,7 @@ from commerce_ops.launch.infrastructure.driven.slack_notifier import launches_ch
 from commerce_ops.launch.infrastructure.driving import automation_confirmation
 from commerce_ops.shared.application.ports import MonitoringNotifier
 from commerce_ops.shared.domain.identity import ProductId
+from commerce_ops.shared.domain.result import Success
 from commerce_ops.shared.infrastructure.driven.database import session
 from commerce_ops.shared.infrastructure.driven.recurring_work import register_scheduled
 
@@ -83,6 +85,7 @@ __all__ = [
     "TASK_NAME",
     "notifier",
     "read_product",
+    "recorders",
     "resolve_automated_steps",
     "run_automation_pass",
     "session",
@@ -137,6 +140,20 @@ read_product: Callable[..., Awaitable[Any]] | None = None
 # report then logs at error rather than vanishing, since a step nobody can
 # resolve is exactly what must not go unmentioned.
 notifier: MonitoringNotifier | None = None
+
+# The per-step recording capability a handler's supported finding is
+# written through, injected the same way and for the same reason
+# `read_product` is: this module may not import `catalog` (a handler's
+# finding is recorded via `catalog.application.record_sub_category`, whose
+# store lives in `catalog.infrastructure`, which `.importlinter`'s
+# `products-infrastructure-boundary` forbids here), and only `worker.py`
+# sits outside every container. Keyed by step identifier, not by handler
+# name: `launch-step-automation` wires a recorder for one step at a time
+# ("for `lp.listing.007` specifically — not for every step"), and a
+# handler's own name says nothing about which step invoked it. Empty by
+# default, and a step absent from this mapping is not an error — most
+# steps carry no recording capability at all.
+recorders: Mapping[str, SubCategoryRecorder] = {}
 
 
 def _is_terminal_for(step: StepDefinition, outcome: Any) -> bool:
@@ -239,6 +256,7 @@ async def run_automation_pass(
     notifier: Any,
     establish_thread: Callable[..., Awaitable[tuple[str, str | None]]],
     now: datetime.datetime,
+    recorders: Mapping[str, Any] | None = None,
 ) -> None:
     """Deliver what is waiting, then resolve what is open.
 
@@ -250,9 +268,12 @@ async def run_automation_pass(
     preamble (`launch_thread_delivery.establish_thread_and_resolve_mention`
     in production) -- threaded as an argument like every other collaborator
     here, not a module global, which is what lets this pass be exercised
-    without a database.
+    without a database. `recorders` is defaulted, unlike those: most steps
+    carry no recording capability at all, and a caller resolving no typed
+    findings need not know this collaborator exists.
     """
     active: Sequence[Launch] = await launches.list_active()
+    findings_recorded_by = recorders or {}
 
     await _deliver_waiting(
         results=results,
@@ -275,6 +296,7 @@ async def run_automation_pass(
             notifier=notifier,
             establish_thread=establish_thread,
             now=now,
+            recorders=findings_recorded_by,
         )
 
 
@@ -341,6 +363,7 @@ async def _walk_launch(
     notifier: Any,
     establish_thread: Callable[..., Awaitable[tuple[str, str | None]]],
     now: datetime.datetime,
+    recorders: Mapping[str, Any],
 ) -> None:
     if launch.current_gate == "graduated":
         return
@@ -423,6 +446,7 @@ async def _walk_launch(
             results=results,
             record_outcome=record_outcome,
             deliver=deliver,
+            recorders=recorders,
             now=now,
         )
 
@@ -737,6 +761,44 @@ async def _invoke(
         return None
 
 
+async def _record_finding(
+    *,
+    recorders: Mapping[str, Any],
+    step: StepDefinition,
+    launch: Launch,
+    handler_name: str,
+    finding: Any,
+) -> bool:
+    """Invoke the step's recording capability for a supported finding.
+
+    Returns whether `_settle` may go on to record the step's own outcome.
+    A `Failure` finding, and a `Success` finding for a step no recorder is
+    supplied for, both leave the step's own recording untouched — neither
+    is this function's concern. A recorder that fails is treated exactly
+    as `_invoke`'s own handler crash: nothing is recorded for the step
+    this pass, and the pass walks on to the next one.
+    """
+    if not isinstance(finding, Success):
+        return True
+    recorder = recorders.get(step.identifier)
+    if recorder is None:
+        return True
+    try:
+        await recorder(launch.product_id, finding.value)
+    except Exception:
+        _logger.warning(
+            "automation pass: the recording capability for step '%s' on "
+            "product '%s' (handler '%s') failed; nothing is recorded for "
+            "it and the pass continues",
+            step.identifier,
+            launch.product_id,
+            handler_name,
+            exc_info=True,
+        )
+        return False
+    return True
+
+
 async def _settle(
     *,
     launch: Launch,
@@ -746,6 +808,7 @@ async def _settle(
     results: Any,
     record_outcome: Callable[..., Awaitable[Any]],
     deliver: Callable[..., Awaitable[Any]],
+    recorders: Mapping[str, Any],
     now: datetime.datetime,
 ) -> None:
     outcome = resolution.outcome
@@ -754,7 +817,9 @@ async def _settle(
     if not terminal and _is_any_terminal(outcome):
         # Terminal in the vocabulary, but not for this hazard: a fault at
         # production time rather than at recording time, so it is visible
-        # now instead of failing on every press of accept, forever.
+        # now instead of failing on every press of accept, forever. A
+        # proposal that fails this check is a handler fault in full: its
+        # finding, if any, is not recorded either.
         _logger.warning(
             "automation pass: handler '%s' proposed '%s' for step '%s' on "
             "product '%s', which its hazard '%s' does not permit as "
@@ -766,6 +831,22 @@ async def _settle(
             launch.product_id,
             step.hazard.value,
         )
+        return
+
+    # Before the outcome/result routing below, and independent of it: a
+    # supported finding is recorded whether the outcome that follows is
+    # held for confirmation or recorded directly.
+    # `getattr`, not `.finding` directly: `resolution` is whatever the
+    # handler returned (`_invoke` does not enforce `StepResolution`), and
+    # `test_a_smuggled_provenance_does_not_displace_the_constructed_one`
+    # deliberately exercises a resolution-shaped double without the field.
+    if not await _record_finding(
+        recorders=recorders,
+        step=step,
+        launch=launch,
+        handler_name=handler_name,
+        finding=getattr(resolution, "finding", None),
+    ):
         return
 
     if terminal and step.confirmer is not None:
@@ -855,4 +936,5 @@ async def resolve_automated_steps(timestamp: int) -> None:
             notifier=notifier,
             establish_thread=establish_thread_and_resolve_mention,
             now=datetime.datetime.now(datetime.UTC),
+            recorders=recorders,
         )

@@ -1,9 +1,4 @@
-# subcategory-advisor Specification
-
-## Purpose
-The first step handler with real judgement in it: given a product's name and marketplace, it proposes the Amazon sub-category node the product belongs in and names the compliance fields and certifications that node then demands — the work `lp.listing.007` describes. It advises; it never decides.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: A recommendation is produced from the product's name and marketplace
 
@@ -149,30 +144,7 @@ Constraining the model's response to a schema — however the model provider imp
 - **WHEN** the advisor's model call uses a structured-output mechanism to constrain the response to the schema
 - **THEN** this is not treated as a forbidden tool invocation, since nothing external is called and no side effect occurs
 
-### Requirement: No state across invocations
-
-The advisor SHALL NOT retain or use any state, memory, or context from a previous invocation when producing a new recommendation; each invocation SHALL be independent of every other, including two invocations for the same product.
-
-#### Scenario: Two invocations do not share context
-
-- **WHEN** the advisor produces a recommendation, and is then invoked again for a different product
-- **THEN** the second recommendation is produced without reference to the first product or its recommendation
-
-### Requirement: Model failure is surfaced, not masked
-
-If the underlying language model call fails, or returns content that is not a plain string, the advisor SHALL surface that failure rather than returning a fabricated, empty, or silently degraded recommendation.
-
-A masked failure here would not merely return a poor answer: it would reach a person as a recommendation to accept, and be recorded as the evidence for a compliance-relevant decision.
-
-#### Scenario: Language model call fails
-
-- **WHEN** the configured language model is unavailable or returns an error while the advisor is producing a recommendation
-- **THEN** the invocation fails visibly rather than returning a recommendation as if the call had succeeded
-
-#### Scenario: Response content is not a plain string
-
-- **WHEN** the configured language model's response content is not a plain string
-- **THEN** the invocation fails visibly rather than returning a recommendation coerced or fabricated from that content
+## ADDED Requirements
 
 ### Requirement: A supported recommendation's value is recorded against the product
 
