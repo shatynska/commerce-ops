@@ -573,7 +573,7 @@ async def _report_stuck_step(
                 sku_value,
                 marketplace_value,
                 hold_lock=hold_launch_thread_establishment_lock,
-                channel=launches_channel(),
+                channel=launches_channel,
             )
             mention = await resolve_mention_target(launch, step=step)
             mention_tag = f" <@{mention}>" if mention else ""

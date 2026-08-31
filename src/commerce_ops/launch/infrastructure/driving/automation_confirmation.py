@@ -175,7 +175,7 @@ async def deliver_pending_result(
             sku_value,
             marketplace_value,
             hold_lock=hold_launch_thread_establishment_lock,
-            channel=launches_channel(),
+            channel=launches_channel,
         )
         launch = await LaunchRepository(db_session).get_by_product_id(product_id)
         # Get step definition to pass to resolver for confirmer lookup

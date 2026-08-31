@@ -227,7 +227,7 @@ async def post_gate_ask(
             sku_value,
             marketplace_value,
             hold_lock=hold_launch_thread_establishment_lock,
-            channel=launches_channel(),
+            channel=launches_channel,
         )
         launch = await LaunchRepository(db_session).get_by_product_id(product_id)
         mention = await resolve_mention_target(launch, step=None) if launch else None

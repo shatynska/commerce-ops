@@ -47,7 +47,7 @@ async def ensure_launch_thread(
     product_marketplace: str,
     *,
     hold_lock: Callable[[AsyncSession, ProductId], Any],
-    channel: str,
+    channel: Callable[[], str],
 ) -> str:
     """Establish or reuse a launch's Slack thread, returning its reference.
 
@@ -75,7 +75,7 @@ async def ensure_launch_thread(
     # the returned ts becomes the thread reference for this and all future
     # per-product messages.
     response = await _get_slack_client().chat_postMessage(
-        channel=channel, text=anchor_text
+        channel=channel(), text=anchor_text
     )
     thread_ts: str = response["ts"]
     launch.slack_thread_id = thread_ts
