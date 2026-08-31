@@ -35,6 +35,9 @@ from commerce_ops.launch.infrastructure.driving import (
     gate_confirmation as launch_gate_confirmation,
 )
 from commerce_ops.launch.infrastructure.driving import (
+    gate_progression_job as launch_gate_progression_job,
+)
+from commerce_ops.launch.infrastructure.driving import (
     launch_admin as launch_tracking_admin,
 )
 from commerce_ops.launch.infrastructure.driving import (
@@ -247,11 +250,39 @@ launch_automation_confirmation.read_people = _RosterReader()
 
 # The approve/reject controls on a launch gate resolve the deciding Slack
 # identity the same way. Its listeners are registered by importing it.
-#
-# No catalog reader here, deliberately: this process answers decisions, and
-# only the *ask* names the product. The worker composes those, so the reader
-# is injected there.
 launch_gate_confirmation.read_people = _RosterReader()
+# `trigger-clickup-projection-on-launch-events`'s eager convergence, which
+# `handle_gate_decision` triggers after an approval crosses a gate, needs
+# the same catalog reader `converge_launch` requires everywhere else — this
+# process's own request-scoped one, matching `launch_gate_progression_job`'s
+# below.
+launch_gate_confirmation.read_product = _RequestScopedCatalog().get_by_id
+
+# `gate_progression_job.converge_launch_eagerly` (`trigger-clickup-
+# projection-on-launch-events`) needs a catalog reader and a roster reader
+# too, unlike `gate_confirmation`'s own decision path above: `converge_launch`
+# requires `read_product`, with no default, to name a launch's ClickUp list,
+# and its `roster` resolves task assignees. `gate_progression_job` is a
+# single module loaded independently by each process, so this process's own
+# request-scoped readers are wired here, exactly as `worker.py` wires its
+# own (differently shaped) readers onto the same module's globals for the
+# periodic pass and the webhook's `advance_and_ask` path. (The comment this
+# replaces — "no catalog reader here, deliberately" — was accurate for
+# `gate_confirmation`'s own decision path; it stopped being the whole
+# picture once this process also runs the eager-convergence helper.)
+launch_gate_progression_job.read_product = _RequestScopedCatalog().get_by_id
+launch_gate_progression_job.read_people = _RosterReader()
+
+# `slack_entry.py`'s own eager-convergence trigger, right after a launch
+# starts, needs the same two readers for the same reason.
+launch_slack_entry.read_product = _RequestScopedCatalog().get_by_id
+launch_slack_entry.read_people = _RosterReader()
+
+# `clickup_webhook.py`'s own eager-convergence dispatch, alongside
+# `advance_and_ask` when its cascade crosses a gate, needs the same two
+# readers for the same reason.
+launch_clickup_webhook.read_product = _RequestScopedCatalog().get_by_id
+launch_clickup_webhook.read_people = _RosterReader()
 
 
 async def _verify_admin_session(*, session_id: str) -> str | None:

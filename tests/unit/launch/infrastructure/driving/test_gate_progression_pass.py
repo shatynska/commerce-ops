@@ -430,11 +430,18 @@ class _Progressed:
 
     Every plausible spelling of the same two facts, so a pass reading any
     one of them observes what the fixture set up.
+
+    `crossed` defaults empty: this file exercises the ask mechanism, not
+    `trigger-clickup-projection-on-launch-events`'s eager convergence
+    (`test_gate_progression_pass_eager_convergence.py`'s job), so the fake
+    never reports a crossing and the pass's own `if progressed.crossed:`
+    branch is simply never taken here.
     """
 
     awaiting_confirmation: bool = False
     awaiting_gate: str | None = None
     events: tuple[Any, ...] = ()
+    crossed: tuple[str, ...] = ()
 
     @property
     def awaiting(self) -> bool:

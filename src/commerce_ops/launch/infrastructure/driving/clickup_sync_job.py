@@ -51,6 +51,9 @@ from commerce_ops.launch.infrastructure.driven.field_gap_suppression import (
     record_field_gap_reported,
     reported_field_gap,
 )
+from commerce_ops.launch.infrastructure.driven.launch_advisory_lock import (
+    hold_launch_advance_lock,
+)
 from commerce_ops.launch.infrastructure.driven.launch_journal_repository import (
     LaunchJournalRepository,
 )
@@ -64,7 +67,7 @@ from commerce_ops.launch.infrastructure.driven.playbook_repository import (
 from commerce_ops.shared.application.ports import MonitoringNotifier
 from commerce_ops.shared.domain.clickup import ClickUpFieldDefinition
 from commerce_ops.shared.infrastructure.driven import clickup_client as clickup
-from commerce_ops.shared.infrastructure.driven.database import session
+from commerce_ops.shared.infrastructure.driven.database import session, transaction
 from commerce_ops.shared.infrastructure.driven.recurring_work import register_scheduled
 
 __all__ = [
@@ -77,6 +80,7 @@ __all__ = [
     "reconcile_clickup_completions",
     "record_step_outcome",
     "session",
+    "transaction",
 ]
 
 _logger = logging.getLogger(__name__)
@@ -452,16 +456,34 @@ async def reconcile_clickup_completions(timestamp: int) -> None:
             # observed state, so observing without recording would consume
             # the transition and lose the completion for good.
             try:
-                await converge_launch(
-                    launch=launch,
-                    playbook=playbook,
-                    clickup=clickup,
-                    mapping=mapping,
-                    read_product=_read_product_or_fail,
-                    roster=read_people,
-                    folder_id=folder_id,
-                    configuration=configuration,
-                )
+                # `transaction()` opened **solely to hold
+                # `hold_launch_advance_lock`** — the same lock this
+                # launch's eager convergence trigger (`trigger-clickup-
+                # projection-on-launch-events`) also takes, so the two
+                # cannot race and create a duplicate list on this launch's
+                # first convergence. `converge_launch` itself still runs
+                # against `mapping`, bound to this pass's own outer
+                # `session()` (`db_session`), never to the lock
+                # transaction: rebinding it there would turn
+                # `ClickUpMappingRepository`'s per-write commits into
+                # savepoints the lock transaction's own rollback could
+                # undo, silently reversing this capability's own guarantee
+                # that a launch's partial convergence progress survives
+                # its own failure. See design.md, "The lock acquisition and
+                # `converge_launch`'s own writes deliberately do not share
+                # a transaction".
+                async with transaction() as lock_session:
+                    await hold_launch_advance_lock(lock_session, launch.product_id)
+                    await converge_launch(
+                        launch=launch,
+                        playbook=playbook,
+                        clickup=clickup,
+                        mapping=mapping,
+                        read_product=_read_product_or_fail,
+                        roster=read_people,
+                        folder_id=folder_id,
+                        configuration=configuration,
+                    )
                 await reconcile_launch(
                     launch=launch,
                     playbook=playbook,

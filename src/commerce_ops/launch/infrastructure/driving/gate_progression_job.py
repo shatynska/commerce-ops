@@ -31,12 +31,21 @@ from __future__ import annotations
 
 import datetime
 import logging
+import os
 from typing import Any
 
 from commerce_ops.launch.application import progress_launch
 from commerce_ops.launch.domain.launch_playbook import (
     GATE_SEQUENCE,
     PlaybookNotReadyError,
+)
+from commerce_ops.launch.infrastructure.driven.clickup_mapping import (
+    ClickUpMappingRepository,
+)
+from commerce_ops.launch.infrastructure.driven.clickup_sync import (
+    ProductReader,
+    RosterReader,
+    converge_launch_eagerly,
 )
 from commerce_ops.launch.infrastructure.driven.gate_ask_suppression import (
     GateAskSuppressionRepository,
@@ -53,6 +62,7 @@ from commerce_ops.launch.infrastructure.driven.playbook_repository import (
 )
 from commerce_ops.launch.infrastructure.driving.gate_confirmation import post_gate_ask
 from commerce_ops.shared.domain.identity import ProductId
+from commerce_ops.shared.infrastructure.driven import clickup_client as clickup
 from commerce_ops.shared.infrastructure.driven.database import session, transaction
 from commerce_ops.shared.infrastructure.driven.recurring_work import register_scheduled
 
@@ -61,13 +71,18 @@ __all__ = [
     "PROGRESSION_SCHEDULE",
     "PROGRESSION_TOLERANCE",
     "TASK_NAME",
+    "ClickUpMappingRepository",
     "GateAskSuppressionRepository",
     "LaunchRepository",
     "PlaybookRepository",
     "advance_and_ask",
+    "clickup",
+    "converge_launch_eagerly",
     "gate_progression_pass",
     "post_gate_ask",
     "progress_launch",
+    "read_people",
+    "read_product",
     "run_gate_progression_pass",
     "session",
     "transaction",
@@ -76,6 +91,16 @@ __all__ = [
 _logger = logging.getLogger(__name__)
 
 TASK_NAME = "launch.gates.progression_pass"
+
+# Injected by the composition root (`worker.py` in the worker process,
+# `main.py` in the HTTP process — each supplies its own reader, exactly as
+# `clickup_sync_job.read_product`/`read_people` are injected by `worker.py`
+# alone, because `launch` may not import catalog's or access's own stores).
+# `None` until injected; `converge_launch_eagerly` requires `read_product`
+# (see `clickup_sync.py`'s `ProductReader`, which has no default) and treats
+# `read_people` as optional, exactly as `converge_launch` does.
+read_product: ProductReader | None = None
+read_people: RosterReader = None
 
 _FINAL_GATE = GATE_SEQUENCE[-1]
 
@@ -136,6 +161,77 @@ async def _restore_after_store_fault(db_session: Any) -> None:
     await rollback()
 
 
+def _launch_folder_id() -> str | None:
+    # A literal variable name, so the environment-drift check can see this
+    # read (see `clickup_webhook`'s and `clickup_sync_job`'s own notes).
+    return os.environ.get("CLICKUP_LAUNCH_FOLDER_ID")
+
+
+async def _read_product_or_fail(product_id: ProductId) -> Any:
+    # Matching `clickup_sync_job._read_product_or_fail`'s pattern: `read_product`
+    # is declared `ProductReader | None` because it starts unset, but
+    # `converge_launch_eagerly` needs a plain `ProductReader` — this narrows
+    # that at the one call site that needs it, failing loudly rather than
+    # with a bare `TypeError` if the composition root never injected one.
+    if read_product is None:
+        raise RuntimeError(
+            "eager convergence needs to name a launch's ClickUp list after "
+            "its catalog product, but no product reader was injected; "
+            "worker.py/main.py supply one after register_all()"
+        )
+    return await read_product(product_id)
+
+
+async def _converge_crossed_launch_eagerly(
+    product_id: ProductId, *, playbook: Any
+) -> None:
+    """Look the launch back up and hand it to `converge_launch_eagerly`,
+    with this module's own collaborators — the shared boilerplate both
+    `advance_and_ask` and `run_gate_progression_pass`'s loop need to call
+    the lock-and-delegate helper, which takes a `Launch` and its
+    collaborators rather than resolving them itself.
+
+    A fresh read on its own session, not the crossing's: by the time this
+    runs, the crossing's own transaction has already closed (`_advance_one`
+    returns after its `async with` exits), so there is nothing left to
+    reuse, and a fresh read is what reflects the launch's just-crossed
+    state in any case.
+
+    Absent (deleted between the crossing and this read) is a silent no-op:
+    there is nothing left to converge, and the periodic pass's own walk
+    will simply not find this launch either.
+
+    Guards the call independently of `converge_launch_eagerly`'s own catch:
+    exactly as `clickup_webhook.py`'s `_trigger_advance_and_ask` does not
+    rely on `advance_and_ask` catching its own failures, this caller's own
+    insulation must hold regardless of what the `converge_launch_eagerly`
+    binding does — including a test or future change substituting it with
+    something that raises.
+    """
+    try:
+        async with session() as db_session:
+            launch = await LaunchRepository(db_session).get_by_product_id(product_id)
+            if launch is None:
+                return
+            await converge_launch_eagerly(
+                launch,
+                playbook=playbook,
+                clickup=clickup,
+                mapping=ClickUpMappingRepository(db_session),
+                read_product=_read_product_or_fail,
+                roster=read_people,
+                folder_id=_launch_folder_id(),
+            )
+    except Exception:
+        _logger.warning(
+            "eager convergence: could not be triggered for product %s; it "
+            "is left as it stands and the next periodic clickup_sync_job "
+            "pass will retry it",
+            product_id.value,
+            exc_info=True,
+        )
+
+
 async def _advance_one(
     *,
     product_id: ProductId,
@@ -155,6 +251,17 @@ async def _advance_one(
             product_id=product_id,
             journal=LaunchJournalRepository(db_session),
         )
+
+
+def _crossed(progressed: Any) -> tuple[str, ...]:
+    """Whatever `crossed` the cascade reported, tolerating a caller's fake
+    that models less than the real `LaunchProgressed` does — the same
+    duck-typed leniency `_awaiting_gate` below already extends to
+    `awaiting_confirmation`/`current_gate`, and for the same reason: this
+    module is exercised by tests substituting `progress_launch` with
+    stand-ins of varying completeness, and a plain attribute access would
+    make every one of them model a field only this one new branch reads."""
+    return tuple(getattr(progressed, "crossed", None) or ())
 
 
 def _awaiting_gate(progressed: Any) -> str | None:
@@ -217,7 +324,7 @@ async def _ask_if_owed(
 
 async def advance_and_ask(
     product_id: ProductId, *, now: datetime.datetime | None = None
-) -> None:
+) -> bool:
     """Run the pass's own per-launch cascade for one launch, immediately.
 
     `advance-gates-from-clickup-webhook`'s single named exception to
@@ -236,10 +343,21 @@ async def advance_and_ask(
     product; the periodic pass remains what recovers once the playbook is
     ready again.
 
+    Returns whether a gate actually crossed — informational for a caller
+    that wants it, though `clickup_webhook.py`'s own eager-convergence
+    dispatch (`trigger-clickup-projection-on-launch-events`, `tasks.md`
+    3.5) deliberately does not read it, comparing the launch's gate before
+    and after instead, so its detection stays correct against whatever
+    this function's binding does in a given caller's tests. This function
+    stays scoped to gate advancement and does not trigger eager
+    convergence itself, unlike `gate_progression_job.py`'s own
+    periodic-pass loop, which has no equivalent caller to report back to.
+
     Never raises: a fault here is a pure latency optimization lost, not a
     functional regression, since the identical `_advance_one`/
     `progress_launch` path is exercised by the periodic pass every ten
-    minutes regardless.
+    minutes regardless. Returns `False` on any such fault — nothing to
+    eagerly converge if the cascade itself did not run.
     """
     now = now or datetime.datetime.now(tz=datetime.UTC)
     try:
@@ -253,7 +371,7 @@ async def advance_and_ask(
                     product_id.value,
                     ", ".join(unready.unheld_gates),
                 )
-                return
+                return False
 
             progressed = await _advance_one(product_id=product_id, playbook=playbook)
             gate_id = _awaiting_gate(progressed)
@@ -264,6 +382,7 @@ async def advance_and_ask(
                     db_session=db_session,
                     now=now,
                 )
+            return bool(_crossed(progressed))
     except Exception:
         _logger.warning(
             "advance-and-ask trigger: the launch for product %s could not "
@@ -272,6 +391,7 @@ async def advance_and_ask(
             product_id.value,
             exc_info=True,
         )
+        return False
 
 
 async def run_gate_progression_pass(now: datetime.datetime | None = None) -> None:
@@ -330,6 +450,17 @@ async def run_gate_progression_pass(now: datetime.datetime | None = None) -> Non
                         gate_id=gate_id,
                         db_session=db_session,
                         now=now,
+                    )
+                # A gate this same walk just crossed should not also wait
+                # for `clickup_sync_job`'s next twice-daily run for its
+                # newly released steps' tasks — the eager path this
+                # periodic pass already had for gate advancement itself,
+                # extended to the projection direction. Inside the `try`
+                # like `_ask_if_owed` above, though `converge_launch_eagerly`
+                # never raises by construction.
+                if _crossed(progressed):
+                    await _converge_crossed_launch_eagerly(
+                        product_id, playbook=playbook
                     )
             except Exception:
                 # `Exception`, not a curated list: a fault nobody predicted

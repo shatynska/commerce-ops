@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from datetime import UTC, datetime
 from typing import Any
 
@@ -44,6 +45,12 @@ from commerce_ops.launch.application import (
     reject_gate_decision,
 )
 from commerce_ops.launch.domain.launch_playbook import GATE_SEQUENCE
+from commerce_ops.launch.infrastructure.driven.clickup_mapping import (
+    ClickUpMappingRepository,
+)
+from commerce_ops.launch.infrastructure.driven.clickup_sync import (
+    converge_launch_eagerly,
+)
 from commerce_ops.launch.infrastructure.driven.gate_ask_suppression import (
     GateAskSuppressionRepository,
 )
@@ -66,6 +73,7 @@ from commerce_ops.launch.infrastructure.driven.slack_notifier import (
     post_monitoring_message,
 )
 from commerce_ops.shared.domain.identity import ProductId
+from commerce_ops.shared.infrastructure.driven import clickup_client as clickup
 from commerce_ops.shared.infrastructure.driven.database import session, transaction
 from commerce_ops.shared.infrastructure.driving.slack_app import contribute_listeners
 
@@ -73,14 +81,18 @@ __all__ = [
     "APPROVE_ACTION",
     "REJECT_ACTION",
     "SLACK_APP_IDENTITY",
+    "ClickUpMappingRepository",
     "attach_listeners",
+    "clickup",
     "compose_blocks",
     "compose_message",
+    "converge_launch_eagerly",
     "handle_gate_decision",
     "launches_channel",
     "monitoring_channel",
     "post_gate_ask",
     "post_monitoring_message",
+    "session",
 ]
 
 _logger = logging.getLogger(__name__)
@@ -94,7 +106,34 @@ _FINAL_GATE = GATE_SEQUENCE[-1]
 # Injected by the composition root after `register_all()`, never at import.
 # `None` where nothing has been wired, in which case the ask names the
 # product by its identifier rather than declining to be sent.
+#
+# Also used, required rather than optional, by the eager-convergence call
+# `handle_gate_decision` makes below (`trigger-clickup-projection-on-
+# launch-events`): `converge_launch` has no default for `read_product`, so
+# a deployment that never wires it here loses only the eager fast path
+# (caught by the same broad guard every eager call already has), not the
+# ask, which still tolerates absence as it always did.
 read_product: Any = None
+
+
+def _launch_folder_id() -> str | None:
+    # A literal variable name, so the environment-drift check can see this
+    # read (see `clickup_sync_job`'s and `gate_progression_job`'s own notes).
+    return os.environ.get("CLICKUP_LAUNCH_FOLDER_ID")
+
+
+async def _read_product_or_fail(product_id: ProductId) -> Any:
+    # Matching `clickup_sync_job._read_product_or_fail`'s pattern: narrows
+    # the optional `read_product` global to what `converge_launch_eagerly`
+    # needs, failing loudly rather than with a bare `TypeError` if `main.py`
+    # never injected one.
+    if read_product is None:
+        raise RuntimeError(
+            "eager convergence needs to name a launch's ClickUp list after "
+            "its catalog product, but no product reader was injected; "
+            "main.py supplies one after register_all()"
+        )
+    return await read_product(product_id)
 
 
 class FinalGateNotAsked(RuntimeError):
@@ -230,12 +269,21 @@ async def post_gate_ask(
     )
 
 
-async def _advance_after_approval(product_id: ProductId, gate_id: str) -> str:
+async def _advance_after_approval(
+    product_id: ProductId, gate_id: str
+) -> tuple[str, bool, Any, Any]:
     """Run the cascade the approval unblocked, and say what it did.
 
     A separate transaction from the approval's, taken *after* it committed,
     and holding the product's advisory lock so a press landing inside a
     pass window waits rather than crossing the same gate twice.
+
+    Also returns whether a gate actually crossed, the playbook the cascade
+    ran against, and the launch as it stands post-cascade (already read
+    below for the reply message, so returning it costs nothing extra), so
+    `handle_gate_decision` can trigger `trigger-clickup-projection-on-
+    launch-events`'s eager convergence for this launch *after* the decider
+    has their reply — never before, so ClickUp latency never delays it.
     """
     async with transaction() as db_session:
         await hold_launch_advance_lock(db_session, product_id)
@@ -249,32 +297,57 @@ async def _advance_after_approval(product_id: ProductId, gate_id: str) -> str:
         )
         launch = await launches.get_by_product_id(product_id)
 
+    # `getattr` with a default, not a plain attribute access: this module
+    # is exercised by tests substituting `progress_launch` with fakes of
+    # varying completeness, some predating this field, matching
+    # `gate_progression_job.py`'s own `_crossed` helper.
+    crossed = bool(getattr(progressed, "crossed", None))
+
     # Read from the launch as it stands once the cascade under the lock has
     # finished -- not from this path's own crossings. Where the pass crossed
     # the approved gate first, the gate *did* open, and a reply built from
     # this path's advance alone would tell the decider their decision failed
     # when it did not.
     if launch is None or launch.current_gate != gate_id:
-        return f"Recorded — the {gate_id} gate opened."
+        return f"Recorded — the {gate_id} gate opened.", crossed, playbook, launch
     blocking = launch.unsatisfied_conditions(playbook)
     if blocking:
-        return f"Recorded — but the {gate_id} gate did not open: {', '.join(blocking)}."
-    _ = progressed
-    return f"Recorded — the {gate_id} gate is ready but did not open."
+        return (
+            f"Recorded — but the {gate_id} gate did not open: {', '.join(blocking)}.",
+            crossed,
+            playbook,
+            launch,
+        )
+    return (
+        f"Recorded — the {gate_id} gate is ready but did not open.",
+        crossed,
+        playbook,
+        launch,
+    )
 
 
-async def _handle_decision(body: dict[str, Any], approve: bool) -> str:
-    """Run the decision and return what to tell the decider."""
+_EagerConvergence = tuple[Any, Any]
+"""`(launch, playbook)` — what `_handle_decision` hands `handle_gate_decision`
+to trigger eager convergence with, once the decider has their reply — `None`
+when no gate crossed (a rejection, a refusal, or an approval that did not
+open a gate) or the launch could not be re-read post-cascade."""
+
+
+async def _handle_decision(
+    body: dict[str, Any], approve: bool
+) -> tuple[str, _EagerConvergence | None]:
+    """Run the decision and return what to tell the decider, plus what to
+    eagerly converge afterward, if anything."""
     actions = body.get("actions") or [{}]
     try:
         carried = json.loads(actions[0].get("value") or "{}")
     except ValueError:
-        return "that control carried nothing this deployment could read."
+        return "that control carried nothing this deployment could read.", None
 
     raw_product = carried.get("product_id")
     gate_id = carried.get("gate_id")
     if not raw_product or not gate_id:
-        return "that control named no launch gate."
+        return "that control named no launch gate.", None
     product_id = ProductId(str(raw_product))
     slack_identity = str((body.get("user") or {}).get("id") or "")
     when = datetime.now(UTC)
@@ -294,8 +367,12 @@ async def _handle_decision(body: dict[str, Any], approve: bool) -> str:
                     when=when,
                 )
             if decision.refused:
-                return f"That decision was refused: {decision.reason}"
-            return await _advance_after_approval(product_id, gate_id)
+                return f"That decision was refused: {decision.reason}", None
+            message, crossed, playbook, launch = await _advance_after_approval(
+                product_id, gate_id
+            )
+            eager = (launch, playbook) if crossed and launch is not None else None
+            return message, eager
 
         # A rejection's two writes are one unit.
         async with transaction() as db_session:
@@ -329,11 +406,11 @@ async def _handle_decision(body: dict[str, Any], approve: bool) -> str:
             "That decision could not be processed: this deployment cannot "
             "read the roster right now. Nothing was recorded, the gate is "
             "still waiting, and the fault has been reported."
-        )
+        ), None
 
     if decision.refused:
-        return f"That decision was refused: {decision.reason}"
-    return f"Recorded — the {gate_id} gate stays closed."
+        return f"That decision was refused: {decision.reason}", None
+    return f"Recorded — the {gate_id} gate stays closed.", None
 
 
 def _roster_or_fail() -> Any:
@@ -373,10 +450,18 @@ async def handle_gate_decision(
     a button that silently does nothing -- the presser sees a decision
     apparently accepted and no outcome ever -- so a fault becomes a
     sentence rather than a traceback.
+
+    Eager convergence (`trigger-clickup-projection-on-launch-events`), when
+    this decision crossed a gate, is triggered **after** `respond` below —
+    never before — so the decider's reply is never held up by ClickUp
+    latency, exactly as *A decision is acknowledged before its work
+    completes* already establishes for the decision's own recording and
+    advance.
     """
     await ack()
+    eager: _EagerConvergence | None = None
     try:
-        message = await _handle_decision(body, approve=approve)
+        message, eager = await _handle_decision(body, approve=approve)
     except Exception:
         _logger.exception(
             "gate confirmation: a %s press could not be completed",
@@ -392,6 +477,33 @@ async def handle_gate_decision(
             "fault has been reported, and the next pass will try again."
         )
     await respond(message)
+
+    if eager is not None:
+        launch, playbook = eager
+        # Guarded independently of `converge_launch_eagerly`'s own catch,
+        # exactly as `clickup_webhook.py`'s `_trigger_advance_and_ask` does
+        # not rely on `advance_and_ask` catching its own failures: this
+        # site's own insulation must hold regardless of what the binding
+        # does, including a substitute that raises.
+        try:
+            async with session() as db_session:
+                await converge_launch_eagerly(
+                    launch,
+                    playbook=playbook,
+                    clickup=clickup,
+                    mapping=ClickUpMappingRepository(db_session),
+                    read_product=_read_product_or_fail,
+                    roster=read_people,
+                    folder_id=_launch_folder_id(),
+                )
+        except Exception:
+            _logger.warning(
+                "eager convergence: could not be triggered for product %s; "
+                "it is left as it stands and the next periodic "
+                "clickup_sync_job pass will retry it",
+                launch.product_id.value,
+                exc_info=True,
+            )
 
 
 def attach_listeners(app: AsyncApp) -> None:

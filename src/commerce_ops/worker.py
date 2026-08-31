@@ -54,6 +54,7 @@ from commerce_ops.launch.infrastructure.driving import (
     automation_pass,
     clickup_sync_job,
     gate_confirmation,
+    gate_progression_job,
 )
 from commerce_ops.registrations import register_all
 from commerce_ops.shared.infrastructure.driven.database import session
@@ -141,6 +142,12 @@ automation_pass.recorders = {"lp.listing.007": _record_sub_category}
 # the launch by identifier.
 gate_confirmation.read_product = _read_catalog_product
 
+# `gate_progression_job`'s own `converge_launch_eagerly` (`trigger-clickup-
+# projection-on-launch-events`) needs the same catalog reader `clickup_sync_job`
+# has, for the same reason and by the same route: `converge_launch` requires
+# it, with no default, to name a launch's ClickUp list.
+gate_progression_job.read_product = _read_catalog_product
+
 
 class _RosterReader:
     """Reads the roster for the ClickUp pass, on its own session.
@@ -159,6 +166,9 @@ class _RosterReader:
 
 
 clickup_sync_job.read_people = _RosterReader()
+# Same reason and same route as `read_product` above: reused rather than a
+# second instance, since both readers are stateless.
+gate_progression_job.read_people = clickup_sync_job.read_people
 
 
 async def _read_launch_reports(*, as_of: date) -> tuple[LaunchReport, ...]:

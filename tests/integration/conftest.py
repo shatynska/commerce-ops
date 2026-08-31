@@ -27,11 +27,14 @@ machine, where everything skips and nothing fails.
 
 from __future__ import annotations
 
+import asyncio
 import os
 from pathlib import Path
 from typing import Any, Final
 
 import pytest
+
+from commerce_ops.shared.infrastructure.driven.database import dispose_engine
 
 #: Set by CI. Where it is set, no database is a failure rather than a
 #: skip, so a validation job cannot report success for a tier it never
@@ -132,6 +135,47 @@ def pytest_report_header() -> str:
         )
     url, source = resolved
     return f"integration tier: database from {source} — {_redacted(url)}"
+
+
+def pytest_runtest_teardown() -> None:
+    """Disposes the application's own global engine singleton after every
+    test — a plain `pytest` hook, not a fixture.
+
+    `database.py`'s `_get_engine_and_session_factory()` is process-wide and
+    `functools.lru_cache`d: once a test calls the real, unpatched
+    `session()`/`transaction()` (several "live" files in this tier
+    deliberately do, to exercise the real thing), it lazily builds one
+    `AsyncEngine` and keeps it — and its connection pool — for the rest of
+    the `pytest` process, across every test function that follows.
+
+    That collides with `anyio`'s default per-function event loop: a pooled
+    `asyncpg` connection is bound to the loop it was created on, and
+    handing it back out to a *later* test running on a *different* (new)
+    loop fails opaquely — `InterfaceError: cannot perform operation:
+    another operation is in progress` or `RuntimeError: Event loop is
+    closed`, depending on where in the connection's lifecycle the mismatch
+    is hit. See `docs/deferred-work.md`, "The application's global engine
+    singleton outlives pytest's per-test event loop".
+
+    **A hook, not an `autouse` fixture, and that distinction is
+    load-bearing.** An async `autouse` fixture calling `dispose_engine()`
+    was tried first and reverted: it produced `pytest`-internal
+    `AssertionError: assert not self._finalizers` across a large slice of
+    the suite, an async-fixture/`anyio`-plugin interaction this project's
+    exact `pytest`+`anyio` combination does not accept the way
+    `pytest-asyncio` would. `pytest_runtest_teardown` sidesteps that
+    entirely: it is a plain, synchronous hook `pytest` calls once per test
+    *after* that test's own async fixtures and their teardowns — and
+    `anyio`'s per-test event loop with them — have already finished. No
+    event loop is running here, so a fresh, private one via `asyncio.run`
+    is exactly what disposal needs, and nothing about `pytest`'s fixture
+    dependency graph is involved.
+
+    A test that never touches the real engine (nearly all of them patch
+    `session`/`transaction` away) pays nothing extra: `dispose_engine()`
+    is a no-op when nothing was built.
+    """
+    asyncio.run(dispose_engine())
 
 
 @pytest.fixture(scope="session", autouse=True)

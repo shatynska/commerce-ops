@@ -23,6 +23,32 @@ outlive the transaction on a *pooled* connection and travel to whichever
 caller borrowed that connection next, deadlocking both paths for that
 product — the drift a shared key alone would not prevent, which is why the
 acquire is shared here and not only the key.
+
+**Two shapes of caller, both correct, for different reasons.** `_advance_one`
+(`gate_progression_job.py`), `_advance_after_approval` (`gate_confirmation.py`)
+and `launch_thread_lock.py`'s callers all bind the guarded repository write to
+the *same* session that holds the lock — the lock's transaction ending rolls
+back an unfinished cascade along with releasing the lock, which is exactly
+what a gate crossing (cheap, redone by the next pass) wants.
+
+`trigger-clickup-projection-on-launch-events` adds a second shape, reusing
+this same lock to also serialize `converge_launch` (ClickUp list/task
+creation) between the periodic pass and an eager single-launch trigger — but
+does **not** bind `converge_launch`'s writes to the lock's session. A
+`converge_launch` call is many ClickUp requests against a rate budget, and
+`launch-clickup-sync` guarantees a launch's partial progress survives its own
+failure; rebinding those writes to the lock's transaction would turn
+`ClickUpMappingRepository`'s per-write commits into savepoints the lock
+transaction's own rollback could undo, silently reversing that guarantee.
+`pg_advisory_xact_lock` does not care which session performs the guarded
+work, only that the lock is held for as long as that work is in flight — a
+`transaction()` opened solely to acquire the lock, with the guarded call
+awaited to completion before the block exits, gives genuine mutual exclusion
+against another same-shaped caller without adopting the same-session shape's
+rollback-on-failure semantics. **Do not "fix" this shape by rebinding
+`converge_launch`'s collaborators to the lock transaction** — that would
+reintroduce exactly the regression this note exists to prevent. See
+`trigger-clickup-projection-on-launch-events`'s `design.md`.
 """
 
 from __future__ import annotations

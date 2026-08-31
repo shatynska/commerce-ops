@@ -20,7 +20,9 @@ keyed on the last observed state".
 Collaborators arrive as arguments rather than by import: this module must
 not reach the catalog (`.importlinter`'s `products-infrastructure-boundary`
 forbids it), and the passes are the same code whether a job or a test
-drives them.
+drives them. `converge_launch_eagerly` is the one deliberate exception —
+see its own docstring for why it alone needs `transaction`/
+`hold_launch_advance_lock`.
 """
 
 from __future__ import annotations
@@ -45,7 +47,11 @@ from commerce_ops.launch.domain.launch_run import (
     Provenance,
     StepOutcomeValue,
 )
+from commerce_ops.launch.infrastructure.driven.launch_advisory_lock import (
+    hold_launch_advance_lock,
+)
 from commerce_ops.shared.domain.identity import ProductId
+from commerce_ops.shared.infrastructure.driven.database import transaction
 
 # design.md fixes this identity: a reconciliation read exposes no acting
 # user, so the pass records itself as the recorder rather than inventing a
@@ -681,6 +687,91 @@ async def converge_launch(
             await clickup.update_task(task_id, _due_date_field(desired))
 
 
+async def converge_launch_eagerly(
+    launch: Launch,
+    *,
+    playbook: LaunchPlaybook,
+    clickup: Any,
+    mapping: MappingStore,
+    read_product: ProductReader,
+    roster: RosterReader,
+    folder_id: str | None,
+) -> None:
+    """Project one launch's ClickUp list and tasks immediately, in addition
+    to `clickup_sync_job`'s periodic pass.
+
+    `trigger-clickup-projection-on-launch-events`'s single-launch fast path
+    for the *creation* direction — the counterpart `advance_and_ask`
+    (`gate_progression_job.py`) already is for gate advancement. Called
+    after a launch starts and after any gate crossing, from whichever of
+    the three paths caused it.
+
+    A thin lock-and-delegate wrapper, deliberately: every collaborator
+    `converge_launch` needs is the caller's own, passed straight through,
+    never rebuilt here. `configuration` is fixed at `None` rather than
+    accepted as a parameter — Custom Field resolution and its
+    configuration-gap reporting are deliberately out of scope for the
+    eager path (design.md); an eagerly created task is left exactly as
+    this capability already describes for "a task projected before the
+    fields existed," and the next periodic pass gives it its values.
+
+    **Deliberately the one function in this otherwise transaction-free
+    module that opens one**, and imports `transaction`/
+    `hold_launch_advance_lock` to do it — everything else here takes its
+    collaborators as arguments precisely so the passes and a test can
+    drive the same code (this module's own docstring). This function is
+    the exception because the lock it needs is meaningless as an argument:
+    acquiring it *is* the thing this function exists to do, not a
+    collaborator a caller could hand in instead. It lives here rather than
+    in a driving adapter so `gate_progression_job.py` and
+    `gate_confirmation.py` can both import it directly without the
+    circular import their own mutual reference (`post_gate_ask`) would
+    otherwise create.
+
+    **The lock-holding transaction and `converge_launch`'s own writes
+    deliberately do not share a session.** A `transaction()` is opened
+    solely to acquire `hold_launch_advance_lock` — the same lock
+    `gate_progression_job.py`'s `_advance_one` takes for gate crossings,
+    reused here so this call and `clickup_sync_job`'s own (now similarly
+    lock-wrapped) `converge_launch` call cannot race and create a
+    duplicate list for the same launch's first convergence. `converge_launch`
+    runs against `mapping` exactly as the caller supplied it, never rebuilt
+    against the lock transaction: rebinding it there would turn
+    `ClickUpMappingRepository`'s per-write commits into savepoints the lock
+    transaction's own rollback could undo, silently reversing this
+    capability's guarantee that a launch's partial convergence progress
+    survives its own failure — see design.md, "The lock acquisition and
+    `converge_launch`'s own writes deliberately do not share a
+    transaction".
+
+    Never raises: exactly like `advance_and_ask`, a fault here is a pure
+    latency optimization lost, not a functional regression, since the
+    identical `converge_launch` path is exercised by `clickup_sync_job`'s
+    periodic pass regardless.
+    """
+    try:
+        async with transaction() as lock_session:
+            await hold_launch_advance_lock(lock_session, launch.product_id)
+            await converge_launch(
+                launch=launch,
+                playbook=playbook,
+                clickup=clickup,
+                mapping=mapping,
+                read_product=read_product,
+                roster=roster,
+                folder_id=folder_id,
+                configuration=None,
+            )
+    except Exception:
+        _logger.warning(
+            "eager convergence: the launch for product %s could not be "
+            "converged; it is left as it stands and the next periodic "
+            "clickup_sync_job pass will retry it",
+            launch.product_id.value,
+            exc_info=True,
+        )
+
+
 async def _ensure_list(
     *,
     launch: Launch,
@@ -697,9 +788,10 @@ async def _ensure_list(
     without condition. It has to be asked about *itself*: a deleted list
     answers a read of its tasks successfully and empty, so the read the
     pass already takes cannot tell it from a live list holding none. The
-    extra request is affordable — the pass runs every ten minutes and
-    already costs two reads per launch — and the rule is one sentence
-    rather than a two-step dance. See design.md, Decision 1.
+    extra request is affordable — this already costs two reads per launch
+    whether reached from the twice-daily periodic pass or from a single
+    launch's eager convergence — and the rule is one sentence rather than a
+    two-step dance. See design.md, Decision 1.
     """
     list_id = await mapping.list_id_for(launch.product_id)
     replacing = False

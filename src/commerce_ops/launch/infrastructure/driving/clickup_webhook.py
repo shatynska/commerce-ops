@@ -55,6 +55,7 @@ from commerce_ops.launch.infrastructure.driven.clickup_mapping import (
     ClickUpMappingRepository,
 )
 from commerce_ops.launch.infrastructure.driven.clickup_sync import (
+    converge_launch_eagerly,
     is_projectable,
     transition_outcome,
 )
@@ -71,12 +72,17 @@ from commerce_ops.launch.infrastructure.driven.playbook_repository import (
 from commerce_ops.launch.infrastructure.driving.gate_progression_job import (
     advance_and_ask,
 )
+from commerce_ops.shared.infrastructure.driven import clickup_client as clickup
 from commerce_ops.shared.infrastructure.driven.database import session
 
 __all__ = [
     "ClickUpMappingRepository",
     "LaunchRepository",
     "advance_and_ask",
+    "clickup",
+    "converge_launch_eagerly",
+    "read_people",
+    "read_product",
     "record_step_outcome",
     "router",
     "session",
@@ -96,6 +102,34 @@ STATUS_CHANGE_EVENT: Final = "taskStatusUpdated"
 _CLOSED_STATUS_TYPE: Final = "closed"
 _CLICKUP_SOURCE: Final = "clickup"
 _GRADUATED_GATE: Final = "graduated"
+
+# Injected by `main.py`, this process's own composition root. Needed by the
+# eager-convergence call `_trigger_advance_and_ask` makes below
+# (`trigger-clickup-projection-on-launch-events`) — `converge_launch`
+# requires `read_product`, with no default, to name the launch's ClickUp
+# list; `roster` is optional.
+read_product: Any = None
+read_people: Any = None
+
+
+def _launch_folder_id() -> str | None:
+    # A literal variable name, so the environment-drift check can see this
+    # read (see `clickup_sync_job`'s and `gate_progression_job`'s own notes).
+    return os.environ.get("CLICKUP_LAUNCH_FOLDER_ID")
+
+
+async def _read_product_or_fail(product_id: Any) -> Any:
+    # Matching `clickup_sync_job._read_product_or_fail`'s pattern: narrows
+    # the optional `read_product` global to what `converge_launch_eagerly`
+    # needs, failing loudly rather than with a bare `TypeError` if `main.py`
+    # never injected one.
+    if read_product is None:
+        raise RuntimeError(
+            "eager convergence needs to name a launch's ClickUp list after "
+            "its catalog product, but no product reader was injected; "
+            "main.py supplies one after register_all()"
+        )
+    return await read_product(product_id)
 
 
 def _webhook_secret() -> str | None:
@@ -122,13 +156,55 @@ async def _trigger_advance_and_ask(product_id: Any) -> None:
     Decision 3), but this wrapper does not depend on that: the route's own
     insulation from the cascade must hold regardless of what this module's
     `advance_and_ask` binding does, so it is asserted here independently.
+
+    Also dispatches `trigger-clickup-projection-on-launch-events`'s eager
+    convergence, alongside `advance_and_ask`, when its cascade crossed a
+    gate (`tasks.md` 3.5) -- guarded by its own `try`, independently of
+    `converge_launch_eagerly`'s own catch, for the same reason.
+
+    A crossing is detected by comparing the launch's gate before and after
+    `advance_and_ask` runs, rather than trusting `advance_and_ask`'s own
+    return value: that keeps this detection correct regardless of which of
+    `advance_and_ask`'s several callers or substitutes this module's own
+    binding happens to be, exactly as `gate_progression_job.py`'s own
+    `_crossed` helper stays correct against a caller's incomplete fake.
     """
     try:
+        async with session() as db_session:
+            before = await LaunchRepository(db_session).get_by_product_id(product_id)
+        gate_before = before.current_gate if before is not None else None
+
         await advance_and_ask(product_id)
+
+        async with session() as db_session:
+            launch = await LaunchRepository(db_session).get_by_product_id(product_id)
     except Exception:
         _logger.warning(
             "clickup webhook: the advance-and-ask trigger for product %s "
             "raised; the next periodic pass will still reach this launch",
+            getattr(product_id, "value", product_id),
+            exc_info=True,
+        )
+        return
+
+    if launch is None or launch.current_gate == gate_before:
+        return
+    try:
+        async with session() as db_session:
+            await converge_launch_eagerly(
+                launch,
+                playbook=await PlaybookRepository(db_session).get("live"),
+                clickup=clickup,
+                mapping=ClickUpMappingRepository(db_session),
+                read_product=_read_product_or_fail,
+                roster=read_people,
+                folder_id=_launch_folder_id(),
+            )
+    except Exception:
+        _logger.warning(
+            "clickup webhook: eager convergence could not be triggered for "
+            "product %s; it is left as it stands and the next periodic "
+            "clickup_sync_job pass will retry it",
             getattr(product_id, "value", product_id),
             exc_info=True,
         )
