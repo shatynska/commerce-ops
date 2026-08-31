@@ -36,11 +36,11 @@
 ## 6. Cross-cutting tests
 
 - [x] 6.1 / 6.2 Not separately driven as full end-to-end integration tests — a deliberate scope reduction `test-manifest.md` records explicitly: each call site's own wiring test already establishes "the eager helper is triggered, handed this launch" at the route/listener level, and `test_eager_convergence_helper.py` establishes what the helper then does with a real `converge_launch`; a full E2E test through real HTTP/Slack routes would re-exercise both without adding a new claim.
-- [x] 6.3 Integration test written: `tests/integration/launch/test_eager_convergence_atomicity_live.py` (two concurrent triggers for the same brand-new launch produce exactly one ClickUp list). Not run in this environment — no `DATABASE_URL` configured; skips per the project's own integration-tier convention.
+- [x] 6.3 Integration test: `tests/integration/launch/test_eager_convergence_atomicity_live.py` (two concurrent triggers for the same brand-new launch produce exactly one ClickUp list; a mid-convergence failure leaves prior real writes standing). Run against a real docker-compose Postgres (`commerce_ops_test`, migrated to head) — both pass, confirming the real advisory lock actually serializes two genuinely concurrent callers. (Fixed along the way: the test never persisted a `launch_positions` row before its FK-constrained writes, and its `_FakeTask` double was missing `due_date` — both caught only once this tier ran for real.)
 - [x] 6.4 Regression test: `clickup_sync_job`'s own cadence, fallback role, and reconciliation half are unaffected — confirmed via its full existing test suite passing unchanged.
 
 ## 7. Verification
 
-- [x] 7.1 `uv run pytest tests/unit tests/agents`: 1767 passed, 72 skipped. `uv run pytest tests/integration`: 3 passed, 127 skipped (no `DATABASE_URL` in this environment).
-- [x] 7.2 `ruff check`: clean. `ruff format --check`: clean (886 files). `mypy .`: clean (428 source files).
-- [ ] 7.3 Manual verification in a real/staging deployment — not performed from this environment (no deployment access here).
+- [x] 7.1 `uv run pytest tests/unit tests/agents`: 1767 passed, 72 skipped. `uv run pytest tests/integration` against a real Postgres: 127 passed, 1 skipped on a full clean run; 2 additional tests (`test_clickup_sync_job_containment_live.py::test_a_launch_after_one_that_failed_on_the_database_is_unaffected_by_it`, `test_slack_entry_start.py::test_a_launch_is_started_with_a_date`) pass individually but fail when run together, reproducing with just those two files — `SAVEPOINT`/`Event loop is closed` errors consistent with a session-scoped DB engine fixture crossing a per-test async event loop, a known pattern. Neither file nor `tests/integration/conftest.py` is touched by this change (verified via `git diff` against both commits); pre-existing test-infrastructure flakiness, out of scope here.
+- [x] 7.2 `ruff check`: clean. `ruff format --check`: clean. `mypy .`: clean.
+- [ ] 7.3 Manual verification in a real/staging deployment — not performed from this environment (no deployment access here; local integration-tier verification above is the closest available substitute).
