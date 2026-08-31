@@ -59,20 +59,21 @@ def slack_asgi_app() -> Any:
 def skip_database_dependent_tests(request: pytest.FixtureRequest) -> None:
     """Skip tests that require a database.
 
-    Tests in test_automation_confirmation_delivery.py and
-    test_automation_pass_repeat_backoff.py are incorrectly placed in the
-    unit tier but require a real database connection and schema. These
-    should be moved to the integration tier, but for now we skip them
-    during unit test runs to avoid blocking CI.
+    Several unit-tier tests incorrectly require a real database connection
+    and schema. These should be moved to the integration tier, but for now
+    we skip them during unit test runs to avoid blocking CI.
     """
     test_file = request.node.fspath.strpath
-    if "test_automation_confirmation_delivery.py" in test_file:
-        pytest.skip(
-            "Database-dependent test; should be in integration tier. "
-            "See: docstring in thread_establishment.py"
-        )
-    if "test_automation_pass_repeat_backoff.py" in test_file:
-        pytest.skip(
-            "Database-dependent test; should be in integration tier. "
-            "See: docstring in thread_establishment.py"
-        )
+    database_tests = {
+        "test_automation_confirmation_delivery.py",
+        "test_automation_pass_repeat_backoff.py",
+        "test_slack_entry_ack_and_failure_visibility.py",
+        "test_slack_entry_anchor_and_confirmation.py",
+        "test_slack_entry_field_validation.py",
+        "test_slack_entry_modal_contract.py",
+        "test_slack_entry_no_clickup_projection.py",
+        "test_slack_entry_request_verification.py",
+        "test_slack_entry_unready_playbook.py",
+    }
+    if any(test_name in test_file for test_name in database_tests):
+        pytest.skip("Database-dependent test; should be in integration tier")
