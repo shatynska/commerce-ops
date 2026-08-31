@@ -241,11 +241,9 @@ def _step(**overrides: Any) -> StepDefinition:
         "timing_anchor": OffsetAnchor(days=-7),
         "blocking": False,
         "kind": StepKind.HUMAN,
-        "needs_confirmation": False,
         "status": StepStatus.ACTIVE,
         "hazard": Hazard.NONE,
         "assignees": (ALICE,),
-        "automation_brief": None,
         "handler": None,
         "provenance": None,
     }
@@ -257,7 +255,6 @@ def _automated(**overrides: Any) -> StepDefinition:
     """The step under test: `active`, `automated`, naming a handler."""
     attributes: dict[str, Any] = {
         "kind": StepKind.AUTOMATED,
-        "automation_brief": "Propose the Amazon sub-category node.",
         "handler": HANDLER_NAME,
         "assignees": (),
     }
@@ -647,6 +644,17 @@ class _InertNotifier:
         return None
 
 
+async def _inert_establish_thread(*args: Any, **kwargs: Any) -> tuple[str, None]:
+    """Thread-establishment nothing in this file exercises.
+
+    Added by `thread-launch-slack-notifications`, which made it a required
+    collaborator like `backoff` and `notifier` above -- inert here for the
+    same reason: nothing below asserts on threading or tagging, that has
+    its own file.
+    """
+    return "FAKE_THREAD_TS", None
+
+
 async def _run_pass(collaborators: _Collaborators, *, now: datetime = NOW) -> Any:
     """INVENTED call shape — the single correction point."""
     entry = _pass_entry()
@@ -665,6 +673,7 @@ async def _run_pass(collaborators: _Collaborators, *, now: datetime = NOW) -> An
         # own file.
         "backoff": _InertBackoff(),
         "notifier": _InertNotifier(),
+        "establish_thread": _inert_establish_thread,
         "now": now,
     }
     accepted = set(inspect.signature(entry).parameters)
@@ -736,7 +745,8 @@ async def test_a_human_step_is_never_invoked() -> None:
     plain = _step(identifier=HUMAN_STEP_ID, handler=None)
     confirming = _step(
         identifier="listing.needs-a-nod",
-        needs_confirmation=True,
+        assignees=(),
+        confirmer=ALICE,
         handler=None,
     )
     handler = _ScriptedHandler(StepResolution(outcome=Satisfied, result=RECOMMENDATION))
@@ -906,7 +916,7 @@ async def test_a_produced_outcome_is_attributed_to_the_handler() -> None:
     `tests/unit/launch/application/test_automated_result_decisions.py`.
     """
     handler = _ScriptedHandler(StepResolution(outcome=Satisfied, result=RECOMMENDATION))
-    collaborators = _setup(_automated(needs_confirmation=False), handler=handler)
+    collaborators = _setup(_automated(), handler=handler)
 
     await _run_pass(collaborators)
 
@@ -954,9 +964,7 @@ async def test_a_smuggled_provenance_does_not_displace_the_constructed_one() -> 
         async def __call__(self, context: Any) -> Any:
             return _SmugglingResolution()
 
-    collaborators = _setup(
-        _automated(needs_confirmation=False), handler=_SmugglingHandler()
-    )
+    collaborators = _setup(_automated(), handler=_SmugglingHandler())
 
     await _run_pass(collaborators)
 
@@ -1004,7 +1012,7 @@ async def test_a_non_terminal_outcome_on_a_confirmable_step_is_recorded_not_held
     handler = _ScriptedHandler(
         StepResolution(outcome=Blocked(reason), result=f"No node chosen: {reason}")
     )
-    collaborators = _setup(_automated(needs_confirmation=True), handler=handler)
+    collaborators = _setup(_automated(confirmer=ALICE), handler=handler)
 
     await _run_pass(collaborators)
 
@@ -1047,7 +1055,7 @@ async def test_a_reasonless_non_terminal_outcome_is_recorded_directly_too(
     legible — asserted through the evidence.
     """
     handler = _ScriptedHandler(StepResolution(outcome=outcome, result=produced))
-    collaborators = _setup(_automated(needs_confirmation=True), handler=handler)
+    collaborators = _setup(_automated(confirmer=ALICE), handler=handler)
 
     await _run_pass(collaborators)
 
@@ -1077,7 +1085,7 @@ async def test_a_step_reporting_no_progress_is_reconsidered_on_the_next_pass() -
     handler = _ScriptedHandler(
         StepResolution(outcome=Blocked("no confident node"), result="still nothing")
     )
-    collaborators = _setup(_automated(needs_confirmation=True), handler=handler)
+    collaborators = _setup(_automated(confirmer=ALICE), handler=handler)
 
     await _run_pass(collaborators)
     assert len(handler.contexts) == 1
@@ -1115,7 +1123,7 @@ async def test_an_impermissible_proposal_is_refused_before_it_is_stored(
         StepResolution(outcome=Refused, result="declining this listing tactic")
     )
     collaborators = _setup(
-        _automated(hazard=Hazard.COMPLIANCE_OBLIGATION, needs_confirmation=True),
+        _automated(hazard=Hazard.COMPLIANCE_OBLIGATION, confirmer=ALICE),
         handler=handler,
     )
 
@@ -1150,7 +1158,7 @@ async def test_an_impermissible_proposal_is_refused_on_an_unconfirmed_step_too()
         StepResolution(outcome=Refused, result="declining this listing tactic")
     )
     collaborators = _setup(
-        _automated(hazard=Hazard.COMPLIANCE_OBLIGATION, needs_confirmation=False),
+        _automated(hazard=Hazard.COMPLIANCE_OBLIGATION),
         handler=handler,
     )
 
@@ -1365,7 +1373,7 @@ async def test_an_unconfirmed_result_is_recorded_directly() -> None:
     provenance, and no decision is requested.
     """
     handler = _ScriptedHandler(StepResolution(outcome=Satisfied, result=RECOMMENDATION))
-    collaborators = _setup(_automated(needs_confirmation=False), handler=handler)
+    collaborators = _setup(_automated(), handler=handler)
 
     await _run_pass(collaborators)
 
@@ -1395,7 +1403,7 @@ async def test_a_confirmable_terminal_result_is_held_rather_than_recorded() -> N
     handler and the moment it was produced.
     """
     handler = _ScriptedHandler(StepResolution(outcome=Satisfied, result=RECOMMENDATION))
-    collaborators = _setup(_automated(needs_confirmation=True), handler=handler)
+    collaborators = _setup(_automated(confirmer=ALICE), handler=handler)
 
     await _run_pass(collaborators)
 
@@ -1423,7 +1431,7 @@ async def test_a_pending_result_suppresses_re_invocation() -> None:
     handler = _ScriptedHandler(
         StepResolution(outcome=Satisfied, result="a second, competing proposal")
     )
-    collaborators = _setup(_automated(needs_confirmation=True), handler=handler)
+    collaborators = _setup(_automated(confirmer=ALICE), handler=handler)
     standing = collaborators.results.seed_pending()
 
     await _run_pass(collaborators, now=NOW + timedelta(hours=2))
@@ -1450,7 +1458,7 @@ async def test_undelivered_is_not_undone(caplog: pytest.LogCaptureFixture) -> No
     THEN the pending result still stands, no outcome is recorded, and the
     delivery failure is reported.
     """
-    collaborators = _setup(_automated(needs_confirmation=True))
+    collaborators = _setup(_automated(confirmer=ALICE))
     collaborators.delivery = _FakeDelivery(failing=True)
     standing = collaborators.results.seed_pending(delivered=False)
 
@@ -1476,7 +1484,7 @@ async def test_an_undelivered_result_is_delivered_again_later() -> None:
     WHEN a delivery failed and a later pass runs
     THEN delivery of that pending result is attempted again.
     """
-    collaborators = _setup(_automated(needs_confirmation=True))
+    collaborators = _setup(_automated(confirmer=ALICE))
     failing = _FakeDelivery(failing=True)
     collaborators.delivery = failing
     standing = collaborators.results.seed_pending(delivered=False)
@@ -1508,7 +1516,7 @@ async def test_an_already_delivered_result_is_not_delivered_again() -> None:
     which the requirement's own reasoning about bounding the cost of a
     decision argues against without stating.
     """
-    collaborators = _setup(_automated(needs_confirmation=True))
+    collaborators = _setup(_automated(confirmer=ALICE))
     collaborators.results.seed_pending(delivered=True)
 
     await _run_pass(collaborators)
@@ -1529,7 +1537,7 @@ async def test_a_rejected_step_is_skipped_within_the_cool_off() -> None:
     THEN that step's handler is not invoked.
     """
     handler = _ScriptedHandler(StepResolution(outcome=Satisfied, result=RECOMMENDATION))
-    collaborators = _setup(_automated(needs_confirmation=True), handler=handler)
+    collaborators = _setup(_automated(confirmer=ALICE), handler=handler)
     collaborators.results.seed_rejection(decided_at=NOW - timedelta(hours=1))
 
     await _run_pass(collaborators)
@@ -1554,7 +1562,7 @@ async def test_a_rejected_step_is_offered_again_once_the_cool_off_elapses() -> N
     correct — the two-sided behaviour it guards is not.
     """
     handler = _ScriptedHandler(StepResolution(outcome=Satisfied, result=RECOMMENDATION))
-    collaborators = _setup(_automated(needs_confirmation=True), handler=handler)
+    collaborators = _setup(_automated(confirmer=ALICE), handler=handler)
     rejected_at = NOW - COOL_OFF - timedelta(minutes=1)
     collaborators.results.seed_rejection(decided_at=rejected_at)
 
@@ -1575,7 +1583,7 @@ async def test_a_voided_result_is_not_a_rejection_for_the_cool_off() -> None:
     it returned to the served set is the failure this pins.
     """
     handler = _ScriptedHandler(StepResolution(outcome=Satisfied, result=RECOMMENDATION))
-    collaborators = _setup(_automated(needs_confirmation=True), handler=handler)
+    collaborators = _setup(_automated(confirmer=ALICE), handler=handler)
     voided = collaborators.results.seed_rejection(decided_at=NOW - timedelta(hours=1))
     voided.state = "voided"
     voided.decided_by = None

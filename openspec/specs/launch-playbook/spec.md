@@ -124,7 +124,7 @@ Each step definition SHALL declare all of:
 - its scope: whether the step concerns the product itself, or the product on one marketplace
 - a timing anchor
 - whether it blocks its gate
-- its kind — `human` or `automated` — and whether its result needs confirmation by a person
+- its kind — `human` or `automated`
 - its lifecycle status
 - its hazard classification (see below) — declared explicitly, or `none` by default when the author declares nothing
 
@@ -134,7 +134,8 @@ and SHALL be able to declare, optionally:
 - its assignees: the people responsible for it
 - the gate it starts at: absent means it may start from the launch's first gate
 - the steps it waits on: empty means it waits on none
-- an automation brief and a handler, where its kind is `automated`
+- a handler, where its kind is `automated`
+- a confirmer: the one person who must accept an automated result before the step counts as resolved
 - a provenance reference into the source material it derives from
 
 The name is required and SHALL NOT be empty, and a name consisting only of whitespace SHALL be treated as empty. A step whose work cannot be read from the step itself is indistinguishable, to whoever is asked to do it, from a step that was never written down; the identifier names the step and the provenance says where it came from, but neither states the work. The coherence rules below reject a playbook that declares a step with an empty, whitespace-only, or absent name; that rejection is stated once, with the other load-time rules, rather than twice.
@@ -144,8 +145,8 @@ The name and the description are two fields because they answer to two audiences
 #### Scenario: A step definition is read back with every declared attribute
 
 - **WHEN** a step definition is read from a loaded playbook
-- **THEN** its identifier, name, gate, discipline, scope, timing anchor, blocking flag, kind, confirmation flag, status, and hazard classification are all present
-- **AND** its description, assignees, automation brief, handler and provenance reference are present only if authored
+- **THEN** its identifier, name, gate, discipline, scope, timing anchor, blocking flag, kind, status, and hazard classification are all present
+- **AND** its description, assignees, handler, confirmer and provenance reference are present only if authored
 - **AND** the gate it starts at and the steps it waits on are read back as declared
 
 #### Scenario: Steps can be selected by gate and by scope
@@ -388,7 +389,7 @@ The **seeded** step set SHALL contain at least one step for every timing-anchor 
 
 Every seeded step SHALL be `draft` and SHALL be `human`, and SHALL name no assignee. This is the whole point of seeding the reference document entire: 352 rows nobody has yet judged are work written down, not work in play. A seeded set is therefore **not ready** to hold a launch, and the deployment says so rather than pretending otherwise.
 
-It follows that the seeded set SHALL NOT be required to exercise `kind`, `status` or `needs_confirmation`. Requiring an `automated` step would mean seeding a claim that code resolves it, and requiring an `active` step would mean pre-committing the review the seed exists to enable. Both are consequences of every step being a draft nobody has judged, so neither can be asked of this seed.
+It follows that the seeded set SHALL NOT be required to exercise `kind`, `status` or name a `confirmer`. Requiring an `automated` step would mean seeding a claim that code resolves it, and requiring an `active` step would mean pre-committing the review the seed exists to enable. Both are consequences of every step being a draft nobody has judged, so neither can be asked of this seed.
 
 The **hazard** vocabulary is different and its coverage SHALL be kept: at least one `prohibited-tactic` step and at least one `compliance-obligation` step SHALL be present. A human pass has already classified rows of the reference document, and those classifications SHALL be carried across unchanged, so both are satisfiable without classifying anything new. What the seed SHALL NOT do is invent a classification for a row the human pass did not reach: a wrong `prohibited-tactic` produces a step whose only terminal outcome is `Refused` — work that can never be done — so an unreached row SHALL arrive as `none`.
 
@@ -410,8 +411,8 @@ Like its sibling seed requirement, this describes the seed and only the seed: it
 
 #### Scenario: Execution modes and the compliance hazard are represented
 
-- **WHEN** the seeded step set is grouped by kind and confirmation and filtered by hazard
-- **THEN** every step is `human` and none needs confirmation, so no coverage of `automated` is required of the seed
+- **WHEN** the seeded step set is grouped by kind and confirmer and filtered by hazard
+- **THEN** every step is `human` and none names a confirmer, so no coverage of `automated` is required of the seed
 - **AND** at least one `compliance-obligation` step exists
 
 #### Scenario: Prohibited tactics are present and never block
@@ -469,48 +470,94 @@ Any status MAY move to any other, and every move SHALL be a write validated by t
 
 ### Requirement: A step names who does the work and whether a person accepts it
 
-Each step definition SHALL declare a kind — `human`, meaning a person does the work, or `automated`, meaning code does — and, separately, whether the result needs confirmation by a person before the step counts as resolved.
+Each step definition SHALL declare a kind — `human`, meaning a person does the work, or `automated`, meaning code does — and, separately, MAY name a confirmer: the one person who must accept an automated result before the step counts as resolved.
 
-These are two independent facts and SHALL NOT be collapsed into one. Whether the code that resolves a step calls a language model is an implementation detail of that code, and the playbook SHALL NOT record it: the thing the launch reacts to is whether a person must accept what came back.
+These are two independent facts and SHALL NOT be collapsed into one. Whether the code that resolves a step calls a language model is an implementation detail of that code, and the playbook SHALL NOT record it: the thing the launch reacts to is whether a named person must accept what came back.
 
-A `human` step's confirmation flag SHALL carry no meaning — the person doing the work is the person attesting it — and SHALL be ignored rather than rejected, so that flipping a step's kind does not require clearing an unrelated field.
+A `human` step's confirmer SHALL carry no meaning — the person doing the work is the person attesting it — and SHALL be accepted rather than rejected, so that flipping a step's kind does not require clearing an unrelated field.
 
 #### Scenario: An automated step declares whether its result is accepted
 
 - **WHEN** an automated step is read back
-- **THEN** it carries its kind and, separately, whether its result needs a person's confirmation
+- **THEN** it carries its kind and, separately, its confirmer, present only if one is named
 
 #### Scenario: The playbook records no automation detail beyond the kind
 
 - **WHEN** a step's declared fields are read
-- **THEN** nothing states how the automation works — only that code resolves it, and whether a person accepts the result
+- **THEN** nothing states how the automation works — only that code resolves it, and who, if anyone, must accept the result
 
 #### Scenario: Kind and confirmation are independent
 
 - **WHEN** the step vocabulary is read
-- **THEN** an automated step may either need confirmation or not, and neither combination is rejected
+- **THEN** an automated step may name a confirmer or none, and neither is rejected
 
-### Requirement: A step carries the brief and the handler its automation needs
+#### Scenario: A human step's confirmer is accepted, not rejected
 
-An `automated` step SHALL be able to declare an automation brief — what the code must establish, in prose — and a handler naming the use case that resolves it.
+- **WHEN** a `human` step is written naming a confirmer
+- **THEN** the write is accepted, and the step's kind is unaffected
 
-Neither SHALL be required of a `draft` step. The brief SHALL be required to leave `draft`, because a step nobody can state the acceptance criterion for is not ready to be built. The handler SHALL be required to become `active`. That a handler is *present* is a property of the step set, and is checked whenever the playbook is loaded. That the running code actually **registers** it is not — it is a property of the deployed code, which changes without the step set changing — so it SHALL be checked when a step is activated and SHALL NOT be re-checked at load, for the same reason assignees are not: a rename in the registry would otherwise make every stored playbook unloadable, taking down launches to report a deployment fault. A deployment whose registry no longer answers for an `active` step's handler SHALL instead be reported at startup, where a deployment fault belongs.
+### Requirement: A step names who confirms an automated result
+
+Each step definition MAY name a confirmer: a single person, referenced by the roster's own generated identifier (`roster`), trusted to accept or reject an automated step's proposed result. A confirmer reference SHALL be to a person the roster carries; a reference to an identifier no roster entry has SHALL be rejected, naming the step and the unknown identifier.
+
+Naming a confirmer is what makes a step's result require confirmation — there is no separate flag. A step naming no confirmer needs none; its result is recorded as soon as a handler produces a terminal outcome. This is the whole of the former `needs_confirmation` flag's meaning, carried by one field instead of two.
+
+An `active` `automated` step naming a confirmer SHALL name one who is active on the roster; a confirmer whose roster entry is deactivated stops satisfying the requirement exactly as an assignee's deactivation does, for the same reason: whether a person is active is a fact about the roster, not about the step set, so this is a **write-time precondition, not a load-time coherence rule**. A load SHALL NOT re-check it: a step whose confirmer has since been deactivated SHALL continue to load and be served, and its automated results SHALL continue to be held pending until an author names someone else.
+
+A step whose `assignees` names exactly one person, where that person is also the confirmer, SHALL be rejected: a single actor confirming their own work is not a second opinion, and the shape can never produce one no matter how many times it is pressed. Two or more assignees naming the confirmer among them, or no assignees at all, are both unaffected by this rule — only the case where the confirmer is the step's *only* named assignee is incoherent.
+
+This holds regardless of `kind`, including on a `human` step, where a named confirmer otherwise carries no meaning today (*A step names who does the work and whether a person accepts it*). It is authored-shape hygiene rather than a live behavioral concern for a `human` step in this deployment: nothing reads a `human` step's confirmer yet, but the identical shape is exactly what a later human-step confirmation flow — a person's own ClickUp completion checked by a second person before it counts as done — would need to reject for the same reason it is rejected for an `automated` step's Slack accept/reject today. Catching it once, at the field's own coherence rule, means that flow inherits a correct step set rather than needing to re-derive this rule itself.
+
+Unlike the two preconditions above, this is a **load-time coherence rule**: it is a pure function of the step set's own `assignees` and `confirmer` fields, needs no roster to evaluate, and is therefore enumerated alongside the other load-time rules in *An incoherent playbook is rejected against its steps' status and shape* — a playbook already carrying this shape SHALL fail to load, not merely fail its next write.
+
+Confirmers SHALL be referenced by identifier rather than by name or Slack identity, so that correcting a person's details never rewrites the steps that point at them — the same guarantee `assignees` already carries.
+
+#### Scenario: An automated step names its confirmer
+
+- **WHEN** an automated step naming a confirmer is read back
+- **THEN** its confirmer identifier is present
+
+#### Scenario: An unknown confirmer is rejected
+
+- **WHEN** a step names a confirmer identifier the roster does not carry
+- **THEN** the write is rejected with a fault naming the step and that identifier
+
+#### Scenario: A deactivated confirmer does not satisfy the requirement
+
+- **WHEN** an `active` `automated` step is written naming a confirmer whose roster entry is deactivated
+- **THEN** the write is rejected, exactly as if it named nobody
+
+#### Scenario: A sole assignee cannot also be the confirmer
+
+- **WHEN** a step names exactly one assignee, and names that same person as its confirmer
+- **THEN** the write is rejected with a fault naming the step
+
+#### Scenario: A confirmer among several assignees is not rejected
+
+- **WHEN** a step names two or more assignees, one of whom is also its confirmer
+- **THEN** the write is accepted
+
+#### Scenario: Correcting a person does not touch the steps that confirm through them
+
+- **WHEN** a person's display name is corrected on the roster
+- **THEN** every step naming them as confirmer still names them, unchanged
+
+### Requirement: A step carries the handler its automation needs
+
+An `automated` step SHALL be able to declare a handler naming the use case that resolves it.
+
+The handler SHALL NOT be required of a `draft` step, and SHALL be required to become `active`. That a handler is *present* is a property of the step set, and is checked whenever the playbook is loaded. That the running code actually **registers** it is not — it is a property of the deployed code, which changes without the step set changing — so it SHALL be checked when a step is activated and SHALL NOT be re-checked at load, for the same reason assignees are not: a rename in the registry would otherwise make every stored playbook unloadable, taking down launches to report a deployment fault. A deployment whose registry no longer answers for an `active` step's handler SHALL instead be reported at startup, where a deployment fault belongs.
 
 That startup report SHALL be produced by a process in which every handler this deployment answers for is registered. A report produced against a registry holding none of them SHALL NOT satisfy this requirement: such a report answers identically for a deployment that registers a step's handler and one that does not, and so establishes nothing about either.
 
 The report SHALL name every `active` `automated` step whose handler is unregistered, and SHALL NOT, on account of the faults it names, prevent the deployment from starting — one unresolvable step leaves every other part of a launch working.
 
-A `human` step SHALL carry neither, and declaring either on one SHALL be rejected.
+A `human` step SHALL carry no handler, and declaring one SHALL be rejected.
 
-#### Scenario: A draft automated step needs neither
+#### Scenario: A draft automated step needs no handler yet
 
-- **WHEN** an automated step is created as a draft with no brief and no handler
+- **WHEN** an automated step is created as a draft with no handler
 - **THEN** the write is accepted
-
-#### Scenario: Leaving draft requires the brief
-
-- **WHEN** an automated step with no automation brief is moved out of `draft`
-- **THEN** the write is rejected with a fault naming the step and the missing brief
 
 #### Scenario: A handler the code does not register cannot be activated
 
@@ -537,16 +584,16 @@ A `human` step SHALL carry neither, and declaring either on one SHALL be rejecte
 - **WHEN** the startup report names one or more `active` `automated` steps whose handlers are unregistered
 - **THEN** the deployment continues to start, and every step whose handler is registered is unaffected
 
-#### Scenario: A human step carries no automation fields
+#### Scenario: A human step carries no handler
 
-- **WHEN** a `human` step is written with an automation brief or a handler
+- **WHEN** a `human` step is written with a handler
 - **THEN** the write is rejected with a fault naming the step
 
 ### Requirement: A step names the people responsible for it
 
 Each step definition SHALL be able to name zero or more assignees, each referencing a person by the roster's own generated identifier (`roster`). An assignee reference SHALL be to a person the roster carries; a reference to an identifier no roster entry has SHALL be rejected, naming the step and the unknown identifier.
 
-An `active` `human` step SHALL name at least one assignee who is active on the roster: human work nobody is responsible for is work that will not happen, and a projected task nobody is assigned is the shape that failure takes today. An `automated` step MAY name assignees — where it needs confirmation they are who is asked — and MAY name none.
+An `active` `human` step SHALL name at least one assignee who is active on the roster: human work nobody is responsible for is work that will not happen, and a projected task nobody is assigned is the shape that failure takes today. An `automated` step MAY name assignees or none; naming them no longer says who is asked to confirm a result — that is the confirmer's question alone (*A step names who confirms an automated result*).
 
 Assignees SHALL be referenced by identifier rather than by name or Slack identity, so that correcting a person's details never rewrites the steps that point at them.
 
@@ -572,7 +619,7 @@ Both rules above are **write-time preconditions, not load-time coherence rules**
 - **WHEN** a person's display name is corrected on the roster
 - **THEN** every step naming them still names them, unchanged
 
-### Requirement: An incoherent playbook is rejected against each step's status
+### Requirement: An incoherent playbook is rejected against its steps' status and shape
 
 Loading a playbook SHALL validate its coherence and SHALL fail rather than returning a partially valid playbook. The failure SHALL report **every** fault found, each naming the offending step or gate, so that authoring a large playbook does not require repeated load attempts to discover successive faults. This SHALL cover malformed individual step definitions — a step whose shape is wrong or whose timing anchor is invalid — and malformed authored metric conditions, as well as violations of the coherence rules below, since during a bulk import malformed steps are the likelier error and reporting them one at a time is the experience this requirement exists to prevent. Write validation under `playbook-authoring` applies these same rules to the step set a write would produce, so what a write cannot persist, a load cannot see.
 
@@ -590,9 +637,9 @@ A playbook SHALL be rejected when any of the following holds:
 - a step definition declares a gate that is not in the gate sequence
 - a step definition's name is empty, consists only of whitespace, or is not declared at all
 - a step definition's name spans more than one line — a name is composed into a task's name, and a name is a single line
-- a step definition is `automated` and beyond `draft` while its automation brief is absent
 - a step definition is `automated` and `active` while its handler is absent
-- a step definition is `human` while carrying an automation brief or a handler
+- a step definition is `human` while carrying a handler
+- a step definition names exactly one assignee who is also its confirmer
 - a step definition is classified `prohibited-tactic` and is also marked as blocking its gate
 - a gate's authored metric condition has an empty threshold description
 
@@ -631,9 +678,9 @@ A playbook SHALL be rejected when any of the following holds:
 - **WHEN** a playbook declares a step whose description contains line breaks
 - **THEN** the playbook loads, and the description is carried unaltered
 
-#### Scenario: Automation past draft without a brief
+#### Scenario: A sole assignee who is also the confirmer fails to load
 
-- **WHEN** an `automated` step beyond `draft` has no automation brief
+- **WHEN** a playbook contains a step naming exactly one assignee and naming that same person as its confirmer
 - **THEN** loading fails with an error naming that step
 
 #### Scenario: A prohibited tactic cannot block a gate
@@ -668,12 +715,12 @@ A playbook SHALL be rejected when any of the following holds:
 
 ### Requirement: What blocks a step from being activated is reported
 
-The capability SHALL report which of the authored step set's definitions cannot yet be made `active`, each identified by its identifier, its gate, its owning discipline and its status, together with what it is missing — an automation brief, a registered handler, or an active assignee. The outstanding work of getting a step ready stays visible while the set is authored, rather than surfacing one step at a time when someone tries to activate it.
+The capability SHALL report which of the authored step set's definitions cannot yet be made `active`, each identified by its identifier, its gate, its owning discipline and its status, together with what it is missing — a registered handler, or an active assignee. The outstanding work of getting a step ready stays visible while the set is authored, rather than surfacing one step at a time when someone tries to activate it.
 
 #### Scenario: Steps that cannot be activated are listed with their reason
 
-- **WHEN** the report is requested against a set holding one ready step and one automated draft with no brief
-- **THEN** exactly the draft is reported, with its identifier, gate, discipline and status, and the missing brief named
+- **WHEN** the report is requested against a set holding one ready step and one automated draft with no handler
+- **THEN** exactly the draft is reported, with its identifier, gate, discipline and status, and the missing handler named
 
 #### Scenario: A set of ready steps reports nothing
 

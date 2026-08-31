@@ -121,6 +121,8 @@ SIGNING_SECRET = "test-product-agent-signing-secret"  # not a real credential
 BOT_TOKEN = "xoxb-test-product-agent-not-a-real-token"  # not a real credential
 SIGNING_SECRET_VAR = "PRODUCT_AGENT_SLACK_SIGNING_SECRET"
 BOT_TOKEN_VAR = "PRODUCT_AGENT_SLACK_BOT_TOKEN"  # ASSUMED
+LAUNCHES_CHANNEL_VAR = "PRODUCT_AGENT_LAUNCHES_CHANNEL_ID"
+LAUNCHES_CHANNEL_ID = "C0LAUNCHES"  # not a real channel
 CALLBACK_ID = "start_launch_modal"  # ASSUMED
 SUBMITTER_ID = "U0SUBMITTER"
 
@@ -268,7 +270,15 @@ class _FakeSlackResponse(dict[str, Any]):
 class _RecordingSlackApi:
     """Records outbound Slack Web API calls; optionally fails specific
     methods (used by the delivery-failure test), leaving every other
-    method to succeed normally."""
+    method to succeed normally.
+
+    Every successful call gets a distinct, deterministic `ts` in its fake
+    response -- `ensure_launch_thread` reads `response["ts"]` from a real
+    `chat.postMessage` reply to establish the thread reference, so a fake
+    response missing it would make thread establishment itself raise
+    (silently, under the adapter's broad `except Exception`) rather than
+    exercise what these tests are checking.
+    """
 
     def __init__(self, *, fail_methods: frozenset[str] = frozenset()) -> None:
         self.calls: list[dict[str, Any]] = []
@@ -280,21 +290,28 @@ class _RecordingSlackApi:
 
     @property
     def posts(self) -> list[dict[str, Any]]:
+        # The payload sent, plus the `ts` this fake assigned the response --
+        # so a test can confirm a reply's `thread_ts` matches the anchor's
+        # response `ts`, the way a real Slack thread would link them.
         return [
-            c["payload"] for c in self.calls if c["api_method"] == "chat.postMessage"
+            {**c["payload"], "ts": c["response_ts"]}
+            for c in self.calls
+            if c["api_method"] == "chat.postMessage"
         ]
 
     async def api_call(self, api_method: str, **kwargs: Any) -> _FakeSlackResponse:
         payload = kwargs.get("json") or kwargs.get("params") or kwargs.get("data") or {}
+        response_ts = f"1700000000.{len(self.calls):06d}"
         self.calls.append(
             {
                 "api_method": api_method,
                 "payload": dict(payload) if isinstance(payload, dict) else payload,
+                "response_ts": response_ts,
             }
         )
         if api_method in self.fail_methods:
             raise ConnectionError(f"simulated delivery failure for {api_method}")
-        return _FakeSlackResponse({"ok": True})
+        return _FakeSlackResponse({"ok": True, "ts": response_ts})
 
 
 def _looks_like_a_reset_hook(value: Any) -> bool:
@@ -346,6 +363,11 @@ def _require_slack_entry_module() -> Any:
 def slack_env(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     monkeypatch.setenv(SIGNING_SECRET_VAR, SIGNING_SECRET)
     monkeypatch.setenv(BOT_TOKEN_VAR, BOT_TOKEN)
+    # thread-launch-slack-notifications: the anchor message and the
+    # confirmation reply it establishes both land in the launches channel,
+    # so this test's `client` fixture cannot exercise a successful
+    # submission without it configured.
+    monkeypatch.setenv(LAUNCHES_CHANNEL_VAR, LAUNCHES_CHANNEL_ID)
     _reset_slack_caches()
     yield
     _reset_slack_caches()
@@ -453,7 +475,9 @@ async def test_a_launch_is_started_with_a_date(
     WHEN the modal is submitted with a valid SKU, name, and launch date
     THEN the product is registered and its launch exists, pinned to the
     shipped playbook version, with that launch date
-    AND a confirmation message is posted.
+    AND an anchor message naming that launch date is posted, and a
+    confirmation reply tagging the submitter follows within its thread
+    (thread-launch-slack-notifications, `launch-entry` MODIFIED).
     """
     _require_slack_entry_module()
     sku = unique_sku()
@@ -475,11 +499,31 @@ async def test_a_launch_is_started_with_a_date(
     # SPECIFIED: with that launch date.
     assert _read(launch, "launch_date") == date.fromisoformat(launch_date)
 
-    # SPECIFIED: a confirmation message is posted.
-    assert len(slack_api.posts) == 1, (
-        f"expected exactly one confirmation message, observed: {slack_api.posts}"
+    # SPECIFIED: an anchor message establishes the thread, and a
+    # confirmation reply tagging the submitter follows within it.
+    assert len(slack_api.posts) == 2, (
+        f"expected an anchor message and a threaded confirmation reply, "
+        f"observed: {slack_api.posts}"
     )
-    assert slack_api.posts[0].get("channel") == SUBMITTER_ID
+    anchor, reply = slack_api.posts
+    assert anchor.get("channel") == LAUNCHES_CHANNEL_ID
+    assert reply.get("channel") == LAUNCHES_CHANNEL_ID
+    assert reply.get("thread_ts") == anchor.get("ts"), (
+        f"the confirmation reply did not land in the anchor's thread: {reply!r}"
+    )
+    assert f"<@{SUBMITTER_ID}>" in (reply.get("text") or ""), (
+        f"the confirmation reply did not tag the submitter: {reply!r}"
+    )
+    # SPECIFIED: an anchor message naming that launch date is posted.
+    assert launch_date in (anchor.get("text") or ""), (
+        f"the anchor message did not name the launch date: {anchor!r}"
+    )
+    # SPECIFIED: the confirmation names that tracked work appears in
+    # ClickUp on the sync cadence. No exact wording is fixed by any
+    # artifact.
+    assert "clickup" in (reply.get("text") or "").lower(), (
+        f"the confirmation reply did not name ClickUp sync: {reply!r}"
+    )
 
 
 async def test_a_launch_is_started_without_a_date(
@@ -505,14 +549,20 @@ async def test_a_launch_is_started_without_a_date(
     # SPECIFIED: no launch date.
     assert _read(launch, "launch_date") is None
 
-    assert len(slack_api.posts) == 1
-    text = (slack_api.posts[0].get("text") or "").lower()
+    # thread-launch-slack-notifications: an anchor message establishes the
+    # thread, and the confirmation reply -- the last message posted -- is
+    # what names the absence of a date.
+    assert len(slack_api.posts) == 2, (
+        f"expected an anchor message and a threaded confirmation reply, "
+        f"observed: {slack_api.posts}"
+    )
+    text = (slack_api.posts[-1].get("text") or "").lower()
     # SPECIFIED: the confirmation names the absence of a date. No exact
     # wording is fixed by any artifact; asserted as containment of a
     # plausible "no date" phrasing rather than an exact string.
     assert "no date" in text or "not set" in text or "no launch date" in text, (
         f"the confirmation message did not appear to name the absence of a "
-        f"launch date: {slack_api.posts[0].get('text')!r}"
+        f"launch date: {slack_api.posts[-1].get('text')!r}"
     )
 
 
@@ -626,10 +676,14 @@ async def test_a_duplicate_sku_is_rejected_with_nothing_persisted(
     )
 
     # SPECIFIED: the user is told the SKU is already registered. No exact
-    # wording is fixed by any artifact.
-    assert len(slack_api.posts) == 2, (
-        f"expected one confirmation for the first submission and one "
-        f"rejection message for the second, observed: {slack_api.posts}"
+    # wording is fixed by any artifact. The first (successful) submission
+    # posts an anchor plus a threaded confirmation reply
+    # (thread-launch-slack-notifications); the rejected second submission
+    # never reaches that code, so it adds exactly one more message.
+    assert len(slack_api.posts) == 3, (
+        f"expected an anchor and confirmation reply for the first "
+        f"submission and one rejection message for the second, observed: "
+        f"{slack_api.posts}"
     )
     rejection_text = (slack_api.posts[-1].get("text") or "").lower()
     assert sku.value.lower() in rejection_text or "already" in rejection_text, (

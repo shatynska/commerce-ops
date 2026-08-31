@@ -330,7 +330,6 @@ def build() -> dict[str, Any]:
                 "timing_anchor": anchor_for(row["when"]),
                 "blocking": blocking,
                 "kind": "human",
-                "needs_confirmation": False,
                 "status": "draft",
                 "hazard": hazard,
                 "assignees": [],

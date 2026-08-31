@@ -338,11 +338,10 @@ def _step(**overrides: Any) -> StepDefinition:
         "timing_anchor": OffsetAnchor(days=-7),
         "blocking": False,
         "kind": StepKind.AUTOMATED,
-        "needs_confirmation": True,
+        "confirmer": None,
         "status": StepStatus.ACTIVE,
         "hazard": Hazard.NONE,
         "assignees": (),
-        "automation_brief": "Propose the Amazon sub-category node.",
         "handler": HANDLER_NAME,
         "provenance": None,
     }
@@ -357,16 +356,16 @@ def _hold(gate: str) -> StepDefinition:
         gate=gate,
         blocking=True,
         kind=StepKind.HUMAN,
-        needs_confirmation=False,
         assignees=(),
-        automation_brief=None,
         handler=None,
     )
 
 
-def _playbook() -> LaunchPlaybook:
+def _playbook(confirmer: str | None = None) -> LaunchPlaybook:
     fillers = tuple(_hold(gate) for gate in SPECIFIED_GATE_ORDER)
-    return LaunchPlaybook(version="test-v1", gates=_gates(), steps=(_step(), *fillers))
+    return LaunchPlaybook(
+        version="test-v1", gates=_gates(), steps=(_step(confirmer=confirmer), *fillers)
+    )
 
 
 @dataclass
@@ -475,12 +474,13 @@ class _FakeRosterStore:
         self.version += 1
 
 
-async def _roster_carrying_alice() -> _FakeRosterStore:
+async def _roster_carrying_alice() -> tuple[_FakeRosterStore, str]:
     """A roster the administration surface holds as active, built by
     driving `access`'s own `create_person` so the rows are the real ones
-    the reader adapts."""
+    the reader adapts. Returns the store and Alice's generated roster
+    identifier, which only exists once she has been created."""
     store = _FakeRosterStore()
-    await create_person(
+    record = await create_person(
         roster=store,
         principal=BOOTSTRAP_PRINCIPAL,
         display_name=ALICE_NAME,
@@ -488,8 +488,9 @@ async def _roster_carrying_alice() -> _FakeRosterStore:
         clickup_user_id=None,
         admin=True,
     )
+    alice_id = record.person.identifier
     store.loads = 0  # only reads made by the decision under test count
-    return store
+    return store, alice_id
 
 
 # ---------------------------------------------------------------------------
@@ -512,8 +513,8 @@ class _Collaborators:
     recorder: _RecordingOutcomes
 
 
-def _collaborators() -> _Collaborators:
-    playbook = _playbook()
+def _collaborators(confirmer: str | None = None) -> _Collaborators:
+    playbook = _playbook(confirmer=confirmer)
     launch, _ = Launch.start(
         product_id=PRODUCT_ID, playbook=playbook, launch_date=LAUNCH_DATE
     )
@@ -602,12 +603,13 @@ def _wiring_error_type() -> type[BaseException]:
 async def test_a_roster_person_can_decide_through_the_injected_collaborator(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Scenario: A person the roster carries can decide through the
-    wiring production supplies.
+    """Scenario: The named confirmer can decide, through the wiring
+    production supplies.
 
-    WHEN a decision arrives from a Slack identity that the
-    roster-administration surface holds as active, judged against the
-    roster collaborator the running system supplies
+    WHEN a decision arrives from the Slack identity belonging to the
+    step's named confirmer, whom the roster-administration surface holds
+    as active, judged against the roster collaborator the running system
+    supplies
     THEN that person is resolved and the decision is judged on its merits
     rather than refused as unknown.
 
@@ -629,7 +631,7 @@ async def test_a_roster_person_can_decide_through_the_injected_collaborator(
     spellings on it, and Alice is refused as unknown with the
     substituted store never read (`proposal.md` — *Why*).
     """
-    store = await _roster_carrying_alice()
+    store, alice_id = await _roster_carrying_alice()
     monkeypatch.setattr(composition_root, "roster", store)
 
     injected = automation_confirmation.read_people
@@ -639,7 +641,7 @@ async def test_a_roster_person_can_decide_through_the_injected_collaborator(
         "deployment receives can be judged"
     )
 
-    collaborators = _collaborators()
+    collaborators = _collaborators(confirmer=alice_id)
     returned = await _accept(collaborators, injected)
 
     # SPECIFIED: the roster production supplies was actually read …

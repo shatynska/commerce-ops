@@ -173,7 +173,7 @@ _RETIRED_PARAM: Final = "retired"
 #: implemented page's action vocabulary.
 _MOVE_HINTS: Final = ("move", "reorder", "position", "/order", "up", "down", "top")
 
-_A_BRIEF: Final = "A brief no human step may carry"
+_A_HANDLER: Final = "no.such.registered.use-case"
 
 ALICE: Final = "prs_01HQ8Z6M4A"
 ALICE_NAME: Final = "Alice Admin"
@@ -233,11 +233,9 @@ def _step(**overrides: Any) -> StepDefinition:
         "timing_anchor": OffsetAnchor(days=-7),
         "blocking": False,
         "kind": StepKind.HUMAN,
-        "needs_confirmation": False,
         "status": StepStatus.ACTIVE,
         "hazard": Hazard.NONE,
         "assignees": (ALICE,),
-        "automation_brief": None,
         "handler": None,
         "provenance": None,
     }
@@ -1097,7 +1095,7 @@ def _valid_values(
     values[_field_name(values, "scope")] = Scope.PRODUCT.value
     values[_field_name(values, "hazard")] = Hazard.NONE.value
     for key in list(values):
-        if "automation_brief" in key or "handler" in key:
+        if "handler" in key:
             values[key] = ""
     if any("blocking" in key for key in values):
         values = _without(values, "blocking")
@@ -1389,15 +1387,14 @@ def test_a_fault_on_a_disabled_automation_control_is_not_suppressed(
     """Scenario: A fault on a disabled automation control is not
     suppressed.
 
-    WHEN a `human` step carrying an automation brief is rejected for the
-    pair
+    WHEN a `human` step carrying a handler is rejected for the pair
     THEN the mark carrying that fault is rendered
-    AND the automation brief control is still disabled
+    AND the handler control is still disabled
     AND neither that mark, nor the fieldset holding it, is rendered as
     not displayed.
 
     The mark is located differentially rather than by class: it is the
-    text the rejection renders in the brief control's own region that a
+    text the rejection renders in the handler control's own region that a
     clean render of the same region does not. That is the reading
     `test_playbook_admin_fault_attribution.py` established, and it
     survives the fault being reworded.
@@ -1420,30 +1417,30 @@ def test_a_fault_on_a_disabled_automation_control_is_not_suppressed(
     values[_field_name(values, "kind", excluding=("anchor",))] = _kind_value(
         StepKind.HUMAN
     )
-    values = _fill(values, automation_brief=_A_BRIEF)
+    values = _fill(values, handler=_A_HANDLER)
     rejected = _submit(client, surface, values)
 
-    brief_field = _field_name(values, "automation_brief")
-    clean_region = _region_of(_control_named(_tree(surface.html), brief_field))
+    handler_field = _field_name(values, "handler")
+    clean_region = _region_of(_control_named(_tree(surface.html), handler_field))
     rejected_root = _tree(rejected)
-    brief = _control_named(rejected_root, brief_field)
-    region = _region_of(brief)
+    handler = _control_named(rejected_root, handler_field)
+    region = _region_of(handler)
 
     already = {fragment.text for fragment in _texts(clean_region)}
     fresh = [fragment for fragment in _texts(region) if fragment.text not in already]
 
     # SPECIFIED: the mark carrying that fault is rendered.
     assert fresh, (
-        "the rejection renders nothing new in the automation brief's own "
-        "region, so the fault it was marked with is not there to suppress — "
-        "the served requirement *A rejected write names the fields its faults "
-        "concern* is what this leans on"
+        "the rejection renders nothing new in the handler's own region, so "
+        "the fault it was marked with is not there to suppress — the served "
+        "requirement *A rejected write names the fields its faults concern* "
+        "is what this leans on"
     )
-    # SPECIFIED: the automation brief control is still disabled — the
-    # treatment changed no control's offer.
-    assert _inherited(brief, _element_disabled), (
-        "the automation brief is no longer rendered disabled on a `human` "
-        "step, so the presentation changed which controls are offered"
+    # SPECIFIED: the handler control is still disabled — the treatment
+    # changed no control's offer.
+    assert _inherited(handler, _element_disabled), (
+        "the handler is no longer rendered disabled on a `human` step, so "
+        "the presentation changed which controls are offered"
     )
     # SPECIFIED: neither that mark, nor the fieldset holding it, is
     # rendered as not displayed.

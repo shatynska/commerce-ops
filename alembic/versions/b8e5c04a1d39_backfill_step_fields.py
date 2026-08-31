@@ -181,11 +181,9 @@ def _validate_backfilled_set() -> None:
             timing_anchor=anchor(row["timing_anchor"]),  # type: ignore[arg-type]
             blocking=row["blocking"],
             kind=StepKind(row["kind"]),
-            needs_confirmation=row["needs_confirmation"],
             status=StepStatus(row["status"]),
             hazard=Hazard(row["hazard"]),
             assignees=tuple(row["assignees"] or ()),
-            automation_brief=row["automation_brief"],
             handler=row["handler"],
             provenance=row["provenance"],
         )

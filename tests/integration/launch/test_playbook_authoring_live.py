@@ -183,9 +183,7 @@ def _authorable_fields(description: str) -> dict[str, Any]:
         "blocking": False,
         "kind": StepKind.HUMAN,
         "status": StepStatus.ACTIVE,
-        "needs_confirmation": False,
         "hazard": Hazard.NONE,
-        "automation_brief": None,
     }
 
 

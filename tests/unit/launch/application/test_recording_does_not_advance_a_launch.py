@@ -126,11 +126,9 @@ def _hold(gate: str) -> StepDefinition:
         timing_anchor=OffsetAnchor(days=0),
         blocking=True,
         kind=StepKind.AUTOMATED,
-        needs_confirmation=False,
         status=StepStatus.ACTIVE,
         hazard=Hazard.NONE,
         assignees=(),
-        automation_brief="Held until the automated check reports green.",
         handler="fixture.holding_check",
         provenance=None,
     )
@@ -272,10 +270,21 @@ async def test_recording_an_outcome_does_not_itself_advance_a_launch() -> None:
 # ---------------------------------------------------------------------------
 # DELIBERATELY UNTESTED, recorded rather than omitted
 #
-# - The other three `record_step_outcome` call sites (`clickup_webhook`,
-#   `clickup_sync_job`, `automation_pass`, `automation_confirmation`).
-#   They are covered by their own files, and none of them can advance a
-#   gate that the use case they all share does not advance.
+# - The three `record_step_outcome` call sites still fully bound by this
+#   requirement's SHALL NOT (`clickup_sync_job`, `automation_pass`,
+#   `automation_confirmation`). They are covered by their own files, and
+#   none of them can advance a gate that the use case they all share does
+#   not advance.
+# - `clickup_webhook`, which `advance-gates-from-clickup-webhook` carves a
+#   named exception for: it MAY also trigger the same advance-and-ask
+#   cascade the pass runs, off its own response path, immediately after
+#   recording. That the recording itself still advances nothing is
+#   asserted above, same as for every call site; the cascade the webhook
+#   goes on to trigger is covered in
+#   `tests/unit/launch/infrastructure/driving/test_clickup_webhook_triggers_the_advance_cascade.py`
+#   and `tests/unit/launch/infrastructure/driving/test_advance_and_ask.py`,
+#   and its exclusivity to this one call site in
+#   `tests/unit/launch/infrastructure/driving/test_the_advance_trigger_is_the_webhooks_alone.py`.
 # - That the launch *is* advanced by a later pass. That is the cascade's
 #   own requirement and is covered in
 #   `tests/unit/launch/application/test_progress_launch.py`; repeating it

@@ -128,6 +128,7 @@ class Settings(BaseSettings):
     omni_agent_slack_bot_token: NonEmpty
     product_agent_slack_bot_token: NonEmpty
     product_agent_monitoring_channel_id: NonEmpty
+    product_agent_launches_channel_id: NonEmpty
     # Required as of `start-launch-from-slack`, its first consumer: the
     # `product_agent` app now receives inbound Slack traffic, so a
     # deployment without this is misconfigured rather than merely
@@ -176,12 +177,16 @@ class Settings(BaseSettings):
     clickup_gate_field_id: str | None = None
     clickup_discipline_field_id: str | None = None
 
-    # Optional: the public URL the admin surface is reachable at, consumed
-    # by `access`'s admin-link adapter to compose magic links (and, by its
-    # scheme, to decide the session cookie's Secure flag). Absent, the
+    # Optional: this deployment's own public URL. Consumed by `access`'s
+    # admin-link adapter to compose magic links (and, by its scheme, to
+    # decide the session cookie's Secure flag) — absent, the
     # `/playbook-admin` command refuses every caller rather than minting a
-    # link no browser could follow — fail-closed degradation of that one
-    # surface, like the other capability-scoped optionals above.
+    # link no browser could follow, fail-closed degradation of that one
+    # surface, like the other capability-scoped optionals above. Also
+    # consumed by `register_clickup_webhook`'s pre-serving step to compose
+    # this deployment's ClickUp completion endpoint (`shift-clickup-completions-to-webhook`)
+    # — absent, that step takes no action beyond logging the gap, the same
+    # shape as its other guards.
     admin_base_url: NonEmpty | None = None
 
     # Optional, and deliberately typed `str | None` rather than `NonEmpty |

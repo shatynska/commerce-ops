@@ -198,9 +198,7 @@ def _step(**overrides: Any) -> StepDefinition:
         "kind": StepKind.HUMAN,
         "assignees": (ASSIGNEE,),
         "status": StepStatus.ACTIVE,
-        "needs_confirmation": False,
         "hazard": Hazard.NONE,
-        "automation_brief": None,
         "provenance": None,
     }
     attributes.update(overrides)
@@ -276,7 +274,6 @@ def _seeded_store(
                     blocking=True,
                     kind=StepKind.AUTOMATED,
                     status=StepStatus.ACTIVE,
-                    automation_brief="Held until the automated check reports green.",
                     handler="fixture.holding_check",
                 ),
                 display_order=10,

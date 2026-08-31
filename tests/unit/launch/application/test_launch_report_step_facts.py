@@ -220,11 +220,9 @@ def _step(**overrides: Any) -> StepDefinition:
         "timing_anchor": OffsetAnchor(days=-30),
         "blocking": False,
         "kind": StepKind.HUMAN,
-        "needs_confirmation": False,
         "status": StepStatus.ACTIVE,
         "hazard": Hazard.NONE,
         "assignees": (),
-        "automation_brief": None,
         "handler": None,
         "provenance": None,
     }
@@ -248,7 +246,6 @@ def _hold(gate: str) -> StepDefinition:
         blocking=True,
         kind=StepKind.AUTOMATED,
         status=StepStatus.ACTIVE,
-        automation_brief="Held until the automated check reports green.",
         handler="fixture.holding_check",
         timing_anchor=OffsetAnchor(days=365),
     )

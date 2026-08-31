@@ -143,10 +143,8 @@ def _step(**overrides: Any) -> StepDefinition:
         "blocking": False,
         "kind": StepKind.HUMAN,
         "status": StepStatus.ACTIVE,
-        "needs_confirmation": False,
         "hazard": Hazard.NONE,
         "assignees": (ALICE,),
-        "automation_brief": None,
         "handler": None,
         "provenance": None,
     }
@@ -158,8 +156,8 @@ def _automated_step() -> StepDefinition:
     """The step after the flip: `automated`, and still `active`."""
     return _step(
         kind=StepKind.AUTOMATED,
-        needs_confirmation=True,
-        automation_brief="Propose the Amazon sub-category node.",
+        assignees=(),
+        confirmer=ALICE,
         handler=HANDLER_NAME,
     )
 
@@ -172,7 +170,6 @@ def _hold(gate: str) -> StepDefinition:
         kind=StepKind.AUTOMATED,
         status=StepStatus.ACTIVE,
         assignees=(),
-        automation_brief="Held until the automated check reports green.",
         handler=f"hold.{gate.replace('-', '_')}",
     )
 

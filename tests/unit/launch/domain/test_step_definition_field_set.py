@@ -92,11 +92,9 @@ def _step(**overrides: Any) -> StepDefinition:
         "timing_anchor": OffsetAnchor(days=-7),
         "blocking": False,
         "kind": StepKind.HUMAN,
-        "needs_confirmation": False,
         "status": StepStatus.ACTIVE,
         "hazard": Hazard.NONE,
         "assignees": (),
-        "automation_brief": None,
         "handler": None,
         "provenance": None,
     }
@@ -150,7 +148,6 @@ def test_a_step_definition_is_read_back_with_every_declared_attribute() -> None:
         timing_anchor=OffsetAnchor(days=-7),
         blocking=True,
         kind=StepKind.HUMAN,
-        needs_confirmation=False,
         status=StepStatus.ACTIVE,
         hazard=Hazard.COMPLIANCE_OBLIGATION,
     )
@@ -161,7 +158,7 @@ def test_a_step_definition_is_read_back_with_every_declared_attribute() -> None:
         if candidate.identifier == "listing.title-conforms"
     ]
 
-    # SPECIFIED: every one of the eleven required attributes is present.
+    # SPECIFIED: every one of the ten required attributes is present.
     assert read_back.identifier == "listing.title-conforms"
     assert read_back.name == "Conform the title to the style guide"
     assert read_back.gate == "listable"
@@ -170,7 +167,6 @@ def test_a_step_definition_is_read_back_with_every_declared_attribute() -> None:
     assert read_back.timing_anchor == OffsetAnchor(days=-7)
     assert read_back.blocking is True
     assert read_back.kind is StepKind.HUMAN
-    assert read_back.needs_confirmation is False
     assert read_back.status is StepStatus.ACTIVE
     assert read_back.hazard is Hazard.COMPLIANCE_OBLIGATION
 
@@ -179,7 +175,7 @@ def test_unauthored_optional_attributes_are_absent() -> None:
     """Scenario: A step definition is read back with every declared
     attribute — the second half.
 
-    ...AND its description, assignees, automation brief, handler and
+    ...AND its description, assignees, handler, confirmer and
     provenance reference are present only if authored.
 
     Constructed omitting each of the five, so the test exercises the
@@ -208,7 +204,7 @@ def test_unauthored_optional_attributes_are_absent() -> None:
     # SPECIFIED: present only if authored.
     assert read_back.description is None
     assert tuple(read_back.assignees) == ()
-    assert read_back.automation_brief is None
+    assert read_back.confirmer is None
     assert read_back.handler is None
     assert read_back.provenance is None
     # SPECIFIED: hazard defaults to `none`.

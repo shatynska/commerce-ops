@@ -77,6 +77,7 @@ A_DISCIPLINE: Final = DISCIPLINES[0]
 ANOTHER_DISCIPLINE: Final = DISCIPLINES[1]
 
 ALICE: Final = "prs_01HQ8Z6M4A"
+BOHDAN: Final = "prs_01HQ8Z6M4B"
 
 REJECTED: Final = (InvalidPlaybookError, ValueError, TypeError)
 
@@ -97,11 +98,9 @@ def _step(**overrides: Any) -> StepDefinition:
         "timing_anchor": OffsetAnchor(days=-7),
         "blocking": False,
         "kind": StepKind.HUMAN,
-        "needs_confirmation": False,
         "status": StepStatus.ACTIVE,
         "hazard": Hazard.NONE,
         "assignees": (ALICE,),
-        "automation_brief": None,
         "handler": None,
         "provenance": None,
     }
@@ -149,7 +148,7 @@ class _Person:
 
 class _FakeRoster:
     async def list_people(self) -> tuple[_Person, ...]:
-        return (_Person(ALICE, "Alice Admin"),)
+        return (_Person(ALICE, "Alice Admin"), _Person(BOHDAN, "Bohdan Confirmer"))
 
     people = list_people
 
@@ -199,11 +198,9 @@ _CREATE_DEFAULTS: Final = {
     "timing_anchor": OffsetAnchor(days=-3),
     "blocking": False,
     "kind": StepKind.HUMAN,
-    "needs_confirmation": False,
     "status": StepStatus.ACTIVE,
     "hazard": Hazard.NONE,
     "assignees": (ALICE,),
-    "automation_brief": None,
     "handler": None,
 }
 
@@ -265,9 +262,9 @@ async def test_a_created_step_carries_the_whole_new_authorable_shape() -> None:
         name="Refresh the hero image ahead of ignition",
         description="The full statement of the work.\nOn several lines.",
         kind=StepKind.HUMAN,
-        needs_confirmation=False,
         status=StepStatus.ACTIVE,
         assignees=(ALICE,),
+        confirmer=BOHDAN,
     )
 
     record = _created_since(store, before)
@@ -283,7 +280,7 @@ async def test_a_created_step_carries_the_whole_new_authorable_shape() -> None:
     )
     assert definition.gate == "ignition"
     assert definition.kind is StepKind.HUMAN
-    assert definition.needs_confirmation is False
+    assert definition.confirmer == BOHDAN
     assert definition.status is StepStatus.ACTIVE
     assert tuple(definition.assignees) == (ALICE,)
     # SPECIFIED: provenance records the authoring principal and date.
@@ -343,7 +340,7 @@ async def test_creating_a_draft_requires_only_what_a_draft_carries() -> None:
     existing."
 
     The draft below is the un-authorable step of today: automated, no
-    brief, no handler, nobody assigned.
+    handler, nobody assigned.
     """
     store = _store()
     before = {record.definition.identifier for record in store.records}
@@ -354,14 +351,13 @@ async def test_creating_a_draft_requires_only_what_a_draft_carries() -> None:
         gate="live",
         kind=StepKind.AUTOMATED,
         status=StepStatus.DRAFT,
-        automation_brief=None,
         handler=None,
         assignees=(),
     )
 
     record = _created_since(store, before)
     assert record.definition.status is StepStatus.DRAFT
-    assert record.definition.automation_brief is None
+    assert record.definition.confirmer is None
     assert record.definition.handler is None
     assert tuple(record.definition.assignees) == ()
 

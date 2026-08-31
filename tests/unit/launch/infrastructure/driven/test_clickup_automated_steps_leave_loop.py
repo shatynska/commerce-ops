@@ -174,11 +174,9 @@ def _step(**overrides: Any) -> StepDefinition:
         "timing_anchor": OffsetAnchor(days=-7),
         "blocking": False,
         "kind": StepKind.HUMAN,
-        "needs_confirmation": False,
         "status": StepStatus.ACTIVE,
         "hazard": Hazard.NONE,
         "assignees": (ALICE,),
-        "automation_brief": None,
         "handler": None,
         "provenance": None,
     }
@@ -193,12 +191,11 @@ def _human_step() -> StepDefinition:
 
 def _automated_step() -> StepDefinition:
     """The same step after the flip `tasks.md` 9.1 performs by hand:
-    `automated`, needing confirmation, and still `active`."""
+    `automated`, naming a confirmer, and still `active`."""
     return _step(
         kind=StepKind.AUTOMATED,
-        needs_confirmation=True,
-        assignees=(ALICE,),
-        automation_brief="Propose the Amazon sub-category node.",
+        assignees=(),
+        confirmer=ALICE,
         handler=HANDLER_NAME,
     )
 
@@ -212,7 +209,6 @@ def _hold(gate: str) -> StepDefinition:
         kind=StepKind.AUTOMATED,
         status=StepStatus.ACTIVE,
         assignees=(),
-        automation_brief="Held until the automated check reports green.",
         handler=f"hold.{gate.replace('-', '_')}",
     )
 

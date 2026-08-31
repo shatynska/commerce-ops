@@ -22,9 +22,17 @@ request rather than raising is that case. It stays declared in the settings
 model, so the startup check still reports it by name.
 
 Collaborators (`session`, `ClickUpMappingRepository`, `LaunchRepository`,
-`record_step_outcome`) are imported by name into this module's namespace and
-referenced as bare globals, keeping `daily_digest_job.py`'s pattern — which
-is what lets tests substitute fakes with `monkeypatch.setattr`.
+`record_step_outcome`, `advance_and_ask`) are imported by name into this
+module's namespace and referenced as bare globals, keeping
+`daily_digest_job.py`'s pattern — which is what lets tests substitute
+fakes with `monkeypatch.setattr`.
+
+`advance_and_ask` (from `gate_progression_job.py`) is `advance-gates-from-
+clickup-webhook`'s single named exception to `launch-gate-progression`'s
+convergence-only rule: dispatched via `BackgroundTasks` after this
+handler's own recording transaction has committed, so a slow advance
+cascade or a slow Slack delivery it may trigger never delays the
+acknowledgement below back to ClickUp.
 """
 
 from __future__ import annotations
@@ -37,7 +45,7 @@ import os
 from datetime import UTC, datetime
 from typing import Any, Final
 
-from fastapi import APIRouter, Request, Response, status
+from fastapi import APIRouter, BackgroundTasks, Request, Response, status
 from fastapi.responses import JSONResponse
 
 from commerce_ops.launch.application import record_step_outcome
@@ -60,11 +68,15 @@ from commerce_ops.launch.infrastructure.driven.playbook_repository import (
     PlaybookRepository,
     ServedPlaybooks,
 )
+from commerce_ops.launch.infrastructure.driving.gate_progression_job import (
+    advance_and_ask,
+)
 from commerce_ops.shared.infrastructure.driven.database import session
 
 __all__ = [
     "ClickUpMappingRepository",
     "LaunchRepository",
+    "advance_and_ask",
     "record_step_outcome",
     "router",
     "session",
@@ -100,6 +112,26 @@ def _is_authentic(body: bytes, signature: str | None, secret: str) -> bool:
     # Constant-time: a byte-by-byte comparison leaks how much of a forged
     # signature was right, which is enough to forge the rest.
     return hmac.compare_digest(expected, signature)
+
+
+async def _trigger_advance_and_ask(product_id: Any) -> None:
+    """Background-task entry point: never lets the cascade's failure reach
+    Starlette, whatever `advance_and_ask` does.
+
+    `advance_and_ask` already catches its own failures (`design.md` --
+    Decision 3), but this wrapper does not depend on that: the route's own
+    insulation from the cascade must hold regardless of what this module's
+    `advance_and_ask` binding does, so it is asserted here independently.
+    """
+    try:
+        await advance_and_ask(product_id)
+    except Exception:
+        _logger.warning(
+            "clickup webhook: the advance-and-ask trigger for product %s "
+            "raised; the next periodic pass will still reach this launch",
+            getattr(product_id, "value", product_id),
+            exc_info=True,
+        )
 
 
 def _acknowledged() -> Response:
@@ -141,7 +173,9 @@ def _status_change(payload: Any) -> tuple[bool, str | None] | None:
 
 
 @router.post(WEBHOOK_PATH)
-async def receive_clickup_event(request: Request) -> Response:
+async def receive_clickup_event(
+    request: Request, background_tasks: BackgroundTasks
+) -> Response:
     """Record what a ClickUp status change means for the mapped step."""
     body = await request.body()
 
@@ -248,5 +282,12 @@ async def receive_clickup_event(request: Request) -> Response:
                 evidence=f"ClickUp task {task_id}",
             ),
         )
+
+    # Scheduled only once the recording transaction above has committed,
+    # and off the response path: `advance-gates-from-clickup-webhook`'s
+    # named exception to advancement-as-convergence. Passed the plain
+    # `ProductId` alone -- never this request's `db_session` or a loaded
+    # entity, both of which are gone by the time a background task runs.
+    background_tasks.add_task(_trigger_advance_and_ask, mapped.product_id)
 
     return _acknowledged()

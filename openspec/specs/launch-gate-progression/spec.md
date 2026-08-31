@@ -11,7 +11,7 @@ The system SHALL, on a recurring schedule, advance each launch that has not reac
 
 The pass SHALL establish that a gate may open **before** commanding the advance, rather than commanding it and treating the refusal as the answer. That judgement SHALL be made from the same facts the advance itself is judged on — every condition the served playbook attaches to the gate, weighed against the launch's own recorded step outcomes, metric attestations and approvals — and SHALL be made by the launch, so that the pass and the advance cannot disagree about whether a gate may open. It SHALL NOT be derived from the launch report, which states each served step's recorded outcome but states neither a gate's authored metric conditions nor whether they have been attested, and whose awaiting-confirmation flag is false for an automatic gate whatever its conditions' state. `launch-journal` requires every refused advance to be journaled with the conditions that blocked it, and a pass that commanded an advance for every launch on every run would append that entry hundreds of times a day per launch — burying, in the record kept for people to read, the refusals that record a real attempt. A gate whose conditions the pass reads as unsatisfied SHALL therefore produce no command and no journal entry.
 
-Advancement is a convergence pass and not a consequence of recording an outcome: the pass SHALL reach the same launch state whether the conditions became satisfied through a recorded step outcome, a recorded metric attestation, a recorded approval, or a change to the served playbook. A gate therefore opens no later than one pass interval after its last condition is met. Within this capability, advancement SHALL be caused by this pass and by a recorded decision (below), and by nothing else. In particular this capability SHALL NOT advance a launch as part of recording a step outcome, so that a launch's position is never a side effect of a completion arriving.
+Advancement is a convergence pass and not a consequence of recording an outcome: the pass SHALL reach the same launch state whether the conditions became satisfied through a recorded step outcome, a recorded metric attestation, a recorded approval, or a change to the served playbook. A gate therefore opens no later than one pass interval after its last condition is met. Within this capability, advancement SHALL be caused by this pass and by a recorded decision (below), and by nothing else. In particular this capability SHALL NOT advance a launch as part of recording a step outcome, so that a launch's position is never a side effect of a completion arriving — **with one named exception**: the ClickUp webhook's own recording of a step outcome MAY also trigger the same advance-and-ask cascade for that launch, run immediately rather than waiting for the pass. This exception is narrow and procedural — it names one call site, not a new advancement rule — and does not generalize: every other path that records a step outcome (the ClickUp reconciliation pass, the automation pass, and an automated result's confirmation) remains fully bound by the SHALL NOT, exactly as before. A launch the webhook's trigger reaches is still judged, advanced and journaled by the same rules this requirement states throughout — read-before-command, one gate at a time, silent on an unsatisfied condition — the exception concerns only *when* the cascade is invoked, not *how* it decides or acts once invoked.
 
 A launch left where it is because a condition is unsatisfied is the ordinary case, not a fault, and SHALL NOT be reported as a failure of the pass.
 
@@ -33,7 +33,12 @@ A launch left where it is because a condition is unsatisfied is the ordinary cas
 #### Scenario: Recording an outcome does not itself advance a launch
 
 - **WHEN** a step outcome is recorded that satisfies the last outstanding condition on a launch's current gate
-- **THEN** the launch's current gate is unchanged until a pass or a recorded decision advances it
+- **THEN** the launch's current gate is unchanged until a pass or a recorded decision advances it, unless it was recorded through the ClickUp webhook, which may also trigger the cascade immediately as the scenario below describes
+
+#### Scenario: A ClickUp webhook delivery may trigger an advance-and-ask cascade for the launch it completes
+
+- **WHEN** a step outcome recorded through the ClickUp webhook satisfies the last outstanding condition on a launch's current gate
+- **THEN** the same advance-and-ask cascade the pass runs for that launch MAY be triggered immediately, rather than waiting for the next pass, and every rule this requirement and the requirements below state about how a gate may open, how a decision is asked for, and how often, apply to that cascade exactly as they apply to the pass's own
 
 #### Scenario: A launch is not advanced past the final gate
 
@@ -105,7 +110,7 @@ Containment covers errors raised by the work itself. It SHALL NOT contain a canc
 
 ### Requirement: A gate awaiting only confirmation is asked about in Slack
 
-Where a launch's current gate requires confirmation, every blocking condition attached to it is satisfied, and no approving approval has been recorded for it, the system SHALL ask for that approval as a message delivered to Slack; which channel carries it is configuration and not a property of this requirement. The message SHALL name the product and the gate, and SHALL carry the controls by which the decision is made.
+Where a launch's current gate requires confirmation, every blocking condition attached to it is satisfied, and no approving approval has been recorded for it, the system SHALL ask for that approval as a message delivered to Slack, as a reply within that launch's Slack thread — establishing the thread first if it does not yet exist. The message SHALL name the product and the gate, SHALL carry the controls by which the decision is made, and SHALL tag the launch's submitter: a gate carries no confirmer of its own.
 
 The ask SHALL be made only for a gate that is awaiting confirmation in exactly the sense `launch-instance` defines: a gate with an unsatisfied blocking condition SHALL NOT be asked about, because the decision it would request cannot yet be acted on.
 
@@ -116,7 +121,7 @@ A delivery that fails SHALL be reported and SHALL leave the gate eligible to be 
 #### Scenario: A satisfied confirmation gate is asked about
 
 - **WHEN** the pass runs against a launch whose current gate requires confirmation, has every blocking condition satisfied, and has no approving approval recorded
-- **THEN** a message naming the product and the gate is posted, carrying the decision controls
+- **THEN** a message naming the product and the gate, tagging the launch's submitter, is posted as a reply within the launch's Slack thread, carrying the decision controls
 
 #### Scenario: The final gate is not asked about
 
@@ -132,6 +137,11 @@ A delivery that fails SHALL be reported and SHALL leave the gate eligible to be 
 
 - **WHEN** posting the ask fails
 - **THEN** the failure is reported, no delivery is recorded, the run is not failed by it, and the ask is attempted again on the next pass while the gate is still awaiting confirmation
+
+#### Scenario: An ask for a launch with no thread yet establishes one
+
+- **WHEN** the pass asks about a gate for a launch that has no Slack thread reference
+- **THEN** an anchor message is posted for that launch before the ask, and the ask is delivered as a reply within the newly established thread
 
 ### Requirement: A gate is asked about at most once a day
 
@@ -219,7 +229,7 @@ A decision naming the final gate of the sequence SHALL be refused and SHALL reco
 
 A decision naming a gate that is no longer the launch's current gate SHALL be refused and SHALL record no approval: the gate it was asked about has since moved, and recording an approval against it would attach a human decision to a commitment point the launch has already passed or not yet reached.
 
-A launch SHALL be advanced by one path at a time. The decision path and the recurring pass SHALL NOT both advance the same launch concurrently, so that a single gate crossing is never attempted twice and the consequences reserved for one crossing are never produced twice.
+A launch SHALL be advanced by one path at a time. The decision path, the recurring pass, and the ClickUp webhook's own advance-and-ask trigger SHALL NOT advance the same launch concurrently, so that a single gate crossing is never attempted twice and the consequences reserved for one crossing are never produced twice.
 
 #### Scenario: An approving decision opens the gate and says so
 
@@ -264,4 +274,9 @@ A launch SHALL be advanced by one path at a time. The decision path and the recu
 #### Scenario: A decision and the pass do not cross the same gate twice
 
 - **WHEN** a decision's advance and a scheduled pass would act on the same launch at the same time
+- **THEN** one of them advances the launch and the other acts on the launch as that advance left it
+
+#### Scenario: A decision and a webhook-triggered advance do not cross the same gate twice
+
+- **WHEN** a decision's advance and the ClickUp webhook's advance-and-ask trigger would act on the same launch at the same time
 - **THEN** one of them advances the launch and the other acts on the launch as that advance left it

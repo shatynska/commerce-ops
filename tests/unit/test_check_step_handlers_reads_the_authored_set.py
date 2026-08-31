@@ -141,9 +141,7 @@ def _step(**overrides: Any) -> StepDefinition:
         "blocking": True,
         "kind": StepKind.AUTOMATED,
         "status": StepStatus.ACTIVE,
-        "needs_confirmation": False,
         "hazard": Hazard.NONE,
-        "automation_brief": "Held until the automated check reports green.",
         "handler": "fixture.holding_check",
         "provenance": None,
     }

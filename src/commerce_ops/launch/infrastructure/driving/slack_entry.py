@@ -52,8 +52,15 @@ from commerce_ops.launch.infrastructure.driven.launch_journal_repository import 
 from commerce_ops.launch.infrastructure.driven.launch_repository import (
     LaunchRepository,
 )
+from commerce_ops.launch.infrastructure.driven.launch_thread_delivery import (
+    establish_thread_and_resolve_mention,
+)
 from commerce_ops.launch.infrastructure.driven.playbook_repository import (
     PlaybookRepository,
+)
+from commerce_ops.launch.infrastructure.driven.slack_notifier import (
+    launches_channel,
+    post_monitoring_message,
 )
 from commerce_ops.shared.domain.identity import Asin, MarketplaceId, ProductId, Sku
 from commerce_ops.shared.infrastructure.driven.database import transaction
@@ -66,6 +73,9 @@ from commerce_ops.shared.infrastructure.driving.slack_app import (
 __all__ = [
     "SLACK_APP_IDENTITY",
     "CatalogRegistrar",
+    "establish_thread_and_resolve_mention",
+    "launches_channel",
+    "post_monitoring_message",
     "register_catalog_product",
     "reset_handler_cache",
     "router",
@@ -362,7 +372,9 @@ def _read_submission(
 # --------------------------------------------------------------------------
 
 
-async def _register_and_start(submission: _Submission) -> None:
+async def _register_and_start(
+    submission: _Submission, submitter: str | None = None
+) -> ProductId:
     """Registers the product and starts its launch, in one transaction.
 
     Both writes share one `transaction()` scope, so the catalog row and
@@ -406,8 +418,10 @@ async def _register_and_start(submission: _Submission) -> None:
             playbook,
             product_id=product_id,
             launch_date=submission.launch_date,
+            submitter=submitter,
             journal=LaunchJournalRepository(db_session),
         )
+        return product_id
 
 
 def _confirmation_text(submission: _Submission) -> str:
@@ -493,13 +507,31 @@ def _get_handler() -> AsyncSlackRequestHandler:
         submitter = (body.get("user") or {}).get("id")
 
         try:
-            await _register_and_start(submission)
+            product_id = await _register_and_start(submission, submitter=submitter)
         except Exception as error:
             logger.exception("starting a launch from Slack failed")
             await _post(client, submitter, _failure_text(submission, error))
             return
 
-        await _post(client, submitter, _confirmation_text(submission))
+        # Establish thread and post confirmation reply
+        try:
+            thread_ts, mention = await establish_thread_and_resolve_mention(
+                product_id,
+                submission.name,
+                submission.sku.value,
+                submission.marketplace_id.value,
+                step=None,
+            )
+            mention_tag = f"<@{mention}> " if mention else ""
+            await post_monitoring_message(
+                channel=launches_channel(),
+                text=mention_tag + _confirmation_text(submission),
+                thread_ts=thread_ts,
+            )
+        except Exception:
+            # Log but don't fail: confirmation delivery failure after ack is handled
+            # separately, and thread establishment failure means thread wasn't needed
+            logger.exception("could not post confirmation to thread")
 
     return AsyncSlackRequestHandler(app)
 

@@ -174,11 +174,9 @@ def _step(**overrides: Any) -> StepDefinition:
         "timing_anchor": OffsetAnchor(days=-7),
         "blocking": False,
         "kind": StepKind.HUMAN,
-        "needs_confirmation": False,
         "status": StepStatus.ACTIVE,
         "hazard": Hazard.NONE,
         "assignees": (ALICE,),
-        "automation_brief": None,
         "handler": None,
         "provenance": None,
     }
@@ -190,7 +188,6 @@ def _automated(identifier: str, handler: str, **overrides: Any) -> StepDefinitio
     attributes: dict[str, Any] = {
         "identifier": identifier,
         "kind": StepKind.AUTOMATED,
-        "automation_brief": "Automated work this step asks for.",
         "handler": handler,
         "assignees": (),
     }
@@ -474,6 +471,11 @@ class _InertNotifier:
         return None
 
 
+async def _inert_establish_thread(*args: Any, **kwargs: Any) -> tuple[str, None]:
+    """Thread-establishment nothing in this file exercises."""
+    return "FAKE_THREAD_TS", None
+
+
 async def _run_pass(collaborators: _Collaborators) -> Any:
     entry = _pass_entry()
     supplied: dict[str, Any] = {
@@ -486,6 +488,7 @@ async def _run_pass(collaborators: _Collaborators) -> Any:
         "deliver": collaborators.delivery,
         "backoff": _InertBackoff(),
         "notifier": _InertNotifier(),
+        "establish_thread": _inert_establish_thread,
         "now": NOW,
     }
     accepted = set(inspect.signature(entry).parameters)
@@ -569,9 +572,9 @@ def _three_steps() -> _Collaborators:
     read off the same answer that does carry the held one.
     """
     steps = (
-        _automated(CONFIRMABLE_STEP, CONFIRMABLE_HANDLER, needs_confirmation=True),
-        _automated(UNCONFIRMED_STEP, UNCONFIRMED_HANDLER, needs_confirmation=False),
-        _automated(NON_TERMINAL_STEP, NON_TERMINAL_HANDLER, needs_confirmation=True),
+        _automated(CONFIRMABLE_STEP, CONFIRMABLE_HANDLER, confirmer=ALICE),
+        _automated(UNCONFIRMED_STEP, UNCONFIRMED_HANDLER),
+        _automated(NON_TERMINAL_STEP, NON_TERMINAL_HANDLER, confirmer=ALICE),
     )
     playbook = _playbook(*steps)
     handlers = _FakeHandlers(

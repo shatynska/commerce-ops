@@ -550,7 +550,6 @@ def _authorable_fields(
     fields["scope"] = _enum("scope", Scope, Scope.PRODUCT)
     fields["blocking"] = _truthy(form.get("blocking"))
     fields["kind"] = kind
-    fields["needs_confirmation"] = _truthy(form.get("needs_confirmation"))
     fields["status"] = _enum("status", StepStatus, StepStatus.DRAFT)
     fields["hazard"] = _enum("hazard", Hazard, Hazard.NONE)
     fields["assignees"] = assignees
@@ -559,11 +558,11 @@ def _authorable_fields(
     # "waits on nothing" are one fact, and the column is NOT NULL for
     # exactly that reason.
     fields["starts_at_gate"] = (form.get("starts_at_gate") or "").strip() or None
-    # Submitted on a `human` step only because the control was left
-    # enabled; carried through rather than dropped, so the write reports
-    # the rule instead of the page quietly deciding for the author.
-    fields["automation_brief"] = (form.get("automation_brief") or "").strip() or None
     fields["handler"] = (form.get("handler") or "").strip() or None
+    # An empty selection is "no confirmation needed", carried as `None`
+    # rather than the empty string — the same single-valued-optional
+    # shape `starts_at_gate` already uses.
+    fields["confirmer"] = (form.get("confirmer") or "").strip() or None
     anchor = _anchor_from_form(form, faults)
     if anchor is not None:
         fields["timing_anchor"] = anchor
@@ -625,21 +624,16 @@ _CROSSINGS: Final = (
     # thing to change, so every field in the pair or triple is marked.
     _Crossing("cannot block its gate", ("hazard", "blocking"), True),
     _Crossing(
-        "but carries no automation brief",
-        ("kind", "status", "automation_brief"),
-        True,
-    ),
-    _Crossing(
         "is automated and active but names no handler",
         ("kind", "status", "handler"),
         True,
     ),
+    _Crossing("is a human step and cannot name a handler", ("kind", "handler"), True),
     _Crossing(
-        "is a human step and cannot carry an automation brief",
-        ("kind", "automation_brief"),
+        "names its sole assignee as its confirmer",
+        ("assignees", "confirmer"),
         True,
     ),
-    _Crossing("is a human step and cannot name a handler", ("kind", "handler"), True),
     # When a step starts (`let-a-step-say-when-it-starts`). Attributed by
     # the declaration each fault turns on, never one fixed control per
     # fault kind: most of these are provokable from more than one field,
@@ -674,7 +668,12 @@ _CROSSINGS: Final = (
         ("after_steps", "starts_at_gate", "gate", "blocking"),
         True,
     ),
-    # The write-time preconditions, from the application layer.
+    # The write-time preconditions, from the application layer. The two
+    # confirmer entries go before the assignee ones they'd otherwise be
+    # swallowed by: `_crossing` returns on the first substring match, and
+    # "whom the roster does not carry" is common to both an unknown
+    # assignee's message and an unknown confirmer's.
+    _Crossing("names confirmer", ("confirmer",), True),
     _Crossing("whom the roster does not carry", ("assignees",), True),
     _Crossing(
         "names no assignee who is active on the roster",
@@ -770,7 +769,6 @@ def _row(record: Any, people: Mapping[str, Any]) -> dict[str, Any]:
         "gate": definition.gate,
         "blocking": definition.blocking,
         "kind": definition.kind.value,
-        "needs_confirmation": definition.needs_confirmation,
         "status": definition.status.value,
         # By display name, since an author knows colleagues by name and
         # not by generated identifier. An identifier the roster no longer
@@ -780,6 +778,13 @@ def _row(record: Any, people: Mapping[str, Any]) -> dict[str, Any]:
             getattr(people.get(identifier), "display_name", identifier)
             for identifier in definition.assignees
         ],
+        "confirmer": (
+            getattr(
+                people.get(definition.confirmer), "display_name", definition.confirmer
+            )
+            if definition.confirmer is not None
+            else None
+        ),
         "active": _is_active(record),
         "retired": _is_retired(record),
     }
@@ -1198,12 +1203,11 @@ def _edit_values(record: Any) -> dict[str, Any]:
         "scope": definition.scope.value,
         "blocking": "true" if definition.blocking else "false",
         "kind": definition.kind.value,
-        "needs_confirmation": ("true" if definition.needs_confirmation else "false"),
         "status": definition.status.value,
         "hazard": definition.hazard.value,
         "assignees": list(definition.assignees),
-        "automation_brief": definition.automation_brief or "",
         "handler": definition.handler or "",
+        "confirmer": definition.confirmer or "",
         "anchor_kind": anchor["kind"],
         "anchor_days": anchor["days"],
         "anchor_start": anchor["start"],
@@ -1237,14 +1241,13 @@ def _submitted_values(
         "scope": form.get("scope", ""),
         "blocking": form.get("blocking", "false"),
         "kind": form.get("kind", ""),
-        "needs_confirmation": form.get("needs_confirmation", "false"),
         "status": form.get("status", ""),
         "hazard": form.get("hazard", ""),
         "assignees": list(assignees),
         "starts_at_gate": form.get("starts_at_gate", ""),
         "after_steps": list(after_steps),
-        "automation_brief": form.get("automation_brief", ""),
         "handler": form.get("handler", ""),
+        "confirmer": form.get("confirmer", ""),
         "anchor_kind": form.get("anchor_kind", "offset"),
         "anchor_days": form.get("anchor_days", ""),
         "anchor_start": form.get("anchor_start", ""),

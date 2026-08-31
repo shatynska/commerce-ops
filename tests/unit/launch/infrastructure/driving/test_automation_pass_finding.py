@@ -148,6 +148,9 @@ PRODUCT_SKU: Final = Sku("BCB-2027-01")
 
 AUTOMATED_STEP_ID: Final = "listing.sub-category"
 HANDLER_NAME: Final = "listing.subcategory_advisor"
+#: Naming a confirmer is what makes a step's automated result require
+#: confirmation; there is no separate flag (`launch_playbook.StepDefinition`).
+CONFIRMER: Final = "prs_01HQ8Z6M4A"
 
 LAUNCH_DATE: Final = date(2027, 3, 2)
 NOW: Final = datetime(2027, 1, 6, 9, 30, tzinfo=UTC)
@@ -198,11 +201,9 @@ def _automated(**overrides: Any) -> StepDefinition:
         "timing_anchor": OffsetAnchor(days=-7),
         "blocking": False,
         "kind": StepKind.AUTOMATED,
-        "needs_confirmation": True,
         "status": StepStatus.ACTIVE,
         "hazard": Hazard.NONE,
         "assignees": (),
-        "automation_brief": "Propose the Amazon sub-category node.",
         "handler": HANDLER_NAME,
         "provenance": None,
     }
@@ -221,11 +222,9 @@ def _hold(gate: str) -> StepDefinition:
         timing_anchor=OffsetAnchor(days=-7),
         blocking=True,
         kind=StepKind.HUMAN,
-        needs_confirmation=False,
         status=StepStatus.ACTIVE,
         hazard=Hazard.NONE,
         assignees=("prs_01HQ8Z6M4A",),
-        automation_brief=None,
         handler=None,
         provenance=None,
     )
@@ -448,6 +447,17 @@ class _InertNotifier:
         return None
 
 
+async def _inert_establish_thread(*args: Any, **kwargs: Any) -> tuple[str, None]:
+    """Thread-establishment nothing in this file exercises.
+
+    Added by `thread-launch-slack-notifications`, which made it a required
+    collaborator like `backoff` and `notifier` above -- inert here for the
+    same reason `test_automation_pass.py`'s own double is: nothing below
+    asserts on threading or tagging, that has its own file.
+    """
+    return "FAKE_THREAD_TS", None
+
+
 @dataclass
 class _Collaborators:
     launches: _FakeLaunches
@@ -527,6 +537,7 @@ async def _run_pass(
         "deliver": collaborators.delivery,
         "backoff": _InertBackoff(),
         "notifier": _InertNotifier(),
+        "establish_thread": _inert_establish_thread,
         "now": now,
     }
     accepted = set(inspect.signature(entry).parameters)
@@ -571,7 +582,7 @@ async def test_the_product_is_supplied_not_fetched() -> None:
     coverage of the same scenario.
     """
     handler = _ScriptedHandler(StepResolution(outcome=Satisfied, result=RECOMMENDATION))
-    collaborators = _setup(_automated(needs_confirmation=False), handler=handler)
+    collaborators = _setup(_automated(), handler=handler)
 
     await _run_pass(collaborators)
 
@@ -587,7 +598,7 @@ async def test_a_produced_outcome_is_attributed_to_the_handler() -> None:
     Unchanged wording; written fresh for the same reason as above.
     """
     handler = _ScriptedHandler(StepResolution(outcome=Satisfied, result=RECOMMENDATION))
-    collaborators = _setup(_automated(needs_confirmation=False), handler=handler)
+    collaborators = _setup(_automated(), handler=handler)
 
     await _run_pass(collaborators)
 
@@ -618,9 +629,7 @@ async def test_a_handler_cannot_claim_another_source_even_with_a_finding() -> No
         async def __call__(self, context: Any) -> Any:
             return _SmugglingResolution()
 
-    collaborators = _setup(
-        _automated(needs_confirmation=False), handler=_SmugglingHandler()
-    )
+    collaborators = _setup(_automated(), handler=_SmugglingHandler())
 
     await _run_pass(collaborators)
 
@@ -651,12 +660,8 @@ async def test_a_finding_changes_nothing_about_the_outcome_or_the_result() -> No
         StepResolution(outcome=Satisfied, result=RECOMMENDATION)
     )
 
-    with_collaborators = _setup(
-        _automated(needs_confirmation=False), handler=with_finding
-    )
-    without_collaborators = _setup(
-        _automated(needs_confirmation=False), handler=without_finding
-    )
+    with_collaborators = _setup(_automated(), handler=with_finding)
+    without_collaborators = _setup(_automated(), handler=without_finding)
 
     await _run_pass(with_collaborators)
     await _run_pass(without_collaborators)
@@ -687,7 +692,7 @@ async def test_a_handler_reporting_no_finding_triggers_no_recording() -> None:
     what keeps it silent.
     """
     handler = _ScriptedHandler(StepResolution(outcome=Satisfied, result=RECOMMENDATION))
-    collaborators = _setup(_automated(needs_confirmation=False), handler=handler)
+    collaborators = _setup(_automated(), handler=handler)
     recorder = _FakeRecorder()
 
     await _run_pass(collaborators, recorders={AUTOMATED_STEP_ID: recorder})
@@ -715,7 +720,7 @@ async def test_a_findings_presence_does_not_change_confirmation() -> None:
             finding=Success(value=SUB_CATEGORY_NODE, comment="demands"),
         )
     )
-    collaborators = _setup(_automated(needs_confirmation=True), handler=handler)
+    collaborators = _setup(_automated(confirmer=CONFIRMER), handler=handler)
 
     await _run_pass(collaborators, recorders={AUTOMATED_STEP_ID: _FakeRecorder()})
 
@@ -757,7 +762,7 @@ async def test_a_supported_finding_is_recorded_immediately() -> None:
             finding=Success(value=SUB_CATEGORY_NODE, comment="demands"),
         )
     )
-    collaborators = _setup(_automated(needs_confirmation=True), handler=handler)
+    collaborators = _setup(_automated(confirmer=CONFIRMER), handler=handler)
     recorder = _FakeRecorder()
 
     await _run_pass(collaborators, recorders={AUTOMATED_STEP_ID: recorder})
@@ -787,7 +792,7 @@ async def test_no_recording_capability_means_no_recording_silently(
             finding=Success(value=SUB_CATEGORY_NODE, comment="demands"),
         )
     )
-    collaborators = _setup(_automated(needs_confirmation=False), handler=handler)
+    collaborators = _setup(_automated(), handler=handler)
 
     with caplog.at_level(logging.WARNING):
         await _run_pass(collaborators, recorders={})
@@ -813,7 +818,7 @@ async def test_a_failure_finding_is_never_recorded_this_way() -> None:
             finding=Failure(error="no verdict could be read"),
         )
     )
-    collaborators = _setup(_automated(needs_confirmation=True), handler=handler)
+    collaborators = _setup(_automated(confirmer=CONFIRMER), handler=handler)
     recorder = _FakeRecorder()
 
     await _run_pass(collaborators, recorders={AUTOMATED_STEP_ID: recorder})
@@ -837,7 +842,7 @@ async def test_an_impermissible_proposals_finding_is_never_recorded() -> None:
         )
     )
     collaborators = _setup(
-        _automated(hazard=Hazard.COMPLIANCE_OBLIGATION, needs_confirmation=True),
+        _automated(hazard=Hazard.COMPLIANCE_OBLIGATION, confirmer=CONFIRMER),
         handler=handler,
     )
     recorder = _FakeRecorder()
@@ -878,7 +883,7 @@ async def test_a_recording_failure_does_not_stop_the_pass(
     failing_recorder = _FakeRecorder(failing=True)
     healthy_recorder = _FakeRecorder()
 
-    failing_step = _automated(needs_confirmation=False)
+    failing_step = _automated()
     healthy_step = _automated(
         identifier="listing.other-automated", handler="listing.other_handler"
     )

@@ -437,6 +437,18 @@ Related: *Repositories commit their own writes, so a caller cannot own a
 transaction*, above, is the same object's other structural defect, and both would
 sensibly be fixed together.
 
+**Widened on 2026-08-31.** `clickup_sync_job`'s reconciliation cadence moved
+from `*/10 * * * *` to twice daily, ahead of the reliability-observation
+period `shift-clickup-completions-to-webhook`'s own `tasks.md` (3.4) had made
+a precondition for that — an explicit decision, made under pressure from real
+ClickUp `429`s and accepted because only test data is at stake while no real
+production launch exists yet (a separate, parallel change addresses the `429`
+handling itself). This pass is one of the four recording paths that clobber
+the whole aggregate on save, so the self-healing window this entry accepts
+widened with it, from ~10 minutes to up to ~12 hours. The urgency behind
+fixing this properly is correspondingly higher for as long as that cadence
+stands.
+
 **Recorded in**: `advance-gates-and-confirm-in-slack`'s `design.md` (Decision 11).
 Found by `openspec-change-reviewer` during that change's spec review and
 confirmed against `launch_repository.py`, 2026-08-28.
@@ -566,6 +578,25 @@ attention it owes the migration.
 **Trigger to close.** Any of: `playbook_v1.yaml` being referenced by nothing;
 the step set needing a status correction; or the next change that adds a field
 to a step definition.
+
+### A stray, unscoped ClickUp webhook subscription predates this project's own
+
+ClickUp's team turned out to already have a second, unrelated webhook
+subscription pointed at the same endpoint — unscoped (`folder_id: None`, so
+every task event in the whole workspace, not just this deployment's launch
+folder), already `suspended` by ClickUp after 106 accumulated delivery
+failures, predating `register_clickup_webhook.py` entirely (which never
+creates an unscoped subscription — its own idempotency check requires a
+folder match). It briefly caused real confusion during rollout: an ad hoc
+lookup script that filtered only by `endpoint` (not `endpoint` **and**
+`folder_id`, the way the production idempotency check correctly does)
+picked up that stale subscription's secret instead of the real one, and it
+took a second, fuller lookup to find both. It was left in place rather than
+deleted, since removing another team's ClickUp resource is a decision for
+whoever owns that workspace, not something to do by the way.
+
+**Recorded in**: `shift-clickup-completions-to-webhook`'s `tasks.md`, now at
+`openspec/changes/archive/2026-08-30-shift-clickup-completions-to-webhook/`.
 
 ### Small cleanups, not worth a change each
 

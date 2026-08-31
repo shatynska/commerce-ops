@@ -54,10 +54,14 @@ from commerce_ops.launch.infrastructure.driven.launch_journal_repository import 
     LaunchJournalRepository,
 )
 from commerce_ops.launch.infrastructure.driven.launch_repository import LaunchRepository
+from commerce_ops.launch.infrastructure.driven.launch_thread_delivery import (
+    establish_thread_and_resolve_mention,
+)
 from commerce_ops.launch.infrastructure.driven.playbook_repository import (
     PlaybookRepository,
 )
 from commerce_ops.launch.infrastructure.driven.slack_notifier import (
+    launches_channel,
     monitoring_channel,
     post_monitoring_message,
 )
@@ -73,6 +77,7 @@ __all__ = [
     "compose_blocks",
     "compose_message",
     "handle_gate_decision",
+    "launches_channel",
     "monitoring_channel",
     "post_gate_ask",
     "post_monitoring_message",
@@ -195,10 +200,28 @@ async def post_gate_ask(
             )
             product = None
     message = compose_message(product=product, product_id=product_id, gate_id=gate_id)
+    sku_value = ""
+    marketplace_value = ""
+    if product:
+        sku = getattr(product, "sku", None)
+        sku_value = sku.value if sku else ""
+        marketplace = getattr(product, "marketplace_id", None)
+        marketplace_value = marketplace.value if marketplace else ""
+    # Gates have no confirmer of their own, so this always resolves to the
+    # launch's submitter (`step=None`).
+    thread_ts, mention = await establish_thread_and_resolve_mention(
+        product_id,
+        product.name if product else product_id.value,
+        sku_value,
+        marketplace_value,
+        step=None,
+    )
+    mention_tag = f" <@{mention}>" if mention else ""
     await post_monitoring_message(
-        channel=monitoring_channel(),
-        text=message,
+        channel=launches_channel(),
+        text=mention_tag + message,
         blocks=compose_blocks(product_id=product_id, gate_id=gate_id, message=message),
+        thread_ts=thread_ts,
     )
     _logger.info(
         "gate confirmation: asked for the '%s' gate on product %s",

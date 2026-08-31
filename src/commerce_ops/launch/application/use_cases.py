@@ -132,12 +132,16 @@ async def start_launch(
     *,
     product_id: ProductId,
     launch_date: date | None = None,
+    submitter: str | None = None,
     journal: LaunchJournal,
 ) -> tuple[LaunchEvent, ...]:
     """Start a launch for a catalog product, pinning the given playbook's
     version. The store rejects an unknown product or a second launch."""
     launch, started = Launch.start(
-        product_id=product_id, playbook=playbook, launch_date=launch_date
+        product_id=product_id,
+        playbook=playbook,
+        launch_date=launch_date,
+        submitter=submitter,
     )
     await launches.save(launch)
     await _journal(

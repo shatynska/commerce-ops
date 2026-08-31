@@ -1,7 +1,7 @@
 # launch-step-automation Specification
 
 ## Purpose
-Runs the code an `automated` step names, and decides what becomes of what that code produced: recorded against the launch straight away, or held until a person accepts it. This is what makes `kind`, `handler` and `needs_confirmation` do something rather than merely be declared.
+Runs the code an `automated` step names, and decides what becomes of what that code produced: recorded against the launch straight away, or held until a person accepts it. This is what makes `kind`, `handler` and `confirmer` do something rather than merely be declared.
 
 ## Requirements
 
@@ -98,15 +98,15 @@ A handler SHALL NOT supply its own recording provenance. The system SHALL constr
 
 ### Requirement: A non-terminal outcome is recorded directly and never held for a decision
 
-Where the outcome a handler proposes is not terminal — `NotStarted`, `InProgress` or `Blocked`, none of which `launch-playbook` permits as terminal for any step — the system SHALL record it against the launch immediately with the provenance it constructed, **whatever the step's confirmation flag says**, and SHALL NOT store it as a pending result or seek a decision on it.
+Where the outcome a handler proposes is not terminal — `NotStarted`, `InProgress` or `Blocked`, none of which `launch-playbook` permits as terminal for any step — the system SHALL record it against the launch immediately with the provenance it constructed, **whatever confirmer the step names**, and SHALL NOT store it as a pending result or seek a decision on it.
 
-Confirmation exists so a person accepts a result. A non-terminal outcome is not a result: it is a handler reporting that the step has not been resolved, and holding it would ask a person to accept "in progress" — a proposal with nothing in it to agree or disagree with, which would then suppress re-invocation until they clicked. Recording it directly keeps the reason on the launch's own record, which is what makes a stalled automated step legible rather than merely quiet.
+Confirmation exists so a named confirmer accepts a result. A non-terminal outcome is not a result: it is a handler reporting that the step has not been resolved, and holding it would ask a person to accept "in progress" — a proposal with nothing in it to agree or disagree with, which would then suppress re-invocation until they clicked. Recording it directly keeps the reason on the launch's own record, which is what makes a stalled automated step legible rather than merely quiet.
 
 A non-terminal outcome SHALL leave the step eligible for the next pass, **except** where it repeats the non-terminal outcome the step already carries, which the requirement *A handler that repeats itself is not asked again immediately* governs.
 
 #### Scenario: A non-terminal outcome on a confirmable step is recorded, not held
 
-- **WHEN** a handler proposes `Blocked` with a reason for a step whose confirmation flag is true
+- **WHEN** a handler proposes `Blocked` with a reason for a step naming a confirmer
 - **THEN** the outcome is recorded against the launch with `automated` provenance, no pending result is stored, and no decision is requested
 
 #### Scenario: A step reporting no progress is reconsidered on the next pass
@@ -166,22 +166,22 @@ A pass that completed its walk SHALL be recorded as a successful run whatever in
 
 ### Requirement: A result needing no confirmation is recorded at once
 
-Where the resolved step's confirmation flag is false, the system SHALL record the handler's outcome against the launch immediately, with the provenance it constructed. No decision is sought and nothing is held.
+Where the resolved step names no confirmer, the system SHALL record the handler's outcome against the launch immediately, with the provenance it constructed. No decision is sought and nothing is held.
 
 #### Scenario: An unconfirmed result is recorded directly
 
-- **WHEN** a handler resolves a step whose confirmation flag is false
+- **WHEN** a handler resolves a step that names no confirmer
 - **THEN** the outcome is recorded against the launch with `automated` provenance, and no decision is requested
 
 ### Requirement: A result needing confirmation is held until a person decides
 
-Where the resolved step's confirmation flag is true **and the outcome the handler proposed is terminal**, the system SHALL NOT record that outcome. It SHALL store the produced result as a pending result against that launch and step — carrying the outcome the handler proposed, the produced text, the handler, and when it was produced — and SHALL seek a decision on it.
+Where the resolved step names a confirmer **and the outcome the handler proposed is terminal**, the system SHALL NOT record that outcome. It SHALL store the produced result as a pending result against that launch and step — carrying the outcome the handler proposed, the produced text, the handler, and when it was produced — and SHALL seek a decision on it.
 
 At most one pending result SHALL stand for a launch and step at any moment. A step awaiting a person is not a step awaiting more work, and a second result would leave two proposals and no way to say which was decided.
 
 #### Scenario: A confirmable terminal result is held rather than recorded
 
-- **WHEN** a handler proposes a terminal outcome for a step whose confirmation flag is true
+- **WHEN** a handler proposes a terminal outcome for a step naming a confirmer
 - **THEN** no outcome is recorded against the launch, and a pending result is stored carrying the proposed outcome, the produced text, the handler and the moment it was produced
 
 #### Scenario: A pending result suppresses re-invocation
@@ -196,14 +196,14 @@ At most one pending result SHALL stand for a launch and step at any moment. A st
 
 ### Requirement: A pending result is delivered for a decision, and delivery failure does not lose it
 
-The system SHALL deliver each pending result to Slack, naming the product, the step, the outcome the handler proposed and the produced text in full, and offering an accept and a reject decision.
+The system SHALL deliver each pending result to Slack, as a reply within that launch's Slack thread — establishing the thread first if it does not yet exist — naming the product, the step, the outcome the handler proposed and the produced text in full, offering an accept and a reject decision, and tagging the step's named confirmer.
 
 A failure to deliver SHALL NOT discard the pending result and SHALL NOT record an outcome. The failure SHALL be reported, and the pending result SHALL remain available to be delivered again — the same decoupling the daily briefing keeps between assembling a report and delivering it.
 
 #### Scenario: A pending result reaches Slack
 
 - **WHEN** a pending result is stored
-- **THEN** a Slack message is delivered naming the product, the step, the proposed outcome and the produced text, offering an accept and a reject decision
+- **THEN** a Slack message tagging the step's confirmer is delivered as a reply within the launch's thread, naming the product, the step, the proposed outcome and the produced text, offering an accept and a reject decision
 
 #### Scenario: Undelivered is not undone
 
@@ -215,28 +215,43 @@ A failure to deliver SHALL NOT discard the pending result and SHALL NOT record a
 - **WHEN** a delivery failed and a later pass runs
 - **THEN** delivery of that pending result is attempted again
 
-### Requirement: Only a known, active person may decide a pending result
+#### Scenario: A pending result for a launch with no thread yet establishes one
 
-The system SHALL accept a decision on a pending result only from a Slack identity the roster knows and that is active. A decision from an unrecognised or deactivated identity SHALL be refused, SHALL record no outcome, SHALL leave the pending result standing, and SHALL tell the decider it was refused.
+- **WHEN** a pending result is delivered for a launch that has no Slack thread reference
+- **THEN** an anchor message is posted for that launch first, and the pending result is delivered as a reply within the newly established thread
+
+### Requirement: Only the step's named confirmer may decide a pending result
+
+A pending result exists only for a step that names a confirmer — a step naming none is recorded directly and never held (*A result needing confirmation is held until a person decides*). The system SHALL accept a decision on a pending result only from the Slack identity belonging to that step's named confirmer, and only where the confirmer is still active on the roster. A decision from any other identity — known to the roster or not, active or not — SHALL be refused, SHALL record no outcome, SHALL leave the pending result standing, and SHALL tell the decider it was refused.
 
 Decisions arrive on the same verified `product_agent` Slack surface `launch-entry` already uses, so a decision whose authenticity cannot be established never reaches this rule; and a decision SHALL be acknowledged within Slack's timeout independently of whether the recording it triggers has completed.
 
-The roster this rule is evaluated against is supplied by the caller, and SHALL answer to **one** stated shape: it SHALL be able to answer who the roster carries, deactivated entries included, since both halves of "known **and** active" are decided here rather than by whatever supplies the roster. A collaborator that cannot answer that — including no collaborator at all — SHALL be refused as a defect of *wiring*: a named error identifying what was supplied and what was expected, raised before the deciding identity is judged. It is raised at the point the identity would be resolved, so a decision already refused for a reason that does not depend on the roster keeps that refusal.
+The roster this rule is evaluated against is supplied by the caller, and SHALL answer to **one** stated shape: it SHALL be able to answer who the roster carries, deactivated entries included, since resolving the deciding Slack identity to a roster person, checking that person against the step's named confirmer, and checking that person's active status are all decided here rather than by whatever supplies the roster. A collaborator that cannot answer that — including no collaborator at all — SHALL be refused as a defect of *wiring*: a named error identifying what was supplied and what was expected, raised before the deciding identity is judged. It is raised at the point the identity would be resolved, so a decision already refused for a reason that does not depend on the roster keeps that refusal.
 
-That refusal SHALL NOT be reachable as a decision refusal. A decision refusal is a statement about the decision that was made, so an unreadable collaborator SHALL NOT be resolved into "the roster does not carry that identity", SHALL NOT be reported to the decider as a fact about their identity, and SHALL NOT leave a decider with any reason to believe their roster entry is at fault. The decider SHALL still be told their decision was not processed, and the mis-wiring SHALL be reported where operators see faults rather than only in the Slack reply.
+That refusal SHALL NOT be reachable as a decision refusal. A decision refusal is a statement about the decision that was made, so an unreadable collaborator SHALL NOT be resolved into "this identity is not the confirmer", SHALL NOT be reported to the decider as a fact about their identity, and SHALL NOT leave a decider with any reason to believe their roster entry or their standing as confirmer is at fault. The decider SHALL still be told their decision was not processed, and the mis-wiring SHALL be reported where operators see faults rather than only in the Slack reply.
 
-This exists because the opposite arrangement shipped. The collaborator was accepted in whichever of several shapes it happened to arrive in; the shape production actually supplied was none of them; the read fell through to "no such person"; and every decision by every identity — active admins included — was refused as though the roster did not carry them. Unlike the same mis-wiring elsewhere in this repository, it did not fail loudly, and the message it produced pointed at correct roster data instead of at the wiring.
+This carries forward a fault this system has already shipped once, on the wider rule this replaces: a roster collaborator accepted in whichever shape it happened to arrive in, production supplying none of the shapes read, and every decision by every identity refused as though the roster carried nobody — silently, and pointing at correct roster data instead of at the wiring.
 
-Consequently, the roster a decision is judged against SHALL be the same roster the roster-administration surface writes: an identity that surface holds as active SHALL be able to decide, and no arrangement of the collaborator SHALL be able to refuse every identity alike.
+Consequently, the roster a decision is judged against SHALL be the same roster the roster-administration surface writes and the same playbook a step's confirmer is read from: an identity the roster holds as active, and the step names as confirmer, SHALL be able to decide, and no arrangement of the collaborator SHALL be able to refuse every identity alike.
+
+#### Scenario: The named confirmer can decide
+
+- **WHEN** a decision arrives from the Slack identity belonging to the step's named confirmer, whom the roster holds as active
+- **THEN** it is accepted, and the pending result is settled per *Accepting records the proposed outcome and names the accepter* or *Rejecting does not terminate the step*
 
 #### Scenario: An unknown identity cannot decide
 
 - **WHEN** a decision arrives from a Slack identity the roster does not know
 - **THEN** it is refused, no outcome is recorded, the pending result still stands, and the decider is told
 
-#### Scenario: A deactivated person cannot decide
+#### Scenario: Someone other than the confirmer cannot decide
 
-- **WHEN** a decision arrives from a Slack identity belonging to a person the roster holds as inactive
+- **WHEN** a decision arrives from a Slack identity belonging to a person the roster holds as active, who is not the step's named confirmer
+- **THEN** it is refused, no outcome is recorded, and the pending result still stands
+
+#### Scenario: A deactivated confirmer cannot decide
+
+- **WHEN** a decision arrives from the Slack identity belonging to the step's named confirmer, whose roster entry the roster holds as inactive
 - **THEN** it is refused, no outcome is recorded, and the pending result still stands
 
 #### Scenario: A collaborator that cannot answer who the roster carries is refused by name
@@ -253,12 +268,7 @@ Consequently, the roster a decision is judged against SHALL be the same roster t
 #### Scenario: A mis-wiring is never reported as an unknown identity
 
 - **WHEN** a decision is judged against a roster collaborator that cannot answer who the roster carries
-- **THEN** the decider is not told that the roster does not know their Slack identity, and the mis-wiring is reported where operators see faults
-
-#### Scenario: A person the roster carries can decide through the wiring production supplies
-
-- **WHEN** a decision arrives from a Slack identity that the roster-administration surface holds as active, judged against the roster collaborator the running system supplies
-- **THEN** that person is resolved and the decision is judged on its merits rather than refused as unknown
+- **THEN** the decider is not told that their identity is not the confirmer, and the mis-wiring is reported where operators see faults
 
 ### Requirement: Accepting records the proposed outcome and names the accepter
 
@@ -270,7 +280,7 @@ The recording and the settlement SHALL both take effect, or neither: a settled r
 
 #### Scenario: An accepted result becomes the step's outcome
 
-- **WHEN** a known active person accepts a pending result proposing `Satisfied`
+- **WHEN** the step's named confirmer accepts a pending result proposing `Satisfied`
 - **THEN** `Satisfied` is recorded for that step with source `automated`, naming the accepter and the moment of the decision, with evidence naming the handler and carrying the produced text
 
 #### Scenario: A failed recording leaves the result decidable
@@ -288,7 +298,7 @@ A rejection SHALL NOT be recorded as `Refused`. `Refused` is reserved by `launch
 
 #### Scenario: A rejected result leaves the step live
 
-- **WHEN** a known active person rejects a pending result
+- **WHEN** the step's named confirmer rejects a pending result
 - **THEN** a `Blocked` outcome is recorded whose reason names the rejecter, with source `automated` and the rejecter as recorder, and the step is not at a terminal outcome
 
 #### Scenario: Rejection is never a refusal
@@ -417,22 +427,22 @@ The read SHALL be filtered by the caller's access scope, in the shape every othe
 
 ### Requirement: The retained record covers results held for a decision and nothing else
 
-Every result the system retains SHALL be one held for a decision — a terminal outcome the step's hazard permits, proposed for a step whose confirmation flag is true, and actually stored. An outcome recorded directly SHALL NOT be retained here: neither a non-terminal outcome, which this specification records against the launch whatever the confirmation flag says, nor a terminal outcome on a step needing no confirmation.
+Every result the system retains SHALL be one held for a decision — a terminal outcome the step's hazard permits, proposed for a step naming a confirmer, and actually stored. An outcome recorded directly SHALL NOT be retained here: neither a non-terminal outcome, which this specification records against the launch whatever confirmer the step names, nor a terminal outcome on a step naming no confirmer.
 
 Stated as a necessary condition and not as a biconditional, because the converse is false and this specification already says why: a terminal outcome the step's hazard forbids stores nothing at all (*A terminal outcome the step's hazard forbids is a handler fault, not a recording*), and a second proposal racing an existing pending one stores nothing either (*A result needing confirmation is held until a person decides*). A consumer may rely on everything in the record being a proposal someone was asked to accept; it may not rely on the record holding every such proposal ever made.
 
 This states no new routing policy. Which outcomes are held and which are recorded directly is settled by three requirements already in this specification — *A non-terminal outcome is recorded directly and never held for a decision*, *A result needing no confirmation is recorded at once* and *A result needing confirmation is held until a person decides* — and this requirement is their consequence, not a second statement of them. Where they change, this changes with them.
 
-What it adds is the boundary as a fact *about the retained set*, which a consumer reads rather than derives. The retained set is the record of **what people were asked to accept**, not the record of everything handlers produced; a consumer that presented it as the latter would be wrong in a way its readers could not detect, and most wrong for exactly those products whose automated steps need no confirmation.
+What it adds is the boundary as a fact *about the retained set*, which a consumer reads rather than derives. The retained set is the record of **what people were asked to accept**, not the record of everything handlers produced; a consumer that presented it as the latter would be wrong in a way its readers could not detect, and most wrong for exactly those products whose automated steps name no confirmer.
 
 #### Scenario: An outcome needing no confirmation is not retained
 
-- **WHEN** a handler resolves a step whose confirmation flag is false, and every result retained for that product is read
+- **WHEN** a handler resolves a step that names no confirmer, and every result retained for that product is read
 - **THEN** nothing is answered for that step
 
 #### Scenario: A non-terminal outcome is not retained
 
-- **WHEN** a handler proposes a non-terminal outcome for a step whose confirmation flag is true, and every result retained for that product is read
+- **WHEN** a handler proposes a non-terminal outcome for a step naming a confirmer, and every result retained for that product is read
 - **THEN** nothing is answered for that step
 
 ### Requirement: A handler that repeats itself is not asked again immediately
@@ -509,7 +519,7 @@ Where the shared store cannot be restored to a usable state after such a failure
 
 ### Requirement: A step whose handler has stopped making progress is reported once
 
-Where a handler repeats a non-terminal outcome and the step is cooled off, the system SHALL report that step once — naming the launch, the step, and **what the handler produced as its result**, which for a `Blocked` outcome is also the reason it carries — so that a person can supply what the handler is missing. A handler that cannot resolve a step is reporting work only a person can do, and a record nobody reads is not a report. The result is reported as what the handler said, never asserted as a fact about the product.
+Where a handler repeats a non-terminal outcome and the step is cooled off, the system SHALL report that step once — as a reply within the launch's Slack thread, establishing the thread first if it does not yet exist — naming the launch, the step, and **what the handler produced as its result**, which for a `Blocked` outcome is also the reason it carries, and tagging the step's named confirmer where the step names one, the launch's submitter otherwise, so that a person can supply what the handler is missing. A handler that cannot resolve a step is reporting work only a person can do, and a record nobody reads is not a report. The result is reported as what the handler said, never asserted as a fact about the product.
 
 The report SHALL be delivered once for as long as the step stays stuck, and SHALL NOT be repeated on every pass **nor on each expiry of the cool-off**: a step stuck for a week is one message, not seven. A step whose recorded outcome later changes, or which reaches an outcome its hazard permits as terminal, SHALL become eligible to be reported again if it later gets stuck.
 
@@ -524,7 +534,17 @@ A failure to deliver the report SHALL NOT fail the pass, SHALL NOT stop the rema
 #### Scenario: A newly cooled-off step is reported
 
 - **WHEN** a handler repeats a non-terminal outcome and the step is cooled off for the first time
-- **THEN** a report naming the launch, the step and what the handler produced as its result is delivered
+- **THEN** a report naming the launch, the step and what the handler produced as its result is delivered as a reply within the launch's Slack thread
+
+#### Scenario: A stuck step naming a confirmer tags that confirmer
+
+- **WHEN** a report is delivered for a stuck step that names a confirmer
+- **THEN** the message tags that confirmer
+
+#### Scenario: A stuck step naming no confirmer tags the submitter
+
+- **WHEN** a report is delivered for a stuck step that names no confirmer
+- **THEN** the message tags the launch's submitter instead
 
 #### Scenario: A step that stays stuck is not reported again
 

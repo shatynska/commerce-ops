@@ -554,10 +554,9 @@ def _step(**overrides: Any) -> StepDefinition:
         "blocking": False,
         "kind": StepKind.AUTOMATED,
         "status": StepStatus.ACTIVE,
-        "needs_confirmation": True,
+        "confirmer": "prs_confirmer",
         "hazard": Hazard.NONE,
         "assignees": (),
-        "automation_brief": "Propose the Amazon sub-category node.",
         "handler": HANDLER,
         "provenance": None,
     }

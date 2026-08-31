@@ -1,10 +1,13 @@
 """Driving adapter: putting a produced result in front of a person.
 
 `launch-step-automation`'s "A pending result is delivered for a decision"
-and the decision half of "Only a known, active person may decide". A
-pending result becomes a Slack message naming the product, the step, the
-outcome the handler proposed and the produced text **in full**, carrying
-an accept and a reject control; pressing one runs the matching use case.
+and the decision half of "Only the step's named confirmer may decide a
+pending result". A pending result becomes a Slack message naming the
+product, the step, the outcome the handler proposed and the produced
+text **in full**, carrying an accept and a reject control; pressing one
+runs the matching use case, which is where the confirmer identity is
+actually checked — this adapter stays a thin relay of whichever Slack
+identity pressed the button.
 
 The produced text goes in whole rather than truncated. It is the thing
 being decided — a person asked to accept a recommendation they can only
@@ -45,11 +48,15 @@ from commerce_ops.launch.infrastructure.driven.launch_journal_repository import 
     LaunchJournalRepository,
 )
 from commerce_ops.launch.infrastructure.driven.launch_repository import LaunchRepository
+from commerce_ops.launch.infrastructure.driven.launch_thread_delivery import (
+    establish_thread_and_resolve_mention,
+)
 from commerce_ops.launch.infrastructure.driven.playbook_repository import (
     PlaybookRepository,
     ServedPlaybooks,
 )
 from commerce_ops.launch.infrastructure.driven.slack_notifier import (
+    launches_channel,
     monitoring_channel,
     post_monitoring_message,
 )
@@ -64,6 +71,7 @@ __all__ = [
     "attach_listeners",
     "compose_blocks",
     "deliver_pending_result",
+    "launches_channel",
     "monitoring_channel",
     "post_monitoring_message",
 ]
@@ -125,8 +133,15 @@ async def deliver_pending_result(
     result: Any,
     product: Any = None,
     step_name: str | None = None,
+    step: Any = None,
 ) -> None:
     """Post one pending result for a decision.
+
+    `step` is the pending result's own `StepDefinition`, when the caller has
+    it (`automation_pass.py`'s `_deliver_waiting` reads it off the served
+    playbook it already holds) — passed straight to `resolve_mention_target`
+    so a step naming a confirmer tags that confirmer, falling back to the
+    launch's submitter exactly as every other call site does.
 
     Raises on a delivery failure rather than reporting it here: what a
     failed delivery means — the result still stands, nothing is recorded,
@@ -134,10 +149,31 @@ async def deliver_pending_result(
     it learns the post did not happen.
     """
     message = compose_message(result=result, product=product, step_name=step_name)
+    product_id = getattr(result, "product_id", None)
+
+    if not isinstance(product_id, ProductId):
+        raise TypeError(f"product_id must be ProductId, got {type(product_id)}")
+
+    sku_value = ""
+    marketplace_value = ""
+    if product:
+        sku = getattr(product, "sku", None)
+        sku_value = sku.value if sku else ""
+        marketplace = getattr(product, "marketplace_id", None)
+        marketplace_value = marketplace.value if marketplace else ""
+    thread_ts, mention = await establish_thread_and_resolve_mention(
+        product_id,
+        product.name if product else str(product_id),
+        sku_value,
+        marketplace_value,
+        step=step,
+    )
+    mention_tag = f" <@{mention}>" if mention else ""
     await post_monitoring_message(
-        channel=monitoring_channel(),
-        text=message,
+        channel=launches_channel(),
+        text=mention_tag + message,
         blocks=compose_blocks(result=result, message=message),
+        thread_ts=thread_ts,
     )
     _logger.info(
         "automation confirmation: delivered the pending result for step "
