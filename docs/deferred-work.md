@@ -598,9 +598,84 @@ whoever owns that workspace, not something to do by the way.
 **Recorded in**: `shift-clickup-completions-to-webhook`'s `tasks.md`, now at
 `openspec/changes/archive/2026-08-30-shift-clickup-completions-to-webhook/`.
 
+### A handler's finding recorder is keyed by a step identifier Postgres owns
+
+`worker.py:136` wires the sub-category advisor's recording capability as
+`automation_pass.recorders = {"lp.listing.007": _record_sub_category}`, and
+`_record_finding` (`automation_pass.py:762-795`) looks the recorder up by
+`step.identifier`.
+
+The literal is correct against `launch-step-automation`, which wires a
+recorder *"for `lp.listing.007` specifically — not for every step"*, and the
+`recorders` docstring argues correctly that keying by handler name would be
+wrong, since a handler's name says nothing about which step invoked it.
+
+What is deferred is the consequence. Since `move-playbook-steps-to-postgres`
+the step set is a live, admin-editable set of rows, and this literal is a
+reference into it from source. A step re-authored to carry
+`listing.subcategory_advisor` under a different identifier — or the advisor
+being pointed at a second step — resolves no recorder, and
+`_record_finding` returns `True` and lets the outcome settle **with no log
+line at all**. The finding is dropped in silence, and the only symptom is a
+product whose `sub_category` never fills in while its step records
+`Satisfied` on schedule.
+
+The narrow fix is one `INFO` record when a `Success` finding arrives for a
+step no recorder is wired for — enough to make the gap visible without
+inventing a policy. The broader question, deferred: whether "which steps
+record a finding" belongs in source at all, or is a property of the step
+row, like `handler` already is.
+
+**Trigger to close.** A second step gaining a recording capability, or the
+first time `lp.listing.007` is re-authored.
+
+### Production code carries tolerances for incomplete test doubles
+
+Several modules read one value through several attribute spellings, or
+through `getattr` with a default, explicitly so that a test's stand-in need
+not model the real collaborator:
+
+- `gate_progression_job.py:256` — *"tolerating a caller's fake that models
+  less than the real `LaunchProgressed` does"*
+- `gate_progression_job.py:266` — `_awaiting_gate` probes
+  `("awaiting_gate", "gate_id", "current_gate")` for one value
+- `clickup_sync.py:128-136` — `_roster_people` probes three shapes for one
+  reader
+- `automated_decisions.py:86-90` — *"three spellings"* for one person lookup
+- `playbook_authoring.py:243-253` — `person_identifier` probes
+  `("identifier", "id", "person_id")`
+
+Part of this is legitimate: `.importlinter` forbids `launch` from naming
+`catalog`'s and `access`'s types, so a shape is read where a type cannot be
+named. The rest is the dependency running backwards — production code
+widened so that a double written to the minimum keeps passing. It is also
+where a good deal of `automation_pass.py`'s 35 `: Any` annotations come
+from, which is `mypy strict` being satisfied nominally.
+
+Not fixable on its own. A tolerance may only be deleted once the doubles it
+tolerates are complete, so this closes behind `share-the-unit-test-harness`
+(complete builders) and `unify-launch-adapter-dependencies` (protocols
+naming a shape without naming a forbidden type) — recorded here because
+the finding predates both and outlives either landing alone.
+
+### Migration `1a2b3c4d5e6f` carries a hand-invented revision id
+
+`alembic/versions/1a2b3c4d5e6f_add_slack_thread_fields_to_launch_positions.py`
+uses a sequential placeholder where every other revision in the tree carries
+generated hex (`028812c68321`, `e6c1a92d7f04`, `d715ad9feed4`). It is
+cosmetic and it collides with nothing.
+
+**It must not be corrected.** The id is written into `alembic_version` in
+every environment that has run it, production included; renaming it would
+strand those databases at a revision that no longer exists. Recorded so the
+inconsistency is not rediscovered as a defect and "fixed".
+
+The generalisable part is the convention: a revision id comes from
+`alembic revision`, never from typing one out.
+
 ### Small cleanups, not worth a change each
 
-Verified present at the time of writing; suitable for one chore commit.
+Verified present 2026-09-01; suitable for one chore commit.
 
 | Item | Why |
 |---|---|
@@ -609,3 +684,6 @@ Verified present at the time of writing; suitable for one chore commit.
 | `httpx2` in dev dependencies | It is a runtime requirement of `openai`, not a test dependency. Likely added by mistake. |
 | `description = "Add your description here"` | Placeholder from the project template. Deliberately excluded from `tighten-type-checking` as unrelated scope. |
 | No `known-first-party` for ruff's isort | Without `known-first-party = ["commerce_ops"]` under `[tool.ruff.lint.isort]`, ruff infers first-party packages per invocation, so the classification changes with the set of files it is handed. `uv run ruff check` over the whole project passes while the `pre-commit` hook — which passes explicit staged paths — fails `I001` on those same files, and fixing one file at a time reports success while fixing them together still finds errors. Cost a commit two attempts to diagnose; the one-line declaration makes it deterministic. |
+| `post_monitoring_message` is misnamed | `launch/infrastructure/driven/slack_notifier.py:47` takes `channel` as an argument and is called with `launches_channel()` at every launch-thread site. It posts to whichever channel it is given; only its name still says otherwise. `post_message`. Worth doing while `inject-the-thread-anchor-poster` is already changing its signature, not before. |
+| `Proposal.outcome` and `Proposal.finding` are `Any` | `step_handlers/listing/subcategory_advisor.py:229-236`. `StepResolution` types the same two values properly (`StepOutcomeValue`, `Result[Any, Any] \| None`), and `Proposal` exists only to carry them one function further. Nothing forces the widening — no import boundary is crossed here. |
+| Comment archaeology in `main.py` | `main.py:261-272` spends five lines describing what a *previous version of a comment* said. Git holds that. The comment convention this project keeps — record the reasoning, not just the behaviour — is worth keeping; recording the reasoning's own edit history is not. |
