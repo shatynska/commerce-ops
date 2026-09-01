@@ -37,7 +37,6 @@ from commerce_ops.launch.application.journal import (
     KIND_LAUNCH_DATE_MOVED,
     KIND_LAUNCH_GRADUATED,
     KIND_LAUNCH_STARTED,
-    KIND_METRIC_ATTESTED,
     KIND_STEP_OUTCOME_RECORDED,
     JournalEntry,
     JournalOccurrence,
@@ -69,7 +68,6 @@ from commerce_ops.launch.domain.launch_run import (
     LaunchError,
     LaunchEvent,
     LaunchGraduated,
-    MetricAttestation,
     Provenance,
     StepOutcomeValue,
     StepProgress,
@@ -187,38 +185,6 @@ async def record_step_outcome(
                 "outcome": _outcome_name(outcome),
                 "reason": getattr(outcome, "reason", None),
                 "evidence": provenance.evidence,
-            },
-        ),
-    )
-    return events
-
-
-async def record_metric_attestation(
-    launches: LaunchStore,
-    playbooks: Playbooks,
-    *,
-    product_id: ProductId,
-    attestation: MetricAttestation,
-    journal: LaunchJournal,
-) -> tuple[LaunchEvent, ...]:
-    launch = await _existing(launches, product_id)
-    playbook = playbooks.get(launch.playbook_version)
-    events = launch.record_metric_attestation(playbook, attestation)
-    await launches.save(launch)
-    await _journal(
-        journal,
-        JournalOccurrence(
-            product_id=product_id,
-            kind=KIND_METRIC_ATTESTED,
-            occurred_at=attestation.when,
-            actor=attestation.attester,
-            # The condition is the subject; the gate it was attested
-            # against travels in `details` (design.md Decision 4).
-            subject_id=attestation.metric_id.value,
-            subject_label=_threshold_for(playbook, attestation),
-            details={
-                "gate_id": attestation.gate_id,
-                "evidence": attestation.evidence,
             },
         ),
     )
@@ -613,20 +579,6 @@ def _step_name(playbook: LaunchPlaybook, step_id: str) -> str | None:
     for step in playbook.served_steps:
         if step.identifier == step_id:
             return step.name
-    return None
-
-
-def _threshold_for(
-    playbook: LaunchPlaybook, attestation: MetricAttestation
-) -> str | None:
-    """A metric condition's threshold text — its label, captured at the
-    append for the same reason a step's name is."""
-    for gate in playbook.gates:
-        if gate.identifier != attestation.gate_id:
-            continue
-        for condition in gate.metric_conditions:
-            if condition.metric_id == attestation.metric_id:
-                return condition.threshold
     return None
 
 

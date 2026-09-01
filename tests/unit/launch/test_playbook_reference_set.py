@@ -32,9 +32,12 @@ _ROOT: Final = Path(__file__).resolve().parents[3]
 _VENDORED: Final = _ROOT / "alembic" / "data" / "playbook_reference.yaml"
 _REFERENCE: Final = _ROOT / "docs" / "reference" / "product-launch.md"
 
-# SPECIFIED (delta): rows that restate a gate's authored metric condition are
-# not seeded — one obligation is expressed once.
-METRIC_RESTATEMENTS: Final = frozenset(
+# SPECIFIED (delta): rows whose own words make passing a gate conditional on
+# them are seeded as blocking steps on that gate. These six were *excluded*
+# until `replace-metric-conditions-with-steps`, each restating a condition a
+# gate authored; gates author none now, so excluding them would leave the
+# obligation expressed nowhere a launch can resolve.
+GATE_CONDITIONING_ROWS: Final = frozenset(
     {
         "lp.inventory.040",
         "lp.inventory.041",
@@ -44,6 +47,12 @@ METRIC_RESTATEMENTS: Final = frozenset(
         "lp.finance.036",
     }
 )
+
+# Of those six, the ones whose words state a threshold on one *named quantity*
+# and therefore declare a metric identifier. `lp.ppc.048` states four
+# qualitative criteria naming no single quantity, so it blocks without one
+# (`design.md` — Decision 8).
+METRIC_BEARING_ROWS: Final = GATE_CONDITIONING_ROWS - {"lp.ppc.048"}
 
 # SPECIFIED (delta): the closed trimming set.
 _TERMINAL: Final = ";:,."
@@ -95,7 +104,7 @@ def test_the_vendored_set_constructs_a_playbook() -> None:
         gates=framework_gates(),
         steps=vendored_definitions(),
     )
-    assert len(playbook.authored_steps) == 352
+    assert len(playbook.authored_steps) == 358
     # SPECIFIED: every step is a draft, so none is served and the playbook is
     # not ready — the state `serve-only-a-ready-playbook` made representable.
     assert playbook.served_steps == ()
@@ -103,19 +112,37 @@ def test_the_vendored_set_constructs_a_playbook() -> None:
     assert len(playbook.unheld_gates) == 8
 
 
-def test_every_reference_row_appears_except_the_restatements(
+def test_every_reference_row_appears_with_no_exception(
     steps: list[dict[str, Any]], rows: dict[str, dict[str, str]]
 ) -> None:
-    """3.2 — SPECIFIED: every ID-bearing row of every area appears, except
-    those excluded for restating a gate's authored metric condition."""
+    """3.2 — SPECIFIED: every ID-bearing row of every area appears, with no
+    exception. The six rows this assertion previously required to be *absent*
+    are the ones `replace-metric-conditions-with-steps` restores."""
     seeded = {step["identifier"] for step in steps}
-    expected = set(rows) - METRIC_RESTATEMENTS
+    expected = set(rows)
 
     assert seeded == expected, (
         f"missing: {sorted(expected - seeded)}; extra: {sorted(seeded - expected)}"
     )
-    assert len(seeded) == 352
-    assert not (seeded & METRIC_RESTATEMENTS)
+    assert len(seeded) == 358
+    assert GATE_CONDITIONING_ROWS <= seeded
+
+
+def test_a_gate_conditioning_row_is_seeded_blocking(
+    steps: list[dict[str, Any]],
+) -> None:
+    """3.2 — SPECIFIED: such a row is marked blocking on the gate its words
+    condition, and declares a metric identifier where those words state a
+    threshold on one named quantity."""
+    by_identifier = {step["identifier"]: step for step in steps}
+
+    for identifier in sorted(GATE_CONDITIONING_ROWS):
+        step = by_identifier[identifier]
+        assert step["blocking"] is True, identifier
+        if identifier in METRIC_BEARING_ROWS:
+            assert step.get("metric_id"), identifier
+        else:
+            assert not step.get("metric_id"), identifier
 
 
 def test_every_description_re_derives_from_its_row(
@@ -185,12 +212,21 @@ def test_a_numeric_threshold_survives_into_its_name(
     money/day figure: where the authored name kept a number at all, it is one
     the description also states, so no threshold was invented.
     """
+
+    def _numbers(text: str) -> set[str]:
+        # A comma *inside* a number is a thousands separator and part of it;
+        # one at the end is punctuation and is not. Without the strip, a
+        # description reading "60-80, and hopefully 100+" yields "80," and a
+        # name reading "60-80" yields "80", so a name that took its threshold
+        # faithfully reads as having invented one.
+        return {match.rstrip(",") for match in re.findall(r"\d[\d,]*", text)}
+
     checked = 0
     for step in steps:
-        numbers = set(re.findall(r"\d[\d,]*", step["name"]))
+        numbers = _numbers(step["name"])
         if not numbers:
             continue
-        in_description = set(re.findall(r"\d[\d,]*", step["description"]))
+        in_description = _numbers(step["description"])
         assert numbers <= in_description, (
             f"{step['identifier']}: name states {numbers - in_description} "
             f"which its description does not"
@@ -267,7 +303,10 @@ def test_the_human_pass_is_carried_across_unchanged(
     seeded = {step["identifier"]: step for step in steps}
     compared = 0
     for identifier, previous in curated.items():
-        if identifier in METRIC_RESTATEMENTS:
+        if identifier in GATE_CONDITIONING_ROWS:
+            # Seeded now, but its gate and blocking flag are the delta's, not
+            # the earlier human pass's — that pass predates the decision to
+            # seed these at all, so there is nothing here to carry across.
             continue
         current = seeded[identifier]
         assert current["gate"] == previous["gate"], identifier

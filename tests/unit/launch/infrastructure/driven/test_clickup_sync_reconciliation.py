@@ -202,7 +202,7 @@ def _start(playbook: LaunchPlaybook) -> Launch:
 
 def _provenance(**overrides: Any) -> Provenance:
     attributes: dict[str, Any] = {
-        "source": "attestation",
+        "source": "clickup",
         "who": "Helen",
         "when": RECORDED_AT,
         "evidence": "screenshot in the launch Slack thread",
@@ -638,7 +638,7 @@ async def test_reconciliation_never_overwrites_other_recording_paths() -> None:
     the recorded outcome standing.
 
     This is the scenario the observed-state column exists for: the step is
-    `Satisfied` by attestation while its ClickUp task is still open -- the
+    `Satisfied` out of band while its ClickUp task is still open -- the
     state the one-way-status non-goal *guarantees* will occur. A pass that
     compared ClickUp's state against the step's recorded outcome would
     overwrite it with `InProgress` here.
@@ -649,7 +649,7 @@ async def test_reconciliation_never_overwrites_other_recording_paths() -> None:
         playbook,
         step_id=STEP_ID,
         outcome=Satisfied,
-        provenance=_provenance(source="attestation", who="Helen"),
+        provenance=_provenance(source="clickup", who="Helen"),
     )
     collaborators = _Collaborators()
     _mapped(collaborators, closed_in_clickup=False, last_observed=False)
@@ -665,7 +665,7 @@ async def test_reconciliation_never_overwrites_other_recording_paths() -> None:
     progress = launch.progress_for(STEP_ID)
     assert progress is not None
     assert progress.outcome is Satisfied
-    assert progress.provenance.source == "attestation"
+    assert progress.provenance.source == "clickup"
 
 
 # ---------------------------------------------------------------------------
@@ -692,7 +692,7 @@ async def test_the_system_never_closes_a_task() -> None:
         playbook,
         step_id=STEP_ID,
         outcome=Satisfied,
-        provenance=_provenance(source="attestation"),
+        provenance=_provenance(source="clickup"),
     )
     collaborators = _Collaborators()
     _mapped(collaborators, closed_in_clickup=False, last_observed=False)

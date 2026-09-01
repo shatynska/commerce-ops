@@ -44,8 +44,8 @@ def test_an_empty_set_receives_the_whole_vendored_set(
     """3.12 — a database carrying none of the vendored steps gets all of them."""
     candidate, added = compose([], vendored)
 
-    assert added == len(vendored) == 352
-    assert len(candidate) == 352
+    assert added == len(vendored) == 358
+    assert len(candidate) == 358
 
 
 def test_running_again_changes_nothing(vendored: tuple[Any, ...]) -> None:
@@ -96,7 +96,7 @@ def test_an_edited_step_is_left_exactly_as_it_stands(
     assert kept.updated_by == "helen"
     assert kept.updated_on == now
     # Everything else the vendored set carries is still added.
-    assert added == 351
+    assert added == 357
 
 
 def test_a_retired_step_is_not_returned_by_a_seeding_run(
@@ -148,8 +148,8 @@ def test_a_step_the_vendored_set_does_not_name_survives(
     )
     assert survivor.definition.name == "hand-made"
     assert survivor.created_by == "helen"
-    assert added == 352
-    assert len(candidate) == 353
+    assert added == 358
+    assert len(candidate) == 359
 
 
 def test_a_reference_row_added_later_is_delivered(

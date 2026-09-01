@@ -170,7 +170,7 @@ def _start(
 
 def _provenance(**overrides: Any) -> Provenance:
     attributes: dict[str, Any] = {
-        "source": "attestation",
+        "source": "clickup",
         "who": "Helen",
         "when": RECORDED_AT,
         "evidence": "screenshot in the launch Slack thread",

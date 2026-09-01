@@ -370,7 +370,7 @@ SERVED_ORDER: Final = tuple(
 
 def _provenance(when: datetime) -> Provenance:
     return Provenance(
-        source="attestation",
+        source="clickup",
         who=RECORDER,
         when=when,
         evidence="screenshot in the launch Slack thread",

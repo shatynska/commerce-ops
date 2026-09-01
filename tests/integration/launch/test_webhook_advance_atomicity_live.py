@@ -225,35 +225,12 @@ def _satisfy_steps(launch: Launch, playbook: LaunchPlaybook, gate: str) -> None:
             )
 
 
-def _satisfy_metrics(launch: Launch, playbook: LaunchPlaybook, gate: str) -> None:
-    """Attest every metric condition the served playbook authors on `gate`,
-    read off the playbook rather than listed here — transcribed from
-    `test_gate_progression_atomicity_live.py`, which records why."""
-    from commerce_ops.launch.domain.launch_playbook import MetricCondition
-    from commerce_ops.launch.domain.launch_run import MetricAttestation
-
-    for condition in playbook.conditions_for_gate(gate):
-        if not isinstance(condition, MetricCondition):
-            continue
-        launch.record_metric_attestation(
-            playbook,
-            MetricAttestation(
-                gate_id=gate,
-                metric_id=condition.metric_id,
-                attester="Mira",
-                when=NOW,
-                evidence="attested for this fixture",
-            ),
-        )
-
-
 def _satisfy(launch: Launch, playbook: LaunchPlaybook) -> None:
     from commerce_ops.launch.domain.launch_run import GateApproval
     from commerce_ops.shared.domain.lifecycle_stage import Posture
 
     gate = launch.current_gate
     _satisfy_steps(launch, playbook, gate)
-    _satisfy_metrics(launch, playbook, gate)
     if launch.awaiting_confirmation(playbook) or launch.approval_for(gate) is None:
         definition = next(
             (entry for entry in playbook.gates if entry.identifier == gate), None
@@ -295,7 +272,6 @@ async def _launch_standing_at(engine: AsyncEngine, gate: str) -> ProductId:
         _satisfy(launch, playbook)
         launch.advance_gate(playbook)
     _satisfy_steps(launch, playbook, launch.current_gate)
-    _satisfy_metrics(launch, playbook, launch.current_gate)
     async with _session(engine) as session:
         await LaunchRepository(session).save(launch)
     return product.id

@@ -308,7 +308,7 @@ def _graduate(launch: Launch, playbook: LaunchPlaybook) -> Launch:
                     step_id=step.identifier,
                     outcome=Satisfied,
                     provenance=Provenance(
-                        source="attestation",
+                        source="clickup",
                         who="Helen",
                         when=APPROVED_AT,
                         evidence="blocking work signed off",
@@ -954,7 +954,7 @@ async def test_a_smuggled_provenance_does_not_displace_the_constructed_one() -> 
         outcome = Satisfied
         result = RECOMMENDATION
         provenance = Provenance(
-            source="attestation",
+            source="clickup",
             who="a person who never saw this",
             when=APPROVED_AT,
             evidence="signed off by hand",

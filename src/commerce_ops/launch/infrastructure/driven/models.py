@@ -3,9 +3,9 @@
 Maps `launch-instance`'s persisted shape (as reshaped by
 `introduce-launch-aggregate`) to Postgres: the `launch_positions` spine —
 a launch record referencing a catalog product by identifier — plus the
-three child tables holding the aggregate's recorded state: step progress
-(outcome + recording provenance), gate approvals, and metric
-attestations, each keyed by the launch's product id with cascade delete.
+two child tables holding the aggregate's recorded state: step progress
+(outcome + recording provenance) and gate approvals, each keyed by the
+launch's product id with cascade delete.
 Product identity lives in the catalog-owned `products` table (the
 catalog split's design.md Decision 7). `GATE_IDS` is a deliberate,
 standalone copy of the eight `launch-playbook` gate identifiers — the
@@ -95,7 +95,7 @@ OUTCOME_KINDS: Final[tuple[str, ...]] = (
     "not-applicable",
 )
 
-PROVENANCE_SOURCES: Final[tuple[str, ...]] = ("clickup", "automated", "attestation")
+PROVENANCE_SOURCES: Final[tuple[str, ...]] = ("clickup", "automated")
 
 APPROVAL_DECISIONS: Final[tuple[str, ...]] = ("approving", "rejecting")
 
@@ -207,7 +207,7 @@ class LaunchClickUpTask(Base):
     keyed on the last observed state"): every observation writes it, and an
     outcome is recorded only when a fresh reading differs from it. It is
     deliberately *not* the step's recorded outcome — comparing against that
-    would overwrite an attestation with `InProgress` on the next pass.
+    would overwrite a recorded outcome with `InProgress` on the next pass.
     """
 
     __tablename__ = "launch_clickup_tasks"
@@ -243,39 +243,9 @@ class LaunchClickUpTask(Base):
     retained_assignees: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
 
 
-class LaunchMetricAttestation(Base):
-    """One recorded human attestation per (launch, gate, metric)."""
-
-    __tablename__ = "launch_metric_attestations"
-    __table_args__ = (
-        CheckConstraint(
-            f"gate_id IN ({_GATE_LIST})",
-            name="ck_launch_metric_attestations_gate_id_valid",
-        ),
-    )
-
-    product_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
-        ForeignKey(
-            "launch_positions.product_id",
-            name="fk_launch_metric_attestations_product_id",
-            ondelete="CASCADE",
-        ),
-        primary_key=True,
-    )
-    gate_id: Mapped[str] = mapped_column(String, primary_key=True)
-    metric_id: Mapped[str] = mapped_column(String, primary_key=True)
-    attester: Mapped[str] = mapped_column(String, nullable=False)
-    attested_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False
-    )
-    evidence: Mapped[str] = mapped_column(String, nullable=False)
-
-
 LAUNCH_JOURNAL_KINDS: Final[tuple[str, ...]] = (
     "launch-started",
     "step-outcome-recorded",
-    "metric-attested",
     "gate-approval-recorded",
     "gate-opened",
     "launch-graduated",
@@ -303,8 +273,8 @@ class LaunchJournalEntry(Base):
     for free.
 
     `occurred_at` is the moment the entry *names*, not the moment of the
-    append: a recording's `Provenance.when`, an approval's or an
-    attestation's `when`. The five kinds whose command carries no
+    append: a recording's `Provenance.when`, or an approval's `when`.
+    The five kinds whose command carries no
     timestamp are stamped here from the database clock, because the
     application layer holds no clock.
 
@@ -446,6 +416,7 @@ class PlaybookStep(Base):
     handler: Mapped[str | None] = mapped_column(Text, nullable=True)
     confirmer: Mapped[str | None] = mapped_column(String, nullable=True)
     provenance: Mapped[str | None] = mapped_column(Text, nullable=True)
+    metric_id: Mapped[str | None] = mapped_column(String, nullable=True)
     display_order: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
 
     created_by: Mapped[str | None] = mapped_column(String, nullable=True)

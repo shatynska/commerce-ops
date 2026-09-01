@@ -36,9 +36,6 @@ one `test_launch_run.py`'s docstring records; this file adds:
   instead of the message, correcting how the naming is *read* is a
   fixture correction; that the unsatisfied condition is named is
   SPECIFIED and must survive.
-- `launch.record_metric_attestation(playbook, attestation)` with
-  `MetricAttestation(gate_id=..., metric_id=..., attester=..., when=...,
-  evidence=...)` per `tasks.md` 1.1.
 - Approval-construction rejections (an unnamed approver) may surface at
   value construction (`ValueError`, the project's construction-time
   convention) or at the recording command (`LaunchError`); the tests
@@ -59,7 +56,6 @@ from commerce_ops.launch.domain.launch_playbook import (
     GateOpening,
     Hazard,
     LaunchPlaybook,
-    MetricCondition,
     OffsetAnchor,
     Refused,
     Satisfied,
@@ -75,11 +71,10 @@ from commerce_ops.launch.domain.launch_run import (
     Launch,
     LaunchError,
     LaunchStarted,
-    MetricAttestation,
     Provenance,
 )
 from commerce_ops.shared.domain.discipline import Discipline
-from commerce_ops.shared.domain.identity import MetricId, ProductId
+from commerce_ops.shared.domain.identity import ProductId
 from commerce_ops.shared.domain.lifecycle_stage import Posture
 
 # SPECIFIED (launch-playbook spec, unchanged): the eight gates, in order.
@@ -119,30 +114,21 @@ def _opening_for(identifier: str) -> GateOpening:
     return GateOpening.AUTOMATIC
 
 
-def _gates(
-    metric_conditions: dict[str, tuple[MetricCondition, ...]] | None = None,
-) -> tuple[Gate, ...]:
-    authored = metric_conditions or {}
-    gates = []
-    for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1):
-        if identifier in authored:
-            gates.append(
-                Gate(
-                    identifier=identifier,
-                    position=position,
-                    opening=_opening_for(identifier),
-                    metric_conditions=authored[identifier],
-                )
-            )
-        else:
-            gates.append(
-                Gate(
-                    identifier=identifier,
-                    position=position,
-                    opening=_opening_for(identifier),
-                )
-            )
-    return tuple(gates)
+def _gates() -> tuple[Gate, ...]:
+    """The eight gates in the specified order.
+
+    A gate carries its identifier, position and opening mode and nothing
+    else since `replace-metric-conditions-with-steps`: what it waits on
+    is stated by the steps attached to it.
+    """
+    return tuple(
+        Gate(
+            identifier=identifier,
+            position=position,
+            opening=_opening_for(identifier),
+        )
+        for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1)
+    )
 
 
 def _step(**overrides: Any) -> StepDefinition:
@@ -179,15 +165,10 @@ def _hold(gate: str) -> StepDefinition:
     )
 
 
-def _playbook(
-    steps: tuple[StepDefinition, ...] = (),
-    metric_conditions: dict[str, tuple[MetricCondition, ...]] | None = None,
-) -> LaunchPlaybook:
+def _playbook(steps: tuple[StepDefinition, ...] = ()) -> LaunchPlaybook:
     held = {step.gate for step in steps if step.blocking}
     fillers = tuple(_hold(gate) for gate in SPECIFIED_GATE_ORDER if gate not in held)
-    return LaunchPlaybook(
-        version="test-v1", gates=_gates(metric_conditions), steps=(*steps, *fillers)
-    )
+    return LaunchPlaybook(version="test-v1", gates=_gates(), steps=(*steps, *fillers))
 
 
 def _start(playbook: LaunchPlaybook) -> tuple[Launch, LaunchStarted]:
@@ -197,7 +178,7 @@ def _start(playbook: LaunchPlaybook) -> tuple[Launch, LaunchStarted]:
 
 def _provenance(**overrides: Any) -> Provenance:
     attributes: dict[str, Any] = {
-        "source": "attestation",
+        "source": "clickup",
         "who": "Helen",
         "when": RECORDED_AT,
         "evidence": "screenshot in the launch Slack thread",
@@ -486,90 +467,3 @@ def test_a_graduation_approval_without_a_posture_is_rejected() -> None:
 
     with pytest.raises(REJECTED):
         launch.approve_gate("graduated", _approval(posture=None))
-
-
-# ---------------------------------------------------------------------------
-# ADDED Requirement: A metric condition is satisfied by human attestation
-# until live evaluation exists
-# ---------------------------------------------------------------------------
-
-STOCK_METRIC: Final = MetricId("units-fulfillable")
-STOCK_CONDITION: Final = MetricCondition(
-    STOCK_METRIC, "60-80 fulfillable units, excluding Vine"
-)
-
-
-def _attestation(**overrides: Any) -> MetricAttestation:
-    attributes: dict[str, Any] = {
-        "gate_id": "listable",
-        "metric_id": STOCK_METRIC,
-        "attester": "Helen",
-        "when": RECORDED_AT,
-        "evidence": "inventory dashboard export, 2027-01-05",
-    }
-    attributes.update(overrides)
-    return MetricAttestation(**attributes)
-
-
-def test_an_attested_metric_condition_counts_as_satisfied() -> None:
-    """Scenario: An attested metric condition counts as satisfied.
-
-    WHEN an attestation with a named attester and evidence is recorded
-    for a metric condition authored on the current gate, and every other
-    blocking condition is satisfied
-    THEN the gate's conditions count as satisfied and the launch can
-    advance.
-    """
-    playbook = _playbook(metric_conditions={"listable": (STOCK_CONDITION,)})
-    launch, _ = _start(playbook)
-    _advance_to(launch, playbook, "listable")
-    _satisfy_fillers(launch, playbook)
-
-    launch.record_metric_attestation(playbook, _attestation())
-    events = launch.advance_gate(playbook)
-
-    # SPECIFIED: the launch can advance once the condition is attested.
-    assert launch.current_gate == "stock-ready"
-    assert any(isinstance(event, GateOpened) for event in events)
-
-
-def test_an_unattested_metric_condition_keeps_the_gate_closed() -> None:
-    """Scenario: An unattested metric condition keeps the gate closed.
-
-    WHEN the launch is advanced while a metric condition authored on the
-    current gate has no recorded attestation
-    THEN the advance is rejected and a `GateBlocked` occurrence names
-    that metric condition.
-    """
-    playbook = _playbook(metric_conditions={"listable": (STOCK_CONDITION,)})
-    launch, _ = _start(playbook)
-    _advance_to(launch, playbook, "listable")
-    _satisfy_fillers(launch, playbook)
-
-    with pytest.raises(LaunchError) as caught:
-        launch.advance_gate(playbook)
-
-    assert launch.current_gate == "listable"
-    # SPECIFIED: the `GateBlocked` occurrence names that metric condition
-    # (read via the error's rendering — see module docstring).
-    assert "units-fulfillable" in str(caught.value)
-
-
-def test_an_attestation_for_a_condition_the_gate_does_not_author_is_rejected() -> None:
-    """Scenario: An attestation for a condition the gate does not author
-    is rejected.
-
-    WHEN an attestation is recorded for a metric identifier the pinned
-    playbook version does not author on the named gate
-    THEN the recording is rejected.
-
-    The metric is authored on `listable`; the attestation names the same
-    metric on `live`, where it is not authored — so the rejection turns
-    on the (gate, metric) pairing, not on the metric being globally
-    unknown.
-    """
-    playbook = _playbook(metric_conditions={"listable": (STOCK_CONDITION,)})
-    launch, _ = _start(playbook)
-
-    with pytest.raises(LaunchError):
-        launch.record_metric_attestation(playbook, _attestation(gate_id="live"))

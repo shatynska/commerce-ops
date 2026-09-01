@@ -559,6 +559,10 @@ def _authorable_fields(
     # exactly that reason.
     fields["starts_at_gate"] = (form.get("starts_at_gate") or "").strip() or None
     fields["handler"] = (form.get("handler") or "").strip() or None
+    # Passed on as the raw string the form submitted: the use case is the
+    # boundary that turns it into a `MetricId`, and refusing a malformed
+    # one there is what makes the rejection reachable from a submission.
+    fields["metric_id"] = (form.get("metric_id") or "").strip() or None
     # An empty selection is "no confirmation needed", carried as `None`
     # rather than the empty string — the same single-valued-optional
     # shape `starts_at_gate` already uses.
@@ -1208,6 +1212,7 @@ def _edit_values(record: Any) -> dict[str, Any]:
         "assignees": list(definition.assignees),
         "handler": definition.handler or "",
         "confirmer": definition.confirmer or "",
+        "metric_id": str(definition.metric_id) if definition.metric_id else "",
         "anchor_kind": anchor["kind"],
         "anchor_days": anchor["days"],
         "anchor_start": anchor["start"],
@@ -1248,6 +1253,7 @@ def _submitted_values(
         "after_steps": list(after_steps),
         "handler": form.get("handler", ""),
         "confirmer": form.get("confirmer", ""),
+        "metric_id": form.get("metric_id", ""),
         "anchor_kind": form.get("anchor_kind", "offset"),
         "anchor_days": form.get("anchor_days", ""),
         "anchor_start": form.get("anchor_start", ""),

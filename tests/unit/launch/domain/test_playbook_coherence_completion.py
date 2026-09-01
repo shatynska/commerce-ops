@@ -23,14 +23,9 @@ DERIVED level choice: both new faults are exercised through
 `LaunchPlaybook` construction, where `tasks.md` 4.3 places them
 ("extend load-time coherence ... both reported in the aggregated
 all-faults error") and where the earlier pass placed every other
-coherence rule. This assumes `MetricCondition` itself admits an empty
-threshold description so that the playbook-level fault naming the *gate*
-is reachable — the reading the scenario's "an error naming the gate
-carrying it" fixes. If the implementation instead rejects the empty
-description at `MetricCondition` construction, these fixtures error
-before the assertion runs (failure state 3 in `ai-toolkit:testing`) and
-the divergence between that design and the scenario's gate-naming clause
-must be reported, not absorbed.
+coherence rule. The rule that once rejected an empty metric-condition
+threshold retired with metric conditions themselves; what remains here
+is exercised through the same construction.
 """
 
 from __future__ import annotations
@@ -45,7 +40,6 @@ from commerce_ops.launch.domain.launch_playbook import (
     Hazard,
     InvalidPlaybookError,
     LaunchPlaybook,
-    MetricCondition,
     OffsetAnchor,
     Scope,
     StepDefinition,
@@ -53,7 +47,6 @@ from commerce_ops.launch.domain.launch_playbook import (
     StepStatus,
 )
 from commerce_ops.shared.domain.discipline import Discipline
-from commerce_ops.shared.domain.identity import MetricId
 
 # SPECIFIED (main spec, unchanged): the eight gates, in this order.
 SPECIFIED_GATE_ORDER: Final = (
@@ -82,30 +75,21 @@ def _opening_for(identifier: str) -> GateOpening:
     return GateOpening.AUTOMATIC
 
 
-def specified_gates(
-    metric_conditions: dict[str, tuple[MetricCondition, ...]] | None = None,
-) -> tuple[Gate, ...]:
-    authored = metric_conditions or {}
-    gates = []
-    for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1):
-        if identifier in authored:
-            gates.append(
-                Gate(
-                    identifier=identifier,
-                    position=position,
-                    opening=_opening_for(identifier),
-                    metric_conditions=authored[identifier],
-                )
-            )
-        else:
-            gates.append(
-                Gate(
-                    identifier=identifier,
-                    position=position,
-                    opening=_opening_for(identifier),
-                )
-            )
-    return tuple(gates)
+def specified_gates() -> tuple[Gate, ...]:
+    """The eight gates in the specified order.
+
+    A gate carries its identifier, position and opening mode and nothing
+    else — `replace-metric-conditions-with-steps` removed the authored
+    conditions it used to carry, so there is nothing to author onto one.
+    """
+    return tuple(
+        Gate(
+            identifier=identifier,
+            position=position,
+            opening=_opening_for(identifier),
+        )
+        for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1)
+    )
 
 
 def _step(**overrides: Any) -> StepDefinition:
@@ -177,63 +161,49 @@ def _playbook(
 # ---------------------------------------------------------------------------
 
 
-def test_a_metric_condition_with_an_empty_threshold_is_rejected() -> None:
-    """Scenario: A malformed metric condition is rejected.
-
-    WHEN a playbook authors a metric condition whose threshold description
-    is empty
-    THEN loading fails with an error naming the gate carrying it.
-    """
-    empty_threshold = MetricCondition(MetricId("units-fulfillable"), "")
-    gates = specified_gates({"stock-ready": (empty_threshold,)})
-
-    with pytest.raises(InvalidPlaybookError) as caught:
-        _playbook(gates=gates)
-
-    # SPECIFIED: the error names the gate carrying the condition.
-    assert "stock-ready" in str(caught.value)
-
-
 # ---------------------------------------------------------------------------
 # Requirement (MODIFIED): the new faults participate in the aggregated
 # all-faults error
 # ---------------------------------------------------------------------------
 
 
-def test_the_two_new_faults_are_reported_together() -> None:
+def test_two_distinct_faults_are_reported_together() -> None:
     """Scenario: Multiple violations are reported together (as revised).
 
     WHEN a playbook contains two distinct coherence violations
     THEN loading fails once, and the failure names both.
 
-    Exercised with an empty metric-condition threshold and a second,
-    independent step fault, so that the metric rule is established as a
-    participant in the aggregation rather than an early-exit check.
-
-    The step fault was a blocking `lesson` step until
-    `redesign-step-fields` removed `binding` and the rule with it; it is
-    re-derived here from a surviving rule — a `prohibited-tactic` step
-    marked as blocking — rather than dropped, because what this test is
-    about is the aggregation, not either fault.
+    The two faults have been re-derived twice, and for the same reason
+    each time: what this test is about is the *aggregation*, not either
+    fault, so a rule's removal costs it a fixture and never its subject.
+    A blocking `lesson` step went with `binding` in `redesign-step-fields`;
+    an empty metric-condition threshold went with metric conditions
+    themselves in `replace-metric-conditions-with-steps`. Both are now
+    surviving step rules — a `prohibited-tactic` step marked as blocking,
+    and a `human` step carrying a handler — chosen because they are
+    independent of each other, which is what makes reporting *both*
+    evidence of aggregation rather than of one check running.
     """
     prohibited_blocking = _step(
         identifier="ppc.consider-exact-match-first",
         hazard=Hazard.PROHIBITED_TACTIC,
         blocking=True,
     )
-    empty_threshold = MetricCondition(MetricId("units-fulfillable"), "")
-    gates = specified_gates({"stock-ready": (empty_threshold,)})
+    human_with_handler = _step(
+        identifier="listing.write-the-title",
+        kind=StepKind.HUMAN,
+        handler="listing.subcategory_advisor",
+    )
 
     # SPECIFIED: it fails *once* — a single raised error carrying both
     # faults, not one error per fault.
     with pytest.raises(InvalidPlaybookError) as caught:
-        _playbook(gates=gates, steps=(prohibited_blocking,))
+        _playbook(steps=(prohibited_blocking, human_with_handler))
 
     message = str(caught.value)
-    # SPECIFIED: the failure names both — the offending step and the
-    # offending gate.
+    # SPECIFIED: the failure names both offending steps.
     assert "ppc.consider-exact-match-first" in message
-    assert "stock-ready" in message
+    assert "listing.write-the-title" in message
 
 
 # ---------------------------------------------------------------------------
@@ -248,14 +218,12 @@ def test_a_coherent_playbook_with_the_completed_surface_loads() -> None:
     WHEN a playbook satisfies every coherence rule
     THEN it loads successfully and exposes its gates and step definitions.
 
-    Exercised over the surface this change completes: an authored metric
-    condition with a non-empty threshold, a non-blocking lesson step, and
-    a blocking framework step — each the permitted side of a rule this
-    delta touches.
+    Exercised over the surface this change completes: a blocking step and
+    a non-blocking one, each the permitted side of a rule this delta
+    touches. The authored metric condition that stood alongside them went
+    with metric conditions themselves; a blocking step on `stock-ready`
+    now *is* how that gate's threshold is held.
     """
-    condition = MetricCondition(
-        MetricId("units-fulfillable"), "60-80 fulfillable units, excluding Vine"
-    )
     steps = (
         _step(
             identifier="inventory.stock-checked-in",
@@ -269,10 +237,7 @@ def test_a_coherent_playbook_with_the_completed_surface_loads() -> None:
         ),
     )
 
-    playbook = _playbook(
-        gates=specified_gates({"stock-ready": (condition,)}),
-        steps=steps,
-    )
+    playbook = _playbook(steps=steps)
 
     # SPECIFIED: it loads successfully and exposes its gates and step
     # definitions.

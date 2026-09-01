@@ -72,7 +72,6 @@ from commerce_ops.launch.application.use_cases import (
     read_launch,
     read_launch_journal,
     read_launches,
-    record_metric_attestation,
     record_step_outcome,
     start_launch,
 )
@@ -136,7 +135,6 @@ __all__ = [
     "read_launch_journal",
     "read_launches",
     "read_retained_results",
-    "record_metric_attestation",
     "record_step_outcome",
     "register_step_handler",
     "reject_automated_result",

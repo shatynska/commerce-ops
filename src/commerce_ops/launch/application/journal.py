@@ -23,8 +23,7 @@ exactly for the occurrences that name none — a start, a gate opening, a
 graduation, a date move, a refused advance. The store stamps those from
 the database clock, because the application layer holds no clock
 (design.md Decision 6). Every other kind carries the moment the work
-happened: a `Provenance.when`, a `GateApproval.when`, a
-`MetricAttestation.when`.
+happened: a `Provenance.when` or a `GateApproval.when`.
 """
 
 from __future__ import annotations
@@ -38,7 +37,6 @@ from commerce_ops.shared.domain.identity import ProductId
 
 KIND_LAUNCH_STARTED: Final = "launch-started"
 KIND_STEP_OUTCOME_RECORDED: Final = "step-outcome-recorded"
-KIND_METRIC_ATTESTED: Final = "metric-attested"
 KIND_GATE_APPROVAL_RECORDED: Final = "gate-approval-recorded"
 KIND_GATE_OPENED: Final = "gate-opened"
 KIND_LAUNCH_GRADUATED: Final = "launch-graduated"
@@ -48,7 +46,6 @@ KIND_ADVANCE_REFUSED: Final = "advance-refused"
 JOURNAL_KINDS: Final[tuple[str, ...]] = (
     KIND_LAUNCH_STARTED,
     KIND_STEP_OUTCOME_RECORDED,
-    KIND_METRIC_ATTESTED,
     KIND_GATE_APPROVAL_RECORDED,
     KIND_GATE_OPENED,
     KIND_LAUNCH_GRADUATED,
@@ -100,8 +97,7 @@ class JournalEntry:
     |---------------------|--------------------------------------------|
     | `playbook_version`  | `launch-started`                            |
     | `outcome`, `reason`  | `step-outcome-recorded`                     |
-    | `evidence`          | `step-outcome-recorded`, `metric-attested`  |
-    | `gate_id`           | `metric-attested`                           |
+    | `evidence`          | `step-outcome-recorded`                     |
     | `decision`          | `gate-approval-recorded`                    |
     | `posture`           | `gate-approval-recorded` (graduating), `launch-graduated` |
     | `standing_at`       | `gate-opened`                               |
@@ -120,7 +116,6 @@ class JournalEntry:
     outcome: str | None
     reason: str | None
     evidence: str | None
-    gate_id: str | None
     decision: str | None
     posture: str | None
     standing_at: str | None
@@ -153,7 +148,6 @@ def _unsatisfied(occurrence: JournalOccurrence) -> tuple[str, ...]:
 _KIND_LABEL: Final[Mapping[str, str]] = {
     KIND_LAUNCH_STARTED: "Start",
     KIND_STEP_OUTCOME_RECORDED: "Outcome",
-    KIND_METRIC_ATTESTED: "Attestation",
     KIND_GATE_APPROVAL_RECORDED: "Approval",
     KIND_GATE_OPENED: "Gate Opened",
     KIND_LAUNCH_GRADUATED: "Graduation",
@@ -201,8 +195,6 @@ def _category(occurrence: JournalOccurrence) -> str:
         return "blocked"
     if kind == KIND_GATE_APPROVAL_RECORDED:
         return "blocked" if _is_rejecting(occurrence) else "judgment"
-    if kind == KIND_METRIC_ATTESTED:
-        return "judgment"
     if kind == KIND_STEP_OUTCOME_RECORDED:
         return "blocked" if _is_blocked_outcome(occurrence) else "progression"
     if kind in (KIND_LAUNCH_STARTED, KIND_GATE_OPENED, KIND_LAUNCH_GRADUATED):
@@ -237,7 +229,6 @@ def compose(occurrence: JournalOccurrence) -> JournalEntry:
         outcome=_detail_str(occurrence, "outcome"),
         reason=_detail_str(occurrence, "reason"),
         evidence=_detail_str(occurrence, "evidence"),
-        gate_id=_detail_str(occurrence, "gate_id"),
         decision=_detail_str(occurrence, "decision"),
         posture=_detail_str(occurrence, "posture"),
         standing_at=_detail_str(occurrence, "standing_at"),

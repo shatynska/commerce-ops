@@ -46,6 +46,26 @@ from commerce_ops.launch.domain.launch_playbook import (
     gate_holding_faults,
     unheld_gates_of,
 )
+from commerce_ops.shared.domain.identity import MetricId
+
+_UNSET: Any = object()
+"""Distinguishes an unsupplied `metric_id` from one deliberately cleared."""
+
+
+def _metric_identifier(value: MetricId | str | None) -> MetricId | None:
+    """The validated identifier a write persists, from whatever it was given.
+
+    A form submits a string, so the string is what a rejection has to be
+    reachable from: `MetricId` refuses an empty or padded value at its own
+    boundary, and that refusal is the whole of the validation this field
+    gets. Nothing checks that the metric it names is *defined* — no
+    registry exists to check against, and a rule requiring resolution
+    would reject every write of every metric step.
+    """
+    if value is None or isinstance(value, MetricId):
+        return value
+    return MetricId(value)
+
 
 AUTHORED_NAMESPACE = "mg"
 """The generated-identifier namespace, distinct from the seeded `lp.*`."""
@@ -499,10 +519,12 @@ async def create_step(
     after_steps: Sequence[str] = (),
     handler: str | None = None,
     confirmer: str | None = None,
+    metric_id: MetricId | str | None = None,
 ) -> StepRecord:
     """Create a step with a generated `mg.*` identifier, attributed to
     `principal`. Validated as the whole playbook it would produce, plus
     the two preconditions a load cannot check."""
+    metric = _metric_identifier(metric_id)
     for _ in range(_WRITE_ATTEMPTS):
         records, version = await steps.load()
         prior_unheld = unheld_gates_of(authored_definitions(records))
@@ -524,6 +546,7 @@ async def create_step(
             after_steps=tuple(after_steps),
             handler=handler,
             confirmer=confirmer,
+            metric_id=metric,
         )
         record = StepRecord(
             definition=definition,
@@ -609,6 +632,7 @@ async def update_step(
     step_id: str,
     roster: RosterReader | None = None,
     handlers: Any = None,
+    metric_id: MetricId | str | None = _UNSET,
     **fields: Any,
 ) -> StepRecord:
     """Update a step's authorable fields — never its identifier and never
@@ -632,6 +656,14 @@ async def update_step(
     # defeat both.
     if "after_steps" in fields:
         fields["after_steps"] = tuple(fields["after_steps"])
+    # Named rather than left to `**fields` so that what this operation
+    # writes is answerable from its signature — `playbook-authoring`'s
+    # framework rule is stated over the targets a write *accepts*, and a
+    # field reachable only through `**fields` cannot be enumerated. Its
+    # sentinel default keeps "not supplied" distinct from "cleared",
+    # which `None` is: clearing an identifier is a legitimate edit.
+    if metric_id is not _UNSET:
+        fields["metric_id"] = _metric_identifier(metric_id)
     return await _write_fields(
         steps=steps,
         principal=principal,

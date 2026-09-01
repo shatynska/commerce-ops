@@ -373,7 +373,7 @@ def test_a_resolution_has_no_place_to_put_provenance() -> None:
     argument it does not declare.
     """
     smuggled = Provenance(
-        source="attestation",
+        source="clickup",
         who="a person who never saw this",
         when=AS_OF,
         evidence=RECOMMENDATION,

@@ -381,7 +381,7 @@ PLAYBOOK: Final = _playbook()
 
 def _provenance() -> Provenance:
     return Provenance(
-        source="attestation",
+        source="clickup",
         who=APPROVER,
         when=RECORDED_AT,
         evidence="screenshot in the launch Slack thread",

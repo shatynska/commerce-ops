@@ -39,7 +39,6 @@ from commerce_ops.launch.domain.launch_run import (
     ApprovalDecision,
     GateApproval,
     Launch,
-    MetricAttestation,
     Provenance,
     StepOutcomeValue,
     StepProgress,
@@ -47,11 +46,10 @@ from commerce_ops.launch.domain.launch_run import (
 from commerce_ops.launch.infrastructure.driven.models import (
     GATE_IDS,
     LaunchGateApproval,
-    LaunchMetricAttestation,
     LaunchPosition,
     LaunchStepProgress,
 )
-from commerce_ops.shared.domain.identity import MetricId, ProductId
+from commerce_ops.shared.domain.identity import ProductId
 from commerce_ops.shared.domain.lifecycle_stage import Posture
 
 # The last gate. A launch standing here has finished, which is what
@@ -183,11 +181,6 @@ class LaunchRepository:
         approval_rows = await self._session.scalars(
             select(LaunchGateApproval).where(LaunchGateApproval.product_id == row_id)
         )
-        attestation_rows = await self._session.scalars(
-            select(LaunchMetricAttestation).where(
-                LaunchMetricAttestation.product_id == row_id
-            )
-        )
 
         launch = Launch(
             product_id=ProductId(str(position.product_id)),
@@ -215,16 +208,6 @@ class LaunchRepository:
                 )
                 for row in approval_rows
             },
-            attestations=tuple(
-                MetricAttestation(
-                    gate_id=row.gate_id,
-                    metric_id=MetricId(row.metric_id),
-                    attester=row.attester,
-                    when=row.attested_at,
-                    evidence=row.evidence,
-                )
-                for row in attestation_rows
-            ),
             submitter=position.submitter,
             slack_thread_id=position.slack_thread_id,
         )
@@ -274,7 +257,6 @@ class LaunchRepository:
         for model in (
             LaunchStepProgress,
             LaunchGateApproval,
-            LaunchMetricAttestation,
         ):
             await self._session.execute(delete(model).where(model.product_id == row_id))
         self._add_children(row_id, launch)
@@ -314,16 +296,5 @@ class LaunchRepository:
                     approver=approval.approver,
                     approved_at=approval.when,
                     posture=approval.posture.value if approval.posture else None,
-                )
-            )
-        for attestation in launch.attestations:
-            self._session.add(
-                LaunchMetricAttestation(
-                    product_id=row_id,
-                    gate_id=attestation.gate_id,
-                    metric_id=attestation.metric_id.value,
-                    attester=attestation.attester,
-                    attested_at=attestation.when,
-                    evidence=attestation.evidence,
                 )
             )

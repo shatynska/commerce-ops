@@ -231,7 +231,7 @@ def _advance_to(launch: Launch, playbook: LaunchPlaybook, gate: str) -> Launch:
                     step_id=step.identifier,
                     outcome=Satisfied,
                     provenance=Provenance(
-                        source="attestation",
+                        source="clickup",
                         who="Helen",
                         when=APPROVED_AT,
                         evidence="blocking work signed off",

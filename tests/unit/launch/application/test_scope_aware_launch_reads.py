@@ -74,7 +74,6 @@ from commerce_ops.launch.domain.launch_playbook import (
     GateOpening,
     Hazard,
     LaunchPlaybook,
-    MetricCondition,
     OffsetAnchor,
     Satisfied,
     Scope,
@@ -86,7 +85,6 @@ from commerce_ops.launch.domain.launch_run import (
     ApprovalDecision,
     GateApproval,
     Launch,
-    MetricAttestation,
     Provenance,
 )
 from commerce_ops.shared.domain.access_scope import AccessScope
@@ -119,9 +117,6 @@ ATTESTER: Final = "Nadia"
 ATTESTATION_EVIDENCE: Final = "inventory dashboard export, 2027-01-05"
 
 STOCK_METRIC: Final = MetricId("units-fulfillable")
-STOCK_CONDITION: Final = MetricCondition(
-    STOCK_METRIC, "60-80 fulfillable units, excluding Vine"
-)
 
 # DERIVED dates, the construction `test_launch_reports.py` records: a
 # -30-day offset is already past on the evaluation date for the at-risk
@@ -226,30 +221,20 @@ def _opening_for(identifier: str) -> GateOpening:
     return GateOpening.AUTOMATIC
 
 
-def _gates(
-    metric_conditions: dict[str, tuple[MetricCondition, ...]] | None = None,
-) -> tuple[Gate, ...]:
-    authored = metric_conditions or {}
-    gates = []
-    for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1):
-        if identifier in authored:
-            gates.append(
-                Gate(
-                    identifier=identifier,
-                    position=position,
-                    opening=_opening_for(identifier),
-                    metric_conditions=authored[identifier],
-                )
-            )
-        else:
-            gates.append(
-                Gate(
-                    identifier=identifier,
-                    position=position,
-                    opening=_opening_for(identifier),
-                )
-            )
-    return tuple(gates)
+def _gates() -> tuple[Gate, ...]:
+    """The eight gates in the specified order.
+
+    A gate carries its identifier, position and opening mode and
+    nothing else since `replace-metric-conditions-with-steps`.
+    """
+    return tuple(
+        Gate(
+            identifier=identifier,
+            position=position,
+            opening=_opening_for(identifier),
+        )
+        for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1)
+    )
 
 
 def _step(**overrides: Any) -> StepDefinition:
@@ -288,20 +273,15 @@ def _hold(gate: str) -> StepDefinition:
     )
 
 
-def _playbook(
-    steps: tuple[StepDefinition, ...] = (),
-    metric_conditions: dict[str, tuple[MetricCondition, ...]] | None = None,
-) -> LaunchPlaybook:
+def _playbook(steps: tuple[StepDefinition, ...] = ()) -> LaunchPlaybook:
     held = {step.gate for step in steps if step.blocking}
     fillers = tuple(_hold(gate) for gate in SPECIFIED_GATE_ORDER if gate not in held)
-    return LaunchPlaybook(
-        version="test-v1", gates=_gates(metric_conditions), steps=(*steps, *fillers)
-    )
+    return LaunchPlaybook(version="test-v1", gates=_gates(), steps=(*steps, *fillers))
 
 
 def _provenance() -> Provenance:
     return Provenance(
-        source="attestation",
+        source="clickup",
         who=APPROVER,
         when=RECORDED_AT,
         evidence=EVIDENCE,
@@ -317,18 +297,6 @@ def _approval(**overrides: Any) -> GateApproval:
     }
     attributes.update(overrides)
     return GateApproval(**attributes)
-
-
-def _attestation(**overrides: Any) -> MetricAttestation:
-    attributes: dict[str, Any] = {
-        "gate_id": "listable",
-        "metric_id": STOCK_METRIC,
-        "attester": ATTESTER,
-        "when": RECORDED_AT,
-        "evidence": ATTESTATION_EVIDENCE,
-    }
-    attributes.update(overrides)
-    return MetricAttestation(**attributes)
 
 
 def _new_product_id() -> ProductId:
@@ -518,14 +486,13 @@ async def test_a_launch_position_is_retrieved_under_a_permitting_scope() -> None
     `tests/integration/launch/test_launch_repository.py::
     test_a_launch_is_retrieved_with_its_full_recorded_state` already covers;
     `read_launch` answers with a `LaunchReport`, which has never carried
-    approvals or attestations. The requirement now says so explicitly ("the
+    approvals. The requirement now says so explicitly ("the
     scope ... SHALL NOT require any particular read to carry the whole
     persisted record"), so this test asserts what this read contracts and
     leaves the round trip where it is tested.
     """
     playbook = _playbook(
         steps=(_step(identifier="listing.title-conforms", blocking=True),),
-        metric_conditions={"listable": (STOCK_CONDITION,)},
     )
     product_id, other_id = _new_product_id(), _new_product_id()
     launch = _start(playbook, product_id=product_id, launch_date=AT_RISK_LAUNCH_DATE)
@@ -536,7 +503,6 @@ async def test_a_launch_position_is_retrieved_under_a_permitting_scope() -> None
         provenance=_provenance(),
     )
     _advance_to(launch, playbook, "listable")
-    launch.record_metric_attestation(playbook, _attestation())
     hidden = _start(playbook, product_id=other_id, launch_date=HEALTHY_LAUNCH_DATE)
     store = _FakeLaunchStore(launch, hidden)
 

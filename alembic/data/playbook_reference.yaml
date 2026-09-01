@@ -3287,6 +3287,42 @@ steps:
   assignees: []
   starts_at_gate: live
   provenance: PLOG 1.1.1
+- identifier: lp.inventory.040
+  name: 'INVENTORY GATE: Hold the listing until 60-80 units are fulfillable'
+  description: 'INVENTORY GATE: do not make the listing live until 60-80, and hopefully 100+, units are
+    FULFILLABLE - not in transfer, not reserved, not inbound'
+  gate: stock-ready
+  discipline: inventory
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -7
+  blocking: true
+  kind: human
+  status: draft
+  hazard: none
+  assignees: []
+  starts_at_gate: stock-ready
+  provenance: 07/24/2024 Andrew's Launch Checklist
+  metric_id: units-fulfillable
+- identifier: lp.inventory.041
+  name: 'Alternative gate: 10 days of stock excluding Vine units'
+  description: 'Alternative inventory gate: 10 days of stock against your own 30-day forecast, EXCLUDING
+    Vine units'
+  gate: stock-ready
+  discipline: inventory
+  scope: product
+  timing_anchor:
+    kind: offset
+    days: -7
+  blocking: true
+  kind: human
+  status: draft
+  hazard: none
+  assignees: []
+  starts_at_gate: stock-ready
+  provenance: '02/12/2025 Panel: Product Launch Strategy'
+  metric_id: units-fulfillable
 - identifier: lp.listing.031
   name: Confirm the listing contains every keyword on the research list
   description: Listing confirmed to contain every keyword on the research list, via Titan Tools Listing
@@ -5372,6 +5408,25 @@ steps:
   assignees: []
   starts_at_gate: phase-one-complete
   provenance: PPC 3.0 Phase 1 timeline
+- identifier: lp.strategy.025
+  name: Reach critical mass of ~10 units/day or $10k/month
+  description: Phase 1 goal is to prove the concept and generate the first revenue wave - critical mass
+    is roughly 10 units/day or $10k/month, explicitly not an exact number
+  gate: phase-one-complete
+  discipline: strategy
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 28
+    end: 55
+  blocking: true
+  kind: human
+  status: draft
+  hazard: none
+  assignees: []
+  starts_at_gate: phase-one-complete
+  provenance: PPC 2.0 Part 5 Launching and Ranking 2025
+  metric_id: sales-velocity
 - identifier: lp.strategy.026
   name: Read the phase 1 to 2 transition metrics
   description: 'Phase 1 to 2 metric read: PPC clicks increasing but slowing, conversion rate stabilising,
@@ -5493,6 +5548,24 @@ steps:
   assignees: []
   starts_at_gate: ignition
   provenance: States+Drivers Section 6
+- identifier: lp.strategy.033
+  name: 'ORGANIC-MIX GATE: Expect no profit below 40% organic sales'
+  description: 'ORGANIC-MIX GATE: profit is not expected while organic sales are below 40%'
+  gate: phase-one-complete
+  discipline: strategy
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 28
+    end: 55
+  blocking: true
+  kind: human
+  status: draft
+  hazard: none
+  assignees: []
+  starts_at_gate: phase-one-complete
+  provenance: Launch Strategy Phase 2 2025; Double Your Sales Challenge Day 3 2025
+  metric_id: organic-share
 - identifier: lp.strategy.034
   name: Prefer rating quality over review volume when choosing an ASIN
   description: Prefer rating quality over review volume when choosing which ASIN to push - '30 stars at
@@ -5593,6 +5666,23 @@ steps:
   assignees: []
   starts_at_gate: ignition
   provenance: 07/09/2026 PPC Launch & Product Validation
+- identifier: lp.finance.036
+  name: Aim back at the steady-state TACoS benchmark
+  description: Steady-state TACoS benchmark to aim back at
+  gate: graduated
+  discipline: finance
+  scope: product
+  timing_anchor:
+    kind: open-ended
+    start: 59
+  blocking: true
+  kind: human
+  status: draft
+  hazard: none
+  assignees: []
+  starts_at_gate: ignition
+  provenance: 01/13/2026 Launch Momentum & Pricing Signals
+  metric_id: tacos
 - identifier: lp.inventory.046
   name: Confirm 60 days of cover before moving to Scale or Optimize
   description: Cover confirmed at 60 days of healthy supply before the product moves into Scale or Optimize
@@ -5796,6 +5886,23 @@ steps:
   assignees: []
   starts_at_gate: ignition
   provenance: 11/20/2023 Listing Audits Q&A Pricing
+- identifier: lp.ppc.048
+  name: Graduate phase 1 on conversions, not time
+  description: Phase 1 graduated on conversions, not time - all four must hold
+  gate: phase-one-complete
+  discipline: ppc
+  scope: product
+  timing_anchor:
+    kind: window
+    start: 28
+    end: 55
+  blocking: true
+  kind: human
+  status: draft
+  hazard: none
+  assignees: []
+  starts_at_gate: phase-one-complete
+  provenance: PPC 3.0 graduation criteria
 - identifier: lp.ppc.049
   name: Launch SBV once the underlying keyword's conversion is proven
   description: SBV launched on phrase and exact once the underlying keyword's conversion is proven - 5-10
