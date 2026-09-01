@@ -629,6 +629,47 @@ row, like `handler` already is.
 **Trigger to close.** A second step gaining a recording capability, or the
 first time `lp.listing.007` is re-authored.
 
+### Rejecting an automated result records no reason, and nothing can learn from it
+
+`reject_automated_result` records a fixed string (`automated_decisions.py:205-213`):
+
+```python
+Blocked(reason=f"{who} rejected the automated result produced by {handler}")
+```
+
+with evidence `f"{handler}: {produced} — rejected by {who}"`. The person
+rejecting it has nowhere to say **what was wrong, or what would have been
+right**, so a rejection carries who and when and nothing about why.
+
+The concrete case is `lp.listing.007`: the advisor proposes a sub-category,
+its confirmer judges a different one better, and there is no field to say
+which one or on what grounds. The step records `Blocked`, the pass re-runs
+it under `cool-off-a-repeatedly-blocked-step`'s cool-off, and the advisor
+reasons its way to the same answer, having been told nothing.
+
+**The reading half already works.** A re-invoked handler can reach the prior
+outcome with no new plumbing: `StepContext.launch` is the `Launch`
+aggregate, `progress_for` (`launch_run.py:344`) returns
+`StepProgress(outcome, provenance)`, and `Provenance` carries `evidence`.
+The retry loop closes on its own. What is missing is only the *capture* — a
+text input on the Slack rejection, threaded through
+`reject_automated_result` into the recorded reason.
+
+Note that the opposite direction already exists: `Success.comment`
+(`shared/domain/result.py`) is documented as *"optional — additional
+information, for a person or for tuning"*, which is the handler talking to a
+person. This entry is the person talking back.
+
+**One limit to design around.** `Launch._step_progress` is keyed by step
+identifier and holds only the latest outcome, so a handler would see the
+last rejection, not a history of them. One corrective round is free; several
+rounds of "not this, and not that either" need the append-only launch
+journal and a reader for it, which is its own decision.
+
+**Trigger to close.** The first handler whose output is a judgement a person
+is likely to disagree with more than once — or *write on acceptance, not on
+production* landing, since both touch the same Slack decision path.
+
 ### Production code carries tolerances for incomplete test doubles
 
 Several modules read one value through several attribute spellings, or
