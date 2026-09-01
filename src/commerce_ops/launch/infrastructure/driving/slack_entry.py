@@ -577,9 +577,34 @@ def _get_handler() -> AsyncSlackRequestHandler:
                 thread_ts=thread_ts,
             )
         except Exception:
-            # Log but don't fail: confirmation delivery failure after ack is handled
-            # separately, and thread establishment failure means thread wasn't needed
+            # The thread is the specified delivery; this is what happens when
+            # it fails, not an alternative to it.
+            #
+            # This block used to log and continue, reasoning that "thread
+            # establishment failure means thread wasn't needed". That does not
+            # follow: the thread was needed precisely in order to say the
+            # launch started. A DB blip, a Slack 5xx or an absent
+            # `PRODUCT_AGENT_LAUNCHES_CHANNEL_ID` left the product registered,
+            # the launch persisted, and the submitting user told nothing at
+            # all -- while a *failed* start still reached them directly, so a
+            # launch that failed was reported and one that succeeded might not
+            # be.
             logger.exception("could not post confirmation to thread")
+            try:
+                # The same text the thread reply would have carried, by the
+                # same direct message `_failure_text` already uses. Not
+                # reworded to mention the missing thread: the submitter needs
+                # to know the launch started, and Slack plumbing they can do
+                # nothing about is noise on the one message that has to land.
+                await _post(client, submitter, _confirmation_text(submission))
+            except Exception:
+                # There is no third channel, and the launch stands regardless
+                # -- the registration is committed and the eager projection
+                # below is guarded independently of this block.
+                logger.exception(
+                    "could not confirm the started launch to its submitter by "
+                    "any route; the launch is persisted and unreported"
+                )
 
         # Eager, single-launch projection (`trigger-clickup-projection-on-
         # launch-events`): the newly started launch's first released steps

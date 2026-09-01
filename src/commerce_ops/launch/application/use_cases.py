@@ -339,7 +339,7 @@ async def advance_gate(
             )
         except StageTransitionError as exc:
             raise GraduationStampError(
-                f"product '{product_id.value}' ({product_id}) graduated, "
+                f"product '{product_id.value}' ({product_id!r}) graduated, "
                 f"but the catalog rejected the steady-state stamp ({exc}); "
                 f"the launch stands at 'graduated' — correct the product's "
                 f"stage in the catalog by hand"

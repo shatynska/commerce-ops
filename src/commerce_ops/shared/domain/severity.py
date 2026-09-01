@@ -20,3 +20,9 @@ class Severity(Enum):
     MONITOR = "monitor"
     DIAGNOSE = "diagnose"
     CRITICAL = "critical"
+
+    def __str__(self) -> str:
+        """The value, not `Enum`'s `Severity.CRITICAL` default — see
+        `Discipline.__str__` and `shared-vocabulary`'s textual-form
+        requirement."""
+        return self.value

@@ -130,6 +130,7 @@ def compose_message(*, result: Any, product: Any, step_name: str | None) -> str:
 
 async def deliver_pending_result(
     *,
+    product_id: ProductId,
     result: Any,
     product: Any = None,
     step_name: str | None = None,
@@ -137,11 +138,22 @@ async def deliver_pending_result(
 ) -> None:
     """Post one pending result for a decision.
 
+    `product_id` arrives as a parameter, from the caller that already builds
+    one. It used to be dug out of `result` and rejected unless it was a
+    `ProductId` — but `undelivered()` hands back ORM rows carrying a
+    `uuid.UUID`, so that guard failed on every row of every pass, was caught
+    by `_deliver_waiting`'s `except Exception` written for a Slack outage,
+    and left the result to be retried forever. No pending result was ever
+    delivered. The guard defended against a caller this module never had,
+    while the parameter is the contract it should have stated:
+    `_deliver_waiting` already converts the row's identifier one line above
+    for its catalog read, and its own comment says why the conversion
+    belongs there.
+
     `step` is the pending result's own `StepDefinition`, when the caller has
     it (`automation_pass.py`'s `_deliver_waiting` reads it off the served
-    playbook it already holds) — passed straight to `resolve_mention_target`
-    so a step naming a confirmer tags that confirmer, falling back to the
-    launch's submitter exactly as every other call site does.
+    playbook it already holds) — passed to `resolve_mention_target` so a
+    step naming a confirmer tags that confirmer.
 
     Raises on a delivery failure rather than reporting it here: what a
     failed delivery means — the result still stands, nothing is recorded,
@@ -149,10 +161,6 @@ async def deliver_pending_result(
     it learns the post did not happen.
     """
     message = compose_message(result=result, product=product, step_name=step_name)
-    product_id = getattr(result, "product_id", None)
-
-    if not isinstance(product_id, ProductId):
-        raise TypeError(f"product_id must be ProductId, got {type(product_id)}")
 
     sku_value = ""
     marketplace_value = ""
@@ -163,16 +171,29 @@ async def deliver_pending_result(
         marketplace_value = marketplace.value if marketplace else ""
     thread_ts, mention = await establish_thread_and_resolve_mention(
         product_id,
-        product.name if product else str(product_id),
+        product.name if product else product_id.value,
         sku_value,
         marketplace_value,
         step=step,
     )
+    # No tag where the step names a confirmer the roster could not resolve,
+    # and specifically **not** the submitter in their place. Only the named
+    # confirmer may decide a pending result (`launch-step-automation`: *Only
+    # the step's named confirmer may decide a pending result*, which accepts
+    # a decision only from that person and only while they are active), so
+    # tagging anyone else summons someone whose accept and reject are certain
+    # to be refused. The gap is reported by `resolve_mention_target`, which
+    # is the only place that can name what failed to resolve.
+    #
+    # `_report_stuck_step` does the opposite on this same condition, and
+    # deliberately: nothing governs who may act on a stuck step, so reaching
+    # nobody there would defeat the report's whole purpose. Neither policy is
+    # derived from the other -- each comes from its own requirement.
     mention_tag = f" <@{mention}>" if mention else ""
     await post_monitoring_message(
         channel=launches_channel(),
         text=mention_tag + message,
-        blocks=compose_blocks(result=result, message=message),
+        blocks=compose_blocks(product_id=product_id, result=result, message=message),
         thread_ts=thread_ts,
     )
     _logger.info(
@@ -183,24 +204,35 @@ async def deliver_pending_result(
     )
 
 
-def _decision_value(result: Any) -> str:
+def _decision_value(product_id: ProductId, result: Any) -> str:
     """What a button carries back: which launch, and which step.
 
     The pair, not the row id: the use case looks the pending result up by
     (product, step) anyway, and a button that named a row would keep
     working after that row was settled.
+
+    `product_id` arrives as a parameter rather than being read off `result`,
+    and is written as `.value` — matching `gate_confirmation._decision_value`,
+    which had it right all along. Read off the row this composed
+    `str(row.product_id)`, correct only for the `uuid.UUID` a stored row
+    carries and wrong for the `ProductId` the function above it demanded;
+    exactly one of the two could be right about any given caller, and the
+    test stub supplied the form that satisfied the demand and corrupted the
+    payload. One form, named once, at the seam that owns the conversion.
     """
     return json.dumps(
         {
-            "product_id": str(getattr(result, "product_id", "")),
+            "product_id": product_id.value,
             "step_id": str(getattr(result, "step_id", "")),
         }
     )
 
 
-def compose_blocks(*, result: Any, message: str) -> list[dict[str, Any]]:
+def compose_blocks(
+    *, product_id: ProductId, result: Any, message: str
+) -> list[dict[str, Any]]:
     """The message plus its two controls."""
-    value = _decision_value(result)
+    value = _decision_value(product_id, result)
     return [
         {"type": "section", "text": {"type": "mrkdwn", "text": message}},
         {
