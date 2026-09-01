@@ -714,6 +714,39 @@ inconsistency is not rediscovered as a defect and "fixed".
 The generalisable part is the convention: a revision id comes from
 `alembic revision`, never from typing one out.
 
+### Three seams a unit test has to work around, measured
+
+`restore-the-skipped-unit-tests` (2026-09-01) restored 44 tests that had been
+skipped wholesale under the false reason "Unit test requires database". None
+needed a database. What each of them actually needed was to get around a place
+where production code reaches for a global instead of taking a collaborator,
+and the corrections are still standing in `tests/` because removing the seams
+is `inject-the-thread-anchor-poster`'s scope, not that change's.
+
+Recorded with what each one cost, because this is the most concrete evidence
+that change has:
+
+| Seam | What it cost a test |
+|---|---|
+| `launch_thread_delivery.establish_thread_and_resolve_mention` opens its own `transaction()` (`:82`) | Substituting `slack_entry.transaction` does not reach a second module's own import of the same name. This is what made two files look database-bound. Two test files now substitute `transaction`, `LaunchRepository` and `hold_launch_thread_establishment_lock` on that module. |
+| `thread_establishment._get_slack_client()` is an `lru_cache`d `AsyncWebClient` reading `PRODUCT_AGENT_SLACK_BOT_TOKEN` (`:43-45`) | The anchor post bypasses the injected poster entirely, so a test can only observe it by patching `AsyncWebClient.api_call` at class level — and must then add `thread_establishment` to its cache-reset list, or the cached client outlives the test. Two files now do both. |
+| `launches_channel()` reads `os.environ` directly (`slack_notifier.py:44`) | Raises `KeyError` inside `_report_stuck_step`'s own `try`, which swallows it into a warning — seven tests failing on an empty message list with nothing in the failure naming the cause. Three files now set the variable by fixture. |
+
+The common shape is worth stating once: **each fault is absorbed by an
+`except` before it reaches an assertion**, so every one of them presents as
+"the message never arrived" rather than as itself. That is why five commits in
+one afternoon read the whole set as a database problem and widened a skip list
+instead of diagnosing it.
+
+A related finding, not in the table because it is not a seam: an incomplete
+double can produce a *passing* test through the same swallowing path.
+`test_slack_entry_unready_playbook.py::test_a_start_against_a_ready_playbook_is_unaffected`
+passed for weeks while `RuntimeError: DATABASE_URL is not set` was raised on
+every run and answered by the direct-message fallback, so it observed none of
+the threaded delivery it is about. It is fixed, but the class is general and
+the commit-time tier's new zero-skip guard cannot catch it — a swallowed error
+produces a pass, not a skip.
+
 ### Small cleanups, not worth a change each
 
 Verified present 2026-09-01; suitable for one chore commit.

@@ -138,20 +138,26 @@ that is green because the feature is absent is not mistaken for coverage
 absence carries a positive control in the same test -- the same state
 under which the thing does happen.
 
-## Expected first-run state
+## Expected state
 
-The backoff record does not exist: `run_automation_pass` accepts neither
-new collaborator, notes no repeat and delivers no monitoring message.
-Every test here is expected to fail, and to fail on its stated reason --
-the handler being invoked on a pass that should have cooled it off, no
-report being delivered, or the seam probe's directive -- rather than on
-an absent import. Per `ai-toolkit:testing` these are the first failure
-state (the code ran and produced a wrong value), not the second.
+Every test here passes, and the whole file runs in the commit-time tier.
 
-**One test is expected to pass** and is not the fourth failure state:
-`test_a_step_reporting_no_progress_is_reconsidered_on_the_next_pass_when_the_outcome_differs`
-states behaviour the change must *preserve* rather than introduce, and
-its own docstring records that.
+That was not true between `cool-off-a-repeatedly-blocked-step` and
+`restore-the-skipped-unit-tests`. This file was skipped wholesale by an
+autouse fixture matching its *filename*, under the reason "Unit test
+requires database", which was false: `thread-launch-slack-notifications`
+had given `run_automation_pass` a required `establish_thread` argument
+that `_run_pass` was never told about, and 17 tests failed on that
+`TypeError` alone. The 7 stuck-step report tests failed on two further
+harness gaps -- `launches_channel()` reading an unset environment
+variable, and `_FakeNotifier` modelling the pre-thread call shape -- both
+swallowed by `_report_stuck_step`'s own `except`, so they surfaced only
+as an empty message list. Nothing here ever needed a database. The
+fixtures below carry the corrections; no assertion was changed.
+
+The section this replaces recorded the file's *first-run* state, when it
+was written before its subject existed and every test was expected to
+fail. That state is three changes old.
 
 Baseline recorded before these tests were written, at the worktree root:
 `uv run pytest tests/unit tests/agents` -- 1427 passed, 2 xfailed, 0
@@ -232,6 +238,8 @@ AUTOMATED_STEP_ID: Final = "listing.sub-category"
 SECOND_STEP_ID: Final = "listing.bullet-points"
 HANDLER_NAME: Final = "listing.subcategory_advisor"
 SECOND_HANDLER_NAME: Final = "listing.bullet_advisor"
+THREAD_TS: Final = "1700000000.000100"
+LAUNCHES_CHANNEL_ID: Final = "C0LAUNCHES"  # not a real channel
 
 ALICE: Final = "prs_01HQ8Z6M4A"
 
@@ -767,7 +775,15 @@ class _FakeNotifier:
         self.attempts: list[str] = []
         self.refuse = False
 
-    async def post_monitoring_message(self, message: str) -> None:
+    async def post_monitoring_message(self, *args: Any, **kwargs: Any) -> None:
+        # `thread-launch-slack-notifications` moved the stuck-step report
+        # into the launch's thread, so the pass now calls this with
+        # `channel=`, `text=` and `thread_ts=` where it once passed one
+        # positional message. Both spellings land here: `text` is what
+        # `world.messages` exposes and what every assertion in this file
+        # reads, and the positional form is kept because this double's own
+        # docstring says it is satisfied structurally and pins no call shape.
+        message = kwargs["text"] if "text" in kwargs else str(args[0]) if args else ""
         self.attempts.append(message)
         if self.refuse:
             raise _DeliveryRefused("Slack refused the message")
@@ -1046,6 +1062,39 @@ _BACKOFF_ARGUMENT_NAMES: Final = (
     "suppression",
 )
 
+
+class _EstablishesThread:
+    """`launch_thread_delivery.establish_thread_and_resolve_mention`, as a port.
+
+    The pass takes this as an injected collaborator (`automation_pass.py`'s
+    own docstring: "threaded as an argument like every other collaborator
+    here, not a module global, which is what lets this pass be exercised
+    without a database"), so the stand-in is supplied through `_run_pass`
+    like the rest rather than monkeypatched.
+
+    **Returns no mention, deliberately.** `_report_stuck_step` builds
+    `mention_tag = f" <@{mention}>" if mention else ""`, so a `None` mention
+    leaves every reported message's text exactly as it was before this
+    collaborator existed -- which is what lets this file's report assertions
+    stand unchanged. A double returning an identity would prepend a tag and
+    force them to be edited, which this change forbids.
+    """
+
+    def __init__(self) -> None:
+        self.calls: list[dict[str, Any]] = []
+
+    async def __call__(self, *args: Any, **kwargs: Any) -> tuple[str, str | None]:
+        self.calls.append({"args": args, "kwargs": kwargs})
+        return (THREAD_TS, None)
+
+
+_THREAD_ARGUMENT_NAMES: Final = (
+    "establish_thread",
+    "establish_thread_and_resolve_mention",
+    "thread",
+    "ensure_thread",
+)
+
 _REPORT_ARGUMENT_NAMES: Final = (
     "notifier",
     "monitoring_notifier",
@@ -1097,6 +1146,7 @@ class _World:
     store: _BackoffStore
     notifier: _FakeNotifier
     launch: Launch
+    thread: _EstablishesThread = field(default_factory=lambda: _EstablishesThread())
     other_launch: Launch | None = None
     extra_handlers: dict[str, _ScriptedHandler] = field(default_factory=dict)
 
@@ -1180,7 +1230,24 @@ async def _run_pass(world: _World, *, now: datetime = NOW) -> Any:
     report_argument = _argument_for(_REPORT_ARGUMENT_NAMES)
     if report_argument is not None:
         supplied[report_argument] = world.notifier
+    thread_argument = _argument_for(_THREAD_ARGUMENT_NAMES)
+    if thread_argument is not None:
+        supplied[thread_argument] = world.thread
     return await entry(**supplied)
+
+
+@pytest.fixture(autouse=True)
+def _launches_channel(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The channel the stuck-step report is posted to.
+
+    `_report_stuck_step` calls `launches_channel()`, which reads this
+    variable from the environment directly rather than taking it as a port.
+    Unset, it raises `KeyError` inside that function's own `try`, the report
+    is swallowed into a warning, and the report tests fail on an empty
+    `world.messages` with nothing naming the cause. Set here the way three
+    sibling files in this directory already set it.
+    """
+    monkeypatch.setenv("PRODUCT_AGENT_LAUNCHES_CHANNEL_ID", LAUNCHES_CHANNEL_ID)
 
 
 @pytest.fixture(autouse=True)

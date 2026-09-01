@@ -1,12 +1,17 @@
 # Proposed change order
 
 **Status: working queue.** Eight changes were proposed on 2026-09-01 from a
-review of the work merged between 2026-08-28 and 2026-09-01. Each exists as a
-`proposal.md` on its own branch and **none is implemented**. This document
-records the order they should be worked in and the dependencies between them,
-because that ordering is a real constraint and it lives nowhere else — a
-proposal states its own sequencing notes, but nothing reads all eight
-together.
+review of the work merged between 2026-08-28 and 2026-09-01. **Seven remain**;
+`restore-the-skipped-unit-tests` was implemented and archived on 2026-09-01
+and its entry deleted, per the rule below. The rest exist as a `proposal.md`
+on their own branch and are unimplemented. This document records the order
+they should be worked in and the dependencies between them, because that
+ordering is a real constraint and it lives nowhere else — a proposal states
+its own sequencing notes, but nothing reads all of them together.
+
+Entries are renumbered when one is deleted, so **cross-references between them
+are by name**, not by number: a number is only a position in the current
+queue.
 
 **Delete an entry when its change is archived.** Delete this file when the
 last one is. A queue that outlives its work is worse than no queue, which is
@@ -47,21 +52,7 @@ Three live defects shipped by `thread-launch-slack-notifications`:
 **First**, because it is the only item on this list where the harm is
 happening now.
 
-## 2. `restore-the-skipped-unit-tests`
-
-Two duplicated autouse fixtures skip seven whole files — 44 tests — under the
-reason *"Unit test requires database"*, which is false for 42 of them. Of the
-44: **18 pass untouched**, **24** fail only because
-`test_automation_pass_repeat_backoff.py`'s `_run_pass` (`:1146-1183`) was
-never told about the `establish_thread` argument, and **2** genuinely reach a
-database.
-
-**Second**, because every later change on this list is verified by this
-suite, and right now the whole of `launch-step-automation`'s backoff and
-stuck-step behaviour — and Slack request-signature verification, which is in
-the passing 18 — runs unchecked on every commit and in CI.
-
-## 3. `inject-the-thread-anchor-poster`
+## 2. `inject-the-thread-anchor-poster`
 
 `launch/application/thread_establishment.py` builds its own
 `slack_sdk.AsyncWebClient`, reads a credential from the environment, and
@@ -71,10 +62,17 @@ reason. `import-linter` passes because its contracts govern edges inside
 `commerce_ops`, not third-party imports. Also moves anchor composition out of
 the four call sites that each assemble it from whatever they happen to hold.
 
-**Third**, because it retires the last 2 skips from #2 and removes the
-*class* of defect that #1 patches instance by instance.
+**Second**, and its stated reason has changed. It was written as retiring "the
+last 2 skips" left by `restore-the-skipped-unit-tests`; that change left none,
+and none of the 44 was database-bound in the first place. What it retires
+instead is the three seams that change had to work around and could not
+remove, each now recorded in `docs/deferred-work.md` with what it costs a
+test: `launch_thread_delivery`'s own `transaction()`,
+`thread_establishment`'s `lru_cache`d `AsyncWebClient`, and
+`launches_channel`'s direct `os.environ` read. It still removes the *class* of
+defect that `fix-launch-thread-mentions` patched instance by instance.
 
-## 4. `await-the-subcategory-advisors-graph`
+## 3. `await-the-subcategory-advisors-graph`
 
 `advise_sub_category` is `async def`, and calls LangGraph's **synchronous**
 `invoke` underneath — so the only shipped handler blocks the worker's event
@@ -83,10 +81,10 @@ loop for the whole OpenAI round-trip. Adds the obligation to
 `StepHandler` type cannot express it and `ruff`'s `ASYNC` rules do not catch
 it.
 
-**Fourth**, but genuinely order-independent — it touches nothing the others
+**Third**, but genuinely order-independent — it touches nothing the others
 touch. Move it earlier if a small, self-contained one is wanted.
 
-## 5. `defer-eager-clickup-convergence`
+## 4. `defer-eager-clickup-convergence`
 
 `converge_launch_eagerly` holds a database connection open across the entire
 ClickUp conversation — and `retry-clickup-rate-limits` adds up to ~30 s of
@@ -100,37 +98,39 @@ trigger blocks into one.
 and whether its runs belong in `scheduled-jobs`' freshness history at all.
 Worth `/openspec-explore` before `design.md`.
 
-## 6. `unify-launch-adapter-dependencies`
+## 5. `unify-launch-adapter-dependencies`
 
 One dependencies object per process, replacing 11 mutable module globals, 5
 verbatim copies of `_launch_folder_id`, and 6 of `_read_product_or_fail`
 carrying 4 different signatures for the same narrowing.
 
-**Must follow #5**, which deletes eight of those globals outright by moving
-convergence off the four request-path adapters. Re-scope it on arrival rather
+**Must follow `defer-eager-clickup-convergence`**, which deletes eight of
+those globals outright by moving convergence off the four request-path
+adapters. Re-scope it on arrival rather
 than executing it as written.
 
-## 7. `unify-the-launch-advisory-locks`
+## 6. `unify-the-launch-advisory-locks`
 
 `launch_advisory_lock.py` and `launch_thread_lock.py` are the same module
 twice, differing in one constant — and the load-bearing docstring is already
 unsynchronised between them. Merge, with the two namespaces declared together
 so "these must not collide" is checkable by reading four lines.
 
-**Order-independent.** Slot it anywhere, except concurrently with #5, which
-changes how long the advance lock is held and by which process.
+**Order-independent.** Slot it anywhere, except concurrently with
+`defer-eager-clickup-convergence`, which changes how long the advance lock is
+held and by which process.
 
-## 8. `share-the-unit-test-harness`
+## 7. `share-the-unit-test-harness`
 
 162,335 lines of tests against 23,629 of source, across 272 test files and
 **four** `conftest.py` files. Eleven separate `_FakeSession` classes. This is
-what turned one added keyword argument into the 24-test outage #2 cleans up,
-and it is why production code carries `getattr` tolerances for doubles that
-model less than their subject.
+what turned one added keyword argument into the 24-test outage
+`restore-the-skipped-unit-tests` cleaned up, and it is why production code
+carries `getattr` tolerances for doubles that model less than their subject.
 
 **Last**, because it touches nearly every test file and will conflict with
-anything else in flight. Needs #2 landed first — migrating a file nobody has
-seen run is not a migration.
+anything else in flight. Its precondition — `restore-the-skipped-unit-tests`
+landed, so no file being migrated is one nobody has seen run — is now met.
 
 ---
 

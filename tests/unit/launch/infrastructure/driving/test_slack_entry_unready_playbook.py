@@ -97,7 +97,14 @@ SLACK_ENTRY_MODULE: Final = "commerce_ops.launch.infrastructure.driving.slack_en
 _MODULES_WITH_CACHED_FACTORIES: Final = (
     SLACK_ENTRY_MODULE,
     "commerce_ops.shared.infrastructure.driving.slack_app",
+    # `ensure_launch_thread` posts the anchor through its own `lru_cache`d
+    # `AsyncWebClient`, built while `AsyncWebClient.api_call` is patched.
+    "commerce_ops.launch.application.thread_establishment",
 )
+
+LAUNCHES_CHANNEL_VAR: Final = "PRODUCT_AGENT_LAUNCHES_CHANNEL_ID"
+LAUNCHES_CHANNEL_ID: Final = "C0LAUNCHES"  # not a real channel
+THREAD_TS: Final = "1700000000.000100"
 
 REGISTRAR_ATTRIBUTES: Final = (
     "register_catalog_product",
@@ -241,7 +248,10 @@ class _RecordingSlackApi:
                 "payload": dict(payload) if isinstance(payload, dict) else payload,
             }
         )
-        return _FakeSlackResponse({"ok": True})
+        # `ts` because `ensure_launch_thread` reads `response["ts"]`; without
+        # it the `KeyError` is swallowed into the fallback DM and this file's
+        # `assert slack_api.posts` passes without the thread ever existing.
+        return _FakeSlackResponse({"ok": True, "ts": THREAD_TS})
 
 
 class _RecordingCall:
@@ -299,15 +309,73 @@ def _entry_module() -> Any:
 # ---------------------------------------------------------------------------
 
 
+class _ThreadlessLaunch:
+    """The launch `ensure_launch_thread` reads: no thread established yet."""
+
+    def __init__(self) -> None:
+        self.slack_thread_id: str | None = None
+        self.launch_date = None
+        self.submitter = SUBMITTER_ID
+
+
+class _FakeLaunchStore:
+    """`LaunchRepository`, for the thread-establishment read and write.
+
+    Read twice per establishment -- once inside `ensure_launch_thread`, once
+    for `resolve_mention_target` -- so the thread reference written by the
+    first must be visible to the second. `product_id` is ignored: the
+    registrar double returns `None`, so there is no identity to key on.
+    """
+
+    launch: _ThreadlessLaunch
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None: ...
+
+    async def get_by_product_id(self, product_id: Any) -> Any:
+        return type(self).launch
+
+    async def save(self, launch: Any) -> None:
+        """Persists the thread reference; absent, the `AttributeError` is
+        swallowed and the fallback DM answers this file's assertion."""
+
+
+async def _no_lock(*args: Any, **kwargs: Any) -> None:
+    """`hold_launch_thread_establishment_lock`, which needs a real session."""
+
+
 @pytest.fixture(autouse=True)
 def sessionless(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(_entry_module(), "transaction", _fake_transaction)
+
+    # Substituting `slack_entry.transaction` above does not reach
+    # `establish_thread_and_resolve_mention`, which opens its own
+    # `transaction()` in its own module. Until this was added, that call
+    # raised `RuntimeError: DATABASE_URL is not set` on every run of this
+    # file, `slack_entry` swallowed it, and the fallback direct message
+    # satisfied `assert slack_api.posts` -- so this file's tests passed
+    # while observing none of the threaded delivery they are about.
+    #
+    # The seam substituted is the one beneath the preamble, not
+    # `establish_thread_and_resolve_mention` itself: substituting the
+    # preamble would make these tests observe a double where the delivery
+    # should be, which is the deficiency being removed rather than a fix
+    # for it.
+    delivery = importlib.import_module(
+        "commerce_ops.launch.infrastructure.driven.launch_thread_delivery"
+    )
+    _FakeLaunchStore.launch = _ThreadlessLaunch()
+    monkeypatch.setattr(delivery, "transaction", _fake_transaction)
+    monkeypatch.setattr(delivery, "LaunchRepository", _FakeLaunchStore)
+    monkeypatch.setattr(delivery, "hold_launch_thread_establishment_lock", _no_lock)
 
 
 @pytest.fixture(autouse=True)
 def slack_env(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     monkeypatch.setenv(SIGNING_SECRET_VAR, SIGNING_SECRET)
     monkeypatch.setenv(BOT_TOKEN_VAR, BOT_TOKEN)
+    # The anchor and the confirmation reply both land in the launches
+    # channel; `launches_channel()` reads this variable directly.
+    monkeypatch.setenv(LAUNCHES_CHANNEL_VAR, LAUNCHES_CHANNEL_ID)
     _reset_slack_caches()
     yield
     _reset_slack_caches()
