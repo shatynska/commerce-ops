@@ -56,6 +56,18 @@
 
 ## 8. Close out
 
-- [ ] 8.1 Abandon the `add-metric-attestation-surface` branch, which this change supersedes
-- [ ] 8.2 After deploy, confirm the three parked launches advanced past `stock-ready` — the expected visible effect (design.md, Migration Plan) — and report where each now stands
-- [ ] 8.3 Decide, with the team, which of the six steps to activate and when — `lp.inventory.040`/`041` before the next launch reaches `stock-ready`, and the other four before any launch reaches `phase-one-complete` or `graduated`. Until then those three gates carry no metric obligation. Admin actions, not part of this change
+- [x] 8.1 Abandon the `add-metric-attestation-surface` branch, which this change supersedes — deleted 2026-09-01. It held one commit adding only its `proposal.md`, was never pushed and never merged, so abandoning it was the deletion and nothing else; its argument survives in this change's own *Why*, which quotes the stall it identified before arguing the model was wrong rather than the surface missing
+- [x] 8.2 After deploy, confirm the three parked launches advanced past `stock-ready` — the expected visible effect (design.md, Migration Plan) — and report where each now stands. Confirmed 2026-09-01: the Deploy workflow succeeded (so all three migrations applied, production carrying none of the retired vocabulary the constraint narrowing would have refused), and `Disposable food trays 31`, `32` and `33` each moved past `stock-ready`
+- [ ] 8.3 **Deferred by decision, 2026-09-01: the six stay `draft` while testing continues**, so `stock-ready`, `phase-one-complete` and `graduated` carry no metric obligation meanwhile. Decide, with the team, which of the six steps to activate and when — `lp.inventory.040`/`041` before the next launch reaches `stock-ready`, and the other four before any launch reaches `phase-one-complete` or `graduated`. Until then those three gates carry no metric obligation. Admin actions, not part of this change
+
+> **Where this change stands.** Merged as `8e606e2` and deployed on
+> 2026-09-01. 37 of 38 tasks are done; 8.3 is open because activation was
+> deliberately deferred, not because it was missed. Two things this change
+> chose not to do outlive it, and both are entries in
+> `docs/deferred-work.md`: a rejection carrying a reason a handler can read,
+> and the fact that a migrated database is not a seeded one.
+>
+> One consequence to remember when 8.3 is taken up: `lp.inventory.040` and
+> `lp.inventory.041` are *alternative* stock gates in the reference document,
+> but both are seeded blocking — activating both holds `stock-ready` to a
+> stricter bar than the document states.
