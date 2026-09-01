@@ -10,8 +10,8 @@ The fourth was found while designing the fix for the first, and it changes what 
 
 ```python
 if step is not None and step.confirmer:
-    return step.confirmer      # a roster identifier
-return launch.submitter        # a Slack identity
+    return step.confirmer  # a roster identifier
+return launch.submitter  # a Slack identity
 ```
 
 Its own docstring states the contract the callers rely on — *"The returned value is a Slack identity (user ID) that can be used in `<@identity>` mention syntax"* — and only the second branch honours it.
