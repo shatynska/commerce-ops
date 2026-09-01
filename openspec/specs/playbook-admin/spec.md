@@ -566,7 +566,9 @@ still submits directly.
 
 ### Requirement: The step form carries every authorable field
 
-The step form SHALL offer every field the authoring capability accepts: the name, the description, the assignees, the kind, whether the result needs confirmation, the status, the hazard, the gate it starts at, the steps it waits on, and — for an `automated` step — the automation brief and the handler, alongside the gate, scope, timing anchor and blocking flag it already carries.
+The step form SHALL offer every field the authoring capability accepts: the name, the description, the assignees, the kind, whether the result needs confirmation, the status, the hazard, the gate it starts at, the steps it waits on, the metric identifier, and — for an `automated` step — the automation brief and the handler, alongside the gate, scope, timing anchor and blocking flag it already carries.
+
+The metric identifier's input SHALL accept any value the shared vocabulary accepts and SHALL NOT constrain the author to a list: nothing defines metrics, so a control offering choices would have none to offer. It SHALL be clearable, absent being the value almost every step carries.
 
 The name and the description SHALL be distinct inputs, and the description's input SHALL accept more than one line: a single-line box for a field whose whole purpose is to be longer than the name would teach the author the opposite of what the two fields are for.
 
@@ -675,6 +677,11 @@ Neither control SHALL be worded so that it reads as the step's own gate, and nei
 
 - **WHEN** a write is rejected for a fault concerning one of these two controls
 - **THEN** the mark renders outside anything the options are scrolled within, and no filtering of the options removes it
+
+#### Scenario: The form offers the metric identifier
+
+- **WHEN** the step form is rendered
+- **THEN** it offers an input for the metric identifier, free-typed rather than chosen from a list, and clearable
 
 ### Requirement: Steps that are not active are visible to authors and set apart
 

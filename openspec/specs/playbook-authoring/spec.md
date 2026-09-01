@@ -1,13 +1,13 @@
 # playbook-authoring Specification
 
 ## Purpose
-Lets the step set of the launch playbook be authored at runtime — steps created, updated, and moved through their lifecycle status (activated, de-activated, retired and un-retired) by validated write operations — while the framework the steps hang on (the gates, their opening modes, their metric conditions, the coherence rules) stays owned by the repository. Only an `active` step is served to a launch, so activation is a deliberate act validated against what the step's kind requires of it.
+Lets the step set of the launch playbook be authored at runtime — steps created, updated, and moved through their lifecycle status (activated, de-activated, retired and un-retired) by validated write operations — while the framework the steps hang on (the gates, their opening modes, the coherence rules) stays owned by the repository. Only an `active` step is served to a launch, so activation is a deliberate act validated against what the step's kind requires of it.
 
 ## Requirements
 
 ### Requirement: A step can be created
 
-The system SHALL allow a new step definition to be created with the full authorable shape: name, optional description, gate, discipline, scope, timing anchor, blocking flag, kind, status, hazard, optional assignees, an optional confirmer, an optional start gate, an optional set of steps it waits on, and — for an `automated` step — an optional handler. The system SHALL generate the created step's identifier — the author does not choose it — in a namespace distinct from the seeded set's, carrying the step's discipline as its second segment (`mg.creative.001` is a `creative` step), so a step's origin and discipline stay legible from its identifier alone. The created step's provenance SHALL record the authoring principal and the creation date.
+The system SHALL allow a new step definition to be created with the full authorable shape: name, optional description, gate, discipline, scope, timing anchor, blocking flag, kind, status, hazard, optional assignees, an optional confirmer, an optional start gate, an optional set of steps it waits on, an optional metric identifier, and — for an `automated` step — an optional handler. The system SHALL generate the created step's identifier — the author does not choose it — in a namespace distinct from the seeded set's, carrying the step's discipline as its second segment (`mg.creative.001` is a `creative` step), so a step's origin and discipline stay legible from its identifier alone. The created step's provenance SHALL record the authoring principal and the creation date.
 
 A step created as `active` SHALL be part of the served step set on the next read; a step created in any other status SHALL NOT be served, and SHALL be readable in the authored set. Creating a step as a `draft` SHALL require only what a draft carries, so that work can be written down before it is ready — which is the point of the status existing.
 
@@ -178,12 +178,19 @@ Case 3 SHALL never be resolvable into case 2: a roster that cannot be read SHALL
 
 ### Requirement: Authoring never touches the framework
 
-Write operations SHALL be limited to step definitions. The gate sequence, each gate's opening mode, and each gate's authored metric conditions SHALL NOT be creatable, updatable, or removable through this capability — the framework is owned by the repository and changes only by a repository change.
+Write operations SHALL be limited to step definitions. The gate sequence and each gate's opening mode SHALL NOT be creatable, updatable, or removable through this capability — the framework is owned by the repository and changes only by a repository change.
+
+The framework is smaller than it was. A gate now carries its sequence position and its opening mode and nothing else: what a gate waits on is stated by its steps, which are authorable. A threshold a gate turns on is therefore editable, as the description of the step that establishes it, by whoever may edit that step — no longer a repository change. This is the intended consequence of expressing every gate obligation as a step, not an incidental widening: the numbers a launch is held to are the team's to revise, while the sequence they are revised within is not.
 
 #### Scenario: The framework is not writable
 
 - **WHEN** the authoring operations are enumerated
-- **THEN** none of them accepts a gate, an opening mode, or a metric condition as a writable target
+- **THEN** none of them accepts a gate or an opening mode as a writable target
+
+#### Scenario: A threshold is editable as the step that states it
+
+- **WHEN** a step declaring a metric identifier has its description updated through the authoring operations
+- **THEN** the write is validated and persisted like any other step update, and the served step carries the new text
 
 ### Requirement: A gate's steps can be reordered
 
@@ -360,3 +367,34 @@ The rule sits at write time with the other dependency rule, and for the same rea
 
 - **WHEN** a step named by another's `after_steps` is re-authored to the `prohibited-tactic` hazard
 - **THEN** stored playbooks naming it still load, and the depending step is released, on the same footing as a dependency that is no longer `active`
+
+### Requirement: A step's metric identifier is authorable
+
+The authoring operations SHALL accept a step's metric identifier as a writable field, settable when a step is created and changeable when it is updated, and SHALL accept its absence — almost every step declares none. A write supplying a metric identifier SHALL be validated by the same whole-set validation every other write obeys, and SHALL be rejected where the identifier is not one the shared vocabulary accepts.
+
+No write SHALL be rejected because the metric a valid identifier names is undefined. Nothing defines metrics yet, so a rule requiring the identifier to resolve would reject every write of every metric step; the identifier is a reference to be resolved later, exactly as `launch-playbook` states it.
+
+#### Scenario: A step is created declaring a metric identifier
+
+- **WHEN** a step is created with a metric identifier the shared vocabulary accepts
+- **THEN** the write is persisted and the served step reports that identifier
+
+#### Scenario: A step's metric identifier is changed
+
+- **WHEN** an update supplies a metric identifier different from the one the step carries
+- **THEN** the write is persisted and the served step reports the new identifier
+
+#### Scenario: A step is created declaring no metric identifier
+
+- **WHEN** a step is created supplying no metric identifier
+- **THEN** the write is persisted and the served step reports none
+
+#### Scenario: An invalid metric identifier is rejected
+
+- **WHEN** a write supplies a metric identifier the shared vocabulary rejects — empty, or carrying leading or trailing whitespace
+- **THEN** the write is rejected and nothing is persisted
+
+#### Scenario: An identifier naming no defined metric is accepted
+
+- **WHEN** a write supplies a well-formed metric identifier naming a metric nothing defines
+- **THEN** the write is persisted, because no registry exists against which to resolve it

@@ -45,7 +45,7 @@
 - [x] 6.3 Update `docs/domain-map.md`'s `GateCondition` sketch and the sentence deriving the launch↔monitoring dependency from it, so the map states where the metric identifier now lives
 - [x] 6.4 Amend `docs/deferred-work.md`'s "Nothing can reach the graduation gate" entry: its attestation half is closed by this change, its graduation half is not
 - [x] 6.5 Record in `docs/deferred-work.md` that a migrate-only database carries the migration-era seed's 107 steps rather than the served set, so `AGENTS.md`'s "create and migrate `commerce_ops_test` once by hand" leaves a test database the preparation step must still be run against. The gap predates this change, which widens it from 245 steps to 251; recording it is in scope, closing it is a change of its own
-- [ ] 6.6 In the archive commit, correct the two capability *Purpose* paragraphs deltas cannot reach — `launch-instance` spec:5 ("human attestation of metric conditions") and `playbook-authoring` spec:4 ("their metric conditions") — and rewrite `launch-journal`'s inherited "this change … design.md — Decision 7" pointer to name the change that introduced the exception (design.md, *A note on one inherited cross-reference*)
+- [x] 6.6 In the archive commit, correct the two capability *Purpose* paragraphs deltas cannot reach — `launch-instance` spec:5 ("human attestation of metric conditions") and `playbook-authoring` spec:4 ("their metric conditions") — and rewrite `launch-journal`'s inherited "this change … design.md — Decision 7" pointer to name the change that introduced the exception (design.md, *A note on one inherited cross-reference*)
 
 ## 7. Verify
 
