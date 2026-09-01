@@ -55,7 +55,7 @@ project questions:
   already records: `Satisfied` / `Refused` bare, `Blocked(reason)` /
   `NotApplicable(reason)` constructed.
 - Provenance `source` spelled as the spec's wire strings (`"clickup"`,
-  `"automated"`, `"attestation"`); an enum instead is a fixture
+  `"automated"`); an enum instead is a fixture
   correction.
 
 Correcting any name, path, or call shape above is a fixture correction
@@ -190,7 +190,7 @@ def _start(playbook: LaunchPlaybook) -> tuple[Launch, LaunchStarted]:
 
 def _provenance(**overrides: Any) -> Provenance:
     attributes: dict[str, Any] = {
-        "source": "attestation",
+        "source": "clickup",
         "who": "Helen",
         "when": RECORDED_AT,
         "evidence": "screenshot in the launch Slack thread",
@@ -291,14 +291,14 @@ def test_a_satisfied_step_is_recorded_with_its_provenance() -> None:
     """Scenario: A satisfied step is recorded with its provenance.
 
     WHEN a `Satisfied` outcome is recorded for a defined step with source
-    `attestation`, a named recorder, a timestamp, and evidence
+    `clickup`, a named recorder, a timestamp, and evidence
     THEN reading the launch back reports that step's outcome as
     `Satisfied` with exactly that provenance, and a `StepSatisfied`
     occurrence is reported.
     """
     playbook = _playbook(steps=(_step(identifier="listing.title-conforms"),))
     launch, _ = _start(playbook)
-    provenance = _provenance(source="attestation")
+    provenance = _provenance(source="clickup")
 
     events = launch.record_step_outcome(
         playbook,
@@ -313,7 +313,7 @@ def test_a_satisfied_step_is_recorded_with_its_provenance() -> None:
     assert progress is not None
     # SPECIFIED: the outcome is `Satisfied` with exactly that provenance.
     assert progress.outcome is Satisfied
-    assert progress.provenance.source == "attestation"
+    assert progress.provenance.source == "clickup"
     assert progress.provenance.who == "Helen"
     assert progress.provenance.when == RECORDED_AT
     assert progress.provenance.evidence == "screenshot in the launch Slack thread"

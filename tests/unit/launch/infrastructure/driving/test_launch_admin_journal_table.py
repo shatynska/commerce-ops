@@ -819,54 +819,6 @@ def test_a_detail_phrase_does_not_restate_the_subject(
     )
 
 
-def test_metric_attesteds_condition_is_not_a_gate_or_step(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """A `metric-attested` entry's subject is the condition being
-    attested -- not a gate or a step -- so the gate/step column SHALL
-    leave it out, and the condition text SHALL instead be part of the
-    row's composed detail phrase alongside the gate it was attested
-    against.
-
-    Not a scenario named in the delta spec (which speaks of `subject`
-    generically); DERIVED from the spec's own description of `_gate_or_step`
-    excluding `metric-attested` and folding its condition into `detail`.
-    """
-    condition = "conversion rate >= 2%, uniquely-marked-condition"
-    gate = "commit"
-    entry = _entry(
-        kind="metric-attested",
-        when=datetime(2027, 3, 2, 10, 30, tzinfo=UTC),
-        label="Attestation",
-        category="judgment",
-        subject=condition,
-        gate_id=gate,
-    )
-    world = _world(monkeypatch, journal_entries=(entry,))
-
-    html = _detail_html(world.surface, world.product.id)
-
-    row = _journal_row(html, condition)
-    subject_cell = next(
-        element
-        for element in _elements(row)
-        if "subject" in element.attrs.get("class", "")
-    )
-    # SPECIFIED (this refinement): the gate/step column leaves the
-    # condition out -- it names neither a gate nor a step.
-    assert _all_text(subject_cell).strip() in ("", "—"), (
-        f"the gate/step column shows the metric condition, which is "
-        f"neither a gate nor a step: {_all_text(subject_cell)!r}"
-    )
-    # SPECIFIED: the condition and the gate it was attested against both
-    # appear, in the detail column.
-    text = _all_text(row)
-    assert condition.lower() in text, (
-        f"the row does not show the attested condition: {text!r}"
-    )
-    assert gate in text, f"the row does not show the gate attested against: {text!r}"
-
-
 def test_journal_entries_render_newest_first(monkeypatch: pytest.MonkeyPatch) -> None:
     """Scenario: Entries render newest first (REVISED: against entries
     that also carry `label`/`category`).

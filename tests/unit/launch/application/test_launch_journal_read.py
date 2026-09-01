@@ -547,7 +547,9 @@ async def test_a_kinds_distinguishing_facts_are_absent_from_an_entry_of_another_
     assert read.outcome is None
     assert read.reason is None
     assert read.decision is None
-    assert read.gate_id is None
+    # `gate_id` left the entry shape with `metric-attested`, its only
+    # populator (`replace-metric-conditions-with-steps`), so there is no
+    # longer a field here to assert absent.
     assert read.standing_at is None
     assert read.posture is None
     assert read.playbook_version is None

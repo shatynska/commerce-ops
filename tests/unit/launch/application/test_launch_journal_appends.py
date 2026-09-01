@@ -93,7 +93,6 @@ from commerce_ops.launch.application import (
     advance_gate,
     approve_gate,
     move_launch_date,
-    record_metric_attestation,
     record_step_outcome,
     start_launch,
 )
@@ -104,7 +103,6 @@ from commerce_ops.launch.domain.launch_playbook import (
     Hazard,
     InProgress,
     LaunchPlaybook,
-    MetricCondition,
     OffsetAnchor,
     Satisfied,
     Scope,
@@ -117,7 +115,6 @@ from commerce_ops.launch.domain.launch_run import (
     GateApproval,
     GateBlockedError,
     Launch,
-    MetricAttestation,
     Provenance,
 )
 from commerce_ops.shared.domain.discipline import Discipline
@@ -302,11 +299,6 @@ def _playbook(
             identifier=identifier,
             position=position,
             opening=_opening_for(identifier),
-            metric_conditions=(
-                (MetricCondition(STOCK_METRIC, STOCK_THRESHOLD),)
-                if identifier == "stock-ready"
-                else ()
-            ),
         )
         for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1)
     )
@@ -339,18 +331,6 @@ def _approval(**overrides: Any) -> GateApproval:
     return GateApproval(**attributes)
 
 
-def _attestation(**overrides: Any) -> MetricAttestation:
-    attributes: dict[str, Any] = {
-        "gate_id": "stock-ready",
-        "metric_id": STOCK_METRIC,
-        "attester": ATTESTER,
-        "when": ATTESTED_AT,
-        "evidence": "72 fulfillable units confirmed in Seller Central",
-    }
-    attributes.update(overrides)
-    return MetricAttestation(**attributes)
-
-
 def _started(playbook: LaunchPlaybook) -> Launch:
     launch, _ = Launch.start(
         product_id=PRODUCT_ID, playbook=playbook, launch_date=LAUNCH_DATE
@@ -369,8 +349,6 @@ def _satisfy_gate(launch: Launch, playbook: LaunchPlaybook) -> None:
                 outcome=Satisfied,
                 provenance=_provenance(source="automated", who="hold-filler"),
             )
-    if launch.current_gate == "stock-ready":
-        launch.record_metric_attestation(playbook, _attestation())
     if launch.current_gate in CONFIRMATION_GATES:
         posture = Posture.SCALE if launch.current_gate == "graduated" else None
         launch.approve_gate(launch.current_gate, _approval(posture=posture))
@@ -643,35 +621,6 @@ async def test_a_rejecting_approval_is_journaled_too() -> None:
         "a rejecting decision must not be journaled as approving; "
         f"the facts the entry carries are {_facts(entry)!r}"
     )
-
-
-async def test_a_recorded_metric_attestation_is_journaled() -> None:
-    """Scenario: A recorded metric attestation is journaled.
-
-    WHEN a metric condition is attested on a gate
-    THEN one entry is appended naming the gate, the metric condition and
-    the attester.
-    """
-    playbook = _playbook()
-    journal = FakeJournal()
-
-    await record_metric_attestation(
-        FakeLaunchStore(_started(playbook)),
-        FakePlaybooks(playbook),
-        product_id=PRODUCT_ID,
-        attestation=_attestation(),
-        journal=journal,
-    )
-
-    entry = _only(journal)
-    assert entry.kind == KIND_METRIC_ATTESTED
-    # SPECIFIED: naming the metric condition. design.md Decision 4 makes
-    # the condition the subject and sends the gate to `details`.
-    assert entry.subject_id == STOCK_METRIC.value
-    # SPECIFIED: naming the attester.
-    assert entry.actor == ATTESTER
-    # SPECIFIED: naming the gate.
-    _assert_names(entry, "stock-ready", "the gate attested against")
 
 
 async def test_an_opened_gate_is_journaled() -> None:

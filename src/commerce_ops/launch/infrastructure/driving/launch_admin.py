@@ -291,17 +291,15 @@ class JournalLine:
 
     `subject` is the page's own narrowing of `JournalEntry.subject` to
     what its column is named for: a gate or a step (`_gate_or_step`).
-    `metric-attested`'s subject is a metric condition, neither a gate
-    nor a step, so it carries `None` here -- that condition text renders
-    as part of `detail` instead.
+    Every kind names one of those now, so the narrowing excludes only an
+    occurrence that names no subject at all.
 
     `detail` is this page's own composed phrase, built from
-    `JournalEntry`'s per-kind raw fields (`outcome`, `decision`,
-    `gate_id`, ...) — the page tried a column per fact and then two
-    columns (`detail`/`note`) and settled on one short readable phrase,
-    the same shape the page's original composed `what` sentence had,
-    minus the subject clause for every kind except `metric-attested`
-    (`subject` already has its own column for the others, so repeating
+    `JournalEntry`'s per-kind raw fields (`outcome`, `decision`, ...) —
+    the page tried a column per fact and then two columns
+    (`detail`/`note`) and settled on one short readable phrase, the same
+    shape the page's original composed `what` sentence had, minus the
+    subject clause (`subject` already has its own column, so repeating
     it here would duplicate that column). Composition the page performs,
     the same way it already composes `who`, not a fact `journal.py`
     stores or exposes as its own field (`_journal_detail`)."""
@@ -572,16 +570,16 @@ def _who(actor: str | None, actor_names: dict[str, str]) -> str | None:
 
 
 def _gate_or_step(entry: Any) -> str | None:
-    """`subject` where it names a gate or a step -- every kind except
-    `metric-attested`, whose subject is the metric condition being
-    attested, not a gate or a step. That condition text is folded into
-    `_journal_detail` instead, so this column stays true to its name.
+    """`subject` where the occurrence named one, and nothing otherwise.
 
-    `gate_id` is unique to `metric-attested` among this entry's fields,
-    so its presence is what distinguishes the one kind this column
-    excludes."""
-    if entry.gate_id is not None:
-        return None
+    Every journal kind now names either a gate or a step as its subject,
+    so this column is empty only where an occurrence names no subject at
+    all. It carried an exception until
+    `replace-metric-conditions-with-steps`: a `metric-attested` entry's
+    subject was the metric condition being attested, which is neither,
+    and its `gate_id` was what distinguished it. A metric obligation
+    reaches this page as an ordinary step now, so the exception has
+    nothing left to exclude."""
     subject = entry.subject
     return None if subject is None else str(subject)
 
@@ -596,9 +594,9 @@ def _journal_detail(entry: Any) -> str | None:
     composed `what` sentence had, minus the subject clause, since
     `subject` already has its own column (the gate/step column,
     `_gate_or_step`) and repeating it here would duplicate that column.
-    The one exception is `metric-attested`, whose subject is not a gate
-    or a step and so has no column of its own -- its condition text is
-    composed in here instead.
+    Every subject has that column now, so the clause has no exception:
+    `metric-attested` was the one kind whose subject went here instead,
+    and it retired with the metric conditions it attested.
 
     Dispatches on which raw field is populated rather than on `kind`,
     since each field belongs to exactly one or two kinds already — the
@@ -615,11 +613,6 @@ def _journal_detail(entry: Any) -> str | None:
     if entry.decision is not None:
         decided = f"{entry.decision} decision recorded"
         return f"{decided}, posture '{entry.posture}'" if entry.posture else decided
-    if entry.gate_id is not None:
-        attested = (
-            f"the condition '{entry.subject}' attested on the {entry.gate_id} gate"
-        )
-        return f"{attested} — {entry.evidence}" if entry.evidence else attested
     if entry.standing_at is not None:
         return f"opened; the launch now stands at {entry.standing_at}"
     if entry.previous_date is not None or entry.new_date is not None:

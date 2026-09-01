@@ -218,7 +218,7 @@ RECORDED_AT: Final = datetime(2027, 1, 5, 12, 0, tzinfo=UTC)
 APPROVED_AT: Final = datetime(2027, 1, 6, 9, 0, tzinfo=UTC)
 RECORDER: Final = "Nadia Recorder"
 EVIDENCE: Final = "screenshot in the launch Slack thread"
-SOURCE: Final = "attestation"
+SOURCE: Final = "clickup"
 T_REGISTERED: Final = datetime(2026, 8, 23, 9, 0, tzinfo=UTC)
 
 RENDER_DATE: Final = date(2027, 4, 1)

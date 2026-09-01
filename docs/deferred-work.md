@@ -351,13 +351,24 @@ one worth doing whether or not the others are.
 gates and deliberately stops short of `graduated`. Two separate things block it,
 and the second is a defect rather than a scope decision.
 
-**Nothing can reach the graduation gate.** `graduated` authors metric
-conditions, and so do `stock-ready` and `phase-one-complete`. A metric condition
-is satisfied only by a recorded human attestation until live evaluation exists
-(`launch-instance`, domain-map slice 7), and `record_metric_attestation` has no
-surface — no route, no Slack handler, no job calls it. A launch therefore
-advances to `stock-ready` and stops. Wiring graduation before attestation has a
-surface would specify behaviour production cannot exercise.
+**~~Nothing can reach the graduation gate.~~ Closed 2026-09-01 by
+`replace-metric-conditions-with-steps`.** `graduated`, `stock-ready` and
+`phase-one-complete` authored metric conditions satisfiable only by an
+attestation nothing could record, so a launch advanced to `stock-ready` and
+stopped. Gates author no conditions now: each of those obligations is a
+blocking step, resolved by a recorded outcome through the path every other
+obligation already uses.
+
+Two things that change carries are worth keeping here rather than only in the
+archive. The six steps are seeded `draft`, so **the launches parked at
+`stock-ready` when it deployed advanced past it unchecked** and no activation
+pulls them back — gate readiness reads only the current gate. And
+`graduated`'s `review-rating` condition was removed **with no successor**: no
+reference row restates it, so there was no step to seed and the change did not
+invent one. A person still weighs rating stability, `graduated` being a
+confirmation gate; what went is the machine-checkable obligation.
+
+The rest of this entry stands.
 
 **The persisted launch cannot distinguish a graduated launch from one standing
 at the final gate.** `launch-instance`'s enumeration requirement states this as
@@ -669,6 +680,30 @@ journal and a reader for it, which is its own decision.
 **Trigger to close.** The first handler whose output is a judgement a person
 is likely to disagree with more than once — or *write on acceptance, not on
 production* landing, since both touch the same Slack decision path.
+
+### A migrated database is not a seeded one
+
+`AGENTS.md` tells a developer to "create and migrate `commerce_ops_test` once
+by hand". Migrating is not enough, and has not been since
+`move-playbook-steps-to-postgres`: the migration-era seed
+(`d2f8b3c64e17_seed_playbook_steps.py:52`) reads its own vendored file,
+`alembic/data/playbook_v1.yaml`, and inserts **107** steps. The served set
+comes from the *preparation step*, `seed_playbook.py`, which reads
+`alembic/data/playbook_reference.yaml` — **358** steps since
+`replace-metric-conditions-with-steps`, 352 before it.
+
+So a database that has only been migrated carries a quarter of the step set,
+and a test asserting the served count fails against it for a reason that looks
+like a defect in whatever change is in hand. `replace-metric-conditions-with-steps`
+widened the gap from 245 steps to 251; it did not create it.
+
+The fix is a sentence in `AGENTS.md` and, where CI builds a database, a
+`seed_playbook` run after `alembic upgrade head`. It is not this change's to
+make: the gap predates it, and closing it is a change of its own.
+
+**Trigger to close.** The next time a developer or a CI job is set up against
+a fresh database — or the next test that asserts the served step count and
+fails for this reason rather than its own.
 
 ### Production code carries tolerances for incomplete test doubles
 

@@ -128,7 +128,6 @@ from commerce_ops.launch.domain.launch_playbook import (
     GateOpening,
     Hazard,
     LaunchPlaybook,
-    MetricCondition,
     OffsetAnchor,
     Satisfied,
     Scope,
@@ -141,7 +140,6 @@ from commerce_ops.launch.domain.launch_run import (
     GateApproval,
     GateBlockedError,
     Launch,
-    MetricAttestation,
     Provenance,
 )
 from commerce_ops.shared.domain.discipline import Discipline
@@ -242,11 +240,6 @@ def _playbook() -> LaunchPlaybook:
             identifier=identifier,
             position=position,
             opening=_opening_for(identifier),
-            metric_conditions=(
-                (MetricCondition(STOCK_METRIC, STOCK_THRESHOLD),)
-                if identifier == "stock-ready"
-                else ()
-            ),
         )
         for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1)
     )
@@ -275,16 +268,6 @@ def _approval(*, gate: str) -> GateApproval:
     )
 
 
-def _attestation() -> MetricAttestation:
-    return MetricAttestation(
-        gate_id="stock-ready",
-        metric_id=STOCK_METRIC,
-        attester="Mira",
-        when=NOW,
-        evidence="72 fulfillable units confirmed in Seller Central",
-    )
-
-
 def _satisfy_steps(launch: Launch, playbook: LaunchPlaybook) -> None:
     """Every blocking step of the launch's current gate, and nothing else."""
     for step in playbook.steps_for_gate(launch.current_gate):
@@ -298,12 +281,11 @@ def _satisfy_steps(launch: Launch, playbook: LaunchPlaybook) -> None:
 
 
 def _satisfy_everything(launch: Launch, playbook: LaunchPlaybook) -> None:
-    """Everything the launch's current gate waits on — steps, metric and
-    approval alike — driven on the aggregate so none of it reaches the
-    journal the use case under test writes to."""
+    """Everything the launch's current gate waits on — its blocking steps
+    and, where the gate asks for one, its approval — driven on the
+    aggregate so none of it reaches the journal the use case under test
+    writes to."""
     _satisfy_steps(launch, playbook)
-    if launch.current_gate == "stock-ready":
-        launch.record_metric_attestation(playbook, _attestation())
     if launch.current_gate in CONFIRMATION_GATES:
         launch.approve_gate(launch.current_gate, _approval(gate=launch.current_gate))
 
@@ -408,13 +390,11 @@ class _Collaborators:
         self.stamper = _FakeStamper()
 
 
-def _setup(gate: str, *, satisfy: bool = False, metric: bool = False) -> _Collaborators:
+def _setup(gate: str, *, satisfy: bool = False) -> _Collaborators:
     playbook = _playbook()
     launch = _standing_at(gate, playbook)
     if satisfy:
         _satisfy_steps(launch, playbook)
-    if metric:
-        launch.record_metric_attestation(playbook, _attestation())
     return _Collaborators(launch, playbook)
 
 
@@ -663,7 +643,7 @@ async def test_consecutive_open_gates_are_crossed_in_one_pass() -> None:
     `live`, whose blocking step is untouched — which is what makes "the
     gate after them" distinguishable from "the end of the sequence".
     """
-    collaborators = _setup("listable", satisfy=True, metric=True)
+    collaborators = _setup("listable", satisfy=True)
     launch = collaborators.launches.stored()
     # `stock-ready`'s own blocking step, satisfied ahead of the cascade:
     # the scenario is stated over two gates whose conditions are already
@@ -720,36 +700,6 @@ async def test_a_launch_with_an_unsatisfied_condition_is_left_where_it_is() -> N
     # Guard: the cascade really did read the launch, so the assertions
     # above cannot hold because nothing ran at all.
     assert collaborators.launches.reads, "the cascade never read the launch"
-
-
-async def test_a_gate_blocked_only_by_a_metric_condition_is_left_silently() -> None:
-    """Requirement statement, R1: the judgement "SHALL NOT be derived from
-    the launch report, which states each served step's recorded outcome but
-    states neither a gate's authored metric conditions nor whether they
-    have been attested".
-
-    So: a gate whose blocking *steps* are all satisfied and whose *metric*
-    condition is not attested must be read as unsatisfied — no command, no
-    journal entry. A cascade judging readiness from the report would call
-    this gate ready, command the advance, be refused, and append the entry
-    `design.md` — Decision 3 exists to prevent.
-
-    SPECIFIED by the requirement's statement; no scenario states it on its
-    own, which is why it is named here rather than left to the scenario
-    above (whose gate is blocked on its steps and would pass either way).
-    """
-    collaborators = _setup("stock-ready", satisfy=True)
-
-    await _progress(collaborators)
-
-    # SPECIFIED: unchanged, and silent.
-    assert collaborators.launches.stored().current_gate == "stock-ready", (
-        "a gate whose metric condition is unattested was advanced past"
-    )
-    assert collaborators.journal.appended == [], (
-        "a gate blocked only by an unattested metric condition produced a "
-        f"journal entry: {collaborators.journal.kinds()}"
-    )
 
 
 async def test_a_launch_is_not_advanced_past_the_final_gate() -> None:
@@ -857,7 +807,7 @@ async def test_a_gate_declining_mid_cascade_stops_it_without_undoing_the_crossin
     under test is what the *cascade* does with that — commit and stop, not
     unwind and not re-raise.
     """
-    collaborators = _setup("listable", satisfy=True, metric=True)
+    collaborators = _setup("listable", satisfy=True)
     launch = collaborators.launches.stored()
     launch.record_step_outcome(
         collaborators.playbook,
@@ -914,7 +864,7 @@ async def test_a_cascade_failing_part_way_propagates_rather_than_committing(
     swallowed it would commit the partial advance the scenario forbids,
     and no transaction could undo what was never unwound.
     """
-    collaborators = _setup("listable", satisfy=True, metric=True)
+    collaborators = _setup("listable", satisfy=True)
     # CORRECTED setup: `_satisfy_steps` satisfies only the *current* gate,
     # so without this the cascade reads `stock-ready` as unsatisfied, stops
     # before commanding, and the scenario's "attempt at the next" never

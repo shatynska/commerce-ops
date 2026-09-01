@@ -34,19 +34,27 @@ _OUTPUT = _HERE / "playbook_reference.yaml"
 sys.path.insert(0, str(_HERE))
 from playbook_reference_names import NAMES
 
-# Rows that restate a condition a gate already authors as a metric condition.
-# One obligation is expressed once, so they are not seeded — the list
-# `tests/integration/launch/test_playbook_seed.py` already records.
-METRIC_RESTATEMENTS: frozenset[str] = frozenset(
-    {
-        "lp.inventory.040",
-        "lp.inventory.041",
-        "lp.strategy.033",
-        "lp.strategy.025",
-        "lp.ppc.048",
-        "lp.finance.036",
-    }
-)
+# Rows whose own words make passing a gate conditional on them. Until
+# `replace-metric-conditions-with-steps` these six were *excluded* from the
+# seed, each restating a condition a gate authored, so that one obligation was
+# expressed once. Gates author no conditions now, so excluding them would leave
+# the obligation expressed nowhere a launch can resolve: they are seeded,
+# blocking on the gate their words condition.
+#
+# The mapping is `design.md` Decision 8's, transcribed from
+# `_AUTHORED_METRIC_CONDITIONS` before that constant was deleted. Six rows,
+# four identifiers: `lp.inventory.040` and `.041` state two readings of one
+# quantity, and `lp.ppc.048` states four qualitative criteria naming no single
+# quantity, so it blocks carrying none rather than an invented name no
+# observation could ever resolve to.
+GATE_CONDITIONING_ROWS: dict[str, tuple[str, str | None]] = {
+    "lp.inventory.040": ("stock-ready", "units-fulfillable"),
+    "lp.inventory.041": ("stock-ready", "units-fulfillable"),
+    "lp.strategy.025": ("phase-one-complete", "sales-velocity"),
+    "lp.strategy.033": ("phase-one-complete", "organic-share"),
+    "lp.ppc.048": ("phase-one-complete", None),
+    "lp.finance.036": ("graduated", "tacos"),
+}
 
 # `scope` is the one field the reference document does not speak to. Seven of
 # these carry an `EU:` prefix; the other five name a marketplace without one,
@@ -297,9 +305,7 @@ def build() -> dict[str, Any]:
     steps: list[dict[str, Any]] = []
     tally: Counter[str] = Counter()
     for row in reference_rows():
-        if row["id"] in METRIC_RESTATEMENTS:
-            tally["excluded"] += 1
-            continue
+        conditioning = GATE_CONDITIONING_ROWS.get(row["id"])
         previous = curated.get(row["id"])
         if previous is not None:
             # The earlier human pass is carried across verbatim, not re-derived.
@@ -317,6 +323,14 @@ def build() -> dict[str, Any]:
             blocking = False
             hazard = "none"
             tally["derived"] += 1
+        if conditioning is not None:
+            # The row's own words condition this gate, so it holds it: gate and
+            # blocking come from the mapping rather than from derivation, and
+            # never from a carried-across earlier pass, which predates the
+            # decision to seed these rows at all.
+            gate, _ = conditioning
+            blocking = True
+            tally["conditioning"] += 1
         if hazard == "prohibited-tactic":
             blocking = False  # coherence: it can only ever terminate in Refused
         steps.append(
@@ -335,6 +349,11 @@ def build() -> dict[str, Any]:
                 "assignees": [],
                 "starts_at_gate": start_gate_for(row["id"], gate),
                 "provenance": row["source"],
+                **(
+                    {"metric_id": conditioning[1]}
+                    if conditioning is not None and conditioning[1] is not None
+                    else {}
+                ),
             }
         )
     return {"version": "reference-v1", "steps": steps, "_tally": dict(tally)}

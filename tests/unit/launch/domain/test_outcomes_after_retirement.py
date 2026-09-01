@@ -148,7 +148,7 @@ def _playbook(version: str, steps: tuple[StepDefinition, ...]) -> LaunchPlaybook
 
 def _provenance(**overrides: Any) -> Provenance:
     attributes: dict[str, Any] = {
-        "source": "attestation",
+        "source": "clickup",
         "who": "Helen",
         "when": RECORDED_AT,
         "evidence": "screenshot in the launch Slack thread",

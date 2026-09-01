@@ -449,7 +449,7 @@ def _provenance(
     when: datetime = RECORDED_AT, evidence: str | None = None
 ) -> Provenance:
     return Provenance(
-        source="attestation",
+        source="clickup",
         who=RECORDER,
         when=when,
         evidence=evidence or "screenshot in the launch Slack thread",

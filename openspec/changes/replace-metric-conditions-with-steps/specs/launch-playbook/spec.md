@@ -34,7 +34,11 @@ An authored name is not re-derivable from the reference document, and this requi
 
 A seeded step's identifier SHALL carry its declared discipline as its second segment (`lp.creative.008` is a `creative` step). This is what allows a surface composed from the identifier to omit the discipline without losing it, and it holds for every step of the seeded set.
 
-A reference row that states a numeric or comparative threshold **as the condition of reaching a gate** — a row whose own words make passing that gate conditional on the threshold, rather than merely mentioning a number — SHALL be seeded as a step marked blocking on the gate its words condition, and SHALL declare a metric identifier naming the quantity that threshold is on. Such a row is a step in the reference document, carrying an identifier, a discipline, a timing anchor and a source citation like every other row; seeding it as anything else, or omitting it, leaves the obligation it states expressed nowhere a launch can resolve.
+A reference row **whose own words make passing a gate conditional on it** SHALL be seeded as a step marked blocking on that gate. Such a row is a step in the reference document, carrying an identifier, a discipline, a timing anchor and a source citation like every other row; seeding it as anything else, or omitting it, leaves the obligation it states expressed nowhere a launch can resolve.
+
+Where that row states a **numeric or comparative threshold on one named quantity** — rather than merely mentioning a number, and rather than conditioning the gate on several qualitative criteria — it SHALL additionally declare a metric identifier naming that quantity. The two clauses are separate on purpose: blocking says the gate waits on the row, and the identifier says which quantity the row establishes. A row conditioning a gate on criteria that name no single quantity SHALL be seeded blocking and SHALL declare no metric identifier, because an identifier invented for it would name nothing an observation could ever resolve to — the join the field exists for, filled with a value that defeats it.
+
+Two rows MAY declare the same metric identifier. The identifier names the quantity, not the row, so two rows stating different readings of one quantity name it identically; that is the convention working rather than a collision, and the gate is then held by both steps.
 
 The criterion is the row's own wording, not any list held elsewhere: nothing outside the reference document says which rows these are, and a document that gains such a row later gains a blocking metric step by the same reading. The judgement is made **when a row is transcribed**, by whoever transcribes it — it is an editorial reading, not a computation — so what a test asserts is the resulting set, not the selection.
 
@@ -90,8 +94,18 @@ Once established, the step set changes through the `playbook-authoring` capabili
 
 #### Scenario: A threshold row is seeded as a blocking metric step
 
-- **WHEN** a reference row conditioning a gate on a threshold is read from the seeded set
-- **THEN** it appears as a step, is marked blocking, declares the gate its words condition, and declares a metric identifier naming the quantity the threshold is on
+- **WHEN** a reference row conditioning a gate on a threshold on one named quantity is read from the seeded set
+- **THEN** it appears as a step, is marked blocking, declares the gate its words condition, and declares a metric identifier naming that quantity
+
+#### Scenario: A gate-conditioning row naming no single quantity blocks without an identifier
+
+- **WHEN** a reference row whose words condition a gate on several qualitative criteria is read from the seeded set
+- **THEN** it appears as a step and is marked blocking on that gate, and declares no metric identifier
+
+#### Scenario: Two rows establishing one quantity share its identifier
+
+- **WHEN** two reference rows state different readings of the same quantity as a condition of one gate
+- **THEN** both are seeded blocking on that gate and both declare the same metric identifier
 
 #### Scenario: A row merely mentioning a number is an ordinary step
 

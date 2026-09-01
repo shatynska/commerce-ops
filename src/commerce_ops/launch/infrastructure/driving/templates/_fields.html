@@ -70,6 +70,14 @@
   <textarea name="description" rows="4">{{ values.get("description", "") }}</textarea>
   {{ marked(marks, "description") }}
 </label>
+{# Free-typed and not chosen: nothing defines metrics yet, so a control
+   offering choices would have none to offer, and a write is refused only
+   on what the shared vocabulary refuses. Clearable, absent being the
+   value almost every step carries. #}
+<label>Metric identifier (optional)
+  <input name="metric_id" value="{{ values.get("metric_id", "") }}">
+  {{ marked(marks, "metric_id") }}
+</label>
 </fieldset>
 <fieldset class="field-group">
   <legend>Where it sits</legend>

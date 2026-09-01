@@ -47,7 +47,7 @@ This is deliberate under-design. The temptation is to make a metric step special
 
 `launch-playbook` requires every seeded step to be `draft` — *"rows nobody has yet judged are work written down, not work in play"*. The six are seeded the same way, which means that on deploy `stock-ready` loses its metric condition and gains a step that holds nothing.
 
-This happens on three gates at once, not one: `stock-ready` loses `units-fulfillable`, `phase-one-complete` loses `sales-velocity` and `organic-share`, and `graduated` loses `tacos` and `review-rating`.
+This happens on three gates at once, not one: `stock-ready` loses `units-fulfillable`, `phase-one-complete` loses `sales-velocity` and `organic-share`, and `graduated` loses `tacos` and `review-rating` — five conditions, four of which gain a successor step (Decision 8).
 
 The consequence, stated plainly: `Disposable food trays 31`, `32` and `33` advance past `stock-ready` on the next progression pass with no stock check of any kind, and because readiness reads only the current gate, activating `lp.inventory.040` afterwards never pulls them back. The pass continues while gates keep opening (`launch-gate-progression`), so a launch may travel further than `stock-ready` in that first pass — as far as the next gate holding an unresolved blocking step, or `phase-one-complete`, which requires a confirmation nobody has given and so stops there with its own metric obligations already gone. The check applies to launches that reach `stock-ready` after activation, and to no launch that has already passed it.
 
@@ -86,6 +86,30 @@ Note also that "migrated" has never implied "seeded" in this project: a migrate-
 
 The proposal asserts the table is empty; that assertion came from a document, and dropping a table is not reversible. A task in `tasks.md` requires confirming `SELECT count(*) FROM launch_metric_attestations` is zero against production **before** the drop migration is written, and revising this design if it is not. A non-empty table would mean an attestation reached the table through a path nobody has found, which is a different change.
 
+### 8. The six rows carry four identifiers, and `review-rating` loses its condition outright
+
+`author-playbook-steps` design.md:73 enumerates what each excluded row restates. Reconciled against each row's own text, the mapping is not one row to one condition:
+
+| Row | Gate | Metric identifier |
+|---|---|---|
+| `lp.inventory.040` | `stock-ready` | `units-fulfillable` |
+| `lp.inventory.041` | `stock-ready` | `units-fulfillable` |
+| `lp.strategy.025` | `phase-one-complete` | `sales-velocity` |
+| `lp.strategy.033` | `phase-one-complete` | `organic-share` |
+| `lp.ppc.048` | `phase-one-complete` | none — see below |
+| `lp.finance.036` | `graduated` | `tacos` |
+| *no row exists* | `graduated` | `review-rating` |
+
+Six rows, **four** distinct identifiers, five conditions removed, one with no successor. Three consequences follow, and each is a decision rather than an observation.
+
+**Two rows may share an identifier.** `lp.inventory.040` ("do not make the listing live until 60-80 … units are FULFILLABLE") and `lp.inventory.041` ("Alternative inventory gate: 10 days of stock against your own 30-day forecast, EXCLUDING Vine units") state two readings of the same quantity, and the reference document offers them as alternatives. Both are seeded, both blocking, both declaring `units-fulfillable` — the identifier names the quantity, not the row, so two steps establishing the same quantity naming it identically is the convention working rather than a collision. `stock-ready` is then held by both, which is stricter than the document's "alternative" wording; that is the safe direction, and either step may be left `draft` if the team wants only one in play.
+
+**`lp.ppc.048` is blocking, and declares no identifier.** Its four criteria — *"single-keyword exacts converting reliably, harvested terms at 3+ conversions in a few weeks, TACOS trending toward target, organic rank improving on the focus family"* — are qualitative PPC judgements, not a threshold on one named quantity. The seeding rule requires an identifier only of a row stating such a threshold, and the naming convention requires an identifier to name a quantity and nothing else; inventing `ppc-phase-one-criteria` would satisfy neither and would put a name into the monitoring join that no observation can ever resolve to. So the row is seeded blocking on its own words ("Phase 1 graduated on conversions, not time - all four must hold") with no identifier. *Alternative considered*: leaving it non-blocking — rejected, because its words condition the gate and a non-blocking step states an obligation nothing enforces.
+
+**`review-rating` is removed with no successor.** The archive is explicit that no reference row restates it, so there is no row to seed. This change does not author one: every seeded identifier is a reference-document row ID, and inventing a step for a condition the document never wrote down would put a fabricated obligation into the set the seeding rules exist to keep traceable.
+
+The judgement survives even though the check does not. `graduated` is a `REQUIRES_CONFIRMATION` gate, so it opens only on a person's recorded approval; rating stability is part of what that person weighs, and was before this change too, since the condition was never satisfiable. What is lost is a machine-checkable obligation that never ran. *Alternative considered*: keeping `review-rating` as the one surviving `MetricCondition` — rejected outright, since one surviving condition means the whole mechanism survives with it and this change delivers nothing.
+
 ## Risks / Trade-offs
 
 - **The three parked launches pass `stock-ready` with no stock check.** → Accepted deliberately (Decision 3), and it is the state they are effectively in today, since nothing can satisfy the condition that holds them. Mitigation available at any time: activate `lp.inventory.040` before the launches next advance, which holds them on the real check instead. That is an admin action, not a deploy.
@@ -100,11 +124,6 @@ The proposal asserts the table is empty; that assertion came from a document, an
 - **Immediately after deploy**: the next progression pass advances the three parked launches past `stock-ready`. This is expected, and is the visible signal that the change took effect.
 - **Rollback**: reverting the code restores the metric conditions, and the gates they sit on become unsatisfiable again — the state before this change. The dropped table would need recreating by a down-migration; it holds nothing, so an empty recreate is a faithful rollback.
 - **Activation, separately and later**: activating the six steps through the admin surface is an ordinary authoring write, subject to the same validation as any other, and is not part of this change.
-
-## Open Questions
-
-- **Which gate does each of the four later rows belong to?** `lp.strategy.025` and `lp.strategy.033` restate `phase-one-complete` conditions and `lp.finance.036` restates a `graduated` one, but each row's own **WHEN** column (`Week 5-8`, `Day 60+`) states when the work happens, not which gate it holds. The seeding task resolves this per row against `author-playbook-steps` design.md:73, which names what each restates; nothing about the approach changes either way.
-
 
 ## A note on one inherited cross-reference
 

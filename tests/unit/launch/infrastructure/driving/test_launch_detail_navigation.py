@@ -344,7 +344,7 @@ GATES_WITH_STEPS: Final = ("commit", "listable", "ignition")
 
 def _provenance() -> Provenance:
     return Provenance(
-        source="attestation",
+        source="clickup",
         who=RECORDER,
         when=RECORDED_AT,
         evidence="screenshot in the launch Slack thread",

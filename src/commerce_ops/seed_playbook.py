@@ -72,6 +72,7 @@ from commerce_ops.launch.infrastructure.driven.playbook_repository import (
     PlaybookRepository,
 )
 from commerce_ops.shared.domain.discipline import Discipline
+from commerce_ops.shared.domain.identity import MetricId
 from commerce_ops.shared.infrastructure.driven.database import dispose_engine, session
 from commerce_ops.shared.infrastructure.logging import configure_logging
 
@@ -149,6 +150,12 @@ def vendored_definitions(path: Path | None = None) -> tuple[StepDefinition, ...]
             # true of `starts_at_gate`, where absent is itself a meaningful
             # value the backfill exists to replace.
             provenance=step["provenance"],
+            # `.get`, unlike its neighbours above: a metric identifier is
+            # genuinely optional and almost every row carries none, so
+            # absent is the ordinary value rather than a shape fault. The
+            # subscript rule those neighbours follow exists for fields
+            # every row must state; this is not one.
+            metric_id=(MetricId(step["metric_id"]) if step.get("metric_id") else None),
         )
         for step in document["steps"]
     )

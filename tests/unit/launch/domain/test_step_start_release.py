@@ -192,7 +192,7 @@ def _playbook(*steps: StepDefinition) -> LaunchPlaybook:
 
 def _provenance() -> Provenance:
     return Provenance(
-        source="attestation",
+        source="clickup",
         who="Helen",
         when=RECORDED_AT,
         evidence="screenshot in the launch Slack thread",
