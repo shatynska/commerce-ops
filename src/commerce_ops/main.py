@@ -22,6 +22,7 @@ from commerce_ops.catalog.infrastructure.driven.product_repository import (
     CatalogProductRepository,
 )
 from commerce_ops.launch.application import read_launch_journal
+from commerce_ops.launch.infrastructure.driven import launch_thread_delivery
 from commerce_ops.launch.infrastructure.driven.launch_journal_repository import (
     LaunchJournalRepository,
 )
@@ -283,6 +284,14 @@ launch_slack_entry.read_people = _RosterReader()
 # readers for the same reason.
 launch_clickup_webhook.read_product = _RequestScopedCatalog().get_by_id
 launch_clickup_webhook.read_people = _RosterReader()
+
+# Every threaded launch message resolves who to tag through the roster: a
+# step's confirmer is stored as the roster's own identifier, which Slack
+# cannot resolve. `launch` may not construct access's store, so the root
+# supplies the reader here too. Needed in this process for the launch
+# confirmation and the gate ask; `worker.py` wires the same seam for the
+# automation pass's own two messages.
+launch_thread_delivery.read_people = _RosterReader()
 
 
 async def _verify_admin_session(*, session_id: str) -> str | None:

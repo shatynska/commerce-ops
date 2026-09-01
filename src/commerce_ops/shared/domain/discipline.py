@@ -25,3 +25,14 @@ class Discipline(Enum):
     CUSTOMER = "customer"
     EXTERNAL = "external"
     TRAFFIC = "traffic"
+
+    def __str__(self) -> str:
+        """The value, not `Enum`'s `Discipline.LISTING` default.
+
+        `shared-vocabulary` requires a single-valued vocabulary object to
+        render as its value, and an enum carries exactly one. Without this,
+        every site interpolating a discipline says `Discipline.LISTING`
+        where it means `listing` — `launch_playbook.py`'s own rejection
+        message did.
+        """
+        return self.value

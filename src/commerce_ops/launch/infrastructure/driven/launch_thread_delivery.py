@@ -39,9 +39,24 @@ from commerce_ops.shared.domain.identity import ProductId
 from commerce_ops.shared.infrastructure.driven.database import transaction
 
 if TYPE_CHECKING:
+    from commerce_ops.launch.application.playbook_authoring import RosterReader
     from commerce_ops.launch.domain.launch_playbook import StepDefinition
 
-__all__ = ["establish_thread_and_resolve_mention"]
+__all__ = ["establish_thread_and_resolve_mention", "read_people"]
+
+# Injected by `main.py` and `worker.py`, never imported: resolving a step's
+# confirmer to a Slack identity means reading the roster, and `.importlinter`
+# forbids `launch` from naming `access`'s store. Only a composition root may
+# construct one, which is what makes the injection legal there and not here --
+# the same seam `automation_confirmation.read_people`,
+# `gate_confirmation.read_people` and `clickup_sync_job.read_people` already
+# use, and reached at module level so a test can substitute it.
+#
+# Absent, mention resolution degrades rather than failing: a step naming no
+# confirmer still tags the submitter, and one naming a confirmer is reported
+# and delivered untagged. That is deliberate -- a mention is an embellishment
+# on a message whose substance does not depend on the roster.
+read_people: RosterReader | None = None
 
 
 async def establish_thread_and_resolve_mention(
@@ -77,5 +92,9 @@ async def establish_thread_and_resolve_mention(
             channel=launches_channel,
         )
         launch = await launch_store.get_by_product_id(product_id)
-        mention = await resolve_mention_target(launch, step=step) if launch else None
+        mention = (
+            await resolve_mention_target(launch, step=step, roster=read_people)
+            if launch
+            else None
+        )
     return thread_ts, mention

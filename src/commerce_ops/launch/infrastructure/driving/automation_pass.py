@@ -330,8 +330,17 @@ async def _deliver_waiting(
             # catalog read wants the value object. A stored row is read back
             # long after the pass that wrote it, so the conversion belongs
             # here rather than being assumed of whatever produced the row.
-            product = await read_product(ProductId(str(getattr(row, "product_id", ""))))
+            product_id = ProductId(str(getattr(row, "product_id", "")))
+            product = await read_product(product_id)
+            # The same converted identifier reaches the delivery, rather than
+            # the adapter digging one out of the row for itself. It used to
+            # demand a `ProductId` off a row that carries a `uuid.UUID`, so
+            # every delivery raised into the `except` below and was retried
+            # forever; the conversion this line already performs is the one
+            # the delivery needed, and naming it once is what makes the two
+            # halves of the seam agree.
             await deliver(
+                product_id=product_id,
                 result=row,
                 product=product,
                 step_name=step.name if step else None,
@@ -540,16 +549,40 @@ async def _note_repeat(
 
 
 def _stuck_step_message(
-    *, launch: Launch, step: StepDefinition, produced: str, product: Any
+    *,
+    launch: Launch,
+    step: StepDefinition,
+    produced: str,
+    product: Any,
+    unresolved_confirmer: str | None = None,
 ) -> str:
     named = getattr(product, "name", None) or getattr(product, "sku", None)
+    # `launch.product_id.value`, not the object: an identifier rendered as
+    # `ProductId(value='…')` is what `shared-vocabulary` forbids, and this
+    # message may be the first one a launch ever posts -- in which case the
+    # anchor it establishes carries that heading permanently, since a thread
+    # reference is established once and never re-created.
+    gap = ""
+    if unresolved_confirmer is not None:
+        # Named in the text, not only in the log, because this report falls
+        # back to the submitter and a reader must still be able to tell "this
+        # step names no confirmer" from "this step's confirmer could not be
+        # reached". That distinction is the whole reason the pending-result
+        # ask refuses the same fallback; keeping it here is what lets this
+        # message summon somebody without losing it.
+        gap = (
+            f"\n\nThis step names a confirmer ({unresolved_confirmer}) who "
+            f"could not be resolved to a Slack account, so the launch's "
+            f"submitter is tagged instead. Someone should correct the step's "
+            f"confirmer or the roster."
+        )
     return (
         f"An automated launch step has stopped making progress — "
         f"'{step.name}' ({step.identifier}) on "
-        f"{named or launch.product_id}. Its handler reported the same "
+        f"{named or launch.product_id.value}. Its handler reported the same "
         f"thing twice running, so it will not be asked again for a day. "
         f"It needs something a person can supply.\n\n"
-        f"What the handler produced:\n{produced}"
+        f"What the handler produced:\n{produced}{gap}"
     )
 
 
@@ -580,9 +613,6 @@ async def _report_stuck_step(
             launch.product_id,
         )
         return
-    message = _stuck_step_message(
-        launch=launch, step=step, produced=produced, product=product
-    )
     try:
         sku_value = ""
         marketplace_value = ""
@@ -593,10 +623,34 @@ async def _report_stuck_step(
             marketplace_value = marketplace.value if marketplace else ""
         thread_ts, mention = await establish_thread(
             launch.product_id,
-            product.name if product else str(launch.product_id),
+            product.name if product else launch.product_id.value,
             sku_value,
             marketplace_value,
             step=step,
+        )
+        # Where the step names a confirmer the roster could not resolve, this
+        # report tags the launch's submitter and says in its text that it did
+        # so -- the opposite of what the pending-result ask does on the very
+        # same condition, and deliberately.
+        #
+        # The ask's reason does not transfer: only a step's named, active
+        # confirmer may decide a pending result, so a fallback tag there
+        # summons someone whose decision is refused. Nothing governs who may
+        # act on a stuck step. This report exists "so that a person can supply
+        # what the handler is missing", so reaching nobody defeats its whole
+        # purpose, and an untagged report is a worse outcome than a tagged one
+        # naming the gap.
+        unresolved_confirmer = (
+            step.confirmer if step.confirmer and mention is None else None
+        )
+        if unresolved_confirmer is not None:
+            mention = launch.submitter
+        message = _stuck_step_message(
+            launch=launch,
+            step=step,
+            produced=produced,
+            product=product,
+            unresolved_confirmer=unresolved_confirmer,
         )
         mention_tag = f" <@{mention}>" if mention else ""
         await notifier.post_monitoring_message(

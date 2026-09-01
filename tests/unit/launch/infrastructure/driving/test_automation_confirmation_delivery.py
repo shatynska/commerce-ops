@@ -79,7 +79,9 @@ from commerce_ops.shared.domain.identity import ProductId, Sku
 
 pytestmark = pytest.mark.anyio
 
-PRODUCT_ID: Final = ProductId(str(uuid.uuid4()))
+STORED_UUID: Final = uuid.uuid4()
+#: What `_deliver_waiting` builds from the stored row and passes on.
+PRODUCT_ID: Final = ProductId(str(STORED_UUID))
 PRODUCT_NAME: Final = "Bamboo Cutting Board"
 PRODUCT_SKU: Final = Sku("BCB-2027-01")
 
@@ -126,7 +128,15 @@ class _CatalogProduct:
 
 @dataclass
 class _PendingRow:
-    product_id: ProductId = PRODUCT_ID
+    # A `uuid.UUID`, as `AutomatedStepResult.product_id` is
+    # (`Mapped[uuid.UUID]`) and as `undelivered()` hands back. This declared
+    # `ProductId` until `fix-launch-thread-mentions`, which is the single
+    # reason the suite was green while no pending result was ever delivered:
+    # `deliver_pending_result` demanded a `ProductId` off the row, the real
+    # store never supplies one, and this stub supplied the only form that
+    # satisfied the demand. The identifier now reaches the delivery as its
+    # own parameter, from the caller that already converts it.
+    product_id: uuid.UUID = STORED_UUID
     step_id: str = STEP_ID
     handler: str = HANDLER_NAME
     proposed_outcome: Any = Satisfied
@@ -243,6 +253,7 @@ async def _deliver(
     """INVENTED call shape — the single correction point."""
     entry = _delivery_callable()
     supplied: dict[str, Any] = {
+        "product_id": PRODUCT_ID,
         "result": row if row is not None else _PendingRow(),
         "product": product if product is not None else _CatalogProduct(),
         "step_name": STEP_NAME,

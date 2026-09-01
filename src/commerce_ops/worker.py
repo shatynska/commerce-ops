@@ -45,6 +45,7 @@ from commerce_ops.catalog.infrastructure.driven.product_repository import (
 )
 from commerce_ops.launch.application import read_launches
 from commerce_ops.launch.domain.launch_playbook import PlaybookNotReadyError
+from commerce_ops.launch.infrastructure.driven import launch_thread_delivery
 from commerce_ops.launch.infrastructure.driven.launch_repository import LaunchRepository
 from commerce_ops.launch.infrastructure.driven.playbook_repository import (
     PlaybookRepository,
@@ -169,6 +170,13 @@ clickup_sync_job.read_people = _RosterReader()
 # Same reason and same route as `read_product` above: reused rather than a
 # second instance, since both readers are stateless.
 gate_progression_job.read_people = clickup_sync_job.read_people
+
+# The pending-result ask and the stuck-step report both tag a step's named
+# confirmer, which is stored as the roster's own identifier and has to be
+# translated to a Slack identity before it can be mentioned. Both are posted
+# by this process's automation pass, so the same stateless reader is reused
+# once more.
+launch_thread_delivery.read_people = clickup_sync_job.read_people
 
 
 async def _read_launch_reports(*, as_of: date) -> tuple[LaunchReport, ...]:
