@@ -96,8 +96,7 @@ from commerce_ops.launch.domain.launch_playbook import (
 )
 from commerce_ops.shared.domain.result import Success
 from commerce_ops.step_handlers.listing.subcategory_advisor import (
-    Supported,
-    Unsupported,
+    AdvisorResponse,
 )
 
 PRODUCT_NAME: Final = "Bamboo Cutting Board with Juice Groove"
@@ -280,7 +279,7 @@ def _assert_withheld(proposal: Any) -> Any:
 
 
 def test_a_supported_choice_proposes_satisfaction() -> None:
-    proposal = _propose(Supported(ok=True, value=NODE, comment=COMMENT))
+    proposal = _propose(AdvisorResponse(ok=True, value=NODE, comment=COMMENT))
 
     assert _outcome_of(proposal) is Satisfied
     finding = _finding_of(proposal)
@@ -294,7 +293,7 @@ def test_a_supported_choice_proposes_satisfaction() -> None:
 
 
 def test_an_unsupported_choice_proposes_no_satisfaction() -> None:
-    proposal = _propose(Unsupported(ok=False, error=REFUSAL_ERROR_A))
+    proposal = _propose(AdvisorResponse(ok=False, error=REFUSAL_ERROR_A))
 
     outcome = _assert_withheld(proposal)
     reason = outcome.reason.lower()
@@ -313,8 +312,8 @@ def test_a_refusal_is_recognised_however_it_is_worded() -> None:
     support is read from the `ok` discriminant and never searched for in
     text.
     """
-    a = _propose(Unsupported(ok=False, error=REFUSAL_ERROR_A))
-    b = _propose(Unsupported(ok=False, error=REFUSAL_ERROR_B))
+    a = _propose(AdvisorResponse(ok=False, error=REFUSAL_ERROR_A))
+    b = _propose(AdvisorResponse(ok=False, error=REFUSAL_ERROR_B))
 
     _assert_withheld(a)
     _assert_withheld(b)
@@ -327,7 +326,7 @@ def test_a_refusal_is_recognised_however_it_is_worded() -> None:
 
 def test_the_recommendations_wording_does_not_establish_the_outcome() -> None:
     proposal = _propose(
-        Supported(ok=True, value=NODE, comment=ALTERNATIVE_CALLED_UNSUPPORTABLE)
+        AdvisorResponse(ok=True, value=NODE, comment=ALTERNATIVE_CALLED_UNSUPPORTABLE)
     )
 
     assert _outcome_of(proposal) is Satisfied, (
@@ -343,7 +342,9 @@ def test_the_recommendations_wording_does_not_establish_the_outcome() -> None:
 
 
 def test_a_verdict_contradicting_its_own_prose_withholds_satisfaction() -> None:
-    proposal = _propose(Supported(ok=True, value=NODE, comment=REFUSAL_IN_COMMENT))
+    proposal = _propose(
+        AdvisorResponse(ok=True, value=NODE, comment=REFUSAL_IN_COMMENT)
+    )
 
     _assert_withheld(proposal)
     assert _finding_of(proposal) is None
@@ -429,7 +430,9 @@ def test_an_unrecognised_verdict_reads_the_same_as_a_missing_one() -> None:
 
 
 def test_a_vetoed_verdict_names_the_contradiction() -> None:
-    proposal = _propose(Supported(ok=True, value=NODE, comment=REFUSAL_IN_COMMENT))
+    proposal = _propose(
+        AdvisorResponse(ok=True, value=NODE, comment=REFUSAL_IN_COMMENT)
+    )
     reason = _reason_of(proposal).lower()
 
     assert any(
@@ -448,10 +451,10 @@ def test_routes_1_2_and_3_carry_distinguishable_reasons() -> None:
     """
     shortfall = _reason_of(_propose(None))
     empty_comment_shortfall = _reason_of(
-        _propose(Supported(ok=True, value=NODE, comment=""))
+        _propose(AdvisorResponse(ok=True, value=NODE, comment=""))
     )
     contradiction = _reason_of(
-        _propose(Supported(ok=True, value=NODE, comment=REFUSAL_IN_COMMENT))
+        _propose(AdvisorResponse(ok=True, value=NODE, comment=REFUSAL_IN_COMMENT))
     )
 
     assert shortfall == empty_comment_shortfall, (
@@ -507,7 +510,7 @@ def test_an_unsupported_recommendation_still_says_so_in_prose() -> None:
     `propose()`'s rendered `result`, unlike the pre-change prompt-level
     test it supersedes.
     """
-    proposal = _propose(Unsupported(ok=False, error=REFUSAL_ERROR_A))
+    proposal = _propose(AdvisorResponse(ok=False, error=REFUSAL_ERROR_A))
     text = _text_of(proposal)
 
     # SPECIFIED: the error reaches the reader.

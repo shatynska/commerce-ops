@@ -47,7 +47,7 @@ from langchain_core.messages import AIMessage, BaseMessage
 from langchain_core.outputs import ChatResult
 
 import commerce_ops.step_handlers.listing.subcategory_advisor as advisor_graph
-from commerce_ops.step_handlers.listing.subcategory_advisor import Supported
+from commerce_ops.step_handlers.listing.subcategory_advisor import AdvisorResponse
 
 PRODUCT_NAME: Final = "Bamboo Cutting Board with Juice Groove"
 OTHER_PRODUCT_NAME: Final = "Stainless Steel Insulated Water Bottle, 750 ml"
@@ -145,8 +145,8 @@ def test_two_invocations_do_not_share_context() -> None:
     first product or its recommendation.
     """
     model = _SequencedStructuredChatModel(
-        Supported(ok=True, value=NODE, comment=COMMENT),
-        Supported(ok=True, value=OTHER_NODE, comment=OTHER_COMMENT),
+        AdvisorResponse(ok=True, value=NODE, comment=COMMENT),
+        AdvisorResponse(ok=True, value=OTHER_NODE, comment=OTHER_COMMENT),
     )
     graph = advisor_graph.build_graph(model)
 
@@ -174,8 +174,8 @@ def test_two_invocations_for_the_same_product_are_independent() -> None:
     different-product scenario and fail here.
     """
     model = _SequencedStructuredChatModel(
-        Supported(ok=True, value=NODE, comment=COMMENT),
-        Supported(ok=True, value=NODE, comment=COMMENT),
+        AdvisorResponse(ok=True, value=NODE, comment=COMMENT),
+        AdvisorResponse(ok=True, value=NODE, comment=COMMENT),
     )
     graph = advisor_graph.build_graph(model)
 

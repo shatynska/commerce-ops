@@ -72,8 +72,7 @@ import commerce_ops.step_handlers.listing.subcategory_advisor as advisor_graph
 from commerce_ops.launch.domain.launch_playbook import Blocked, Satisfied
 from commerce_ops.shared.domain.result import Success
 from commerce_ops.step_handlers.listing.subcategory_advisor import (
-    Supported,
-    Unsupported,
+    AdvisorResponse,
 )
 
 PRODUCT_NAME: Final = "Bamboo Cutting Board with Juice Groove"
@@ -203,7 +202,7 @@ def test_producing_a_recommendation_invokes_no_tools() -> None:
     the advisor's own code path binds no *executable* side-effecting tool
     to the model, whatever the structured-output plumbing does internally.
     """
-    proposal, model = _propose(Supported(ok=True, value=NODE, comment=COMMENT))
+    proposal, model = _propose(AdvisorResponse(ok=True, value=NODE, comment=COMMENT))
 
     assert _outcome_of(proposal) is Satisfied
     # SPECIFIED: nothing answered as a tool, nothing requested one, on the
@@ -227,7 +226,7 @@ def test_structured_output_is_not_a_tool_invocation() -> None:
     there is no code path in this capability that inspects "was structured
     output used" and treats it as a violation.
     """
-    proposal, model = _propose(Supported(ok=True, value=NODE, comment=COMMENT))
+    proposal, model = _propose(AdvisorResponse(ok=True, value=NODE, comment=COMMENT))
 
     # SPECIFIED: the structured-output seam was used, and using it is not
     # itself a fault — the proposal completed normally.
@@ -251,7 +250,7 @@ def test_a_supported_recommendation_carries_a_recordable_finding() -> None:
     THEN a typed finding whose value is exactly the proposed sub-category
     node is available alongside the rendered text.
     """
-    proposal, _ = _propose(Supported(ok=True, value=NODE, comment=COMMENT))
+    proposal, _ = _propose(AdvisorResponse(ok=True, value=NODE, comment=COMMENT))
 
     assert _outcome_of(proposal) is Satisfied
     finding = _finding_of(proposal)
@@ -266,7 +265,7 @@ def test_an_unsupported_recommendation_carries_no_finding() -> None:
     THEN no typed finding is made available — there is nothing supported
     to record.
     """
-    proposal, _ = _propose(Unsupported(ok=False, error="no confident answer"))
+    proposal, _ = _propose(AdvisorResponse(ok=False, error="no confident answer"))
 
     outcome = _outcome_of(proposal)
     assert isinstance(outcome, Blocked)
@@ -291,7 +290,7 @@ def test_only_the_findings_value_is_ever_written_to_the_product() -> None:
     alone, per `design.md`'s `SubCategoryRecorder` signature), asserted at
     the pass level in `test_automation_pass_finding.py`.
     """
-    proposal, _ = _propose(Supported(ok=True, value=NODE, comment=COMMENT))
+    proposal, _ = _propose(AdvisorResponse(ok=True, value=NODE, comment=COMMENT))
 
     finding = _finding_of(proposal)
     assert isinstance(finding, Success)

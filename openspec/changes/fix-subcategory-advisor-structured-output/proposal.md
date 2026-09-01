@@ -16,7 +16,7 @@ Observed on the prod host, not inferred: **76 failures in 24 hours, out of 76 in
 The cause is at `subcategory_advisor.py:257`:
 
 ```python
-AdvisorResult = Supported | Unsupported                                  # line 214
+AdvisorResult = Supported | Unsupported  # line 214
 structured = model.with_structured_output(cast(type, AdvisorResult), include_raw=True)
 ```
 
