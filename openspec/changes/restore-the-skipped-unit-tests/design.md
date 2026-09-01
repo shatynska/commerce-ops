@@ -333,12 +333,30 @@ Neither fires on this machine, which is exactly why "0 skipped" was mistaken
 for "no skips exist". Both are kept, and the rule is kept, because neither can
 fire where the rule is actually enforced: the commit-time gate runs inside a
 `pre-commit` hook, which runs inside a git checkout, and CI reaches the tier
-through `actions/checkout` — both of which guarantee `git`. Task 4.6 verifies
-that reasoning rather than resting on it, by stripping `git` from `PATH` and
-observing what the guard does. If it fires there, the guard gains a narrow,
-named allowance for that one test — written as an allowance for a *named test*,
-never a filename pattern, since a filename pattern is the mechanism this whole
-change exists to remove.
+through `actions/checkout` — both of which guarantee `git`.
+
+**Task 4.6 forced the case rather than resting on that reasoning, and the
+guard does fire.** Run with `git` stripped from `PATH`,
+`test_admin_assets_route.py`'s two skips trip the guard and fail the tier
+(exit 1, measured). An earlier form of this decision said the guard would then
+gain a narrow allowance naming that one test. **It does not, and that
+instruction was wrong:**
+
+- An allowance is a list, and a list is the mechanism that grew across five
+  commits into this defect. That it would be a list of *test names* rather
+  than *filenames* makes it smaller, not different in kind.
+- It buys nothing where the rule is enforced. Neither `pre-commit` nor CI can
+  produce this skip, so the allowance would protect only a hand-run on a
+  machine without `git` — while permanently costing the guard the property
+  that makes it legible, which is that it admits no exceptions at all.
+
+**The consequence is accepted and recorded instead:** a developer hand-running
+the commit-time tier with no `git` on `PATH` gets a tier-level failure naming
+two asset tests they cannot act on. The remedy is to put `git` on `PATH` —
+which every enforced path already guarantees — not to carve a hole in the
+guard. This is the one place the change was invited to admit an exception to
+its own rule and declined; a change about not quietly admitting exceptions
+should not open with one.
 
 The remaining cost is stated rather than discovered: a future
 genuinely-conditional skip in this tier becomes a deliberate act requiring the
@@ -395,10 +413,33 @@ unchanged — one deleted, one added.
 
 **It observes reports, not collection.** The skips being guarded against
 happen during *setup*, when an autouse fixture calls `pytest.skip` — not at
-collection, so `pytest_collection_modifyitems` cannot see them. The hook must
-read `TestReport`s. This is the same lesson `isolate-tests-from-the-shared-
-runner`'s Decision 1 recorded for its own guard, arrived at independently
-here: a guard placed where the condition is not observable passes vacuously.
+collection, so `pytest_collection_modifyitems` cannot see them. This is the
+same lesson `isolate-tests-from-the-shared-runner`'s Decision 1 recorded for
+its own guard, arrived at independently here: a guard placed where the
+condition is not observable passes vacuously.
+
+**And it must read two kinds of report, which a first draft of this decision
+missed.** Writing the guard's test surfaced a gap between this decision's goal
+and its mechanism, measured on pytest 9.1.1:
+
+| whole-file skip | what it emits | hook that sees it |
+|---|---|---|
+| `pytestmark = pytest.mark.skip` | one `TestReport` per test | `pytest_runtest_logreport` |
+| `pytest.skip(…, allow_module_level=True)` | **no `TestReport` at all** — only a `CollectReport` | `pytest_collectreport` |
+
+A guard reading `TestReport`s alone — which is what this decision first said,
+and only that — is blind to the second, while pytest's own summary still counts
+it as skipped. The tier could therefore lose an entire file to a one-line
+module-level skip and the guard would report the session clean: the precise
+outcome Goal 3 exists to prevent, reached by the one route the mechanism did
+not cover. Both hooks are read and merged. Verified on a synthetic two-file
+tree where each shape is caught by exactly one hook and neither hook catches
+both.
+
+That this was found by writing the guard's test, rather than by review or by
+this document's own reasoning, is worth recording: it is the argument for the
+test existing at all, against tasks 4.5-4.7's manual procedures, which would
+have exercised only the shape their author had in mind.
 
 ## Risks / Trade-offs
 

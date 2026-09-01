@@ -49,17 +49,25 @@ happening now.
 
 ## 2. `restore-the-skipped-unit-tests`
 
+**Implemented 2026-09-01; awaiting archive.** Delete this entry then, per this
+file's own rule.
+
 Two duplicated autouse fixtures skip seven whole files — 44 tests — under the
-reason *"Unit test requires database"*, which is false for 42 of them. Of the
-44: **18 pass untouched**, **24** fail only because
-`test_automation_pass_repeat_backoff.py`'s `_run_pass` (`:1146-1183`) was
-never told about the `establish_thread` argument, and **2** genuinely reach a
-database.
+reason *"Unit test requires database"*, which is false for **all** of them,
+not 42. The numbers first recorded here were measured before
+`fix-launch-thread-mentions` merged and three of them moved; as measured on
+the rebased tree, of the 44: **19 pass**, **24** fail on three distinct
+harness gaps in `test_automation_pass_repeat_backoff.py` (17 on the
+`establish_thread` argument `_run_pass` was never told about, 7 on the
+stuck-step report's channel and notifier shape), and **1** fails because
+`establish_thread_and_resolve_mention` opens its own `transaction()`.
+**None reaches a database.** The commit-time tier goes from 1979 passed /
+44 skipped to 2033 passed / 0 skipped, no assertion changed.
 
 **Second**, because every later change on this list is verified by this
 suite, and right now the whole of `launch-step-automation`'s backoff and
 stuck-step behaviour — and Slack request-signature verification, which is in
-the passing 18 — runs unchecked on every commit and in CI.
+the passing 19 — runs unchecked on every commit and in CI.
 
 ## 3. `inject-the-thread-anchor-poster`
 
@@ -71,7 +79,13 @@ reason. `import-linter` passes because its contracts govern edges inside
 `commerce_ops`, not third-party imports. Also moves anchor composition out of
 the four call sites that each assemble it from whatever they happen to hold.
 
-**Third**, because it retires the last 2 skips from #2 and removes the
+**Third**, and its stated reason has changed. It does **not** "retire the last
+2 skips from #2" — #2 left none to retire, and none of the 44 was
+database-bound in the first place. What it retires instead is the three seams
+#2 had to work around and could not remove, each now recorded in
+`docs/deferred-work.md` with what it costs a test: `launch_thread_delivery`'s
+own `transaction()`, `thread_establishment`'s `lru_cache`d `AsyncWebClient`,
+and `launches_channel`'s direct `os.environ` read. It still removes the
 *class* of defect that #1 patches instance by instance.
 
 ## 4. `await-the-subcategory-advisors-graph`
