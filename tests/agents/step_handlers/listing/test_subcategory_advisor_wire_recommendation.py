@@ -1,12 +1,12 @@
-"""The advisor's recommendation, as structured output
+"""The advisor's recommendation, re-derived against the wire shape
 (`subcategory-advisor`).
 
 Derived strictly from the delta spec of the change
-`write-the-advisors-finding-to-the-product`:
-`openspec/changes/write-the-advisors-finding-to-the-product/specs/subcategory-advisor/spec.md`
+`fix-subcategory-advisor-structured-output`:
+`openspec/changes/fix-subcategory-advisor-structured-output/specs/subcategory-advisor/spec.md`
 
-Covers, from the MODIFIED requirement *A recommendation is produced from
-the product's name and marketplace*, all six scenarios:
+Covers all six scenarios of the MODIFIED requirement *A recommendation is
+produced from the product's name and marketplace*:
 
 - A recommendation names node, demands and alternative
 - A recommendation is readable as it stands
@@ -15,54 +15,38 @@ the product's name and marketplace*, all six scenarios:
 - The marketplace reaching the model is the identifier
 - A refusal names the marketplace as a reader would recognise it
 
-Written fresh for this MODIFIED requirement, including the two scenarios
-whose *wording* carries over from the served spec (the first two) —
-because the *mechanism* underneath every one of them changed (structured
-output, not prose), and this pass's own instructions say to cover a
-MODIFIED requirement's scenarios "as revised, exactly as you would for
-ADDED". `test_subcategory_advisor_graph.py` and
-`test_subcategory_advisor_marketplace.py` are unedited and are recorded
-in `test-manifest.md` as candidates for superseded-test confirmation,
-since both drive the advisor with a plain-string-answering fake model that
-the new `model.with_structured_output(...)` seam cannot parse.
-
 See `test-manifest.md` at the change root for the full accounting.
 
-## Level
+## Why these are re-derived when the requirement changed for terminology
+## only
 
-`propose()` is the smallest unit that can observe the outcome/finding/
-rendered-text scenarios; the two marketplace scenarios need the real
-handler (`advise_sub_category`) over a product carrying a real
-`MarketplaceId`, mirroring `test_subcategory_advisor_marketplace.py`'s own
-reasoning for the same two scenarios pre-change.
+`proposal.md` records this requirement as MODIFIED "for terminology only"
+— "validates as supported" becomes "established as supported", and no
+behaviour changes. The scenarios are nevertheless re-derived here, because
+the *mechanism* every one of them runs through does change: each is
+observed by scripting the model's parsed response, and that response is
+the object this change re-types. The served file covering these six
+(`test_subcategory_advisor_structured_recommendation.py`) scripts domain
+variants and is recorded in `test-manifest.md` as a superseded candidate;
+it is left unedited.
 
-## What is fixed, and what is INVENTED
+The re-derived assertions are deliberately identical in substance to that
+file's, so an implementation satisfying one satisfies the other. What
+differs is the input: a wire instance built from the schema the call site
+actually passes.
 
-Fixed by `design.md` Decision 2 / `tasks.md` 5.1: the class names
-`Supported`/`Unsupported` on `commerce_ops.step_handlers.listing.subcategory_advisor`,
-each carrying `value`/`comment` or `error`/`comment` respectively, and the
-node calling `model.with_structured_output(AdvisorResult, include_raw=True)`.
+## What is INVENTED
 
-INVENTED, each recorded in `test-manifest.md`:
-
-- `_ScriptedStructuredChatModel` scripts the `with_structured_output(...)`
-  seam directly rather than `_generate`, since no artifact fixes *how* a
-  chat model is expected to answer that call for a fake. It records
-  whatever it is invoked with, so prompt-content assertions still work.
-- That `propose()`'s call shape (`product_name=`, `marketplace=`,
-  `graph=`) survives unchanged — `design.md`'s own stated reason for
-  keeping the `build_graph(model)` seam.
-- `advise_sub_category(context)` and the `_graph()` monkeypatch seam,
-  carried over from `test_subcategory_advisor_marketplace.py` unchanged.
-
-## Expected first-run state
-
-The advisor's module does not exist in this shape yet (`tasks.md` 5.1-5.6),
-so every test here is expected to fail on an absent target (`ImportError`).
-Per `ai-toolkit:testing` that establishes absence only.
+The fakes, `_Product`/`_Context`, the `_graph()` monkeypatch seam and the
+`RENDERING_FRAGMENTS`/`REASON_FRAGMENTS` lists are carried over unchanged
+from `test_subcategory_advisor_structured_recommendation.py`. Obtaining
+the wire schema from the call site rather than by name is this pass's
+own — no artifact fixes the wire model's name. All recorded in
+`test-manifest.md`.
 
 Baseline recorded before these tests were written:
-`uv run pytest tests/unit tests/agents` — 1689 passed, 0 failed.
+`uv run pytest tests/unit tests/agents` — 1824 passed, 44 skipped, 0
+failed.
 """
 
 from __future__ import annotations
@@ -81,9 +65,6 @@ from commerce_ops.launch.application import StepContext
 from commerce_ops.launch.domain.launch_playbook import Blocked, Satisfied
 from commerce_ops.shared.domain.identity import Asin, MarketplaceId, ProductId, Sku
 from commerce_ops.shared.domain.result import Success
-from commerce_ops.step_handlers.listing.subcategory_advisor import (
-    AdvisorResponse,
-)
 
 PRODUCT_NAME: Final = "Bamboo Cutting Board with Juice Groove"
 MARKETPLACE: Final = "ATVPDKIKX0DER"
@@ -97,6 +78,10 @@ COMMENT: Final = (
     "Decor > Decorative Trays — higher keyword volume, but it understates "
     "this product's compliance surface."
 )
+REFUSAL_ERROR: Final = "the category tree gave no confident answer for this product"
+
+RENDERING_FRAGMENTS: Final = ("MarketplaceId", "value=", f"'{MARKETPLACE}'")
+REASON_FRAGMENTS: Final = ("MarketplaceId", "value=")
 
 
 @pytest.fixture(scope="module")
@@ -121,19 +106,12 @@ def _flatten_text(value: Any) -> str:
     return str(value)
 
 
-class _ScriptedStructuredRunnable:
-    """What `model.with_structured_output(AdvisorResult, include_raw=True)`
-    returns — a runnable answering with the `raw`/`parsed`/`parsing_error`
-    shape `include_raw=True` produces, scripted rather than derived from a
-    real model call."""
-
+class _ScriptedWireRunnable:
     def __init__(self, outcome: Any) -> None:
         self._outcome = outcome
         self.received: list[Any] = []
 
     def _answer(self) -> dict[str, Any]:
-        if isinstance(self._outcome, Exception):
-            raise self._outcome
         if self._outcome is None:
             return {
                 "raw": AIMessage(content="not a recognisable verdict"),
@@ -155,21 +133,15 @@ class _ScriptedStructuredRunnable:
         return self._answer()
 
 
-class _ScriptedStructuredChatModel(BaseChatModel):
-    """A chat model whose structured-output seam is scripted directly.
-
-    `_generate` raises rather than answering, so a node that bypasses
-    `with_structured_output(...)` and reads the model's plain response
-    fails loudly instead of silently passing against the old mechanism.
-    `bind_tools` raises too, mirroring the existing no-tools guard.
-    """
-
+class _ScriptedWireChatModel(BaseChatModel):
     outcome: ClassVar[Any] = None
-    runnable: ClassVar[_ScriptedStructuredRunnable | None]
+    schemas: ClassVar[list[Any]]
+    runnable: ClassVar[_ScriptedWireRunnable | None]
 
-    def __init__(self, outcome: Any) -> None:
+    def __init__(self, outcome: Any = None) -> None:
         super().__init__()
         object.__setattr__(self, "outcome", outcome)
+        object.__setattr__(self, "schemas", [])
         object.__setattr__(self, "runnable", None)
 
     def _generate(
@@ -193,15 +165,14 @@ class _ScriptedStructuredChatModel(BaseChatModel):
     def with_structured_output(
         self, schema: Any, *, include_raw: bool = False, **kwargs: Any
     ) -> Any:
-        object.__setattr__(self, "requested_schema", schema)
-        object.__setattr__(self, "requested_include_raw", include_raw)
-        runnable = _ScriptedStructuredRunnable(self.outcome)
+        self.schemas.append(schema)
+        runnable = _ScriptedWireRunnable(self.outcome)
         object.__setattr__(self, "runnable", runnable)
         return runnable
 
     @property
     def _llm_type(self) -> str:
-        return "scripted-structured-fake-chat-model"
+        return "scripted-wire-fake-chat-model"
 
     @property
     def prompt(self) -> str:
@@ -211,8 +182,58 @@ class _ScriptedStructuredChatModel(BaseChatModel):
 
 
 # ---------------------------------------------------------------------------
-# `propose()` — the level for the outcome/finding/rendered-text scenarios
+# The wire schema, obtained from the call site rather than by name
 # ---------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def wire_schema() -> Any:
+    model = _ScriptedWireChatModel(None)
+    graph = advisor_graph.build_graph(model)
+    if not model.schemas:
+        try:
+            advisor_graph.propose(
+                product_name=PRODUCT_NAME, marketplace=MARKETPLACE, graph=graph
+            )
+        except Exception as failure:
+            if not model.schemas:
+                raise AssertionError(
+                    "the advisor never reached its structured-output call "
+                    f"site, so no wire schema could be captured: {failure!r}"
+                ) from failure
+    assert model.schemas, "the advisor never called `with_structured_output(...)`"
+    return model.schemas[0]
+
+
+def _wire(
+    schema: Any, *, ok: bool, value: str | None, error: str | None, comment: str | None
+) -> Any:
+    try:
+        return schema(ok=ok, value=value, error=error, comment=comment)
+    except Exception as failure:  # noqa: BLE001 - reported as a spec failure
+        pytest.fail(
+            "the wire schema cannot express "
+            f"ok={ok!r} value={value!r} error={error!r} comment={comment!r}: "
+            f"{failure!r}"
+        )
+
+
+def _propose(
+    schema: Any,
+    *,
+    ok: bool,
+    value: str | None,
+    error: str | None,
+    comment: str | None = COMMENT,
+) -> tuple[Any, _ScriptedWireChatModel]:
+    model = _ScriptedWireChatModel(
+        _wire(schema, ok=ok, value=value, error=error, comment=comment)
+    )
+    graph = advisor_graph.build_graph(model)
+    proposal = advisor_graph.propose(
+        product_name=PRODUCT_NAME, marketplace=MARKETPLACE, graph=graph
+    )
+    return proposal, model
 
 
 def _outcome_of(proposal: Any) -> Any:
@@ -238,35 +259,27 @@ def _finding_of(proposal: Any) -> Any:
     return getattr(proposal, "finding", _ABSENT)
 
 
-def _propose(outcome: Any, *, product_name: str = PRODUCT_NAME) -> Any:
-    model = _ScriptedStructuredChatModel(outcome)
-    graph = advisor_graph.build_graph(model)
-    return advisor_graph.propose(
-        product_name=product_name, marketplace=MARKETPLACE, graph=graph
-    ), model
-
-
 # ---------------------------------------------------------------------------
 # Scenario: A recommendation names node, demands and alternative
 # ---------------------------------------------------------------------------
 
 
-def test_a_recommendation_names_node_demands_and_alternative() -> None:
-    """Scenario: A recommendation names node, demands and alternative.
-
-    WHEN the advisor is given a product name and a marketplace identifier
-    it can support a node choice for
-    THEN it returns a structured recommendation whose value is the
-    proposed node as a full path, and whose comment states the compliance
-    fields and certifications that node demands and a rejected alternative
-    node with the reason it was rejected.
+def test_a_recommendation_names_node_demands_and_alternative(
+    wire_schema: Any,
+) -> None:
+    """WHEN the advisor is given a product name and a marketplace
+    identifier it can support a node choice for THEN it returns a
+    structured recommendation whose value is the proposed node as a full
+    path, and whose comment states the compliance fields and
+    certifications that node demands and a rejected alternative node with
+    the reason it was rejected.
 
     Under a scripted model the *content* of the answer is whatever the
     script says; what this establishes is that the advisor still asks for
     all three parts, and that a supported response's rendered text carries
     the node and the comment whole.
     """
-    proposal, model = _propose(AdvisorResponse(ok=True, value=NODE, comment=COMMENT))
+    proposal, model = _propose(wire_schema, ok=True, value=NODE, error=None)
 
     # SPECIFIED: both inputs reach the model.
     assert model.prompt, "the advisor invoked no model"
@@ -292,21 +305,17 @@ def test_a_recommendation_names_node_demands_and_alternative() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_a_recommendation_is_readable_as_it_stands() -> None:
-    """Scenario: A recommendation is readable as it stands.
-
-    WHEN a recommendation is returned
-    THEN the rendered text is readable by a person without further
-    processing, since it is delivered to a person for a decision and
-    stored as the evidence of what was decided.
+def test_a_recommendation_is_readable_as_it_stands(wire_schema: Any) -> None:
+    """WHEN a recommendation is returned THEN the rendered text is
+    readable by a person without further processing.
     """
-    proposal, _ = _propose(AdvisorResponse(ok=True, value=NODE, comment=COMMENT))
+    proposal, _ = _propose(wire_schema, ok=True, value=NODE, error=None)
 
     text = _text_of(proposal)
     assert isinstance(text, str)
     assert text.strip()
-    # SPECIFIED: readable as it stands — the value and comment reach the
-    # reader whole, not summarised or re-encoded.
+    # SPECIFIED: the value and comment reach the reader whole, not
+    # summarised or re-encoded.
     assert NODE in text
     for line in COMMENT.splitlines():
         assert line.strip() in text
@@ -320,23 +329,28 @@ def test_a_recommendation_is_readable_as_it_stands() -> None:
 @pytest.mark.parametrize(
     "comment", [pytest.param("", id="empty-string"), pytest.param(None, id="none")]
 )
-def test_a_supported_comment_cannot_be_empty(comment: str | None) -> None:
-    """Scenario: A supported comment cannot be empty.
+def test_a_supported_comment_cannot_be_empty(
+    wire_schema: Any, comment: str | None
+) -> None:
+    """WHEN the advisor's structured response is established as supported
+    but its comment is empty THEN the advisor proposes a non-terminal
+    outcome instead, exactly as it would for an unreadable verdict.
 
-    WHEN the advisor's structured response validates as supported but its
-    comment is empty
-    THEN the advisor proposes a non-terminal outcome instead, exactly as
-    it would for an unreadable verdict — a supported result with no
-    comment is not a valid recommendation for this step.
+    "Established as supported" is the revised phrasing, and it is what
+    this case pins: `ok: true`, a non-blank value and a **blank error**
+    together. With a non-blank error the response would never be
+    established as supported at all, and would take the contradiction
+    route — a different scenario, covered in
+    `test_subcategory_advisor_wire_conversion.py`.
     """
-    proposal, _ = _propose(AdvisorResponse(ok=True, value=NODE, comment=comment))
+    proposal, _ = _propose(
+        wire_schema, ok=True, value=NODE, error=None, comment=comment
+    )
 
-    # SPECIFIED: a non-terminal outcome, not the satisfying one.
     outcome = _outcome_of(proposal)
     assert outcome is not Satisfied
     # DERIVED: `Blocked` specifically — the only non-terminal outcome that
-    # can carry the reason every withheld path here must carry
-    # (`tasks.md` 5.5-5.6 groups this with "no verdict could be read").
+    # can carry the reason this route must record.
     assert isinstance(outcome, Blocked), f"expected Blocked, got {outcome!r}"
     # SPECIFIED: no finding — "there is nothing supported to record".
     assert _finding_of(proposal) is None
@@ -347,27 +361,23 @@ def test_a_supported_comment_cannot_be_empty(comment: str | None) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_a_comments_content_is_never_checked_by_code() -> None:
-    """Scenario: A comment's content is never checked by code.
-
-    WHEN the advisor's structured response validates as supported with a
-    non-empty comment
-    THEN the advisor proposes the satisfying outcome whatever the
-    comment's content is — including a comment that, in fact, omits the
-    compliance demands or the rejected alternative the prompt asked for,
-    since detecting that omission would require parsing prose content,
-    which this capability does not do.
+def test_a_comments_content_is_never_checked_by_code(wire_schema: Any) -> None:
+    """WHEN the advisor's structured response is established as supported
+    with a non-empty comment THEN the advisor proposes the satisfying
+    outcome whatever the comment's content is — including a comment that
+    omits the compliance demands or the rejected alternative the prompt
+    asked for.
     """
     bare_comment = "ok, ship it"
-    proposal, _ = _propose(AdvisorResponse(ok=True, value=NODE, comment=bare_comment))
+    proposal, _ = _propose(
+        wire_schema, ok=True, value=NODE, error=None, comment=bare_comment
+    )
 
-    # SPECIFIED: the satisfying outcome, whatever the comment says.
     assert _outcome_of(proposal) is Satisfied
     finding = _finding_of(proposal)
     assert isinstance(finding, Success)
     assert finding.value == NODE
-    text = _text_of(proposal)
-    assert bare_comment in text
+    assert bare_comment in _text_of(proposal)
 
 
 # ---------------------------------------------------------------------------
@@ -395,12 +405,8 @@ class _Context:
         self.as_of = datetime.now(UTC)
 
 
-RENDERING_FRAGMENTS: Final = ("MarketplaceId", "value=", f"'{MARKETPLACE}'")
-REASON_FRAGMENTS: Final = ("MarketplaceId", "value=")
-
-
 async def _resolve(outcome: Any, monkeypatch: pytest.MonkeyPatch) -> tuple[Any, str]:
-    model = _ScriptedStructuredChatModel(outcome)
+    model = _ScriptedWireChatModel(outcome)
     graph = advisor_graph.build_graph(model)
     monkeypatch.setattr(advisor_graph, "_graph", lambda: graph)
     context = cast(StepContext, _Context(_Product()))
@@ -418,19 +424,16 @@ def _reason_of(outcome: Any) -> str:
 
 @pytest.mark.anyio
 async def test_the_marketplace_reaching_the_model_is_the_identifier(
-    monkeypatch: pytest.MonkeyPatch,
+    wire_schema: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Scenario: The marketplace reaching the model is the identifier.
-
-    WHEN the advisor resolves a step for a product whose marketplace is
-    carried as a value object
-    THEN the marketplace the model is asked about is that object's
-    identifier, and carries nothing else of the object's rendering —
-    neither its type name, nor its field name, nor the quoting around its
-    value.
+    """WHEN the advisor resolves a step for a product whose marketplace is
+    carried as a value object THEN the marketplace the model is asked
+    about is that object's identifier, and carries nothing else of the
+    object's rendering.
     """
     _, prompt = await _resolve(
-        AdvisorResponse(ok=True, value=NODE, comment=COMMENT), monkeypatch
+        _wire(wire_schema, ok=True, value=NODE, error=None, comment=COMMENT),
+        monkeypatch,
     )
 
     assert prompt, "the model was never asked anything"
@@ -444,18 +447,14 @@ async def test_the_marketplace_reaching_the_model_is_the_identifier(
 
 @pytest.mark.anyio
 async def test_a_refusal_names_the_marketplace_as_a_reader_would_recognise_it(
-    monkeypatch: pytest.MonkeyPatch,
+    wire_schema: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Scenario: A refusal names the marketplace as a reader would
-    recognise it.
-
-    WHEN the advisor cannot support a node choice and states the
-    marketplace in its reason
-    THEN that reason names the identifier, not a rendering of the object
-    carrying it.
+    """WHEN the advisor cannot support a node choice and states the
+    marketplace in its reason THEN that reason names the identifier, not a
+    rendering of the object carrying it.
     """
     resolution, _ = await _resolve(
-        AdvisorResponse(ok=False, error="the category tree gave no confident answer"),
+        _wire(wire_schema, ok=False, value=None, error=REFUSAL_ERROR, comment=None),
         monkeypatch,
     )
     reason = _reason_of(resolution.outcome)
@@ -476,4 +475,6 @@ async def test_a_refusal_names_the_marketplace_as_a_reader_would_recognise_it(
 # - Whether a proposed browse node is a real Amazon node, or the right
 #   one. No deterministic test can establish it, and the spec does not
 #   claim it.
+# - Whether the finding also carries the comment. The served requirement
+#   makes that a MAY, so pinning it would invent a constraint.
 # ---------------------------------------------------------------------------
