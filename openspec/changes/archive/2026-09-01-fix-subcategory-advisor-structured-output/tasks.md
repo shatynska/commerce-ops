@@ -48,4 +48,4 @@ A green suite cannot establish this fix, since a green suite is what shipped the
 ## 5. Archive
 
 - [x] 5.1 `openspec validate fix-subcategory-advisor-structured-output --strict` passes.
-- [ ] 5.2 `openspec archive fix-subcategory-advisor-structured-output --yes` as the last commit before the merge, per `AGENTS.md`.
+- [x] 5.2 `openspec archive fix-subcategory-advisor-structured-output --yes` as the last commit before the merge, per `AGENTS.md`.
