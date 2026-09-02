@@ -86,7 +86,7 @@ __all__ = [
     "establish_thread_and_resolve_mention",
     "launches_channel",
     "post_monitoring_message",
-    "read_people",
+    "read_members",
     "read_product",
     "register_catalog_product",
     "reset_handler_cache",
@@ -160,11 +160,11 @@ register_catalog_product: CatalogRegistrar | None = None
 # The eager-convergence call below (`trigger-clickup-projection-on-launch-
 # events`) needs the same two readers `clickup_sync_job.py` injects for the
 # periodic pass — `converge_launch` requires `read_product`, with no
-# default, to name the launch's ClickUp list; `roster` is optional. Injected
+# default, to name the launch's ClickUp list; `members` is optional. Injected
 # by `main.py`, this process's own composition root, not shared with the
 # worker's.
 read_product: Any = None
-read_people: Any = None
+read_members: Any = None
 
 
 def _launch_folder_id() -> str | None:
@@ -563,11 +563,15 @@ def _get_handler() -> AsyncSlackRequestHandler:
 
         # Establish thread and post confirmation reply
         try:
+            # The submission's own values are given up here, and they were
+            # the one call site that could not fail to supply them. That is
+            # the trade: the anchor must not depend on which of four paths
+            # establishes it, so all four now name only the product. The
+            # read that replaces them reads a row committed moments earlier
+            # by `_register_and_start`, in this same process; where it
+            # nonetheless fails, the direct message below is what happens.
             thread_ts, mention = await establish_thread_and_resolve_mention(
                 product_id,
-                submission.name,
-                submission.sku.value,
-                submission.marketplace_id.value,
                 step=None,
             )
             mention_tag = f"<@{mention}> " if mention else ""
@@ -577,9 +581,34 @@ def _get_handler() -> AsyncSlackRequestHandler:
                 thread_ts=thread_ts,
             )
         except Exception:
-            # Log but don't fail: confirmation delivery failure after ack is handled
-            # separately, and thread establishment failure means thread wasn't needed
+            # The thread is the specified delivery; this is what happens when
+            # it fails, not an alternative to it.
+            #
+            # This block used to log and continue, reasoning that "thread
+            # establishment failure means thread wasn't needed". That does not
+            # follow: the thread was needed precisely in order to say the
+            # launch started. A DB blip, a Slack 5xx or an absent
+            # `PRODUCT_AGENT_LAUNCHES_CHANNEL_ID` left the product registered,
+            # the launch persisted, and the submitting user told nothing at
+            # all -- while a *failed* start still reached them directly, so a
+            # launch that failed was reported and one that succeeded might not
+            # be.
             logger.exception("could not post confirmation to thread")
+            try:
+                # The same text the thread reply would have carried, by the
+                # same direct message `_failure_text` already uses. Not
+                # reworded to mention the missing thread: the submitter needs
+                # to know the launch started, and Slack plumbing they can do
+                # nothing about is noise on the one message that has to land.
+                await _post(client, submitter, _confirmation_text(submission))
+            except Exception:
+                # There is no third channel, and the launch stands regardless
+                # -- the registration is committed and the eager projection
+                # below is guarded independently of this block.
+                logger.exception(
+                    "could not confirm the started launch to its submitter by "
+                    "any route; the launch is persisted and unreported"
+                )
 
         # Eager, single-launch projection (`trigger-clickup-projection-on-
         # launch-events`): the newly started launch's first released steps
@@ -605,7 +634,7 @@ def _get_handler() -> AsyncSlackRequestHandler:
                     clickup=clickup,
                     mapping=ClickUpMappingRepository(db_session),
                     read_product=_read_product_or_fail,
-                    roster=read_people,
+                    members=read_members,
                     folder_id=_launch_folder_id(),
                 )
         except PlaybookNotReadyError as unready:

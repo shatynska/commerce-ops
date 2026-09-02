@@ -61,7 +61,7 @@ CONFIRMATION_GATES: Final = frozenset(
     {"commit", "order", "phase-one-complete", "graduated"}
 )
 
-PERSON_A: Final = "prs_01HQ8Z6M4A"
+MEMBER_A: Final = "prs_01HQ8Z6M4A"
 
 
 def _any_discipline() -> Discipline:
@@ -221,7 +221,7 @@ def test_the_removed_fields_are_gone_from_the_step() -> None:
     lesson-cannot-block rule free to come back — which is the state this
     change removes rather than deprecates.
     """
-    step = _step(assignees=(PERSON_A,))
+    step = _step(assignees=(MEMBER_A,))
 
     assert not hasattr(step, "binding")
     assert not hasattr(step, "execution")

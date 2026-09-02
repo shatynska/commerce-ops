@@ -66,7 +66,9 @@ MODULE_PATH: Final = (
     "commerce_ops.launch.infrastructure.driving.automation_confirmation"
 )
 
-PRODUCT_ID: Final = ProductId(str(uuid.uuid4()))
+STORED_UUID: Final = uuid.uuid4()
+#: What `_deliver_waiting` builds from the stored row and passes on.
+PRODUCT_ID: Final = ProductId(str(STORED_UUID))
 PRODUCT_NAME: Final = "Bamboo Cutting Board"
 PRODUCT_SKU: Final = Sku("BCB-2027-01")
 
@@ -74,7 +76,16 @@ STEP_ID: Final = "listing.sub-category"
 STEP_NAME: Final = "Choose the sub-category node"
 HANDLER_NAME: Final = "listing.subcategory_advisor"
 
-CONFIRMER_ID: Final = "U0CONFIRMER"
+#: What a step's `confirmer` actually holds: the membership's own generated
+#: identifier (`str(uuid.uuid4())`), which Slack cannot resolve. This file
+#: used to spell it `CONFIRMER_ID = "U0CONFIRMER"` and assert that value
+#: appeared in the message -- an assertion satisfied by carrying the membership
+#: identifier straight into `<@…>`, which is exactly what shipped and
+#: notified nobody. The Slack-shaped constant is what disguised it.
+CONFIRMER_MEMBER_ID: Final = "3f7c1a92-6b0e-4c7a-9d51-1e8a4b2c9f30"
+#: What the membership resolves that identifier to, and the only form a mention
+#: may carry.
+CONFIRMER_SLACK: Final = "U0CONFIRMER"
 SUBMITTER_ID: Final = "U0SUBMITTER"
 
 PRODUCED_AT: Final = datetime(2027, 1, 6, 9, 30, tzinfo=UTC)
@@ -119,13 +130,18 @@ class _CatalogProduct:
 @dataclass
 class _StepWithConfirmer:
     id: str = STEP_ID
+    identifier: str = STEP_ID
     name: str = STEP_NAME
-    confirmer: str | None = CONFIRMER_ID
+    confirmer: str | None = CONFIRMER_MEMBER_ID
 
 
 @dataclass
 class _PendingRow:
-    product_id: ProductId = PRODUCT_ID
+    # A `uuid.UUID`, matching `AutomatedStepResult.product_id` and what
+    # `undelivered()` hands back. Declaring `ProductId` here supplied the one
+    # form that satisfied a guard the real store never satisfied, which is why
+    # this file stayed green while no pending result was ever delivered.
+    product_id: uuid.UUID = STORED_UUID
     step_id: str = STEP_ID
     handler: str = HANDLER_NAME
     proposed_outcome: Any = Satisfied
@@ -193,7 +209,12 @@ def _install_thread_establishment(
     async def _fake(*args: Any, **kwargs: Any) -> tuple[str, str | None]:
         calls.append(kwargs)
         step = kwargs.get("step")
-        mention = getattr(step, "confirmer", None) or SUBMITTER_ID
+        # Stands in for the real collaborator, which resolves a step's
+        # confirmer *through the membership* to that member's Slack identity.
+        # This used to return `step.confirmer` unchanged -- reproducing the
+        # defect inside the double, so the assertion downstream could never
+        # catch it.
+        mention = CONFIRMER_SLACK if getattr(step, "confirmer", None) else SUBMITTER_ID
         return SLACK_THREAD_TS, mention
 
     for name in _THREAD_NAMES:
@@ -221,7 +242,12 @@ async def test_pending_result_goes_to_launches_channel(
     poster = _install_poster(monkeypatch, _CapturingPoster())
 
     entry = _module().deliver_pending_result
-    await entry(result=_PendingRow(), product=_CatalogProduct(), step_name=STEP_NAME)
+    await entry(
+        product_id=PRODUCT_ID,
+        result=_PendingRow(),
+        product=_CatalogProduct(),
+        step_name=STEP_NAME,
+    )
 
     assert poster.calls, "no Slack message was delivered for the pending result"
     assert poster.calls[0].get("channel") == LAUNCHES_CHANNEL_ID, (
@@ -248,15 +274,26 @@ async def test_pending_result_tags_confirmer(monkeypatch: pytest.MonkeyPatch) ->
     step = _StepWithConfirmer()
     entry = _module().deliver_pending_result
     await entry(
-        result=_PendingRow(), product=_CatalogProduct(), step_name=STEP_NAME, step=step
+        product_id=PRODUCT_ID,
+        result=_PendingRow(),
+        product=_CatalogProduct(),
+        step_name=STEP_NAME,
+        step=step,
     )
 
     assert calls and calls[0].get("step") is step, (
         "deliver_pending_result did not thread the pending result's own "
         f"step through to mention resolution: {calls!r}"
     )
-    assert f"<@{CONFIRMER_ID}>" in poster.rendered, (
+    assert f"<@{CONFIRMER_SLACK}>" in poster.rendered, (
         f"the pending result did not tag the step's confirmer: {poster.rendered!r}"
+    )
+    # The half this file previously could not state: the membership's own
+    # identifier must appear nowhere. Slack renders it as inert literal text,
+    # so a message carrying it satisfies "tags the confirmer" while notifying
+    # nobody -- which is precisely what shipped.
+    assert CONFIRMER_MEMBER_ID not in poster.rendered, (
+        f"the member identifier reached the message: {poster.rendered!r}"
     )
 
 
@@ -276,7 +313,11 @@ async def test_pending_result_with_no_confirmer_still_threads_the_step(
     step = _StepWithConfirmer(confirmer=None)
     entry = _module().deliver_pending_result
     await entry(
-        result=_PendingRow(), product=_CatalogProduct(), step_name=STEP_NAME, step=step
+        product_id=PRODUCT_ID,
+        result=_PendingRow(),
+        product=_CatalogProduct(),
+        step_name=STEP_NAME,
+        step=step,
     )
 
     assert calls and calls[0].get("step") is step, (
@@ -300,7 +341,12 @@ async def test_pending_result_is_thread_reply(monkeypatch: pytest.MonkeyPatch) -
     poster = _install_poster(monkeypatch, _CapturingPoster())
 
     entry = _module().deliver_pending_result
-    await entry(result=_PendingRow(), product=_CatalogProduct(), step_name=STEP_NAME)
+    await entry(
+        product_id=PRODUCT_ID,
+        result=_PendingRow(),
+        product=_CatalogProduct(),
+        step_name=STEP_NAME,
+    )
 
     assert poster.calls, "no Slack message was delivered for the pending result"
     assert poster.calls[0].get("thread_ts") == SLACK_THREAD_TS, (

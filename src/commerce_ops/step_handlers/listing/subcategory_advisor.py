@@ -14,7 +14,7 @@ live model calls" requires.
 
 **The advisor proposes; it never decides.** Where it can support a node
 choice it proposes the step's satisfying outcome together with the
-recommendation, which a person then accepts or rejects. Where it cannot,
+recommendation, which a member then accepts or rejects. Where it cannot,
 it proposes a **non-terminal** outcome carrying that as its reason — never
 a satisfying one with a disclaimer buried in the text. The difference is
 load-bearing: under `launch-step-automation` a terminal proposal is held
@@ -35,7 +35,7 @@ actually *contains* the compliance demands and rejected alternative it was
 prompted for is never checked — only that it is non-empty. A model or
 transport failure, and a response that fails schema validation against
 both variants, both surface rather than being masked: a masked failure
-here would not merely return a poor answer — it would reach a person as a
+here would not merely return a poor answer — it would reach a member as a
 recommendation to accept and become the evidence for a
 compliance-relevant decision.
 
@@ -79,9 +79,9 @@ from __future__ import annotations
 import functools
 import re
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Literal, TypedDict, cast
+from typing import TYPE_CHECKING, Any, Literal, TypedDict
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from commerce_ops.launch.application import (
     Blocked,
@@ -97,8 +97,10 @@ if TYPE_CHECKING:
 
 __all__ = [
     "HANDLER_NAME",
+    "AdvisorResponse",
     "AdvisorResult",
     "AdvisorState",
+    "Contradiction",
     "Proposal",
     "Supported",
     "Unsupported",
@@ -160,12 +162,22 @@ def _no_verdict_reason(product_name: str, marketplace: str) -> str:
     return _NO_VERDICT_REASON.format(product_name=product_name, marketplace=marketplace)
 
 
-def _contradiction_reason(product_name: str, marketplace: str) -> str:
+def _contradiction_reason(
+    product_name: str, marketplace: str, *, withheld_by: str
+) -> str:
+    """A supporting verdict its own response contradicts.
+
+    `withheld_by` names the field that did the contradicting — `comment`
+    or `error`. It is a parameter rather than fixed prose because an
+    error-based contradiction may carry no comment at all, and a reason
+    blaming a field the response never had would not name what was
+    actually wrong.
+    """
     return (
         "the sub-category advisor reported a supporting verdict that its "
-        "own comment contradicts, so the verdict and the comment disagree "
-        f"and no node choice was accepted for '{product_name}' on "
-        f"'{marketplace}'"
+        f"own {withheld_by} contradicts, so the verdict and the "
+        f"{withheld_by} disagree and no node choice was accepted for "
+        f"'{product_name}' on '{marketplace}'"
     )
 
 
@@ -185,6 +197,27 @@ def _render_unsupported(error: str, comment: str | None) -> str:
 
 def _render_supported(value: str, comment: str) -> str:
     return f"{value}\n\n{comment}"
+
+
+def _render_contradiction(value: str | None, error: str, comment: str | None) -> str:
+    """What a reader sees for a response that reported support and a
+    refusal at once.
+
+    The error leads, and is never omitted: this is the text delivered to
+    Slack and stored as evidence, and an error-based contradiction may
+    carry no comment, so rendering it the way a supported result is
+    rendered would show a reader a bare node path with nothing in it to
+    say support was withheld.
+    """
+    text = (
+        "The sub-category advisor reported a node choice and, in the same "
+        f"response, why it could not support one: {error}."
+    )
+    if value and value.strip():
+        text = f"{text}\n\nThe node it named was: {value}"
+    if comment:
+        text = f"{text}\n\n{comment}"
+    return text
 
 
 class Supported(BaseModel):
@@ -214,16 +247,146 @@ class Unsupported(BaseModel):
 AdvisorResult = Supported | Unsupported
 
 
+@dataclass(frozen=True, slots=True)
+class Contradiction:
+    """A response that reported support and, in the same breath, why it
+    could not support a choice.
+
+    Not one of the two reported variants: it is neither a node choice to
+    weigh nor a classification considered and declined, and recording it
+    as either misstates what happened. `error` is what the model said was
+    wrong, and it is what the reader must be shown — see
+    `_render_contradiction`.
+    """
+
+    error: str
+    value: str | None = None
+    comment: str | None = None
+
+
+# The shape the model is asked to answer in -- the *wire* schema.
+#
+# **This class's docstring is not documentation: it is sent to the model.**
+# Pydantic puts it in the generated schema's `description`, so it is paid
+# for on every call and read by the model as instruction. The reasoning
+# below therefore lives in this comment, and the docstring says only what
+# the model needs.
+#
+# Deliberately flat, and deliberately not `Supported | Unsupported`. A
+# top-level union is not a shape `langchain_openai`'s adapter accepts: it
+# hands the schema to `convert_to_openai_function`, whose contract is a
+# dict, a `BaseModel` subclass or a callable, so a union raises
+# `ValueError: Unsupported function` before the model is ever called --
+# which is exactly what made `lp.listing.007` inert in production.
+#
+# A `BaseModel` wrapping a discriminated union is accepted by that
+# conversion and is still the wrong answer: pydantic emits a `oneOf` for a
+# tagged union, and OpenAI's strict structured outputs accept only
+# `anyOf`, so it would pass every check runnable offline and fail at the
+# API instead. This shape emits a plain object with nullable string
+# properties and no such construct anywhere.
+#
+# The cost of flatness is that it can express states the reported variants
+# forbid -- support with no value, support carrying an error. That cost is
+# paid once, in `_from_wire`, which defines a destination for every
+# combination rather than only the well-behaved ones. The field
+# descriptions are the other half: the union coupled its fields
+# structurally, and a flat shape has to say in the schema what the union
+# said in its shape, or the model fills them inconsistently and every
+# inconsistent response routes to "no verdict could be read".
+class AdvisorResponse(BaseModel):
+    """Where an Amazon product listing belongs, or why that cannot be said."""
+
+    ok: bool = Field(
+        description=(
+            "True if you can support a sub-category node choice for this "
+            "product and marketplace; False if you cannot."
+        )
+    )
+    value: str | None = Field(
+        default=None,
+        description=(
+            "The sub-category node you propose, as the full path from the "
+            "top-level category down. Required when ok is true; leave null "
+            "when ok is false."
+        ),
+    )
+    error: str | None = Field(
+        default=None,
+        description=(
+            "Why you cannot support a node choice. Required when ok is "
+            "false; leave null when ok is true. Do not use it to qualify a "
+            "node you are proposing — a response that both names a node "
+            "and states why none can be named is treated as a "
+            "contradiction and no node is recorded."
+        ),
+    )
+    comment: str | None = Field(
+        default=None,
+        description=(
+            "Everything else the reader needs: the compliance fields and "
+            "certifications the proposed node demands, and the "
+            "alternative node most plausibly chosen instead, with why "
+            "this one was preferred. Required when ok is true."
+        ),
+    )
+
+
+def _from_wire(
+    response: AdvisorResponse,
+) -> Supported | Unsupported | Contradiction | None:
+    """Convert a wire response into what the advisor reports, or nothing.
+
+    Total by construction: every combination of `ok`, `value` and `error`
+    reaches exactly one destination, and `None` means "no verdict could be
+    read" rather than "unhandled".
+
+    A field counts as absent when it is `None`, empty, **or whitespace
+    only** — not merely `None`. Under strict structured output every
+    property is required, so a model with nothing to put in a field emits
+    `""` rather than omitting it.
+
+    The order matters. A supporting discriminant carrying an error is a
+    contradiction **whether or not a value accompanies it**, and that test
+    comes before the missing-value one deliberately: a response that says
+    why no node could be named has told the reader more than one that
+    merely omits it, and routing it to the shortfall would discard the
+    explanation the model actually gave.
+    """
+    error = response.error
+    value = response.value
+
+    if response.ok:
+        if error is not None and error.strip():
+            return Contradiction(error=error, value=value, comment=response.comment)
+        if value is None or not value.strip():
+            return None
+        return Supported(ok=True, value=value, comment=response.comment)
+
+    if error is None or not error.strip():
+        return None
+    return Unsupported(ok=False, error=error, comment=response.comment)
+
+
 class AdvisorState(TypedDict, total=False):
     """The graph's state: what it is given, and what it produced."""
 
     product_name: str
     marketplace: str
-    #: The model's structured answer, or `None` where the structured call
-    #: completed but validated against neither variant. Absent-vs-`None`
-    #: is not a distinction this state needs to preserve: a call that
-    #: never ran surfaces as an exception, not as a state without this key.
-    parsed: Supported | Unsupported | None
+    #: What the model's structured answer converted to, or `None` where
+    #: the call completed but its response mapped to no reported result.
+    #: Absent-vs-`None` is not a distinction this state needs to preserve:
+    #: a call that never ran surfaces as an exception, not as a state
+    #: without this key.
+    #:
+    #: `Contradiction` is here because the wire schema can express a
+    #: response the reported variants cannot — support carrying the error
+    #: that withholds it — and it must not be forced into either of them:
+    #: `None` records the wrong reason, `Unsupported` asserts a decline
+    #: that never happened, and folding the error into `comment` reaches
+    #: `Satisfied`, since `_advisor_refuses` needs a first-member subject
+    #: a model-authored error will not have.
+    parsed: Supported | Unsupported | Contradiction | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -237,7 +400,23 @@ class Proposal:
 
 
 def build_graph(model: BaseChatModel) -> Any:
-    """The graph over an injected model — the testable seam."""
+    """The graph over an injected model — the testable seam.
+
+    **The compiled graph is async-only, and that is load-bearing.** Its
+    one node is a coroutine, so `compiled.invoke(...)` raises
+    `TypeError: No synchronous function provided to "recommend"` rather
+    than running anything. Callers reach it through `ainvoke`, and
+    `propose()` is the only caller that should.
+
+    That refusal is the enforcement for the graph half of
+    `launch-step-automation`'s *A handler's waiting does not stop the
+    process*: a later author who reverts `propose()` to the synchronous
+    entry point does not get a handler that quietly pins the event loop
+    for the length of a model call, which is the defect this shape
+    replaced — they get one that fails on its first invocation, naming
+    the node. Do not "restore" a synchronous path to make some caller
+    work; fix the caller.
+    """
     # Imported here, not at module scope: registering this handler must not
     # load what running it needs (`launch-step-automation`). `recommend` is
     # nested below, so its closure carries `HumanMessage` and the import runs
@@ -245,26 +424,39 @@ def build_graph(model: BaseChatModel) -> Any:
     from langchain_core.messages import HumanMessage
     from langgraph.graph import END, START, StateGraph
 
-    def recommend(state: AdvisorState) -> dict[str, Any]:
+    async def recommend(state: AdvisorState) -> dict[str, Any]:
         prompt = _PROMPT.format(
             product_name=state.get("product_name", ""),
             marketplace=state.get("marketplace", ""),
         )
-        # `with_structured_output`'s stub declares `schema: dict | type`,
-        # narrower than what it accepts at runtime -- a union of Pydantic
-        # models is exactly how a discriminated multi-variant response is
-        # requested, and is not expressible as a single `type`.
-        structured = model.with_structured_output(
-            cast(type, AdvisorResult), include_raw=True
-        )
+        # A single `BaseModel`, so no cast is needed and the type checker
+        # can see this call. The union that used to be cast to `type` here
+        # was rejected at runtime by every conversion the adapter performs
+        # -- the cast silenced the one check that could have said so.
+        structured = model.with_structured_output(AdvisorResponse, include_raw=True)
         # No `try` around this: a model or transport fault must surface,
         # not become a recommendation.
-        response = structured.invoke([HumanMessage(content=prompt)])
+        #
+        # Awaited, not called: `invoke` issues a blocking HTTP request, and
+        # a coroutine that never yields pins the loop it was invoked on for
+        # the whole round-trip -- `launch-step-automation`'s *A handler's
+        # waiting does not stop the process*. Reaching the model through
+        # the synchronous entry point here would satisfy every assertion
+        # about what the advisor produces while doing exactly that, which
+        # is why the agent tier's stubs raise on `invoke` rather than
+        # answering it.
+        response = await structured.ainvoke([HumanMessage(content=prompt)])
         # `include_raw=True` always answers a dict of `raw`/`parsed`/
         # `parsing_error` (the docstring says so; the stub's return type
         # does not encode it, since it carries no `include_raw` overload).
         assert isinstance(response, dict)
-        return {"parsed": response.get("parsed")}
+        wire = response.get("parsed")
+        # A response that validated against no schema at all arrives as
+        # `None` and stays `None` -- the same "no verdict could be read"
+        # destination a response that parsed but mapped nowhere reaches.
+        if not isinstance(wire, AdvisorResponse):
+            return {"parsed": None}
+        return {"parsed": _from_wire(wire)}
 
     graph = StateGraph(AdvisorState)
     graph.add_node("recommend", recommend)
@@ -296,7 +488,7 @@ def _advisor_refuses(comment: str) -> bool:
     return _ADVISOR_REFUSES.search(comment) is not None
 
 
-def propose(
+async def propose(
     *,
     product_name: str,
     marketplace: str,
@@ -305,11 +497,17 @@ def propose(
     """Run the advisor and say what it proposes for the step.
 
     The recommendation reaches the reader whole — never summarised,
-    truncated or re-encoded — because it is both what a person decides on
+    truncated or re-encoded — because it is both what a member decides on
     and what the recording keeps as evidence.
+
+    Awaited, because the graph it runs is async-only: `ainvoke` is the
+    entry point the compiled graph answers, and `invoke` on it raises
+    (see `build_graph`).
     """
     running = graph if graph is not None else build_production_graph()
-    state = running.invoke({"product_name": product_name, "marketplace": marketplace})
+    state = await running.ainvoke(
+        {"product_name": product_name, "marketplace": marketplace}
+    )
     parsed = state.get("parsed")
 
     if isinstance(parsed, Supported):
@@ -325,7 +523,9 @@ def propose(
         # served prohibition on "a satisfying one accompanied by text
         # admitting there is no answer" exists to forbid.
         if _advisor_refuses(comment):
-            reason = _contradiction_reason(product_name, marketplace)
+            reason = _contradiction_reason(
+                product_name, marketplace, withheld_by="comment"
+            )
             return Proposal(
                 outcome=Blocked(reason=reason),
                 result=_render_supported(parsed.value, comment),
@@ -334,6 +534,19 @@ def propose(
             outcome=Satisfied,
             result=_render_supported(parsed.value, comment),
             finding=Success(value=parsed.value, comment=comment),
+        )
+
+    if isinstance(parsed, Contradiction):
+        # Route 4: the response reported support and, in the same breath,
+        # why it could not support a choice. Neither a node choice to
+        # weigh nor a classification considered and declined -- and the
+        # error is carried into the rendered text, not left only in the
+        # reason, so the member reading the recommendation sees the
+        # refusal rather than a node path that looks accepted.
+        reason = _contradiction_reason(product_name, marketplace, withheld_by="error")
+        return Proposal(
+            outcome=Blocked(reason=reason),
+            result=_render_contradiction(parsed.value, parsed.error, parsed.comment),
         )
 
     if isinstance(parsed, Unsupported):
@@ -379,7 +592,7 @@ async def advise_sub_category(context: StepContext) -> StepResolution:
     # is a plain `str`, which is why the line below it was correct while
     # this one was not.
     marketplace = getattr(product, "marketplace_id", "")
-    proposal = propose(
+    proposal = await propose(
         product_name=str(getattr(product, "name", "")),
         marketplace=str(getattr(marketplace, "value", marketplace)),
         graph=_graph(),

@@ -2,7 +2,7 @@
  * The admin surfaces' shared presentation vocabulary.
  *
  * A token and density layer *over* Pico v2, which stays as the form-control
- * substrate. Both admin surfaces — the playbook page and the roster page —
+ * substrate. Both admin surfaces — the playbook page and the Team page —
  * load this file from one URL, so a presentation fix reaches both rather
  * than one.
  *
@@ -478,7 +478,7 @@ td {
 /* A column name, not a fact: faint, normal weight and lowercase rather
    than Pico's own bold, dark, as-typed default, which read as louder
    than the rows of data it only labels. One rule for every admin table
-   (the playbook steps table, the product index, the roster) —
+   (the playbook steps table, the product index, the membership) —
    `.launches .launch-heading`, below, is styled to match, since a
    `<ul>`/`<li>` grid can't be reached by this selector. */
 th {
@@ -970,7 +970,7 @@ form.authoring > button[type="submit"] {
  * So it renders as ordinary fields. The controls stay `disabled` for a
  * kind that cannot use them, which is the served guarantee and is not a
  * style decision; the browser's own rendering of a disabled control is
- * enough to say so, and it is the rendering people already know.
+ * enough to say so, and it is the rendering membership already know.
  *
  * This makes *The vocabulary never suppresses a marked control's fault*
  * trivially satisfied rather than carefully satisfied: with no dim, there
@@ -1006,7 +1006,7 @@ tr.just-created > td:first-child {
 }
 
 /* ---------------------------------------------------------------------------
- * The roster page's own regions, replacing the inline style block it shipped
+ * The Team page's own regions, replacing the inline style block it shipped
  * ------------------------------------------------------------------------ */
 
 .attribution {
@@ -1014,7 +1014,7 @@ tr.just-created > td:first-child {
   font-size: var(--size-fine);
 }
 
-/* Deactivated people stay visibly set apart — a standing `roster-admin`
+/* Deactivated members stay visibly set apart — a standing `members-admin`
    requirement, not a style choice. Set apart by colour and a rule, not by
    `opacity`: this region carries action controls and, on a rejected write,
    the page's own faults. */
@@ -1034,7 +1034,7 @@ tr.just-created > td:first-child {
 }
 
 /* Retired products stay visibly set apart on the product index, the same
-   standing obligation `.deactivated` carries for the roster. Colour and a
+   standing obligation `.deactivated` carries for the membership. Colour and a
    rule rather than `opacity`: a retired product's row still has to be
    readable and its dossier still has to be reachable from it. */
 .product-retired {
@@ -1691,8 +1691,8 @@ section.finished .empty,
   font-family: var(--pico-font-family-monospace, monospace);
 }
 
-/* A person is known by name, not by identifier, so their chip is not code. */
-.control-group .chip.person {
+/* A member is known by name, not by identifier, so their chip is not code. */
+.control-group .chip.member {
   font-family: inherit;
 }
 

@@ -20,7 +20,7 @@ by making every playbook load fail.
 
 Neither reaches the storage adapter: `.importlinter`'s module-layers
 contract forbids this layer from importing infrastructure, so the caller
-supplies the step definitions, the roster reader and the handler
+supplies the step definitions, the members reader and the handler
 registry.
 """
 
@@ -39,7 +39,7 @@ from commerce_ops.launch.domain.launch_playbook import (
 from commerce_ops.shared.domain.discipline import Discipline
 
 MISSING_HANDLER = "a handler the deployed code registers"
-MISSING_ASSIGNEE = "an assignee who is active on the roster"
+MISSING_ASSIGNEE = "an assignee who is active on the membership"
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,17 +63,17 @@ class ActivationBlocker:
 def report_activation_blockers(
     *,
     steps: Sequence[StepDefinition],
-    roster: Any = None,
+    members: Any = None,
     handlers: Any = None,
 ) -> tuple[ActivationBlocker, ...]:
     """The steps of the authored set that cannot yet be made `active`.
 
     An `active` step is reported too where it has since stopped
     satisfying what activation requires: a step whose sole assignee was
-    deactivated keeps loading and keeps being served (the roster is not a
+    deactivated keeps loading and keeps being served (the membership is not a
     load-time rule), and this report is where that gap surfaces instead.
     """
-    active_people = _active_identifiers(roster)
+    active_members = _active_identifiers(members)
     registered = _registered_names(handlers)
     reported: list[ActivationBlocker] = []
     for step in steps:
@@ -81,7 +81,7 @@ def report_activation_blockers(
             # Not work anyone is getting ready; reporting it would make
             # the signal noise.
             continue
-        missing = _what_is_missing(step, active_people, registered)
+        missing = _what_is_missing(step, active_members, registered)
         if missing:
             reported.append(
                 ActivationBlocker(
@@ -97,14 +97,14 @@ def report_activation_blockers(
 
 def _what_is_missing(
     step: StepDefinition,
-    active_people: frozenset[str],
+    active_members: frozenset[str],
     registered: frozenset[str],
 ) -> tuple[str, ...]:
     missing: list[str] = []
     if step.kind is StepKind.AUTOMATED:
         if step.handler is None or step.handler not in registered:
             missing.append(MISSING_HANDLER)
-    elif not any(identifier in active_people for identifier in step.assignees):
+    elif not any(identifier in active_members for identifier in step.assignees):
         missing.append(MISSING_ASSIGNEE)
     return tuple(missing)
 
@@ -156,31 +156,33 @@ def _registered_names(handlers: Any) -> frozenset[str]:
     return frozenset(str(name) for name in handlers)
 
 
-def _active_identifiers(roster: Any) -> frozenset[str]:
-    """Who the roster carries and counts as active, read synchronously.
+def _active_identifiers(members: Any) -> frozenset[str]:
+    """Who the membership carries and counts as active, read synchronously.
 
     Both reports are pure queries a caller composes into a page or a
-    startup check, so they are synchronous; a caller whose roster read is
-    asynchronous resolves it and passes the people. A reader whose
-    `list_people` happens to be a coroutine function that never suspends
+    startup check, so they are synchronous; a caller whose membership read is
+    asynchronous resolves it and passes the membership. A reader whose
+    `list_members` happens to be a coroutine function that never suspends
     is driven to completion here — a real store's read must be awaited by
     the caller instead, and says so.
     """
-    if roster is None:
+    if members is None:
         return frozenset()
-    people = _people_of(roster)
+    # `entries`, not `members`: the parameter is the reader, this is what it
+    # yields. Two names for two things.
+    entries = _members_of(members)
     return frozenset(
-        _identifier_of(person) for person in people if getattr(person, "active", True)
+        _identifier_of(member) for member in entries if getattr(member, "active", True)
     )
 
 
-def _people_of(roster: Any) -> tuple[Any, ...]:
-    lister = getattr(roster, "list_people", None)
-    source: Any = roster
+def _members_of(members: Any) -> tuple[Any, ...]:
+    lister = getattr(members, "list_members", None)
+    source: Any = members
     if lister is not None:
         source = lister()
-    elif callable(roster):
-        source = roster()
+    elif callable(members):
+        source = members()
     if inspect.isawaitable(source):
         source = _resolve_now(source)
     return tuple(source)
@@ -192,15 +194,15 @@ def _resolve_now(awaitable: Any) -> Any:
     except StopIteration as finished:
         return finished.value
     raise RuntimeError(
-        "the roster reader suspended: these reports are synchronous, so a "
-        "caller whose roster read touches I/O must await it and pass the "
-        "people it answered"
+        "the members reader suspended: these reports are synchronous, so a "
+        "caller whose members read touches I/O must await it and pass the "
+        "members it answered"
     )
 
 
-def _identifier_of(person: Any) -> str:
-    for name in ("identifier", "id", "person_id"):
-        value = getattr(person, name, None)
+def _identifier_of(member: Any) -> str:
+    for name in ("identifier", "id", "member_id"):
+        value = getattr(member, name, None)
         if value is not None:
             return str(value)
-    raise ValueError(f"a roster person exposes no identifier: {person!r}")
+    raise ValueError(f"a member exposes no identifier: {member!r}")

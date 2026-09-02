@@ -7,9 +7,15 @@ Defines the CI/CD pipeline that validates, builds, delivers, and verifies deploy
 ### Requirement: Pull Request Validation Gate
 Every pull request SHALL trigger a GitHub Actions job that runs `ruff check`, `ruff format --check`, `mypy`, `lint-imports`, and the `tests/unit`, `tests/agents` and `tests/integration` pytest tiers. This job SHALL be a required branch-protection status check on `main`, SHALL NOT declare access to the deploy SSH credential, and SHALL run without any connection to the deploy host.
 
-The gate SHALL provision the database the integration tier requires as an ephemeral service reachable only from the validation job, and SHALL apply the schema to it before running that tier. A service running inside the job is not a connection to the deploy host, and needs no deploy secret.
+The gate SHALL provision the database the integration tier requires as an ephemeral service reachable only from the validation job, and SHALL bring it to the state a deployment serves before running that tier — applying the schema, and applying the seed the deployed application applies on start. A tier run against a schema alone meets a step set no deployment ever serves. A service running inside the job is not a connection to the deploy host, and needs no deploy secret.
 
-A tier that does not run SHALL NOT be reported as a tier that passed. Where the gate runs a tier, an absent database configuration, or a failure to reach the database that tier is configured to run against, SHALL fail the gate rather than be skipped — so that a validation job cannot report success for work it never exercised. This governs the tier's own database, not a database a test deliberately points at in order to observe how the system behaves when one is unreachable.
+A test that does not run SHALL NOT be reported as a test that passed. Where the gate runs a tier, **any** test skipped in that tier SHALL fail the gate, whatever the skip's stated reason — an absent database configuration, a failure to reach the database the tier is configured to run against, a database the test declines to accept, or a precondition the test finds unmet — so that a validation job cannot report success for work it never exercised. The gate SHALL name each skipped test and its reason, so that the failure identifies what stopped being checked rather than only that something did.
+
+A test recorded as an expected failure is not a skipped test for the purpose of this requirement. An expected failure is a named, visible expectation carried in the run's own report, not a check withdrawn without notice.
+
+The reachability clause above governs the tier's own database, not a database a test deliberately points at in order to observe how the system behaves when one is unreachable; a test of that kind SHALL run, and is subject to the skip rule like any other.
+
+This obligation belongs to the gate, and does not extend to a run outside it. Where the gate's own marker is absent — a developer's machine — the integration tier SHALL skip as it does today, and a skip there SHALL NOT fail the run. The population that has configured no database is the one least able to act on a failure, and this requirement does not reach it.
 
 #### Scenario: Pull request with a failing check is blocked
 - **WHEN** a pull request fails `ruff`, `mypy`, `lint-imports`, or any pytest tier
@@ -21,7 +27,7 @@ A tier that does not run SHALL NOT be reported as a tier that passed. Where the 
 
 #### Scenario: The integration tier is exercised, not skipped
 - **WHEN** the validation job runs the integration tier
-- **THEN** the tier SHALL run against the job's own database, with the schema already applied
+- **THEN** the tier SHALL run against the job's own database, with the schema and the deployed seed already applied
 - **AND** the job SHALL NOT pass on a run in which that tier was skipped for want of a database
 
 #### Scenario: A gate with no database configured fails rather than passing
@@ -33,6 +39,27 @@ A tier that does not run SHALL NOT be reported as a tier that passed. Where the 
 - **WHEN** the validation job cannot reach the database the integration tier is configured to run against
 - **THEN** the job SHALL fail and name that database as the reason
 - **AND** SHALL NOT report the integration tier as passed
+
+#### Scenario: A test the gate's database does not satisfy fails rather than skipping
+- **WHEN** the validation job runs the integration tier against a database that is present, reachable and prepared, and a test in that tier declines to run against it
+- **THEN** the job SHALL fail
+- **AND** SHALL name that test and the reason it declined
+- **AND** SHALL NOT report the integration tier as passed
+
+#### Scenario: A test skipped for an unmet precondition fails rather than passing
+- **WHEN** a test in the integration tier skips in the validation job because a precondition it needs is unmet, for a reason unrelated to the database
+- **THEN** the job SHALL fail and name that test and its reason
+- **AND** SHALL NOT report the integration tier as passed
+
+#### Scenario: An expected failure is not treated as a skip
+- **WHEN** a test in the integration tier is recorded in the validation job as an expected failure
+- **THEN** the job SHALL NOT fail on account of it
+- **AND** SHALL report it as an expected failure rather than as a skip
+
+#### Scenario: A developer's run is not held to the gate's rule
+- **WHEN** the integration tier runs outside the validation gate, on a machine where the gate's marker is not set, and a test skips
+- **THEN** the run SHALL report the skip and its reason
+- **AND** SHALL NOT fail on account of the skip
 
 ### Requirement: Merge to Main Builds and Publishes an Image
 On every merge to `main`, a GitHub Actions job SHALL build the application's Docker image and push it to GHCR, tagged at minimum with the triggering commit SHA.
@@ -139,9 +166,9 @@ The application container SHALL check its runtime configuration to completion be
 
 ### Requirement: Application Migrates the Database Before Serving Traffic
 
-The `app` service SHALL wait until the Postgres service reports healthy before starting, SHALL apply all pending database migrations to completion, SHALL then seed the first roster admin, SHALL then run the playbook step-set preparation step, and SHALL then run the handler-registration report — in that order — before it begins serving HTTP requests. Naming the report in the ordering is what makes the preparation step's position checkable: the report describes the set the deployment is about to serve, so it SHALL follow the step that may replace it. The seeding steps SHALL run as their own processes rather than inside the serving process — `database-session` governs what that buys and what such a step owes as a session-obtaining process, and is not restated here so that the two cannot diverge — and SHALL run after the migrations, since they write to tables those migrations create. A failing migration and a failing seed SHALL each leave the container serving no requests, so a deployment nobody could administer is stopped at a named step whose failure is distinguishable from a server crash, rather than serving.
+The `app` service SHALL wait until the Postgres service reports healthy before starting, SHALL apply all pending database migrations to completion, SHALL then seed the first members admin, SHALL then run the playbook step-set preparation step, and SHALL then run the handler-registration report — in that order — before it begins serving HTTP requests. Naming the report in the ordering is what makes the preparation step's position checkable: the report describes the set the deployment is about to serve, so it SHALL follow the step that may replace it. The seeding steps SHALL run as their own processes rather than inside the serving process — `database-session` governs what that buys and what such a step owes as a session-obtaining process, and is not restated here so that the two cannot diverge — and SHALL run after the migrations, since they write to tables those migrations create. A failing migration and a failing seed SHALL each leave the container serving no requests, so a deployment nobody could administer is stopped at a named step whose failure is distinguishable from a server crash, rather than serving.
 
-Both seeding steps may run on every start, and for the same reason: each is conditional on state it can read. The roster's step does nothing when an active admin already exists; the playbook step adds only what the stored set does not carry, so a start on which it has nothing to add writes nothing. Neither needs a signal delivered alongside the deployment — which matters, because a deployment cannot withdraw one: `.env` is rendered at deploy time, so a signal set for one deploy would stay set across every restart until the next.
+Both seeding steps may run on every start, and for the same reason: each is conditional on state it can read. The membership's step does nothing when an active admin already exists; the playbook step adds only what the stored set does not carry, so a start on which it has nothing to add writes nothing. Neither needs a signal delivered alongside the deployment — which matters, because a deployment cannot withdraw one: `.env` is rendered at deploy time, so a signal set for one deploy would stay set across every restart until the next.
 
 Both are idempotent, so repetition is harmless in both cases — `launch-playbook` states what that means for the playbook step and why it is the property the chain depends on.
 
@@ -157,7 +184,7 @@ Both are idempotent, so repetition is harmless in both cases — `launch-playboo
 
 #### Scenario: App serves no traffic until the first admin is seeded
 
-- **WHEN** the `app` container starts against a roster holding no active admin
+- **WHEN** the `app` container starts against a membership holding no active admin
 - **THEN** the seeding step SHALL run after the migrations and before the server starts, and SHALL NOT begin serving requests if that step fails
 
 #### Scenario: The seeding step is bound as a session-obtaining process

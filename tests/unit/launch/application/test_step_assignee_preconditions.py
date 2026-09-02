@@ -2,7 +2,7 @@
 
 Derived strictly from the delta specs:
 `openspec/changes/redesign-step-fields/specs/launch-playbook/spec.md`
-(ADDED requirement *A step names the people responsible for it* — all
+(ADDED requirement *A step names the membership responsible for it* — all
 four scenarios, each stated as a write) and
 `.../specs/playbook-authoring/spec.md` (MODIFIED requirement *Every write
 is validated as the playbook it would produce* — the scenarios about
@@ -14,7 +14,7 @@ below whose only job is to catch that:
 1. **The preconditions are write-time only.** A load never evaluates
    them — covered at the load end in
    `tests/unit/launch/domain/test_step_assignees_are_not_a_load_rule.py`;
-   covered here as *A roster change does not break an accepted set*.
+   covered here as *A membership change does not break an accepted set*.
 2. **They are evaluated over the steps the write creates or modifies,
    never over the whole resulting set.** Set-wide evaluation would mean
    the migrated step set — 95 `active` steps deliberately left unowned —
@@ -27,14 +27,14 @@ Scenarios of *Every write is validated...* covered elsewhere:
 *Retiring a gate's last blocking step is rejected* is in
 `test_step_retirement_and_slots.py`, which owns the retirement write.
 
-**Level.** The use cases over a step-store double, with the roster
+**Level.** The use cases over a step-store double, with the members
 reader as a collaborator (`tasks.md` 2.6) — the smallest unit that can
 observe a write being refused and nothing being persisted.
 
 ## INVENTED shapes
 
-As `test_step_activation.py`'s docstring records in full: `roster=` and
-`handlers=` collaborators on each use case, the roster reader answering
+As `test_step_activation.py`'s docstring records in full: `members=` and
+`handlers=` collaborators on each use case, the members reader answering
 rows carrying an identifier, display name, ClickUp user id and active
 flag, and `REJECTED` as the tuple of acceptable refusal types since the
 delta fixes the outcome and not the exception type.
@@ -163,34 +163,34 @@ class _FakeStepStore:
         self.version += 1
 
 
-class _Person:
+class _Member:
     def __init__(
         self,
-        person_id: str,
+        member_id: str,
         display_name: str,
         *,
         active: bool = True,
         clickup_user_id: str | None = "clickup-1",
     ) -> None:
-        self.id = person_id
+        self.id = member_id
         self.display_name = display_name
         self.active = active
         self.clickup_user_id = clickup_user_id
 
 
-class _FakeRoster:
-    def __init__(self, people: tuple[_Person, ...]) -> None:
-        self.people_rows = people
+class _FakeMembers:
+    def __init__(self, members: tuple[_Member, ...]) -> None:
+        self.members_rows = members
         self.reads = 0
 
-    async def list_people(self) -> tuple[_Person, ...]:
+    async def list_members(self) -> tuple[_Member, ...]:
         self.reads += 1
-        return self.people_rows
+        return self.members_rows
 
-    people = list_people
+    members = list_members
 
-    async def __call__(self) -> tuple[_Person, ...]:
-        return await self.list_people()
+    async def __call__(self) -> tuple[_Member, ...]:
+        return await self.list_members()
 
 
 class _FakeHandlerRegistry:
@@ -207,13 +207,13 @@ class _FakeHandlerRegistry:
         return self._names
 
 
-class _FakeRosterStore:
-    """The roster store `access`'s own write use cases take.
+class _FakeMembersStore:
+    """The members store `access`'s own write use cases take.
 
-    Shaped exactly as `tests/unit/access/application/test_roster_writes.py`
+    Shaped exactly as `tests/unit/access/application/test_members_writes.py`
     records it: `load()` answers every row plus the set-version, `save()`
     persists conditionally. Used by the display-name-correction test
-    below, which drives the *real* roster write rather than simulating
+    below, which drives the *real* members write rather than simulating
     one.
     """
 
@@ -232,38 +232,38 @@ class _FakeRosterStore:
         self.version += 1
 
 
-_ROSTER_ID_NAMES: Final = ("id", "person_id", "identifier")
-_ROSTER_SLACK_NAMES: Final = ("slack_identity", "slack_user_id", "slack_id")
+_MEMBERS_ID_NAMES: Final = ("id", "member_id", "identifier")
+_MEMBERS_SLACK_NAMES: Final = ("slack_identity", "slack_user_id", "slack_id")
 
 
-def _roster_field(row: Any, names: tuple[str, ...], what: str) -> Any:
-    """Reads one field of a stored roster row, failing loudly rather than
+def _members_field(row: Any, names: tuple[str, ...], what: str) -> Any:
+    """Reads one field of a stored membership row, failing loudly rather than
     defaulting — the accessor pattern `access`'s own tests use, since no
-    artifact of *this* change fixes the roster row's attribute
+    artifact of *this* change fixes the membership row's attribute
     spellings."""
-    for target in (row, getattr(row, "person", None), getattr(row, "entry", None)):
+    for target in (row, getattr(row, "member", None), getattr(row, "entry", None)):
         if target is None:
             continue
         for name in names:
             if hasattr(target, name):
                 return getattr(target, name)
-    pytest.fail(f"a stored roster row exposes no {what} under any of {names}")
+    pytest.fail(f"a stored membership row exposes no {what} under any of {names}")
 
 
-def _roster_person_id(store: _FakeRosterStore, slack_identity: str) -> Any:
+def _member_id(store: _FakeMembersStore, slack_identity: str) -> Any:
     for row in store.rows:
-        if str(_roster_field(row, _ROSTER_SLACK_NAMES, "Slack identity")) == (
+        if str(_members_field(row, _MEMBERS_SLACK_NAMES, "Slack identity")) == (
             slack_identity
         ):
-            return _roster_field(row, _ROSTER_ID_NAMES, "generated identifier")
-    pytest.fail(f"no stored roster row carries the Slack identity {slack_identity!r}")
+            return _members_field(row, _MEMBERS_ID_NAMES, "generated identifier")
+    pytest.fail(f"no stored members row carries the Slack identity {slack_identity!r}")
 
 
-def _roster(*, alice_active: bool = True, bohdan_active: bool = True) -> _FakeRoster:
-    return _FakeRoster(
+def _members(*, alice_active: bool = True, bohdan_active: bool = True) -> _FakeMembers:
+    return _FakeMembers(
         (
-            _Person(ALICE, ALICE_NAME, active=alice_active),
-            _Person(BOHDAN, "Bohdan Colleague", active=bohdan_active),
+            _Member(ALICE, ALICE_NAME, active=alice_active),
+            _Member(BOHDAN, "Bohdan Colleague", active=bohdan_active),
         )
     )
 
@@ -297,13 +297,13 @@ _CREATE_DEFAULTS: Final = {
 
 
 async def _create(
-    store: _FakeStepStore, *, roster: _FakeRoster | None = None, **overrides: Any
+    store: _FakeStepStore, *, members: _FakeMembers | None = None, **overrides: Any
 ) -> Any:
     fields = {**_CREATE_DEFAULTS, **overrides}
     return await create_step(
         steps=store,
         principal=PRINCIPAL,
-        roster=roster or _roster(),
+        members=members or _members(),
         handlers=_FakeHandlerRegistry(),
         **fields,
     )
@@ -313,14 +313,14 @@ async def _update(
     store: _FakeStepStore,
     step_id: str,
     *,
-    roster: _FakeRoster | None = None,
+    members: _FakeMembers | None = None,
     **fields: Any,
 ) -> Any:
     return await update_step(
         steps=store,
         principal=PRINCIPAL,
         step_id=step_id,
-        roster=roster or _roster(),
+        members=members or _members(),
         handlers=_FakeHandlerRegistry(),
         **fields,
     )
@@ -331,7 +331,7 @@ async def _set_status(
     step_id: str,
     status: StepStatus,
     *,
-    roster: _FakeRoster | None = None,
+    members: _FakeMembers | None = None,
 ) -> Any:
     for name in ("change_step_status", "set_step_status"):
         use_case = getattr(launch_application, name, None)
@@ -341,10 +341,10 @@ async def _set_status(
                 principal=PRINCIPAL,
                 step_id=step_id,
                 status=status,
-                roster=roster or _roster(),
+                members=members or _members(),
                 handlers=_FakeHandlerRegistry(),
             )
-    return await _update(store, step_id, status=status, roster=roster)
+    return await _update(store, step_id, status=status, members=members)
 
 
 def _opening_for(identifier: str) -> GateOpening:
@@ -355,7 +355,7 @@ def _opening_for(identifier: str) -> GateOpening:
 
 def _load(store: _FakeStepStore) -> LaunchPlaybook:
     """What the adapter does on read: construct the playbook from the
-    stored definitions and the code-owned gates. No roster is in reach —
+    stored definitions and the code-owned gates. No members is in reach —
     which is the point of the load-side tests below."""
     return LaunchPlaybook(
         version=f"set-v{store.version}",
@@ -372,7 +372,7 @@ def _load(store: _FakeStepStore) -> LaunchPlaybook:
 
 
 # ---------------------------------------------------------------------------
-# Requirement: A step names the people responsible for it
+# Requirement: A step names the membership responsible for it
 # ---------------------------------------------------------------------------
 
 
@@ -403,7 +403,7 @@ async def test_an_active_human_step_needs_someone_responsible() -> None:
     assert store.saves == []
 
 
-async def test_an_active_human_step_naming_an_active_person_is_accepted() -> None:
+async def test_an_active_human_step_naming_an_active_member_is_accepted() -> None:
     """The permitted side, without which an implementation refusing every
     `active` `human` step would pass the rejection tests above.
     """
@@ -420,14 +420,14 @@ async def test_an_active_human_step_naming_an_active_person_is_accepted() -> Non
     assert tuple(created[0].definition.assignees) == (ALICE,)
 
 
-async def test_an_unknown_person_is_rejected() -> None:
-    """Scenario: An unknown person is rejected.
+async def test_an_unknown_member_is_rejected() -> None:
+    """Scenario: An unknown member is rejected.
 
-    WHEN a step names an assignee identifier the roster does not carry
+    WHEN a step names an assignee identifier the membership does not carry
     THEN the write is rejected with a fault naming the step and that
     identifier.
 
-    Written on a `draft`, so the *unknown-person* rule is what refuses it
+    Written on a `draft`, so the *unknown-member* rule is what refuses it
     rather than the active-human-needs-an-owner rule: an implementation
     with only the latter would pass a test using an `active` step.
     """
@@ -436,7 +436,7 @@ async def test_an_unknown_person_is_rejected() -> None:
     with pytest.raises(REJECTED) as caught:
         await _create(
             store,
-            name="Work assigned to nobody the roster knows",
+            name="Work assigned to nobody the membership knows",
             status=StepStatus.DRAFT,
             assignees=(NOBODY,),
         )
@@ -446,11 +446,11 @@ async def test_an_unknown_person_is_rejected() -> None:
     assert store.saves == []
 
 
-async def test_a_deactivated_person_does_not_satisfy_the_requirement() -> None:
-    """Scenario: A deactivated person does not satisfy the requirement.
+async def test_a_deactivated_member_does_not_satisfy_the_requirement() -> None:
+    """Scenario: A deactivated member does not satisfy the requirement.
 
     WHEN a `human` step is made `active` naming only assignees whose
-    roster entries are deactivated
+    members entries are deactivated
     THEN the write is rejected, exactly as if it named nobody.
 
     "Exactly as if it named nobody" is what makes this more than a
@@ -472,7 +472,7 @@ async def test_a_deactivated_person_does_not_satisfy_the_requirement() -> None:
             store,
             "listing.handed-over",
             StepStatus.ACTIVE,
-            roster=_roster(bohdan_active=False),
+            members=_members(bohdan_active=False),
         )
 
     assert "listing.handed-over" in str(caught.value)
@@ -483,13 +483,13 @@ async def test_a_deactivated_person_does_not_satisfy_the_requirement() -> None:
     )
 
 
-async def test_a_deactivated_person_may_still_be_named_on_a_step_not_yet_active() -> (
+async def test_a_deactivated_member_may_still_be_named_on_a_step_not_yet_active() -> (
     None
 ):
     """The bound of the rule above, SPECIFIED by its own wording: it is
     an **`active` `human`** step that "SHALL name at least one assignee
-    who is active on the roster". A `draft` naming a deactivated person
-    the roster still carries breaks no stated rule — the person exists,
+    who is active on the membership". A `draft` naming a deactivated member
+    the membership still carries breaks no stated rule — the member exists,
     which is what the other rule checks.
 
     DERIVED where the spec is silent, and recorded as derived: nothing
@@ -505,7 +505,7 @@ async def test_a_deactivated_person_may_still_be_named_on_a_step_not_yet_active(
         name="Work drafted while Bohdan is away",
         status=StepStatus.DRAFT,
         assignees=(BOHDAN,),
-        roster=_roster(bohdan_active=False),
+        members=_members(bohdan_active=False),
     )
 
     created = [
@@ -516,61 +516,61 @@ async def test_a_deactivated_person_may_still_be_named_on_a_step_not_yet_active(
     assert len(created) == 1
 
 
-async def test_correcting_a_person_does_not_touch_the_steps() -> None:
-    """Scenario: Correcting a person does not touch the steps.
+async def test_correcting_a_member_does_not_touch_the_steps() -> None:
+    """Scenario: Correcting a member does not touch the steps.
 
-    WHEN a person's display name is corrected on the roster
+    WHEN a member's display name is corrected on the membership
     THEN every step naming them still names them, unchanged.
 
     SPECIFIED reason: "Assignees SHALL be referenced by identifier rather
-    than by name or Slack identity, so that correcting a person's details
+    than by name or Slack identity, so that correcting a member's details
     never rewrites the steps that point at them" — and `design.md`
-    Decision 7's rejected alternative, copying the person's name and
+    Decision 7's rejected alternative, copying the member's name and
     ClickUp id onto the step at authoring time.
 
-    Driven through the **real** roster write (`access.application`'s
-    `update_person`, over the roster-store double that capability's own
+    Driven through the **real** members write (`access.application`'s
+    `update_member`, over the membership-store double that capability's own
     tests record), because a correction nobody performed would make the
     assertions below true of any implementation, copied details included.
     """
-    from commerce_ops.access.application import create_person, update_person
+    from commerce_ops.access.application import create_member, update_member
 
-    roster_store = _FakeRosterStore()
-    await create_person(
-        roster=roster_store,
+    members_store = _FakeMembersStore()
+    await create_member(
+        members=members_store,
         principal=PRINCIPAL,
         display_name="Alice Admin",
         slack_identity="U01ALICE",
         clickup_user_id="clickup-1",
         admin=True,
     )
-    person_id = _roster_person_id(roster_store, "U01ALICE")
+    member_id = _member_id(members_store, "U01ALICE")
 
     owned = _Record(
         _step(
             identifier="listing.owned",
             name="Work Alice has accepted",
-            assignees=(person_id,),
+            assignees=(member_id,),
         )
     )
     store = _store(extra=(owned,))
     definition_before = _record_named(store, "listing.owned").definition
 
-    await update_person(
-        roster=roster_store,
+    await update_member(
+        members=members_store,
         principal=PRINCIPAL,
-        person_id=person_id,
+        member_id=member_id,
         display_name="Alice Admin-Shatynska",
     )
 
-    # SPECIFIED: the step set was not written to — a roster correction is
+    # SPECIFIED: the step set was not written to — a membership correction is
     # not a step write.
     assert store.saves == []
     # SPECIFIED: every step naming them still names them, unchanged.
     definition_after = _record_named(store, "listing.owned").definition
     assert definition_after == definition_before
-    assert tuple(definition_after.assignees) == (person_id,)
-    # SPECIFIED corollary: no copy of the person's details rode on the
+    assert tuple(definition_after.assignees) == (member_id,)
+    # SPECIFIED corollary: no copy of the member's details rode on the
     # step — the only way the assertions above could hold while the step
     # nonetheless carried a name that is now stale.
     assert "Alice Admin" not in repr(definition_after)
@@ -661,11 +661,11 @@ async def test_editing_an_unowned_step_requires_giving_it_an_owner() -> None:
     )
 
 
-async def test_a_roster_change_does_not_break_an_accepted_set() -> None:
-    """Scenario: A roster change does not break an accepted set.
+async def test_a_members_change_does_not_break_an_accepted_set() -> None:
+    """Scenario: A membership change does not break an accepted set.
 
     WHEN the sole assignee of an `active` `human` step is deactivated on
-    the roster
+    the membership
     THEN the playbook still loads and still serves that step, and the
     step is reported as needing an assignee.
 
@@ -676,17 +676,17 @@ async def test_a_roster_change_does_not_break_an_accepted_set() -> None:
     SPECIFIED, and the guarantee this requirement narrows deliberately:
     "what a write cannot persist, a load cannot see — but a set a load
     accepts is not necessarily one a write would accept today, because
-    the roster may have moved underneath it".
+    the membership may have moved underneath it".
     """
     store = _store()
 
     await _create(store, name="Work Bohdan accepted", assignees=(BOHDAN,))
 
-    # The roster moves underneath the accepted set.
-    stale_roster = _roster(bohdan_active=False)
+    # The membership moves underneath the accepted set.
+    stale_members = _members(bohdan_active=False)
     assert any(
-        person.id == BOHDAN and not person.active
-        for person in await stale_roster.list_people()
+        member.id == BOHDAN and not member.active
+        for member in await stale_members.list_members()
     )
 
     playbook = _load(store)

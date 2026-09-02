@@ -133,7 +133,7 @@ def _hold(gate: str) -> StepDefinition:
 
 def _provenance() -> Provenance:
     return Provenance(
-        source="attestation",
+        source="clickup",
         who="Helen",
         when=RECORDED_AT,
         evidence="screenshot in the launch Slack thread",

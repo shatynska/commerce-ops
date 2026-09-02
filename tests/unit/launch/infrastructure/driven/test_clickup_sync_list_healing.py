@@ -81,7 +81,7 @@ against a fixture rather than against the system.
 
 The harness follows `test_clickup_sync_tags.py` in this directory —
 `converge_launch(launch=, playbook=, clickup=, mapping=, read_product=,
-roster=, folder_id=)` and `reconcile_launch(launch=, playbook=, clickup=,
+members=, folder_id=)` and `reconcile_launch(launch=, playbook=, clickup=,
 mapping=, record_outcome=)` over in-memory fakes — extended with the two
 operations this change adds, neither of which any artifact names:
 
@@ -380,37 +380,37 @@ class _FakeCatalog:
         return self._product
 
 
-class _Person:
+class _Member:
     def __init__(
-        self, person_id: str, display_name: str, *, clickup_user_id: str | None
+        self, member_id: str, display_name: str, *, clickup_user_id: str | None
     ) -> None:
-        self.id = person_id
+        self.id = member_id
         self.display_name = display_name
         self.clickup_user_id = clickup_user_id
         self.active = True
 
 
-class _FakeRoster:
-    def __init__(self, people: tuple[_Person, ...]) -> None:
-        self._people = people
+class _FakeMembers:
+    def __init__(self, members: tuple[_Member, ...]) -> None:
+        self._members = members
 
-    async def list_people(self) -> tuple[_Person, ...]:
-        return self._people
+    async def list_members(self) -> tuple[_Member, ...]:
+        return self._members
 
-    people = list_people
+    members = list_members
 
-    async def person(self, person_id: str) -> _Person | None:
-        for person in self._people:
-            if person.id == person_id:
-                return person
+    async def member(self, member_id: str) -> _Member | None:
+        for member in self._members:
+            if member.id == member_id:
+                return member
         return None
 
-    async def __call__(self) -> tuple[_Person, ...]:
-        return await self.list_people()
+    async def __call__(self) -> tuple[_Member, ...]:
+        return await self.list_members()
 
 
-def _roster() -> _FakeRoster:
-    return _FakeRoster((_Person(ALICE, "Alice Admin", clickup_user_id=ALICE_CLICKUP),))
+def _members() -> _FakeMembers:
+    return _FakeMembers((_Member(ALICE, "Alice Admin", clickup_user_id=ALICE_CLICKUP),))
 
 
 class _ClickUpRequestFailed(RuntimeError):
@@ -838,7 +838,7 @@ class _Collaborators:
             _CatalogProduct(name=PRODUCT_NAME, sku=PRODUCT_SKU)
         )
     )
-    roster: _FakeRoster = field(default_factory=_roster)
+    members: _FakeMembers = field(default_factory=_members)
     recorder: _FakeRecorder = field(default_factory=_FakeRecorder)
 
 
@@ -871,7 +871,7 @@ async def _converge(
             clickup=collaborators.clickup,
             mapping=collaborators.mapping,
             read_product=collaborators.catalog,
-            roster=collaborators.roster,
+            members=collaborators.members,
             folder_id=folder_id,
         )
     except AttributeError as error:

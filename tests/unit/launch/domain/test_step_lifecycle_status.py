@@ -314,7 +314,7 @@ def test_status_has_exactly_the_four_specified_values() -> None:
     below is written against exactly these.
 
     DERIVED: the member *names*. The spec gives the wire values; this
-    asserts the set's size and that it holds the four members the rest of
+    asserts the set's size and that it holds the four membership the rest of
     this suite uses, rather than pinning `.value` spellings no artifact
     fixes for the domain layer.
     """

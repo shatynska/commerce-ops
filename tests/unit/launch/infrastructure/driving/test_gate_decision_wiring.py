@@ -21,9 +21,9 @@ decision, plus two clauses whose subject is the adapter:
   (from *A gate is asked about at most once a day*), in the half a
   substituted transaction can observe; over a real transaction it is in
   `tests/integration/launch/test_gate_progression_atomicity_live.py`
-- the decider-facing half of *An unreadable roster collaborator is refused
+- the decider-facing half of *An unreadable members collaborator is refused
   by name*: told their decision was not processed, without being told
-  anything about their own roster entry, and the fault reported where
+  anything about their own members entry, and the fault reported where
   operators see it
 
 The recording halves of all of these are in
@@ -55,11 +55,11 @@ Fixed by this change's artifacts:
   5.3; delta R7).
 - That the approval is recorded in its own transaction and the advance
   then run from the adapter, so a failed cascade cannot discard a decision
-  a person actually made (`tasks.md` 3.7, 5.6; `design.md` — Decision 6).
+  a member actually made (`tasks.md` 3.7, 5.6; `design.md` — Decision 6).
 - That the **rejecting** path is wrapped in one `transaction()` so the
   rejecting approval and the cool-off refresh land together (`tasks.md`
   5.5; delta R5).
-- That `UnreadableRosterError` is handled by its own type (`tasks.md` 5.7).
+- That `UnreadableMembersError` is handled by its own type (`tasks.md` 5.7).
 
 INVENTED, each recorded in `test-manifest.md` with its correction point:
 
@@ -182,11 +182,11 @@ _SAYS_NOT_PROCESSED: Final = (
 _BLAMES_THE_IDENTITY: Final = (
     "does not know",
     "doesn't know",
-    "not on the roster",
+    "not on the membership",
     "unknown",
     "unrecognised",
     "unrecognized",
-    "no such person",
+    "no such member",
     "not known",
 )
 
@@ -264,7 +264,7 @@ def _launch_at_commit(*, satisfy: bool = True) -> Launch:
 
 
 @dataclass
-class _Person:
+class _Member:
     id: str
     display_name: str
     slack_identity: str
@@ -273,23 +273,23 @@ class _Person:
     admin: bool = False
 
 
-class _ReaderRoster:
-    def __init__(self, *people: _Person) -> None:
-        self._people = list(people)
+class _ReaderMembers:
+    def __init__(self, *members: _Member) -> None:
+        self._members = list(members)
 
-    async def list_people(self) -> tuple[_Person, ...]:
-        return tuple(self._people)
+    async def list_members(self) -> tuple[_Member, ...]:
+        return tuple(self._members)
 
 
-class _StoreShapedRoster:
+class _StoreShapedMembers:
     """The collaborator production once supplied by mistake: a store, not
     a reader."""
 
     async def load(self) -> Any:
         raise AssertionError("the store was read; nothing here should reach it")
 
-    async def save(self, roster: Any) -> None:
-        raise AssertionError("the store was written; nothing here writes a roster")
+    async def save(self, members: Any) -> None:
+        raise AssertionError("the store was written; nothing here writes a membership")
 
 
 class _FakeLaunches:
@@ -461,7 +461,7 @@ _SUPPRESSION_NAMES: Final = (
     "ask_suppression",
     "asks",
 )
-_ROSTER_NAMES: Final = ("read_people", "roster", "RosterReader", "roster_reader")
+_MEMBERS_NAMES: Final = ("read_members", "members", "MembersReader", "members_reader")
 _JOURNAL_NAMES: Final = ("journal", "LaunchJournalRepository", "launch_journal")
 _SESSION_SEAM_NAMES: Final = ("transaction", "session")
 # The product advisory lock. Substituted rather than exercised: it is a real
@@ -507,7 +507,7 @@ class _Harness:
     progress: _FakeProgress
     suppression: _FakeSuppression
     journal: _FakeJournal
-    roster: Any
+    members: Any
     order: list[str]
     respond: _CapturingRespond
     ack: _RecordingAck
@@ -519,10 +519,10 @@ class _Harness:
         self._place("progress", _PROGRESS_NAMES, self.progress)
         self._place("suppression", _SUPPRESSION_NAMES, self.suppression)
         self._place("journal", _JOURNAL_NAMES, self.journal)
-        self._place("roster", _ROSTER_NAMES, self.roster)
+        self._place("members", _MEMBERS_NAMES, self.members)
         self._place_lock()
         self._place_transaction()
-        self._require("launches", "progress", "roster", "transaction")
+        self._require("launches", "progress", "members", "transaction")
 
     def _place(self, role: str, names: tuple[str, ...], value: Any) -> None:
         placed: list[str] = []
@@ -585,7 +585,7 @@ class _Harness:
             "progress": _PROGRESS_NAMES,
             "suppression": _SUPPRESSION_NAMES,
             "journal": _JOURNAL_NAMES,
-            "roster": _ROSTER_NAMES,
+            "members": _MEMBERS_NAMES,
             "transaction": _SESSION_SEAM_NAMES,
         }
         for role in roles:
@@ -604,7 +604,7 @@ def _harness(
     monkeypatch: pytest.MonkeyPatch,
     *,
     launch: Launch | None = None,
-    roster: Any | None = None,
+    members: Any | None = None,
     crossed_by_the_pass: bool = False,
     failing_cascade: bool = False,
     failing_refresh: bool = False,
@@ -625,10 +625,10 @@ def _harness(
         ),
         suppression=_FakeSuppression(failing_refresh=failing_refresh),
         journal=_FakeJournal(),
-        roster=roster
-        if roster is not None
-        else _ReaderRoster(
-            _Person(id=ALICE, display_name=ALICE_NAME, slack_identity=ALICE_SLACK)
+        members=members
+        if members is not None
+        else _ReaderMembers(
+            _Member(id=ALICE, display_name=ALICE_NAME, slack_identity=ALICE_SLACK)
         ),
         order=order,
         respond=_CapturingRespond(order),
@@ -913,8 +913,8 @@ async def test_a_failed_cascade_does_not_discard_the_approval(
 
     The approval is written in its own transaction, before the lock is
     taken (`design.md` — Decision 6), so the cascade's failure must not
-    reach it. "A decision is a fact about what a person did; discarding it
-    would leave that person believing they had approved."
+    reach it. "A decision is a fact about what a member did; discarding it
+    would leave that member believing they had approved."
     """
     harness = _harness(monkeypatch, failing_cascade=True)
 
@@ -928,7 +928,7 @@ async def test_a_failed_cascade_does_not_discard_the_approval(
     approval = _approval(harness)
     assert approval is not None, (
         "the approval was discarded by the failure of the cascade it "
-        "triggered, so the person who pressed believes they approved and "
+        "triggered, so the member who pressed believes they approved and "
         "nothing records it"
     )
     assert approval.decision is ApprovalDecision.APPROVING
@@ -964,7 +964,7 @@ async def test_a_rejection_and_its_cool_off_refresh_land_together_or_not_at_all(
     decider is told the decision was not recorded.
 
     "Unlike a delivery, where a lost write costs one duplicate message, a
-    lost refresh here re-proposes a gate a person has just declined." The
+    lost refresh here re-proposes a gate a member has just declined." The
     transaction seam this file installs restores the launch store when the
     block raises, so an adapter that wrote the approval outside the
     transaction that carries the refresh leaves it standing and fails here.
@@ -978,7 +978,7 @@ async def test_a_rejection_and_its_cool_off_refresh_land_together_or_not_at_all(
     # SPECIFIED: neither the rejecting approval...
     assert _approval(harness) is None, (
         "the rejecting approval stands although its cool-off refresh failed, "
-        "so the gate a person has just declined is proposed again tomorrow "
+        "so the gate a member has just declined is proposed again tomorrow "
         "with no record of why it was not"
     )
     # ...nor the refresh stands.
@@ -990,24 +990,24 @@ async def test_a_rejection_and_its_cool_off_refresh_land_together_or_not_at_all(
 
 
 # ---------------------------------------------------------------------------
-# Requirement: Only a known, active person may approve a gate
+# Requirement: Only a known, active member may approve a gate
 # ---------------------------------------------------------------------------
 
 
 async def test_a_wiring_fault_answers_the_decider_without_blaming_them(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
-    """Scenario: An unreadable roster collaborator is refused by name — its
+    """Scenario: An unreadable members collaborator is refused by name — its
     decider-facing half.
 
     THEN ... the decider is told their decision was not processed without
-    being told anything about their own roster entry.
+    being told anything about their own members entry.
 
     And, from the requirement's statement: the refusal "SHALL be reported
     where operators see faults". `tasks.md` 5.7 places both in the adapter,
-    keyed on `UnreadableRosterError`'s own type.
+    keyed on `UnreadableMembersError`'s own type.
     """
-    harness = _harness(monkeypatch, roster=_StoreShapedRoster())
+    harness = _harness(monkeypatch, members=_StoreShapedMembers())
 
     with caplog.at_level(logging.DEBUG):
         answer = await _press(harness, approve=True)
@@ -1022,7 +1022,7 @@ async def test_a_wiring_fault_answers_the_decider_without_blaming_them(
     assert _matches(answer.text, _SAYS_NOT_PROCESSED), (
         f"the reply does not say the decision was not processed: {answer.text!r}"
     )
-    # ...without being told anything about their own roster entry.
+    # ...without being told anything about their own members entry.
     assert not _matches(answer.text, _BLAMES_THE_IDENTITY), (
         "a mis-wiring was reported to the decider as a fact about their "
         f"identity: {answer.text!r}"

@@ -126,11 +126,11 @@ still holding **every** submitted value, carrying every fault the write
 reported. Every value means every one: the fields the surface shares
 with editing, the timing anchor's inputs, the discipline — which only
 the create surface offers, since a step's discipline cannot be updated —
-and **each** person named as an assignee, not merely one of them. A
+and **each** member named as an assignee, not merely one of them. A
 create rejected because the step set changed underneath it SHALL persist
 nothing, say so, and likewise keep what was typed. This is the guarantee
 a rejected edit already carries; a create surface that loses a set of
-named people on a rejection is worse than one that loses a line of text,
+named members on a rejection is worse than one that loses a line of text,
 because retyping it means remembering who was on it.
 
 A fault a rejected create reports about **the step being created** SHALL
@@ -566,11 +566,13 @@ still submits directly.
 
 ### Requirement: The step form carries every authorable field
 
-The step form SHALL offer every field the authoring capability accepts: the name, the description, the assignees, the kind, whether the result needs confirmation, the status, the hazard, the gate it starts at, the steps it waits on, and — for an `automated` step — the automation brief and the handler, alongside the gate, scope, timing anchor and blocking flag it already carries.
+The step form SHALL offer every field the authoring capability accepts: the name, the description, the assignees, the kind, whether the result needs confirmation, the status, the hazard, the gate it starts at, the steps it waits on, the metric identifier, and — for an `automated` step — the automation brief and the handler, alongside the gate, scope, timing anchor and blocking flag it already carries.
+
+The metric identifier's input SHALL accept any value the shared vocabulary accepts and SHALL NOT constrain the author to a list: nothing defines metrics, so a control offering choices would have none to offer. It SHALL be clearable, absent being the value almost every step carries.
 
 The name and the description SHALL be distinct inputs, and the description's input SHALL accept more than one line: a single-line box for a field whose whole purpose is to be longer than the name would teach the author the opposite of what the two fields are for.
 
-Assignees SHALL be chosen from the roster's active people rather than typed, so an author cannot name a person who does not exist and cannot mistype an identifier. The people offered SHALL be identified by their display names, since an author knows colleagues by name and not by generated identifier.
+Assignees SHALL be chosen from the membership's active members rather than typed, so an author cannot name a member who does not exist and cannot mistype an identifier. The membership offered SHALL be identified by their display names, since an author knows colleagues by name and not by generated identifier.
 
 **Every control admitting more than one value SHALL be choosable and clearable without a modifier key.** A control that deselects only on ctrl/cmd-click has no plain-click route back to none, which for a field whose ordinary value *is* none — the steps a step waits on — leaves an author who chose by accident unable to undo it.
 
@@ -596,7 +598,7 @@ The start-gate control SHALL offer the framework's gates other than the final on
 
 The control for the steps a step waits on SHALL admit more than one step, and SHALL offer **the `active` steps only**, excluding the step being edited. Both exclusions are the same rule this requirement already states for a field that carries no meaning: the write refuses a dependency on a step that is not `active`, and refuses a self-reference as the cycle it is, so offering either invites a value the write would reject. Restricting the options also keeps the served and unserved steps apart in the way the step table is separately required to.
 
-It SHALL present those steps grouped by the gate they belong to, and SHALL identify each option by both its identifier and its name. Where assignees are a handful of colleagues an author knows by name, this control ranges over the served step set — steps in the dozens — and a flat list identified one way is not a set a person can choose from.
+It SHALL present those steps grouped by the gate they belong to, and SHALL identify each option by both its identifier and its name. Where assignees are a handful of colleagues an author knows by name, this control ranges over the served step set — steps in the dozens — and a flat list identified one way is not a set a member can choose from.
 
 Grouping alone does not make that set navigable, and what else the control offers is the subject of its own requirement below.
 
@@ -609,10 +611,10 @@ Neither control SHALL be worded so that it reads as the step's own gate, and nei
 - **WHEN** a step's form is opened
 - **THEN** the name and the description are separate inputs, and the description accepts line breaks
 
-#### Scenario: Assignees are chosen from the roster
+#### Scenario: Assignees are chosen from the membership
 
 - **WHEN** the assignee control is opened
-- **THEN** it offers the roster's active people by display name, and does not accept a free-typed identifier
+- **THEN** it offers the membership's active members by display name, and does not accept a free-typed identifier
 
 #### Scenario: A form rejected by validation shows every fault with the typed values
 
@@ -675,6 +677,11 @@ Neither control SHALL be worded so that it reads as the step's own gate, and nei
 
 - **WHEN** a write is rejected for a fault concerning one of these two controls
 - **THEN** the mark renders outside anything the options are scrolled within, and no filtering of the options removes it
+
+#### Scenario: The form offers the metric identifier
+
+- **WHEN** the step form is rendered
+- **THEN** it offers an input for the metric identifier, free-typed rather than chosen from a list, and clearable
 
 ### Requirement: Steps that are not active are visible to authors and set apart
 
@@ -1123,7 +1130,7 @@ session can reach, and from it **each** of those other surfaces SHALL be
 reachable in one action.
 
 The requirement was written when there were two admin surfaces and named
-the roster page as the destination. There are more than two now, and the
+the Team page as the destination. There are more than two now, and the
 guarantee was never about that page in particular: what it asks is that
 an admin who reaches any admin surface can reach the others from it
 without knowing a URL. The header SHALL name every surface the session
@@ -1133,8 +1140,8 @@ than left unreachable from the pages that predate it.
 The header exists because the surfaces are otherwise unconnected. The
 admin session lands on this page and nothing on it, or on any page
 reachable from it, mentions that the other surfaces exist. An admin who
-does not already know the URL cannot get there, and the roster is where
-people — including the assignees this page's own form offers — are
+does not already know the URL cannot get there, and the membership is where
+members — including the assignees this page's own form offers — are
 added and deactivated.
 
 The header SHALL identify which surface is currently being viewed, so it
@@ -1159,9 +1166,9 @@ surface may well have narrowing of its own, and that is beside the
 point.
 
 One consequence is accepted rather than repaired, and is stated because
-it is invited by this requirement's own rationale. The roster is where
+it is invited by this requirement's own rationale. The membership is where
 assignees are added, so an admin part-way through a create who finds an
-assignee missing is exactly the person the header serves — and departing
+assignee missing is exactly the member the header serves — and departing
 from a filled authoring surface **discards what was typed**. The
 surrounding spec works hard to keep a rejected create's values,
 including each named assignee, but that guarantee is about a rejection,
@@ -1174,27 +1181,27 @@ guards a navigation.
 
 #### Scenario: Departing from the create surface carries nothing forward
 
-- **WHEN** the header's roster link is taken from the create surface
-- **THEN** the roster page is served
+- **WHEN** the header's members link is taken from the create surface
+- **THEN** the Team page is served
 - **AND** nothing the create surface held is persisted
 
-#### Scenario: The roster page is reachable from the step list
+#### Scenario: The Team page is reachable from the step list
 
 - **WHEN** the step list is rendered
-- **THEN** its header offers the roster page in one action
+- **THEN** its header offers the Team page in one action
 - **AND** identifies the step list as the surface currently viewed
 
 #### Scenario: The header does not depend on how many steps are shown
 
 - **WHEN** the step list is rendered under a narrowing that matches no
   step at all
-- **THEN** the header is still rendered and still offers the roster page
+- **THEN** the header is still rendered and still offers the Team page
 
 #### Scenario: The authoring surfaces carry the header too
 
 - **WHEN** the create surface and a step's edit surface are each
   rendered
-- **THEN** each carries the header offering the roster page
+- **THEN** each carries the header offering the Team page
 - **AND** each identifies the playbook surface as the one currently
   viewed
 
@@ -1205,7 +1212,7 @@ guards a navigation.
 
 #### Scenario: A surface added later is named by the header
 
-- **WHEN** an admin surface beyond the playbook and roster pages is reachable by the session
+- **WHEN** an admin surface beyond the playbook and membership pages is reachable by the session
 - **THEN** every page this capability serves names it in the header and offers it in one action
 
 ### Requirement: The presentation assets stay behind the admin guard and need no build step
@@ -1246,27 +1253,27 @@ commits nothing binary.
   with no build or asset step run
 - **THEN** the admin surfaces load their stylesheet successfully
 
-### Requirement: Every write is judged against the same roster the page reads
+### Requirement: Every write is judged against the same membership the page reads
 
-The page reads the roster to render a step's assignees and to offer who can be named. The writes it makes are judged against the roster too, by the preconditions `playbook-authoring` owns and states — this requirement adds no rule of its own about who may be named. What it adds is that both readings SHALL reach the **same** roster: whatever the page offers as an assignee, a write from that page SHALL be able to name, and whatever a write refuses on roster grounds SHALL be explicable from what the page itself displayed.
+The page reads the membership to render a step's assignees and to offer who can be named. The writes it makes are judged against the membership too, by the preconditions `playbook-authoring` owns and states — this requirement adds no rule of its own about who may be named. What it adds is that both readings SHALL reach the **same** members: whatever the page offers as an assignee, a write from that page SHALL be able to name, and whatever a write refuses on members grounds SHALL be explicable from what the page itself displayed.
 
-No write SHALL be refused **on roster grounds** for a reason that cannot be explained by what the page displayed. This binds refusals about people; it says nothing about a write failing for other reasons, which is the subject of *A write that fails is never silent* below.
+No write SHALL be refused **on members grounds** for a reason that cannot be explained by what the page displayed. This binds refusals about members; it says nothing about a write failing for other reasons, which is the subject of *A write that fails is never silent* below.
 
-#### Scenario: A write names a person the page offered
+#### Scenario: A write names a member the page offered
 
 - **WHEN** an author saves a step naming an assignee the page offered them in the assignee control
-- **THEN** the write is judged on the rules, not refused for being unable to read the roster
-- **AND** the step is saved naming that person
+- **THEN** the write is judged on the rules, not refused for being unable to read the membership
+- **AND** the step is saved naming that member
 
-#### Scenario: Each write reaches the roster
+#### Scenario: Each write reaches the membership
 
 - **WHEN** a create, an edit, a status change, a retirement or an un-retirement is submitted from the page
-- **THEN** each one evaluates its roster preconditions against the roster the page reads
+- **THEN** each one evaluates its members preconditions against the membership the page reads
 
-#### Scenario: A roster refusal is explicable from the page
+#### Scenario: A membership refusal is explicable from the page
 
-- **WHEN** a write is refused on roster grounds
-- **THEN** the refusal concerns people the page displayed or offered, and never the page's inability to read the roster at all
+- **WHEN** a write is refused on members grounds
+- **THEN** the refusal concerns membership the page displayed or offered, and never the page's inability to read the membership at all
 
 ### Requirement: A write that fails is never silent
 

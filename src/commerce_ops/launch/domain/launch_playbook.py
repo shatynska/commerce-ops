@@ -91,12 +91,12 @@ class Scope(Enum):
 
 
 class StepKind(Enum):
-    """Who does a step's work: a person, or code.
+    """Who does a step's work: a member, or code.
 
     Deliberately not a record of *how* the code works. Whether the
     resolving code calls a language model is an implementation detail of
     that code and no rule in this system reacts to it; what the launch
-    reacts to is whether a person must accept the result, which
+    reacts to is whether a member must accept the result, which
     `StepDefinition.confirmer` carries as a separate fact.
     """
 
@@ -282,46 +282,34 @@ TimingAnchor = OffsetAnchor | WindowAnchor | OpenEndedAnchor | RecurringAnchor
 
 
 @dataclass(frozen=True, slots=True)
-class MetricCondition:
-    """An authored gate condition: an observation must satisfy a threshold.
-
-    The `MetricId` is a reference only — no metric registry exists yet
-    (domain-map slice 7), and until one does, whether the condition holds
-    is established by human attestation recorded against a launch (a
-    launch-instance concern). The threshold is a human-readable
-    description; that it is non-empty is a playbook coherence rule
-    (enforced at load, naming the gate), not a constructor rule, so that
-    a malformed authored condition reports where it was authored.
-    """
-
-    metric_id: MetricId
-    threshold: str
-
-
-@dataclass(frozen=True, slots=True)
 class StepObligation:
-    """A derived gate condition: a blocking step must be resolved.
+    """The one thing a gate waits on: a blocking step must be resolved.
 
     Never authored — derived from a step definition's own gate and
     blocking declarations, so a blocking fact exists in exactly one place.
+
+    `replace-metric-conditions-with-steps` made this the *only* kind of
+    gate condition. A gate previously also carried authored metric
+    conditions, satisfied by an attestation no surface ever offered, so
+    every gate authoring one stalled every launch that reached it. The
+    obligation each expressed is now a blocking step like any other, and
+    the quantity it establishes travels on that step's `metric_id`.
     """
 
     step_id: str
 
 
-GateCondition = StepObligation | MetricCondition
-"""One thing a gate waits on: a blocking step's resolution, or a metric
-observation satisfying a threshold."""
-
-
 @dataclass(frozen=True, slots=True)
 class Gate:
-    """A commitment point in the launch's ordering spine."""
+    """A commitment point in the launch's ordering spine.
+
+    A gate declares its position and how it opens, and nothing else:
+    what it waits on is stated by the steps attached to it.
+    """
 
     identifier: str
     position: int
     opening: GateOpening
-    metric_conditions: tuple[MetricCondition, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -329,14 +317,14 @@ class StepDefinition:
     """A single unit of launch work, resolved before a gate opens.
 
     `name` and `description` answer to two audiences and are two fields
-    for that reason: the name is what a person scans in a list of work
+    for that reason: the name is what a member scans in a list of work
     and is composed into a task's name, so it is required and occupies a
     single line; the description is what they read once they have
     decided to do it, so it is optional and may span lines.
 
-    `assignees` and `confirmer` reference roster people by the roster's
+    `assignees` and `confirmer` reference members by the membership's
     own generated identifier, never by name or Slack identity, so that
-    correcting a person's details never rewrites the steps pointing at
+    correcting a member's details never rewrites the steps pointing at
     them. That an assignee or a confirmer exists and is active is a
     *write-time* precondition and never a load-time rule — see
     `assignee_faults` and `confirmer_faults`. Naming a confirmer is what
@@ -355,6 +343,16 @@ class StepDefinition:
     released a step is `Launch.has_released`; nothing here evaluates
     them, because whether a step may start is a fact about a *launch*
     and this module knows only about the playbook.
+
+    `metric_id` names the quantity the step establishes, and is inert:
+    it changes no rule here and none downstream. A step naming a metric
+    is resolved by its recorded outcome exactly as any other step is,
+    and nothing validates that the metric it names is defined, no
+    registry existing to validate against. It records *where* a named
+    quantity is established for a launch, so that an observation of the
+    same quantity can later be related to it — the whole of what
+    `replace-metric-conditions-with-steps` kept when gates stopped
+    carrying metric conditions. Almost every step declares none.
     """
 
     identifier: str
@@ -374,6 +372,7 @@ class StepDefinition:
     handler: str | None = None
     confirmer: str | None = None
     provenance: str | None = None
+    metric_id: MetricId | None = None
 
     def __post_init__(self) -> None:
         # Normalised so a caller handing a list gets value semantics: the
@@ -449,42 +448,22 @@ def start_position_of(step: StepDefinition) -> int:
     return _start_position(step)
 
 
-# The metric conditions each gate authors — framework data, code-owned like
-# the sequence and the opening modes. `move-playbook-steps-to-postgres`
-# moved the *steps* into the database and deliberately left the gates here:
-# a manager edits steps, never the framework.
-_AUTHORED_METRIC_CONDITIONS: dict[str, tuple[MetricCondition, ...]] = {
-    "stock-ready": (
-        MetricCondition(
-            MetricId("units-fulfillable"),
-            "60–80 fulfillable units, excluding Vine",
-        ),
-    ),
-    "phase-one-complete": (
-        MetricCondition(MetricId("sales-velocity"), "~10 units/day sustained"),
-        MetricCondition(MetricId("organic-share"), "organic share above 40%"),
-    ),
-    "graduated": (
-        MetricCondition(MetricId("tacos"), "TACOS falling"),
-        MetricCondition(MetricId("review-rating"), "rating stable at 4.5"),
-    ),
-}
-
-
 def framework_gates() -> tuple[Gate, ...]:
-    """The eight gates exactly as this specification fixes them — sequence,
-    opening modes, and authored metric conditions.
+    """The eight gates exactly as this specification fixes them — sequence
+    and opening modes, which is now the whole of the framework.
 
     The one construction every served playbook and every write validation
     uses, so "code-owned framework" is a single definition rather than a
-    convention."""
+    convention.
+
+    A gate authors no conditions of its own. Until
+    `replace-metric-conditions-with-steps` three of them authored metric
+    conditions here, satisfiable only by an attestation nothing could
+    record; what each expressed is now a blocking step, and what a gate
+    waits on is read from the steps attached to it.
+    """
     return tuple(
-        Gate(
-            identifier=identifier,
-            position=position,
-            opening=opening,
-            metric_conditions=_AUTHORED_METRIC_CONDITIONS.get(identifier, ()),
-        )
+        Gate(identifier=identifier, position=position, opening=opening)
         for position, (identifier, opening) in enumerate(_SPECIFIED_GATES, start=1)
     )
 
@@ -745,7 +724,7 @@ def _confirmer_shape_fault(step: StepDefinition) -> str | None:
     """Whether this step's `confirmer` is also its only assignee.
 
     A pure function of the step's own `assignees` and `confirmer`
-    fields, kind-independent — see `confirmer_faults` for the roster-
+    fields, kind-independent — see `confirmer_faults` for the membership-
     dependent known/active preconditions this is deliberately not part
     of. A single actor confirming their own work is not a second
     opinion, and the shape can never produce one no matter how many
@@ -835,16 +814,6 @@ def gate_holding_faults(
     return [unheld_gate_fault(gate) for gate in candidate]
 
 
-def _gate_condition_faults(gates: tuple[Gate, ...]) -> list[str]:
-    return [
-        f"gate '{gate.identifier}' authors a metric condition "
-        f"('{condition.metric_id.value}') with an empty threshold description"
-        for gate in gates
-        for condition in gate.metric_conditions
-        if not condition.threshold
-    ]
-
-
 @dataclass(frozen=True, slots=True)
 class LaunchPlaybook:
     """The definition of an Amazon product launch: gates and step definitions.
@@ -861,7 +830,6 @@ class LaunchPlaybook:
     def __post_init__(self) -> None:
         faults = [
             *_gate_sequence_faults(self.gates),
-            *_gate_condition_faults(self.gates),
             *_step_faults(self.gates, self.steps),
         ]
         if faults:
@@ -910,25 +878,20 @@ class LaunchPlaybook:
     def steps_for_gate(self, gate_identifier: str) -> tuple[StepDefinition, ...]:
         return tuple(step for step in self.served_steps if step.gate == gate_identifier)
 
-    def conditions_for_gate(self, gate_identifier: str) -> tuple[GateCondition, ...]:
-        """Everything the gate waits on, as one collection of two kinds.
+    def conditions_for_gate(self, gate_identifier: str) -> tuple[StepObligation, ...]:
+        """Everything the gate waits on: one obligation per blocking step.
 
-        Step obligations are derived — one per blocking step attached to
-        the gate, never authored a second time on the gate itself — and
-        the gate's authored metric conditions follow them.
+        Derived — never authored a second time on the gate itself — so a
+        blocking fact exists in exactly one place. There is no second
+        kind: since `replace-metric-conditions-with-steps` a threshold a
+        gate turns on is held by the step that establishes it, like any
+        other obligation.
         """
-        obligations = tuple(
+        return tuple(
             StepObligation(step_id=step.identifier)
             for step in self.served_steps
             if step.gate == gate_identifier and step.blocking
         )
-        authored = tuple(
-            condition
-            for gate in self.gates
-            if gate.identifier == gate_identifier
-            for condition in gate.metric_conditions
-        )
-        return obligations + authored
 
     def steps_with_scope(self, scope: Scope) -> tuple[StepDefinition, ...]:
         return tuple(step for step in self.served_steps if step.scope is scope)
@@ -944,7 +907,7 @@ def dependency_faults(
     Kept out of `LaunchPlaybook`'s construction and stated here beside
     `assignee_faults` — but **not for the reason that one carries**, and
     the difference matters enough to state. An assignee is a fact about
-    the *roster*, which changes without the step set changing, so a load
+    the *members*, which changes without the step set changing, so a load
     rule would let a write in another module break this capability. A
     dependency is a fact about the step set itself, which is the very
     category every load rule belongs to.
@@ -1001,13 +964,13 @@ def assignee_faults(
     Kept out of `LaunchPlaybook`'s construction deliberately. Every
     load-time coherence rule is a function of the step set alone, which
     is what lets one predicate guard a load and a write alike; whether an
-    assignee exists and is active is a function of the *roster*, which
+    assignee exists and is active is a function of the *members*, which
     changes without the step set changing. Were these load-time rules,
-    deactivating a person would retroactively make a stored playbook
+    deactivating a member would retroactively make a stored playbook
     unloadable — a write in another module breaking a capability that
     accepted no write.
 
-    The domain cannot read the roster, so the caller supplies the two
+    The domain cannot read the membership, so the caller supplies the two
     identifier sets and the application layer is what fetches them.
     """
     faults: list[str] = []
@@ -1018,7 +981,7 @@ def assignee_faults(
             if identifier not in known_ids:
                 faults.append(
                     f"step '{step.identifier}' names assignee '{identifier}', "
-                    f"whom the roster does not carry"
+                    f"whom the membership does not carry"
                 )
         if (
             step.kind is StepKind.HUMAN
@@ -1027,7 +990,7 @@ def assignee_faults(
         ):
             faults.append(
                 f"step '{step.identifier}' is an active human step and names "
-                f"no assignee who is active on the roster — human work "
+                f"no assignee who is active on the membership — human work "
                 f"nobody is responsible for is work that will not happen"
             )
     return tuple(faults)
@@ -1042,14 +1005,14 @@ def confirmer_faults(
     """The two confirmer rules, over the steps a write touches.
 
     `assignee_faults`' sibling and reasoning exactly: a confirmer's
-    existence and active status are functions of the *roster*, not of
+    existence and active status are functions of the *members*, not of
     the step set, so this is a write-time precondition and never a
     load-time coherence rule — a step whose confirmer has since been
     deactivated continues to load and be served (see `deactivated
     confirmer` in `launch-step-automation`'s decision-authority rule).
 
     The single-assignee-equals-confirmer shape is deliberately not here:
-    it is a pure function of the step set alone, needing no roster, and
+    it is a pure function of the step set alone, needing no members, and
     is checked at load time by `_confirmer_shape_fault` instead.
     """
     faults: list[str] = []
@@ -1061,7 +1024,7 @@ def confirmer_faults(
         if step.confirmer not in known_ids:
             faults.append(
                 f"step '{step.identifier}' names confirmer '{step.confirmer}', "
-                f"whom the roster does not carry"
+                f"whom the membership does not carry"
             )
         elif (
             step.kind is StepKind.AUTOMATED
@@ -1071,6 +1034,6 @@ def confirmer_faults(
             faults.append(
                 f"step '{step.identifier}' is an active automated step and "
                 f"names confirmer '{step.confirmer}', who is not active on "
-                f"the roster"
+                f"the membership"
             )
     return tuple(faults)

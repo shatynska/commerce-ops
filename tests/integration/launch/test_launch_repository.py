@@ -16,7 +16,7 @@ Covers the persistence halves of the MODIFIED requirements:
   domain file).
 - *A launch position can be read back by product identifier* — both
   scenarios, including full-state rehydration (step progress with
-  provenance, a gate approval, a metric attestation).
+  provenance, a gate approval).
 
 Every scenario here states persistence outcomes ("persisted", "nothing
 is persisted", "the record is returned", real FK existence against the
@@ -46,7 +46,7 @@ questions:
   `tasks.md` 2.3 names), each async and committing its own work;
   `get_by_product_id` rehydrates a domain `Launch` or returns `None`.
 - The aggregate shape (`Launch.start`, commands, `progress_for`,
-  `approval_for(gate_id)`, `.attestations`) as recorded in
+  `approval_for(gate_id)`) as recorded in
   `tests/unit/launch/domain/test_launch_run.py`'s docstring; plus a
   direct `Launch(...)` construction used only by the unrecognized-gate
   test, which accepts the rejection surfacing at construction instead of
@@ -90,7 +90,6 @@ from commerce_ops.launch.domain.launch_playbook import (
     GateOpening,
     Hazard,
     LaunchPlaybook,
-    MetricCondition,
     OffsetAnchor,
     Satisfied,
     Scope,
@@ -103,7 +102,6 @@ from commerce_ops.launch.domain.launch_run import (
     GateApproval,
     Launch,
     LaunchError,
-    MetricAttestation,
     Provenance,
 )
 from commerce_ops.launch.infrastructure.driven.launch_repository import (
@@ -210,11 +208,6 @@ def _playbook(
             identifier=identifier,
             position=position,
             opening=_opening_for(identifier),
-            metric_conditions=(
-                (MetricCondition(STOCK_METRIC, "60-80 fulfillable units"),)
-                if identifier == "stock-ready"
-                else ()
-            ),
         )
         for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1)
     )
@@ -440,11 +433,11 @@ async def test_a_launch_is_retrieved_with_its_full_recorded_state(
 ) -> None:
     """Scenario: A launch position is retrieved.
 
-    WHEN a launch that has recorded step outcomes, a gate approval, and a
-    metric attestation is read using its product identifier
+    WHEN a launch that has recorded step outcomes and a gate approval is
+    read using its product identifier
     THEN the record is returned with the pinned version, current gate,
-    launch date, each step's outcome and provenance, each approval, and
-    each attestation it was persisted with.
+    launch date, each step's outcome and provenance, and each approval it
+    was persisted with.
     """
     product_id = await registered_product_id()
     playbook = _playbook(
@@ -476,17 +469,6 @@ async def test_a_launch_is_retrieved_with_its_full_recorded_state(
             posture=None,
         ),
     )
-    launch.record_metric_attestation(
-        playbook,
-        MetricAttestation(
-            gate_id="stock-ready",
-            metric_id=STOCK_METRIC,
-            attester="Helen",
-            when=RECORDED_AT,
-            evidence="inventory dashboard export",
-        ),
-    )
-
     await launches.save(launch)
 
     async with new_launches() as other:
@@ -522,14 +504,6 @@ async def test_a_launch_is_retrieved_with_its_full_recorded_state(
     assert approval.decision is ApprovalDecision.APPROVING
     assert approval.approver == "Helen"
     assert approval.when == APPROVED_AT
-
-    # SPECIFIED: each attestation. DERIVED read surface: `.attestations`.
-    (attestation,) = tuple(reread.attestations)
-    assert attestation.gate_id == "stock-ready"
-    assert attestation.metric_id == STOCK_METRIC
-    assert attestation.attester == "Helen"
-    assert attestation.when == RECORDED_AT
-    assert attestation.evidence == "inventory dashboard export"
 
 
 async def test_a_product_without_a_launch_reports_absence(

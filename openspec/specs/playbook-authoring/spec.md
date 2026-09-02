@@ -1,13 +1,13 @@
 # playbook-authoring Specification
 
 ## Purpose
-Lets the step set of the launch playbook be authored at runtime — steps created, updated, and moved through their lifecycle status (activated, de-activated, retired and un-retired) by validated write operations — while the framework the steps hang on (the gates, their opening modes, their metric conditions, the coherence rules) stays owned by the repository. Only an `active` step is served to a launch, so activation is a deliberate act validated against what the step's kind requires of it.
+Lets the step set of the launch playbook be authored at runtime — steps created, updated, and moved through their lifecycle status (activated, de-activated, retired and un-retired) by validated write operations — while the framework the steps hang on (the gates, their opening modes, the coherence rules) stays owned by the repository. Only an `active` step is served to a launch, so activation is a deliberate act validated against what the step's kind requires of it.
 
 ## Requirements
 
 ### Requirement: A step can be created
 
-The system SHALL allow a new step definition to be created with the full authorable shape: name, optional description, gate, discipline, scope, timing anchor, blocking flag, kind, status, hazard, optional assignees, an optional confirmer, an optional start gate, an optional set of steps it waits on, and — for an `automated` step — an optional handler. The system SHALL generate the created step's identifier — the author does not choose it — in a namespace distinct from the seeded set's, carrying the step's discipline as its second segment (`mg.creative.001` is a `creative` step), so a step's origin and discipline stay legible from its identifier alone. The created step's provenance SHALL record the authoring principal and the creation date.
+The system SHALL allow a new step definition to be created with the full authorable shape: name, optional description, gate, discipline, scope, timing anchor, blocking flag, kind, status, hazard, optional assignees, an optional confirmer, an optional start gate, an optional set of steps it waits on, an optional metric identifier, and — for an `automated` step — an optional handler. The system SHALL generate the created step's identifier — the author does not choose it — in a namespace distinct from the seeded set's, carrying the step's discipline as its second segment (`mg.creative.001` is a `creative` step), so a step's origin and discipline stay legible from its identifier alone. The created step's provenance SHALL record the authoring principal and the creation date.
 
 A step created as `active` SHALL be part of the served step set on the next read; a step created in any other status SHALL NOT be served, and SHALL be readable in the authored set. Creating a step as a `draft` SHALL require only what a draft carries, so that work can be written down before it is ready — which is the point of the status existing.
 
@@ -95,19 +95,19 @@ Leaving a gate with no active blocking step is no longer among those coherence r
 
 This is deliberately asymmetric, and the asymmetry is the point: it is always permitted to move a set toward being served, and never permitted to move a served set away from it in a single write.
 
-Write-side validation SHALL apply the load-side rules **and, in addition, the preconditions a load cannot check**: that a step's assignees name people the roster carries; that an `active` `human` step names at least one assignee who is active; that a step's confirmer, where one is named, is a person the roster carries; that an `active` `automated` step naming a confirmer names one who is active; and that a step named in another's `after_steps` is `active` and is not classified `prohibited-tactic`. The first four are functions of the roster rather than of the step set, so a load does not evaluate them (see `launch-playbook`). The last is a function of the step set — the load category — and sits here for a different reason, stated with the rule itself: retiring or re-classifying a step is a legitimate authoring action whose blast radius must be the write rather than every stored playbook.
+Write-side validation SHALL apply the load-side rules **and, in addition, the preconditions a load cannot check**: that a step's assignees name members the membership carries; that an `active` `human` step names at least one assignee who is active; that a step's confirmer, where one is named, is a member the membership carries; that an `active` `automated` step naming a confirmer names one who is active; and that a step named in another's `after_steps` is `active` and is not classified `prohibited-tactic`. The first four are functions of the membership rather than of the step set, so a load does not evaluate them (see `launch-playbook`). The last is a function of the step set — the load category — and sits here for a different reason, stated with the rule itself: retiring or re-classifying a step is a legitimate authoring action whose blast radius must be the write rather than every stored playbook.
 
-Every one of these preconditions SHALL be evaluated over **the steps the write creates or modifies**, and never over the whole resulting set. This is not a softening: evaluating them set-wide would mean that the migrated step set — 95 active steps deliberately left unowned — refuses every subsequent create, update, retirement and status change until all 95 are assigned, which is the backfill the migration declined to invent. Scoped to the touched steps, an author who edits a migrated step must give it an owner before it saves, and every other step is left as it is until someone gets to it. The load-side rules keep their whole-set evaluation, which is what makes the set coherent by construction. The guarantee this requirement carries is therefore one-directional and SHALL be read as such: what a write cannot persist, a load cannot see — but a set a load accepts is not necessarily one a write would accept today, because the roster may have moved underneath it.
+Every one of these preconditions SHALL be evaluated over **the steps the write creates or modifies**, and never over the whole resulting set. This is not a softening: evaluating them set-wide would mean that the migrated step set — 95 active steps deliberately left unowned — refuses every subsequent create, update, retirement and status change until all 95 are assigned, which is the backfill the migration declined to invent. Scoped to the touched steps, an author who edits a migrated step must give it an owner before it saves, and every other step is left as it is until someone gets to it. The load-side rules keep their whole-set evaluation, which is what makes the set coherent by construction. The guarantee this requirement carries is therefore one-directional and SHALL be read as such: what a write cannot persist, a load cannot see — but a set a load accepts is not necessarily one a write would accept today, because the membership may have moved underneath it.
 
-The dependency preconditions are functions of the step set alone and SHALL therefore be evaluated on every write, whatever the caller supplies as a roster and whether or not one is supplied at all. Only the assignee and confirmer preconditions turn on the roster, and only they are subject to the three cases below. A dependency rule skipped because no roster was supplied would be a step-set rule going unevaluated for a reason having nothing to do with it.
+The dependency preconditions are functions of the step set alone and SHALL therefore be evaluated on every write, whatever the caller supplies as a membership and whether or not one is supplied at all. Only the assignee and confirmer preconditions turn on the membership, and only they are subject to the three cases below. A dependency rule skipped because no members was supplied would be a step-set rule going unevaluated for a reason having nothing to do with it.
 
-The roster the assignee and confirmer preconditions are evaluated against is supplied by the caller, and SHALL answer to **one** stated shape. Three cases follow, and they are distinct:
+The membership the assignee and confirmer preconditions are evaluated against is supplied by the caller, and SHALL answer to **one** stated shape. Three cases follow, and they are distinct:
 
-1. A roster that answers the stated shape — the preconditions are evaluated, as above.
-2. **No roster supplied at all** — a permitted case, meaning "the assignee and confirmer preconditions are not being evaluated here"; the dependency preconditions are evaluated regardless. This is the one sanctioned way they are not applied, and it is a decision the caller makes explicitly rather than a state a write can drift into. The load-side rules are still evaluated in full.
-3. A roster supplied that does **not** answer the stated shape — a defect of *wiring*, and it SHALL be refused as one: a named **error**, identifying what was supplied and what was expected, raised before any part of the write is attempted rather than reported among the write's coherence faults. The word "fault" is reserved throughout for an entry in a rejected write's fault list; this is deliberately not one. It is not a judgement about the playbook the caller submitted, so it SHALL NOT be rendered as a rejection of that submission, and a surface that renders coherence faults SHALL NOT be able to present it as one.
+1. A membership that answers the stated shape — the preconditions are evaluated, as above.
+2. **No members supplied at all** — a permitted case, meaning "the assignee and confirmer preconditions are not being evaluated here"; the dependency preconditions are evaluated regardless. This is the one sanctioned way they are not applied, and it is a decision the caller makes explicitly rather than a state a write can drift into. The load-side rules are still evaluated in full.
+3. A membership supplied that does **not** answer the stated shape — a defect of *wiring*, and it SHALL be refused as one: a named **error**, identifying what was supplied and what was expected, raised before any part of the write is attempted rather than reported among the write's coherence faults. The word "fault" is reserved throughout for an entry in a rejected write's fault list; this is deliberately not one. It is not a judgement about the playbook the caller submitted, so it SHALL NOT be rendered as a rejection of that submission, and a surface that renders coherence faults SHALL NOT be able to present it as one.
 
-Case 3 SHALL never be resolvable into case 2: a roster that cannot be read SHALL NOT cause the preconditions to be skipped, and SHALL NOT allow a write to succeed as though none had been supplied. This exists because the opposite arrangement shipped — the collaborator was accepted in whichever of several shapes it happened to arrive in, the shape production actually supplied was not among them, and the failure surfaced as an internal error raised from inside the write rather than as a refusal naming the mis-wiring.
+Case 3 SHALL never be resolvable into case 2: a membership that cannot be read SHALL NOT cause the preconditions to be skipped, and SHALL NOT allow a write to succeed as though none had been supplied. This exists because the opposite arrangement shipped — the collaborator was accepted in whichever of several shapes it happened to arrive in, the shape production actually supplied was not among them, and the failure surfaced as an internal error raised from inside the write rather than as a refusal naming the mis-wiring.
 
 #### Scenario: A rejected write reports all faults and persists nothing
 
@@ -135,35 +135,35 @@ Case 3 SHALL never be resolvable into case 2: a roster that cannot be read SHALL
 - **WHEN** an `active` `human` step naming no assignee is itself updated
 - **THEN** the write is refused until it names an assignee who is active
 
-#### Scenario: A roster change does not break an accepted set
+#### Scenario: A membership change does not break an accepted set
 
-- **WHEN** the sole assignee of an `active` `human` step is deactivated on the roster
+- **WHEN** the sole assignee of an `active` `human` step is deactivated on the membership
 - **THEN** the playbook still loads and still serves that step, and the step is reported as needing an assignee
 
-#### Scenario: A roster change does not break an accepted step's confirmer
+#### Scenario: A membership change does not break an accepted step's confirmer
 
-- **WHEN** the confirmer of an `active` `automated` step is deactivated on the roster
+- **WHEN** the confirmer of an `active` `automated` step is deactivated on the membership
 - **THEN** the playbook still loads and still serves that step, and its automated results continue to be held pending
 
 #### Scenario: A collaborator of the wrong shape is refused by name
 
-- **WHEN** a write is given a roster collaborator that cannot answer who the roster carries
+- **WHEN** a write is given a members collaborator that cannot answer who the membership carries
 - **THEN** the write is refused with a named error identifying the collaborator supplied and the shape expected
 - **AND** the step set is unchanged
 
 #### Scenario: A mis-wiring is not reported as a rejection of the submission
 
-- **WHEN** a write is given a roster collaborator that cannot answer who the roster carries
+- **WHEN** a write is given a members collaborator that cannot answer who the membership carries
 - **THEN** the refusal is raised rather than reported among the write's coherence faults, so a surface rendering those faults cannot present the mis-wiring as a fault of what was submitted
 
 #### Scenario: A mis-shaped collaborator never passes for an absent one
 
-- **WHEN** a write is given a roster collaborator that cannot answer who the roster carries
-- **THEN** the write is not treated as one made without a roster, and the assignee and confirmer preconditions are not skipped
+- **WHEN** a write is given a members collaborator that cannot answer who the membership carries
+- **THEN** the write is not treated as one made without a membership, and the assignee and confirmer preconditions are not skipped
 
-#### Scenario: No roster is still a permitted case
+#### Scenario: No members is still a permitted case
 
-- **WHEN** a write is made with no roster collaborator at all
+- **WHEN** a write is made with no members collaborator at all
 - **THEN** the write proceeds, evaluating every rule except the assignee and confirmer ones
 
 #### Scenario: What a write cannot persist, a load cannot see
@@ -171,19 +171,26 @@ Case 3 SHALL never be resolvable into case 2: a roster that cannot be read SHALL
 - **WHEN** any sequence of accepted writes has been applied
 - **THEN** loading the playbook succeeds — the served set is coherent by construction
 
-#### Scenario: A dependency precondition is evaluated with no roster supplied
+#### Scenario: A dependency precondition is evaluated with no members supplied
 
-- **WHEN** a write naming a `retired` step in another step's `after_steps` is validated with no roster supplied
+- **WHEN** a write naming a `retired` step in another step's `after_steps` is validated with no members supplied
 - **THEN** the write is refused, the dependency precondition having been evaluated
 
 ### Requirement: Authoring never touches the framework
 
-Write operations SHALL be limited to step definitions. The gate sequence, each gate's opening mode, and each gate's authored metric conditions SHALL NOT be creatable, updatable, or removable through this capability — the framework is owned by the repository and changes only by a repository change.
+Write operations SHALL be limited to step definitions. The gate sequence and each gate's opening mode SHALL NOT be creatable, updatable, or removable through this capability — the framework is owned by the repository and changes only by a repository change.
+
+The framework is smaller than it was. A gate now carries its sequence position and its opening mode and nothing else: what a gate waits on is stated by its steps, which are authorable. A threshold a gate turns on is therefore editable, as the description of the step that establishes it, by whoever may edit that step — no longer a repository change. This is the intended consequence of expressing every gate obligation as a step, not an incidental widening: the numbers a launch is held to are the team's to revise, while the sequence they are revised within is not.
 
 #### Scenario: The framework is not writable
 
 - **WHEN** the authoring operations are enumerated
-- **THEN** none of them accepts a gate, an opening mode, or a metric condition as a writable target
+- **THEN** none of them accepts a gate or an opening mode as a writable target
+
+#### Scenario: A threshold is editable as the step that states it
+
+- **WHEN** a step declaring a metric identifier has its description updated through the authoring operations
+- **THEN** the write is validated and persisted like any other step update, and the served step carries the new text
 
 ### Requirement: A gate's steps can be reordered
 
@@ -270,7 +277,7 @@ Slots belong to the served order, so a `draft` or `in-development` step holds no
 
 ### Requirement: Activation is a validated transition
 
-Moving a step to `active` SHALL be a write validated like any other, against the rules its kind and status carry: an `automated` step needs a handler the code registers; a `human` step needs at least one assignee who is active on the roster. A refused activation SHALL name the step and what it is missing, and SHALL persist nothing.
+Moving a step to `active` SHALL be a write validated like any other, against the rules its kind and status carry: an `automated` step needs a handler the code registers; a `human` step needs at least one assignee who is active on the membership. A refused activation SHALL name the step and what it is missing, and SHALL persist nothing.
 
 Activation SHALL be a deliberate act rather than a consequence of anything else. A handler appearing in the code does not activate the step naming it: whoever registers the handler is not necessarily whoever decides the step is ready, and a step that begins holding a gate because a deploy happened is a gate whose obligations moved without anyone choosing it.
 
@@ -307,7 +314,7 @@ A write naming a step in another step's `after_steps` SHALL be refused where the
 
 **This is a write-time precondition and never a load-time coherence rule.** A load rule would mean that retiring a step renders every stored playbook carrying a reference to it unloadable — taking down every launch as the consequence of one authoring action, which is the mistake `serve-only-a-ready-playbook` was written to undo.
 
-The justification the assignee rules carry does not apply here and SHALL NOT be borrowed. An assignee is a fact about the *roster*, which changes without the step set changing, and that is why checking it at load would let a write in another module break this one. A dependency is a fact about the step set itself — the very category every load-time rule belongs to. It sits at write time for a different and narrower reason: **retiring a step is a legitimate authoring action, and its blast radius must be the write, not the corpus.**
+The justification the assignee rules carry does not apply here and SHALL NOT be borrowed. An assignee is a fact about the *members*, which changes without the step set changing, and that is why checking it at load would let a write in another module break this one. A dependency is a fact about the step set itself — the very category every load-time rule belongs to. It sits at write time for a different and narrower reason: **retiring a step is a legitimate authoring action, and its blast radius must be the write, not the corpus.**
 
 This rule SHALL be evaluated over the steps a write touches, as the other write-time preconditions are, and SHALL NOT be widened into a check over the whole resulting set. Consequently it does not — and is not intended to — refuse the retirement of a step that other steps depend on: that write touches the retired step, not its dependents. What becomes of those dependents is settled by `launch-playbook`'s vacuous-satisfaction rule, and deliberately not by refusing the retirement.
 
@@ -360,3 +367,34 @@ The rule sits at write time with the other dependency rule, and for the same rea
 
 - **WHEN** a step named by another's `after_steps` is re-authored to the `prohibited-tactic` hazard
 - **THEN** stored playbooks naming it still load, and the depending step is released, on the same footing as a dependency that is no longer `active`
+
+### Requirement: A step's metric identifier is authorable
+
+The authoring operations SHALL accept a step's metric identifier as a writable field, settable when a step is created and changeable when it is updated, and SHALL accept its absence — almost every step declares none. A write supplying a metric identifier SHALL be validated by the same whole-set validation every other write obeys, and SHALL be rejected where the identifier is not one the shared vocabulary accepts.
+
+No write SHALL be rejected because the metric a valid identifier names is undefined. Nothing defines metrics yet, so a rule requiring the identifier to resolve would reject every write of every metric step; the identifier is a reference to be resolved later, exactly as `launch-playbook` states it.
+
+#### Scenario: A step is created declaring a metric identifier
+
+- **WHEN** a step is created with a metric identifier the shared vocabulary accepts
+- **THEN** the write is persisted and the served step reports that identifier
+
+#### Scenario: A step's metric identifier is changed
+
+- **WHEN** an update supplies a metric identifier different from the one the step carries
+- **THEN** the write is persisted and the served step reports the new identifier
+
+#### Scenario: A step is created declaring no metric identifier
+
+- **WHEN** a step is created supplying no metric identifier
+- **THEN** the write is persisted and the served step reports none
+
+#### Scenario: An invalid metric identifier is rejected
+
+- **WHEN** a write supplies a metric identifier the shared vocabulary rejects — empty, or carrying leading or trailing whitespace
+- **THEN** the write is rejected and nothing is persisted
+
+#### Scenario: An identifier naming no defined metric is accepted
+
+- **WHEN** a write supplies a well-formed metric identifier naming a metric nothing defines
+- **THEN** the write is persisted, because no registry exists against which to resolve it

@@ -6,7 +6,7 @@ Derived strictly from the delta spec of the OpenSpec change
 
 Covers, from the ADDED requirements:
 
-- *Only a known, active person may approve a gate* — all five scenarios.
+- *Only a known, active member may approve a gate* — all five scenarios.
 - *A decision records the approval and reports what it did* — the
   scenarios in the half a decision itself can observe: *An approving
   decision opens the gate and says so* (its recording half), *A rejecting
@@ -40,11 +40,11 @@ holds for this module's other decision.
 
 Fixed by this change's artifacts and by this module's existing surface:
 
-- Roster membership **and** activity as the deciding authority, with
+- Membership **and** activity as the deciding authority, with
   `admin` explicitly not required (`design.md` — Decision 7; delta R6).
-- The roster collaborator's one stated shape — it must answer who the
-  roster carries, deactivated entries included (`tasks.md` 3.8; delta R6).
-  `RosterReader` and `UnreadableRosterError` are already exported from
+- The members collaborator's one stated shape — it must answer who the
+  members carries, deactivated entries included (`tasks.md` 3.8; delta R6).
+  `MembersReader` and `UnreadableMembersError` are already exported from
   `commerce_ops.launch.application`, so this file pins them rather than
   probing.
 - That the wiring refusal is **raised**, is the same type for an absent
@@ -53,7 +53,7 @@ Fixed by this change's artifacts and by this module's existing surface:
 - `Decision(refused, reason)` as the return shape (`tasks.md` 3.7,
   "modelled on `automated_decisions.py`'s `Decision` return shape rather
   than raising").
-- The refusals a decision meets on grounds independent of the roster: the
+- The refusals a decision meets on grounds independent of the membership: the
   final gate, a gate that is no longer current, and a stand-down (delta
   R7).
 
@@ -62,9 +62,9 @@ INVENTED, each recorded in `test-manifest.md` with its correction point:
 - The use case's exported name and call shape. `_decide` probes an
   approve/reject pair and a single decide-with-a-verdict, and fails loudly
   rather than defaulting; it is the single correction point.
-- Which form of the roster person is written into `GateApproval.approver`
-  — an identifier or a display name. `_names_the_person` accepts either,
-  since the requirement fixes only that it is the person the roster
+- Which form of the member is written into `GateApproval.approver`
+  — an identifier or a display name. `_names_the_member` accepts either,
+  since the requirement fixes only that it is the member the membership
   resolved and never one the system supplied.
 - The wording by which a refusal blames the decider's identity
   (`_BLAMES_UNKNOWN`, `_BLAMES_INACTIVE`). Neither is asserted blind: the
@@ -94,13 +94,12 @@ from typing import Any, Final
 import pytest
 
 import commerce_ops.launch.application as launch_application
-from commerce_ops.launch.application import UnreadableRosterError
+from commerce_ops.launch.application import UnreadableMembersError
 from commerce_ops.launch.domain.launch_playbook import (
     Gate,
     GateOpening,
     Hazard,
     LaunchPlaybook,
-    MetricCondition,
     OffsetAnchor,
     Satisfied,
     Scope,
@@ -112,7 +111,6 @@ from commerce_ops.launch.domain.launch_run import (
     ApprovalDecision,
     GateApproval,
     Launch,
-    MetricAttestation,
     Provenance,
 )
 from commerce_ops.shared.domain.discipline import Discipline
@@ -165,11 +163,11 @@ UNHELD_GATE: Final = "ignition"
 _BLAMES_UNKNOWN: Final = (
     "does not know",
     "doesn't know",
-    "not on the roster",
+    "not on the membership",
     "unknown",
     "unrecognised",
     "unrecognized",
-    "no such person",
+    "no such member",
     "not known",
 )
 
@@ -185,7 +183,7 @@ _BLAMES_INACTIVE: Final = (
 #: What the message of a wiring refusal must identify (INVENTED reading of
 #: "identifying what was supplied and what was expected"): the shape the
 #: collaborator was expected to answer.
-_EXPECTED_SHAPE_NAMES: Final = ("list_people", "RosterReader", "roster reader")
+_EXPECTED_SHAPE_NAMES: Final = ("list_members", "MembersReader", "members reader")
 
 
 @pytest.fixture(scope="module")
@@ -231,11 +229,6 @@ def _gates() -> tuple[Gate, ...]:
             identifier=identifier,
             position=position,
             opening=_opening_for(identifier),
-            metric_conditions=(
-                (MetricCondition(STOCK_METRIC, STOCK_THRESHOLD),)
-                if identifier == "stock-ready"
-                else ()
-            ),
         )
         for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1)
     )
@@ -281,17 +274,6 @@ def _satisfy_everything(launch: Launch, playbook: LaunchPlaybook) -> None:
                 outcome=Satisfied,
                 provenance=_provenance(),
             )
-    if launch.current_gate == "stock-ready":
-        launch.record_metric_attestation(
-            playbook,
-            MetricAttestation(
-                gate_id="stock-ready",
-                metric_id=STOCK_METRIC,
-                attester="Mira",
-                when=NOW,
-                evidence="72 fulfillable units confirmed in Seller Central",
-            ),
-        )
     if launch.current_gate in CONFIRMATION_GATES:
         launch.approve_gate(
             launch.current_gate,
@@ -329,7 +311,7 @@ def _launch_at(gate: str, playbook: LaunchPlaybook, *, satisfy: bool = True) -> 
 
 
 @dataclass
-class _Person:
+class _Member:
     id: str
     display_name: str
     slack_identity: str
@@ -338,8 +320,8 @@ class _Person:
     admin: bool = False
 
 
-class _ReaderRoster:
-    """Answers `list_people` and nothing else — the one stated shape.
+class _ReaderMembers:
+    """Answers `list_members` and nothing else — the one stated shape.
 
     Deliberately narrow, for the reason `restore-automated-decisions`
     records at the sibling call site: a double answering every plausible
@@ -348,42 +330,42 @@ class _ReaderRoster:
     shipped.
     """
 
-    def __init__(self, *people: _Person) -> None:
-        self._people = list(people)
+    def __init__(self, *members: _Member) -> None:
+        self._members = list(members)
         self.reads = 0
 
-    async def list_people(self) -> tuple[_Person, ...]:
+    async def list_members(self) -> tuple[_Member, ...]:
         self.reads += 1
-        return tuple(self._people)
+        return tuple(self._members)
 
 
-class _StoreShapedRoster:
+class _StoreShapedMembers:
     """The collaborator production once supplied by mistake: a store, not
-    a reader. It cannot answer who the roster carries."""
+    a reader. It cannot answer who the membership carries."""
 
     async def load(self) -> Any:
         raise AssertionError("the store was read; the decision should not reach it")
 
-    async def save(self, roster: Any) -> None:
-        raise AssertionError("the store was written; nothing here writes a roster")
+    async def save(self, members: Any) -> None:
+        raise AssertionError("the store was written; nothing here writes a membership")
 
 
-def _roster() -> _ReaderRoster:
+def _members() -> _ReaderMembers:
     """Alice is known, active and **not** an administrator; Bohdan is known
     and inactive; the stranger is on neither list.
 
     Alice carries `admin=False` deliberately: `design.md` — Decision 7
     refuses to make gate approval an act of system administration, so the
-    ordinary case in this file is an ordinary person.
+    ordinary case in this file is an ordinary member.
     """
-    return _ReaderRoster(
-        _Person(
+    return _ReaderMembers(
+        _Member(
             id=ALICE,
             display_name=ALICE_NAME,
             slack_identity=ALICE_SLACK,
             admin=False,
         ),
-        _Person(
+        _Member(
             id=BOHDAN,
             display_name=BOHDAN_NAME,
             slack_identity=BOHDAN_SLACK,
@@ -473,7 +455,7 @@ class _Collaborators:
         launch: Launch,
         playbook: LaunchPlaybook,
         *,
-        roster: Any,
+        members: Any,
         refusal: Exception | None = None,
         suppression: _FakeSuppression | None = None,
     ) -> None:
@@ -481,7 +463,7 @@ class _Collaborators:
         self.playbooks = _FakePlaybooks(playbook, refusal)
         self.launches = _FakeLaunches(launch)
         self.journal = _FakeJournal()
-        self.roster = roster
+        self.members = members
         self.suppression = suppression or _FakeSuppression()
 
 
@@ -489,7 +471,7 @@ def _setup(
     gate: str = "commit",
     *,
     satisfy: bool = True,
-    roster: Any | None = None,
+    members: Any | None = None,
     unready: bool = False,
     suppression: _FakeSuppression | None = None,
 ) -> _Collaborators:
@@ -524,7 +506,7 @@ def _setup(
     return _Collaborators(
         launch,
         playbook,
-        roster=_roster() if roster is None else roster,
+        members=_members() if members is None else members,
         refusal=refusal,
         suppression=suppression,
     )
@@ -563,7 +545,7 @@ async def _decide(
     approve: bool = True,
     slack_identity: str = ALICE_SLACK,
     gate_id: str = "commit",
-    roster: Any = _SENTINEL,
+    members: Any = _SENTINEL,
 ) -> Any:
     """INVENTED call shape — the single correction point."""
     use_case = _exported(_APPROVE_NAMES if approve else _REJECT_NAMES)
@@ -572,8 +554,8 @@ async def _decide(
         "playbooks": collaborators.playbooks,
         "playbook": collaborators.playbook,
         "journal": collaborators.journal,
-        "roster": collaborators.roster if roster is _SENTINEL else roster,
-        "read_people": collaborators.roster if roster is _SENTINEL else roster,
+        "members": collaborators.members if members is _SENTINEL else members,
+        "read_members": collaborators.members if members is _SENTINEL else members,
         "suppression": collaborators.suppression,
         "product_id": PRODUCT_ID,
         "gate_id": gate_id,
@@ -592,9 +574,9 @@ async def _decide(
         supplied["approve"] = approve
         supplied["approving"] = approve
     accepted = set(inspect.signature(use_case).parameters)
-    assert accepted & {"roster", "read_people"}, (
-        "the gate-decision use case takes no roster collaborator "
-        f"({sorted(accepted)}); delta R6 requires the roster be supplied by "
+    assert accepted & {"members", "read_members"}, (
+        "the gate-decision use case takes no members collaborator "
+        f"({sorted(accepted)}); delta R6 requires the membership be supplied by "
         "the caller. Correct `_decide` to the implemented parameter name"
     )
     assert "gate_id" in accepted, (
@@ -654,19 +636,19 @@ def _approval_of(collaborators: _Collaborators, gate: str) -> GateApproval | Non
     return collaborators.launches.only.approval_for(gate)
 
 
-def _names_the_person(approval: GateApproval, person: _Person) -> bool:
-    """Whether the approval names the roster person.
+def _names_the_member(approval: GateApproval, member: _Member) -> bool:
+    """Whether the approval names the member.
 
     Either form counts — the identifier or the display name — because the
-    requirement fixes only that the approver is the person the roster
+    requirement fixes only that the approver is the member the membership
     resolved and is never supplied by the system.
     """
     approver = str(approval.approver)
-    return person.id in approver or person.display_name in approver
+    return member.id in approver or member.display_name in approver
 
 
 # ---------------------------------------------------------------------------
-# Requirement: Only a known, active person may approve a gate
+# Requirement: Only a known, active member may approve a gate
 # ---------------------------------------------------------------------------
 
 
@@ -674,7 +656,7 @@ def _names_the_person(approval: GateApproval, person: _Person) -> bool:
 async def test_an_unknown_identity_cannot_approve(approve: bool) -> None:
     """Scenario: An unknown identity cannot approve.
 
-    WHEN a gate decision arrives from a Slack identity the roster does not
+    WHEN a gate decision arrives from a Slack identity the membership does not
     know
     THEN it is refused, no approval is recorded, the gate is unchanged, and
     the decider is told.
@@ -700,7 +682,7 @@ async def test_an_unknown_identity_cannot_approve(approve: bool) -> None:
     )
     # SPECIFIED: no approval is recorded.
     assert _approval_of(collaborators, "commit") is None, (
-        "an approval was recorded for a decision from an identity the roster "
+        "an approval was recorded for a decision from an identity the membership "
         "does not know"
     )
     # SPECIFIED: the gate is unchanged.
@@ -715,21 +697,21 @@ async def test_an_unknown_identity_cannot_approve(approve: bool) -> None:
 
 
 @pytest.mark.parametrize("approve", [True, False], ids=["approving", "rejecting"])
-async def test_a_deactivated_person_cannot_approve_and_is_told_which_fact(
+async def test_a_deactivated_member_cannot_approve_and_is_told_which_fact(
     approve: bool,
 ) -> None:
-    """Scenario: A deactivated person cannot approve, and is told which fact
+    """Scenario: A deactivated member cannot approve, and is told which fact
     refused them.
 
     WHEN a gate decision arrives from a Slack identity belonging to a
-    person the roster holds as inactive
+    member the membership holds as inactive
     THEN it is refused as inactive rather than as unknown, no approval is
     recorded, and the gate is unchanged.
 
     Separate from the unknown-identity case because "known" and "active"
-    are two facts: an implementation that resolved the person and then
+    are two facts: an implementation that resolved the member and then
     forgot to read `active` passes the test above and fails here, and one
-    that answered "the roster does not know you" would tell a colleague
+    that answered "the membership does not know you" would tell a colleague
     something false about their own record.
     """
     collaborators = _setup()
@@ -746,12 +728,12 @@ async def test_a_deactivated_person_cannot_approve_and_is_told_which_fact(
     # SPECIFIED: refused *as inactive*...
     reason = _reason(refusal)
     assert _matches(reason, _BLAMES_INACTIVE), (
-        "a deactivated person's refusal did not name inactivity as the fact "
+        "a deactivated member's refusal did not name inactivity as the fact "
         f"that refused them: {reason!r}"
     )
     # ...rather than as unknown.
     assert not _matches(reason, _BLAMES_UNKNOWN), (
-        "a deactivated person was told the roster does not know them, which "
+        "a deactivated member was told the membership does not know them, which "
         f"is false about their own record: {reason!r}"
     )
 
@@ -760,8 +742,8 @@ async def test_a_non_administrator_may_approve() -> None:
     """Scenario: A non-administrator may approve.
 
     WHEN a gate decision arrives from a Slack identity belonging to an
-    active person the roster does not mark as an administrator
-    THEN the approval is recorded naming that person.
+    active member the membership does not mark as an administrator
+    THEN the approval is recorded naming that member.
 
     Alice carries `admin=False`. `design.md` — Decision 7 refuses to make
     gate approval an act of system administration, so this is the ordinary
@@ -775,23 +757,23 @@ async def test_a_non_administrator_may_approve() -> None:
     # SPECIFIED: the approval is recorded...
     assert approval is not None, (
         "no approval was recorded for an active, known, non-administrator "
-        "person's approving decision"
+        "member's approving decision"
     )
     assert approval.decision is ApprovalDecision.APPROVING
-    # SPECIFIED: ...naming that person. "no approver is ever supplied by
+    # SPECIFIED: ...naming that member. "no approver is ever supplied by
     # the system itself" is what this rules out.
-    alice = _Person(id=ALICE, display_name=ALICE_NAME, slack_identity=ALICE_SLACK)
-    assert _names_the_person(approval, alice), (
-        "the recorded approval does not name the person the roster "
+    alice = _Member(id=ALICE, display_name=ALICE_NAME, slack_identity=ALICE_SLACK)
+    assert _names_the_member(approval, alice), (
+        "the recorded approval does not name the member the membership "
         f"resolved; its approver is {approval.approver!r}"
     )
 
 
-async def test_an_absent_roster_collaborator_is_refused_the_same_way() -> None:
-    """Scenario: An absent roster collaborator is refused the same way, not
+async def test_an_absent_members_collaborator_is_refused_the_same_way() -> None:
+    """Scenario: An absent members collaborator is refused the same way, not
     silently.
 
-    WHEN a gate decision is judged with no roster collaborator supplied at
+    WHEN a gate decision is judged with no members collaborator supplied at
     all
     THEN it is refused as the same wiring fault, by a named error, and not
     reported to the decider as a fact about their identity.
@@ -802,13 +784,13 @@ async def test_an_absent_roster_collaborator_is_refused_the_same_way() -> None:
     """
     collaborators = _setup()
 
-    absent = await _decide_expecting_refusal(collaborators, roster=None)
-    unreadable = await _decide_expecting_refusal(_setup(roster=_StoreShapedRoster()))
+    absent = await _decide_expecting_refusal(collaborators, members=None)
+    unreadable = await _decide_expecting_refusal(_setup(members=_StoreShapedMembers()))
 
     # SPECIFIED: by a named error — raised, not returned as a decision
     # refusal.
     assert absent.raised is not None, (
-        "an absent roster collaborator was answered as a decision refusal "
+        "an absent members collaborator was answered as a decision refusal "
         f"rather than raised as a wiring fault: {absent.returned!r}"
     )
     # SPECIFIED: the *same* fault as an unreadable collaborator.
@@ -819,39 +801,39 @@ async def test_an_absent_roster_collaborator_is_refused_the_same_way() -> None:
     )
     # SPECIFIED: not reported to the decider as a fact about their identity.
     assert not _matches(_reason(absent), _BLAMES_UNKNOWN), (
-        "a mis-wiring was reported as though the roster did not carry the "
+        "a mis-wiring was reported as though the membership did not carry the "
         f"decider: {_reason(absent)!r}"
     )
     # SPECIFIED: no approval is recorded.
     assert _approval_of(collaborators, "commit") is None
 
 
-async def test_an_unreadable_roster_collaborator_is_refused_by_name() -> None:
-    """Scenario: An unreadable roster collaborator is refused by name.
+async def test_an_unreadable_members_collaborator_is_refused_by_name() -> None:
+    """Scenario: An unreadable members collaborator is refused by name.
 
-    WHEN a gate decision is judged against a roster collaborator that
-    cannot answer who the roster carries
+    WHEN a gate decision is judged against a members collaborator that
+    cannot answer who the membership carries
     THEN it is refused with a named error identifying the collaborator
     supplied and the shape expected, no approval is recorded, and the
     decider is told their decision was not processed without being told
-    anything about their own roster entry.
+    anything about their own members entry.
 
-    The type is pinned here — `UnreadableRosterError`, already exported
+    The type is pinned here — `UnreadableMembersError`, already exported
     from `commerce_ops.launch.application` — because an infrastructure
     adapter must catch it by type to answer the decider without implicating
-    their roster entry (`tasks.md` 5.7), and it can reach it no other way.
+    their members entry (`tasks.md` 5.7), and it can reach it no other way.
     The decider-facing half is the adapter's and is in
     `test_gate_decision_wiring.py`.
     """
-    supplied = _StoreShapedRoster()
-    collaborators = _setup(roster=supplied)
+    supplied = _StoreShapedMembers()
+    collaborators = _setup(members=supplied)
 
     refusal = await _decide_expecting_refusal(collaborators)
 
     # SPECIFIED: refused with a named error.
-    assert isinstance(refusal.raised, UnreadableRosterError), (
-        "an unreadable roster collaborator did not raise "
-        f"`UnreadableRosterError`; it produced {refusal.raised!r} / "
+    assert isinstance(refusal.raised, UnreadableMembersError), (
+        "an unreadable members collaborator did not raise "
+        f"`UnreadableMembersError`; it produced {refusal.raised!r} / "
         f"{refusal.returned!r}"
     )
     message = str(refusal.raised)
@@ -862,10 +844,10 @@ async def test_an_unreadable_roster_collaborator_is_refused_by_name() -> None:
     )
     # ...and the shape expected.
     assert any(name in message for name in _EXPECTED_SHAPE_NAMES), (
-        "the wiring error does not identify the shape a roster collaborator "
+        "the wiring error does not identify the shape a members collaborator "
         f"was expected to answer: {message!r}"
     )
-    # SPECIFIED: it is not resolved into "the roster does not carry that
+    # SPECIFIED: it is not resolved into "the membership does not carry that
     # identity".
     assert not _matches(message.lower(), _BLAMES_UNKNOWN), (
         f"the wiring error blames the decider's identity: {message!r}"
@@ -881,19 +863,19 @@ async def test_a_wiring_fault_does_not_displace_a_refusal_it_had_already_earned(
     deciding identity is judged".
 
     `tasks.md` 3.9 states the consequence this asserts: "so a decision
-    already refused on grounds independent of the roster keeps its own
+    already refused on grounds independent of the membership keeps its own
     refusal". A decision naming the final gate is refused for a reason that
     has nothing to do with who sent it, so a mis-wired deployment must
     still answer with *that* refusal rather than a wiring fault.
 
     SPECIFIED by the requirement statement; no scenario states it alone.
     """
-    collaborators = _setup(FINAL_GATE, roster=_StoreShapedRoster())
+    collaborators = _setup(FINAL_GATE, members=_StoreShapedMembers())
 
     refusal = await _decide_expecting_refusal(collaborators, gate_id=FINAL_GATE)
 
-    assert not isinstance(refusal.raised, UnreadableRosterError), (
-        "a decision refused on grounds independent of the roster was "
+    assert not isinstance(refusal.raised, UnreadableMembersError), (
+        "a decision refused on grounds independent of the membership was "
         "displaced by the wiring fault, so the decider is told the wrong "
         "thing about a decision that was never going to be recorded"
     )
@@ -910,9 +892,9 @@ async def test_an_approving_decision_records_an_approving_approval() -> None:
     """Scenario: An approving decision opens the gate and says so — its
     recording half.
 
-    WHEN an active person presses the approving control for a gate whose
+    WHEN an active member presses the approving control for a gate whose
     every other condition is satisfied
-    THEN an approving approval naming that person is recorded...
+    THEN an approving approval naming that member is recorded...
 
     The gate opening and the reply are the adapter's, since the advance
     runs there under the lock (`design.md` — Decision 6); they are asserted
@@ -932,8 +914,8 @@ async def test_an_approving_decision_records_an_approving_approval() -> None:
 async def test_a_rejecting_decision_keeps_the_gate_closed() -> None:
     """Scenario: A rejecting decision keeps the gate closed.
 
-    WHEN an active person presses the rejecting control
-    THEN a rejecting approval naming that person is recorded, no advance is
+    WHEN an active member presses the rejecting control
+    THEN a rejecting approval naming that member is recorded, no advance is
     attempted, the gate is unchanged, and the reply states that the gate
     stays closed.
 
@@ -945,13 +927,13 @@ async def test_a_rejecting_decision_keeps_the_gate_closed() -> None:
     await _decide(collaborators, approve=False)
 
     approval = _approval_of(collaborators, "commit")
-    # SPECIFIED: a rejecting approval naming that person is recorded.
+    # SPECIFIED: a rejecting approval naming that member is recorded.
     assert approval is not None, "no approval was recorded for a rejection"
     assert approval.decision is ApprovalDecision.REJECTING, (
         f"the rejection was recorded as {approval.decision!r}"
     )
-    alice = _Person(id=ALICE, display_name=ALICE_NAME, slack_identity=ALICE_SLACK)
-    assert _names_the_person(approval, alice)
+    alice = _Member(id=ALICE, display_name=ALICE_NAME, slack_identity=ALICE_SLACK)
+    assert _names_the_member(approval, alice)
     # SPECIFIED: the gate is unchanged, and no advance was attempted.
     assert collaborators.launches.only.current_gate == "commit", (
         "a rejecting decision advanced the launch"
@@ -977,7 +959,7 @@ async def test_a_rejecting_decision_refreshes_the_cool_off() -> None:
 
     assert suppression.writes, (
         "a rejecting decision left the cool-off record untouched, so the gate "
-        "is re-proposed on the next pass a person has just declined it"
+        "is re-proposed on the next pass a member has just declined it"
     )
 
 
@@ -990,7 +972,7 @@ async def test_a_decision_arriving_during_a_stand_down_is_refused() -> None:
 
     "The pass stands down in that state rather than acting on a set that is
     being authored, and a decision recorded against it would commit a
-    person to a gate the system has declined to evaluate."
+    member to a gate the system has declined to evaluate."
     """
     collaborators = _setup(unready=True)
 
@@ -1084,11 +1066,11 @@ async def test_a_decision_on_a_regressed_condition_is_recorded_and_opens_nothing
     await _decide(collaborators, approve=True)
 
     # SPECIFIED: the approval is recorded. "A decision is a fact about what
-    # a person did" — it is not discarded because the gate cannot open.
+    # a member did" — it is not discarded because the gate cannot open.
     approval = _approval_of(collaborators, "commit")
     assert approval is not None, (
         "the approval was discarded because the gate could not open, so the "
-        "person who pressed believes they approved and nothing records it"
+        "member who pressed believes they approved and nothing records it"
     )
     assert approval.decision is ApprovalDecision.APPROVING
     # SPECIFIED: the gate does not open.

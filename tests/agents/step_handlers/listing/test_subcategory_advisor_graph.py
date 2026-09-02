@@ -19,7 +19,7 @@ how `recommend` calls the model (`model.with_structured_output(...)`), so
 the two scenarios below are ported onto a structured-output-scripting
 fake, following `test_subcategory_advisor_structured_recommendation.py`'s
 own fake shape, extended to answer a *sequence* of outcomes across
-successive `graph.invoke()` calls rather than one fixed outcome.
+successive `graph.ainvoke()` calls rather than one fixed outcome.
 
 ## Level
 
@@ -32,7 +32,7 @@ Fixed by the served spec: two invocations, whether for different products
 or the same one, share no state.
 
 INVENTED: `_SequencedStructuredChatModel`, answering one `AdvisorResult`
-per `graph.invoke()` call in order given, tracking every prompt it
+per `graph.ainvoke()` call in order given, tracking every prompt it
 received — the minimum needed to observe what one invocation carried into
 the next.
 """
@@ -41,13 +41,14 @@ from __future__ import annotations
 
 from typing import Any, ClassVar, Final
 
+import pytest
 from langchain_core.callbacks import CallbackManagerForLLMRun
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, BaseMessage
 from langchain_core.outputs import ChatResult
 
 import commerce_ops.step_handlers.listing.subcategory_advisor as advisor_graph
-from commerce_ops.step_handlers.listing.subcategory_advisor import Supported
+from commerce_ops.step_handlers.listing.subcategory_advisor import AdvisorResponse
 
 PRODUCT_NAME: Final = "Bamboo Cutting Board with Juice Groove"
 OTHER_PRODUCT_NAME: Final = "Stainless Steel Insulated Water Bottle, 750 ml"
@@ -58,11 +59,18 @@ COMMENT: Final = (
     "Demands: FDA food-contact declaration. Rejected alternative: Home & "
     "Kitchen > Home Decor > Decorative Trays."
 )
+
+
 OTHER_NODE: Final = "Sports & Outdoors > Camping & Hiking > Hydration"
 OTHER_COMMENT: Final = (
     "Demands: BPA-free material declaration. Rejected alternative: "
     "Kitchen & Dining > Water Bottles."
 )
+
+
+@pytest.fixture(scope="module")
+def anyio_backend() -> str:
+    return "asyncio"
 
 
 class _SequencedStructuredRunnable:
@@ -77,8 +85,18 @@ class _SequencedStructuredRunnable:
         }
 
     def invoke(self, input_: Any, *args: Any, **kwargs: Any) -> dict[str, Any]:
-        self._model.received.append(input_)
-        return self._answer()
+        # `tasks.md` 2.5 / `design.md` Decision 2's model-level guard.
+        # Both entry points are real on a structured-output runnable, so a
+        # `recommend` body reverted to `structured.invoke(...)` inside an
+        # `async def` would work, pin the invoking loop for the whole
+        # round-trip, and pass every assertion in this file about what the
+        # advisor produces. It fails here instead, naming the mistake.
+        raise AssertionError(
+            "the advisor reached the model through the model's synchronous "
+            "`invoke(...)` entry point instead of awaiting `ainvoke(...)` — "
+            "the enclosing coroutine then never yields, and the invoking "
+            "loop is pinned for the whole of the round-trip"
+        )
 
     async def ainvoke(self, input_: Any, *args: Any, **kwargs: Any) -> dict[str, Any]:
         self._model.received.append(input_)
@@ -86,7 +104,7 @@ class _SequencedStructuredRunnable:
 
 
 class _SequencedStructuredChatModel(BaseChatModel):
-    """Answers one `AdvisorResult` per `graph.invoke()` call, in the order
+    """Answers one `AdvisorResult` per `graph.ainvoke()` call, in the order
     given — the last is repeated if invoked more times than scripted."""
 
     outcomes: ClassVar[tuple[Any, ...]] = ()
@@ -136,7 +154,8 @@ def _prompt_text(messages: list[BaseMessage]) -> str:
 # ---------------------------------------------------------------------------
 
 
-def test_two_invocations_do_not_share_context() -> None:
+@pytest.mark.anyio
+async def test_two_invocations_do_not_share_context() -> None:
     """Scenario: Two invocations do not share context.
 
     WHEN the advisor produces a recommendation, and is then invoked again
@@ -145,15 +164,15 @@ def test_two_invocations_do_not_share_context() -> None:
     first product or its recommendation.
     """
     model = _SequencedStructuredChatModel(
-        Supported(ok=True, value=NODE, comment=COMMENT),
-        Supported(ok=True, value=OTHER_NODE, comment=OTHER_COMMENT),
+        AdvisorResponse(ok=True, value=NODE, comment=COMMENT),
+        AdvisorResponse(ok=True, value=OTHER_NODE, comment=OTHER_COMMENT),
     )
     graph = advisor_graph.build_graph(model)
 
-    first = advisor_graph.propose(
+    first = await advisor_graph.propose(
         product_name=PRODUCT_NAME, marketplace=MARKETPLACE, graph=graph
     )
-    second = advisor_graph.propose(
+    second = await advisor_graph.propose(
         product_name=OTHER_PRODUCT_NAME, marketplace=MARKETPLACE, graph=graph
     )
 
@@ -165,7 +184,8 @@ def test_two_invocations_do_not_share_context() -> None:
     assert OTHER_NODE in second.result
 
 
-def test_two_invocations_for_the_same_product_are_independent() -> None:
+@pytest.mark.anyio
+async def test_two_invocations_for_the_same_product_are_independent() -> None:
     """Requirement statement: "each invocation SHALL be independent of
     every other, **including two invocations for the same product**".
 
@@ -174,15 +194,15 @@ def test_two_invocations_for_the_same_product_are_independent() -> None:
     different-product scenario and fail here.
     """
     model = _SequencedStructuredChatModel(
-        Supported(ok=True, value=NODE, comment=COMMENT),
-        Supported(ok=True, value=NODE, comment=COMMENT),
+        AdvisorResponse(ok=True, value=NODE, comment=COMMENT),
+        AdvisorResponse(ok=True, value=NODE, comment=COMMENT),
     )
     graph = advisor_graph.build_graph(model)
 
-    advisor_graph.propose(
+    await advisor_graph.propose(
         product_name=PRODUCT_NAME, marketplace=MARKETPLACE, graph=graph
     )
-    advisor_graph.propose(
+    await advisor_graph.propose(
         product_name=PRODUCT_NAME, marketplace=MARKETPLACE, graph=graph
     )
 

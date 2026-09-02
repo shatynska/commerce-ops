@@ -34,7 +34,7 @@ The serving halves are integration-tier.
 
 ## INVENTED shapes
 
-As `test_step_activation.py`'s docstring records: `roster=` and
+As `test_step_activation.py`'s docstring records: `members=` and
 `handlers=` collaborators, and a status change expressed through
 `update_step(status=...)` unless a dedicated use case is exported.
 `display_order` as the slot attribute is the spelling
@@ -92,7 +92,7 @@ PRINCIPAL: Final = "helen"
 EARLIER_PRINCIPAL: Final = "olena"
 A_DISCIPLINE: Final = next(iter(Discipline))
 
-PERSON_ACTIVE: Final = "prs_01HQ8Z6M4A"
+MEMBER_ACTIVE: Final = "prs_01HQ8Z6M4A"
 
 REJECTED: Final = (InvalidPlaybookError, ValueError, TypeError)
 
@@ -115,7 +115,7 @@ def _step(**overrides: Any) -> StepDefinition:
         "kind": StepKind.HUMAN,
         "status": StepStatus.ACTIVE,
         "hazard": Hazard.NONE,
-        "assignees": (PERSON_ACTIVE,),
+        "assignees": (MEMBER_ACTIVE,),
         "handler": None,
         "provenance": None,
     }
@@ -162,25 +162,25 @@ class _FakeStepStore:
         self.version += 1
 
 
-class _Person:
-    def __init__(self, person_id: str, display_name: str, *, active: bool) -> None:
-        self.id = person_id
+class _Member:
+    def __init__(self, member_id: str, display_name: str, *, active: bool) -> None:
+        self.id = member_id
         self.display_name = display_name
         self.clickup_user_id: str | None = "clickup-1"
         self.active = active
 
 
-class _FakeRoster:
-    def __init__(self, people: tuple[_Person, ...]) -> None:
-        self._people = people
+class _FakeMembers:
+    def __init__(self, members: tuple[_Member, ...]) -> None:
+        self._members = members
 
-    async def list_people(self) -> tuple[_Person, ...]:
-        return self._people
+    async def list_members(self) -> tuple[_Member, ...]:
+        return self._members
 
-    people = list_people
+    members = list_members
 
-    async def __call__(self) -> tuple[_Person, ...]:
-        return await self.list_people()
+    async def __call__(self) -> tuple[_Member, ...]:
+        return await self.list_members()
 
 
 class _FakeHandlerRegistry:
@@ -197,8 +197,8 @@ class _FakeHandlerRegistry:
         return self._names
 
 
-def _roster() -> _FakeRoster:
-    return _FakeRoster((_Person(PERSON_ACTIVE, "Alice Admin", active=True),))
+def _members() -> _FakeMembers:
+    return _FakeMembers((_Member(MEMBER_ACTIVE, "Alice Admin", active=True),))
 
 
 def _registry() -> _FakeHandlerRegistry:
@@ -252,7 +252,7 @@ _CREATE_DEFAULTS: Final = {
     "kind": StepKind.HUMAN,
     "status": StepStatus.ACTIVE,
     "hazard": Hazard.NONE,
-    "assignees": (PERSON_ACTIVE,),
+    "assignees": (MEMBER_ACTIVE,),
     "handler": None,
 }
 
@@ -262,7 +262,7 @@ async def _create(store: _FakeStepStore, **overrides: Any) -> Any:
     return await create_step(
         steps=store,
         principal=PRINCIPAL,
-        roster=_roster(),
+        members=_members(),
         handlers=_registry(),
         **fields,
     )
@@ -273,7 +273,7 @@ async def _update(store: _FakeStepStore, step_id: str, **fields: Any) -> Any:
         steps=store,
         principal=PRINCIPAL,
         step_id=step_id,
-        roster=_roster(),
+        members=_members(),
         handlers=_registry(),
         **fields,
     )
@@ -284,7 +284,7 @@ async def _retire(store: _FakeStepStore, step_id: str) -> Any:
         steps=store,
         principal=PRINCIPAL,
         step_id=step_id,
-        roster=_roster(),
+        members=_members(),
         handlers=_registry(),
     )
 
@@ -294,7 +294,7 @@ async def _unretire(store: _FakeStepStore, step_id: str) -> Any:
         steps=store,
         principal=PRINCIPAL,
         step_id=step_id,
-        roster=_roster(),
+        members=_members(),
         handlers=_registry(),
     )
 
@@ -316,7 +316,7 @@ async def _set_status(store: _FakeStepStore, step_id: str, status: StepStatus) -
                 principal=PRINCIPAL,
                 step_id=step_id,
                 status=status,
-                roster=_roster(),
+                members=_members(),
                 handlers=_registry(),
             )
     return await _update(store, step_id, status=status)

@@ -132,7 +132,7 @@ async def test_a_sub_category_is_recorded_for_a_product_with_none() -> None:
     product = _registered()
     store = _SubCategoryStore(product)
 
-    # `cast(Any, store)`: `_SubCategoryStore` carries only the members
+    # `cast(Any, store)`: `_SubCategoryStore` carries only the membership
     # `record_sub_category` reaches, not the full `CatalogStore` protocol —
     # the same reason `test_product_dossier_page.py`'s `_AsinStore` casts
     # for `record_asin`.

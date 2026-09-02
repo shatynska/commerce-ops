@@ -49,7 +49,7 @@ INVENTED, recorded in the manifest with correction points named:
   implemented copy is a fixture correction; dropping one is not.
   Correction points: `_DID_NOT_COMPLETE`, `_MAY_BE_STALE`, `_RELOAD`,
   `_SESSION_ENDED`, `_WAY_BACK`, `_CLAIMS_NOTHING_SAVED`.
-- The page seams (`steps`, `roster`, `verify_admin_session`) and the
+- The page seams (`steps`, `members`, `verify_admin_session`) and the
   session cookie, as the sibling admin tests record them.
 
 ## What the page already ships, and why it is not enough
@@ -258,7 +258,7 @@ _VOID_TAGS: Final = (
 
 
 # ---------------------------------------------------------------------------
-# Step store, records and roster double (the sibling admin tests' shapes)
+# Step store, records and members double (the sibling admin tests' shapes)
 # ---------------------------------------------------------------------------
 
 
@@ -322,26 +322,26 @@ class _StoreThatCannotPersist(_FakeStepStore):
         raise RuntimeError("the step set could not be written")
 
 
-class _Person:
+class _Member:
     def __init__(
-        self, person_id: str, display_name: str, *, active: bool = True
+        self, member_id: str, display_name: str, *, active: bool = True
     ) -> None:
-        self.id = person_id
+        self.id = member_id
         self.display_name = display_name
         self.clickup_user_id: str | None = "clickup-1"
         self.active = active
 
 
-class _FakeRoster:
-    """A reader, as every roster double under `tests/unit/launch/` is.
+class _FakeMembers:
+    """A reader, as every membership double under `tests/unit/launch/` is.
 
-    Deliberately *not* the store-shaped collaborator: the roster wiring is
-    `test_playbook_admin_writes_reach_the_roster.py`'s subject, and these
+    Deliberately *not* the store-shaped collaborator: the membership wiring is
+    `test_playbook_admin_writes_reach_the_members.py`'s subject, and these
     tests must fail on the failure notice rather than on that.
     """
 
-    async def list_people(self) -> tuple[_Person, ...]:
-        return (_Person(ALICE, ALICE_NAME),)
+    async def list_members(self) -> tuple[_Member, ...]:
+        return (_Member(ALICE, ALICE_NAME),)
 
 
 def _seeded_store(kind: type[_FakeStepStore] = _FakeStepStore) -> _FakeStepStore:
@@ -629,7 +629,7 @@ async def _fake_verify(*args: Any, **kwargs: Any) -> str | None:
 def _app(monkeypatch: pytest.MonkeyPatch, store: _FakeStepStore) -> FastAPI:
     monkeypatch.setattr(page_module, "steps", store)
     monkeypatch.setattr(page_module, "verify_admin_session", _fake_verify)
-    monkeypatch.setattr(page_module, "roster", _FakeRoster())
+    monkeypatch.setattr(page_module, "members", _FakeMembers())
     app = FastAPI()
     app.include_router(page_module.router)
     return app
@@ -778,7 +778,7 @@ def _option_matching(html: str, field_name: str, hint: str) -> str:
 def _valid_values(html: str, form: _Control, *, name: str) -> dict[str, str]:
     """A payload the authoring write accepts, so a submission reaches the
     persistence that fails rather than being turned back by the rules —
-    the same construction `test_playbook_admin_writes_reach_the_roster.py`
+    the same construction `test_playbook_admin_writes_reach_the_members.py`
     uses."""
     values = form.data()
     values[_field(values, "name", excluding=("anchor",))] = name

@@ -415,7 +415,7 @@ def _graduate(launch: Launch, playbook: LaunchPlaybook) -> Launch:
                     step_id=step.identifier,
                     outcome=Satisfied,
                     provenance=Provenance(
-                        source="attestation",
+                        source="clickup",
                         who="Helen",
                         when=APPROVED_AT,
                         evidence="blocking work signed off",
@@ -665,7 +665,7 @@ async def test_settled_and_voided_results_are_all_still_answered(
     rejected_entry = _entry_for(answered, MIDDLE_TEXT)
     voided_entry = _entry_for(answered, NEWEST_TEXT)
 
-    # SPECIFIED: each carries the state it reached, the person who
+    # SPECIFIED: each carries the state it reached, the member who
     # decided it and the moment of the decision.
     assert _state_of(accepted_entry) == "accepted"
     assert _read_field(accepted_entry, "decided_by") == ALICE

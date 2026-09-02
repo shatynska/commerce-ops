@@ -9,13 +9,13 @@ as tasks*, the scenarios this delta adds or revises:
 
 - *A step authored mid-launch is projected* (new).
 - *An unedited task follows the step's current wording* (new).
-- *A person's body note survives a wording edit* (new — the two fields
+- *A member's body note survives a wording edit* (new — the two fields
   guarded independently).
 - *An unedited legacy task starts healing* (new).
 - *An ambiguous legacy task is never rewritten* (new).
 - *An edited task name is never restored* — as revised: restated over
   the retained-composition machinery, with the description changed since
-  the person's edit.
+  the member's edit.
 
 The requirement's unchanged scenarios (a human-attested step gets a
 task, a renamed task resolves, over-long shortening, not-recreated,
@@ -583,16 +583,16 @@ async def test_an_unedited_task_follows_the_steps_current_wording() -> None:
     assert mapping.retained_name == NEW_COMPOSITION
 
 
-async def test_a_persons_body_note_survives_a_wording_edit() -> None:
-    """Scenario: A person's body note survives a wording edit.
+async def test_a_members_body_note_survives_a_wording_edit() -> None:
+    """Scenario: A member's body note survives a wording edit.
 
-    WHEN a person has edited a mapped task's body, the task's name still
+    WHEN a member has edited a mapped task's body, the task's name still
     carries the system's retained composition, the step's description is
     edited, and the pass runs
     THEN the task's name is rewritten to the current composition
-    AND the task's body is left exactly as the person wrote it.
+    AND the task's body is left exactly as the member wrote it.
 
-    The two fields are guarded independently: the person's body note must
+    The two fields are guarded independently: the member's body note must
     not freeze the name, and the name rewrite must not touch the body.
     """
     note = "Waiting on the photographer — chased 12 Aug."
@@ -609,7 +609,7 @@ async def test_a_persons_body_note_survives_a_wording_edit() -> None:
 
     # SPECIFIED: the name heals...
     assert collaborators.clickup.tasks[TASK_ID].name == NEW_COMPOSITION
-    # ...and the person's body is never rewritten.
+    # ...and the member's body is never rewritten.
     assert collaborators.clickup.body_updates_for(TASK_ID) == []
     assert collaborators.clickup.tasks[TASK_ID].description == note
 
@@ -660,7 +660,7 @@ async def test_an_ambiguous_legacy_task_is_never_rewritten() -> None:
 
     mapping = await collaborators.mapping.task_for(PRODUCT_ID, STEP_ID)
     assert mapping is not None
-    # SPECIFIED: nothing adopted — the person wins the ambiguity.
+    # SPECIFIED: nothing adopted — the member wins the ambiguity.
     assert mapping.retained_name is None
     # SPECIFIED: the field is forever unrewritten.
     assert collaborators.clickup.name_updates_for(TASK_ID) == []
@@ -675,9 +675,9 @@ async def test_an_edited_task_name_is_never_restored() -> None:
     THEN the task keeps the name it has in ClickUp
     AND no update is sent for that task's name.
     """
-    persons_name = "Hero image — Olena owns this"
+    members_name = "Hero image — Olena owns this"
     collaborators = _mapped_collaborators(
-        task_name=persons_name, retained_name=OLD_COMPOSITION
+        task_name=members_name, retained_name=OLD_COMPOSITION
     )
     playbook = _playbook(steps=(_step(name=NEW_DESCRIPTION),))
     launch = _start(playbook)
@@ -686,9 +686,9 @@ async def test_an_edited_task_name_is_never_restored() -> None:
 
     # SPECIFIED: no update is sent for that task's name.
     assert collaborators.clickup.name_updates_for(TASK_ID) == []
-    assert collaborators.clickup.tasks[TASK_ID].name == persons_name
+    assert collaborators.clickup.tasks[TASK_ID].name == members_name
     # DERIVED (retained values move only on system writes): the retained
-    # composition is not silently replaced by the person's edit.
+    # composition is not silently replaced by the member's edit.
     mapping = await collaborators.mapping.task_for(PRODUCT_ID, STEP_ID)
     assert mapping is not None
     assert mapping.retained_name == OLD_COMPOSITION

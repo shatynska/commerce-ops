@@ -58,7 +58,7 @@
   </select>
   {{ marked(marks, "status") }}
 </label>
-{# Two inputs, two audiences: the name is what a person scans in a list of
+{# Two inputs, two audiences: the name is what a member scans in a list of
    work and becomes the task's name, so it is one line; the description is
    what they read once they have decided to do it, so it takes as many as
    it needs. #}
@@ -69,6 +69,14 @@
 <label>Description (optional)
   <textarea name="description" rows="4">{{ values.get("description", "") }}</textarea>
   {{ marked(marks, "description") }}
+</label>
+{# Free-typed and not chosen: nothing defines metrics yet, so a control
+   offering choices would have none to offer, and a write is refused only
+   on what the shared vocabulary refuses. Clearable, absent being the
+   value almost every step carries. #}
+<label>Metric identifier (optional)
+  <input name="metric_id" value="{{ values.get("metric_id", "") }}">
+  {{ marked(marks, "metric_id") }}
 </label>
 </fieldset>
 <fieldset class="field-group">
@@ -259,7 +267,7 @@
     <li class="no-match" hidden>No step matches.</li>
   </ul>
   {# Chips summarise what is chosen; they are not a second control. The
-     input lives in its option row, where a person ticks it, and that row's
+     input lives in its option row, where a member ticks it, and that row's
      own checkbox is the way back to none — always there, no modifier key,
      nothing to run.
 
@@ -299,7 +307,7 @@
     <option value="{{ identifier }}"{% if identifier == values.get("confirmer") %} selected{% endif %}>{{ display_name }}</option>
     {% endfor %}
   </select>
-  <small>The one person who must accept an automated result before the step counts as resolved. Carried but unused on a human step.</small>
+  <small>The one member who must accept an automated result before the step counts as resolved. Carried but unused on a human step.</small>
   {{ marked(marks, "confirmer") }}
 </label>
 <label>Kind
@@ -343,7 +351,7 @@
     {% endfor %}
   </ul>
   {# Chips summarise what is chosen; they are not a second control. The
-     input lives in its option row, where a person ticks it, and that row's
+     input lives in its option row, where a member ticks it, and that row's
      own checkbox is the way back to none — always there, no modifier key,
      nothing to run.
 
@@ -358,12 +366,12 @@
   <span class="chosen-set" data-chosen-for="assignees" data-field="assignees">
     {% for identifier, display_name in assignee_options %}
     {% if identifier in values.get("assignees", []) %}
-    <span class="chip person" data-value="{{ identifier }}">{{ display_name }}</span>
+    <span class="chip member" data-value="{{ identifier }}">{{ display_name }}</span>
     {% endif %}
     {% endfor %}
     {%- if not values.get("assignees") %}<span class="chip none">nobody assigned</span>{% endif %}
   </span>
-  <small>The roster's active people. An active human step needs at least one. Click to add or remove; no modifier key.</small>
+  <small>The membership's active members. An active human step needs at least one. Click to add or remove; no modifier key.</small>
   {{ marked(marks, "assignees") }}
 </fieldset>
 {# Handler carries no meaning for a human step, so the control renders
@@ -475,12 +483,12 @@
       // where the script does, since a chip must not be a toggle that could
       // silently re-choose a cleared value. Unticking the option row is the
       // way back to none either way, and it needs nothing to run.
-      var person = group.querySelector('.chip.person') !== null;
+      var member = group.querySelector('.chip.member') !== null;
 
       function label(input) {
         var row = input.closest(".row");
         var name = row && row.querySelector(".nm");
-        return person && name ? name.textContent : input.value;
+        return member && name ? name.textContent : input.value;
       }
 
       function paint() {
@@ -492,12 +500,12 @@
         if (!on.length) {
           var none = document.createElement("span");
           none.className = "chip none";
-          none.textContent = person ? "nobody assigned" : "waits on nothing";
+          none.textContent = member ? "nobody assigned" : "waits on nothing";
           chosen.appendChild(none);
         }
         on.forEach(function (input) {
           var chip = document.createElement("span");
-          chip.className = person ? "chip person" : "chip";
+          chip.className = member ? "chip member" : "chip";
           chip.setAttribute("data-value", input.value);
           chip.textContent = label(input);
           var cross = document.createElement("button");

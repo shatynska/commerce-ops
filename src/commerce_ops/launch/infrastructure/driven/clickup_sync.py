@@ -118,39 +118,39 @@ bound. Recording always goes through the public use case — this module
 never writes an outcome row itself."""
 
 
-RosterReader = Any
-"""Reads the roster's people, so a step's assignees can be resolved to
+MembersReader = Any
+"""Reads the membership's members, so a step's assignees can be resolved to
 ClickUp users. Supplied by the composition root across the module
 boundary, because `launch` may only reach `access` through its public
 application surface — the same shape `read_product` has for the catalog."""
 
 
-async def _roster_people(roster: RosterReader) -> tuple[Any, ...]:
-    if roster is None:
+async def _members(members: MembersReader) -> tuple[Any, ...]:
+    if members is None:
         return ()
-    lister = getattr(roster, "list_people", None)
+    lister = getattr(members, "list_members", None)
     if lister is not None:
         return tuple(await lister())
-    if callable(roster):
-        return tuple(await roster())
-    return tuple(roster)
+    if callable(members):
+        return tuple(await members())
+    return tuple(members)
 
 
-def _person_identifier(person: Any) -> str:
-    for name in ("identifier", "id", "person_id"):
-        value = getattr(person, name, None)
+def _member_identifier(member: Any) -> str:
+    for name in ("identifier", "id", "member_id"):
+        value = getattr(member, name, None)
         if value is not None:
             return str(value)
-    raise ValueError(f"a roster person exposes no identifier: {person!r}")
+    raise ValueError(f"a member exposes no identifier: {member!r}")
 
 
 def _clickup_users(
-    step: StepDefinition, people: Mapping[str, Any], *, task_id: str | None
+    step: StepDefinition, members: Mapping[str, Any], *, task_id: str | None
 ) -> tuple[str, ...]:
     """The step's assignees as ClickUp user ids, in the order the step
     names them.
 
-    An assignee the roster carries without a ClickUp user id is skipped
+    An assignee the membership carries without a ClickUp user id is skipped
     and **reported**, never silently dropped: the task is still created
     and still carries the step's remaining assignees, because a failed
     run would hide a data gap behind a retry, and the run record only
@@ -158,17 +158,17 @@ def _clickup_users(
     """
     resolved: list[str] = []
     for identifier in step.assignees:
-        person = people.get(identifier)
-        if person is None:
+        member = members.get(identifier)
+        if member is None:
             _logger.warning(
-                "step %s names assignee %s, whom the roster does not carry; "
+                "step %s names assignee %s, whom the membership does not carry; "
                 "the ClickUp task %s is left without them",
                 step.identifier,
                 identifier,
                 task_id or "(being created)",
             )
             continue
-        user_id = getattr(person, "clickup_user_id", None)
+        user_id = getattr(member, "clickup_user_id", None)
         if not user_id:
             _logger.warning(
                 "step %s names assignee %s (%s), who has no ClickUp account; "
@@ -176,7 +176,7 @@ def _clickup_users(
                 "assignees",
                 step.identifier,
                 identifier,
-                getattr(person, "display_name", "?"),
+                getattr(member, "display_name", "?"),
                 task_id or "(being created)",
             )
             continue
@@ -194,7 +194,7 @@ def _assignee_change(
     A mapping holding no retained assignees — every mapping made before
     assignees existed — is read as having last been set to nobody, so a
     task the system left unassigned heals to its step's assignees while
-    one somebody has already assigned is treated as person-edited and
+    one somebody has already assigned is treated as member-edited and
     left alone. Assignees are the one field where that reading is right:
     an unassigned task is the failure this projection exists to fix, so
     silence there is the system's own doing rather than an edit worth
@@ -215,11 +215,11 @@ def is_projectable(step: StepDefinition) -> bool:
     """Whether a step becomes a ClickUp task.
 
     Only `active` human work does. An `automated` step resolves through
-    its own path whether or not its result needs a person's
+    its own path whether or not its result needs a member's
     confirmation — naming a confirmer is not a way back into this
     projection. A step that is not `active` is not part of the launch's
     obligations at all, and a `prohibited-tactic` step can only ever be
-    `Refused` — offering a person a task to tick would invite them to
+    `Refused` — offering a member a task to tick would invite them to
     complete the thing the model says is uncompletable.
     """
     return (
@@ -404,10 +404,10 @@ async def _ensure_field_values(
 ) -> None:
     """Set each of the step's field values the task does not already carry.
 
-    Unlike the name, the body and the assignees -- which a person may edit
+    Unlike the name, the body and the assignees -- which a member may edit
     and which no pass overwrites -- these two fields are single-valued and
     wholly determined by the step, so a value disagreeing with it is drift
-    rather than a person's own meaning, and is **corrected**. That is what
+    rather than a member's own meaning, and is **corrected**. That is what
     lets a step moved to a different gate reach its task, which the tag
     representation this replaces could not do.
 
@@ -482,7 +482,7 @@ def _wants_rewrite(
 ) -> bool:
     """Whether a field may be rewritten to `desired`: only while the field
     in ClickUp still carries exactly what the system last wrote for it —
-    a field that differs has been edited by a person and is never touched.
+    a field that differs has been edited by a member and is never touched.
     """
     if retained is None or desired is None:
         return False
@@ -507,7 +507,7 @@ async def _heal_wording(
     ClickUp content is exactly what the system would currently compose is
     adopted as retained (an unedited legacy task starts healing); anything
     else is left unadopted and forever unrewritten — where the system
-    cannot tell an authored change from a person's edit, the person wins.
+    cannot tell an authored change from a member's edit, the member wins.
     """
     desired_name = _task_name(step)
     desired_body = _task_body(step)
@@ -564,7 +564,7 @@ async def converge_launch(
     mapping: MappingStore,
     read_product: ProductReader,
     folder_id: str | None,
-    roster: RosterReader = None,
+    members: MembersReader = None,
     configuration: Mapping[str, Mapping[str, str]] | None = None,
 ) -> None:
     """Drive ClickUp toward what this launch's schedule implies.
@@ -606,8 +606,10 @@ async def converge_launch(
         return
 
     present = {task.id: task for task in await clickup.list_tasks(list_id)}
-    people = {
-        _person_identifier(person): person for person in await _roster_people(roster)
+    # `by_identifier`, not `members`: the parameter is the reader and this is
+    # an identifier -> member map built from it. Two names for two things.
+    by_identifier = {
+        _member_identifier(member): member for member in await _members(members)
     }
 
     for step in steps:
@@ -631,7 +633,7 @@ async def converge_launch(
                 product_id=launch.product_id,
                 clickup=clickup,
                 mapping=mapping,
-                desired_assignees=_clickup_users(step, people, task_id=task_id),
+                desired_assignees=_clickup_users(step, by_identifier, task_id=task_id),
             )
             # Reading what the task already carries from the list read this
             # pass already took — a task holding both of its values costs no
@@ -648,7 +650,7 @@ async def converge_launch(
         else:
             composed_name = _task_name(step)
             composed_body = _task_body(step)
-            assignees = _clickup_users(step, people, task_id=None)
+            assignees = _clickup_users(step, by_identifier, task_id=None)
             created = await clickup.create_task(
                 list_id=list_id,
                 name=composed_name,
@@ -694,7 +696,7 @@ async def converge_launch_eagerly(
     clickup: Any,
     mapping: MappingStore,
     read_product: ProductReader,
-    roster: RosterReader,
+    members: MembersReader,
     folder_id: str | None,
 ) -> None:
     """Project one launch's ClickUp list and tasks immediately, in addition
@@ -758,7 +760,7 @@ async def converge_launch_eagerly(
                 clickup=clickup,
                 mapping=mapping,
                 read_product=read_product,
-                roster=roster,
+                members=members,
                 folder_id=folder_id,
                 configuration=None,
             )
@@ -854,7 +856,7 @@ async def reconcile_launch(
     present = {task.id: task for task in await clickup.list_tasks(list_id)}
     # The set the loop still projects, not merely the served set. A step
     # that becomes `automated` stays `active`, so nothing about its status
-    # signals its departure — and its orphaned task, closed by a person
+    # signals its departure — and its orphaned task, closed by a member
     # tidying up, would otherwise record a `clickup`-sourced completion for
     # work a handler is about to do. One predicate, shared with the outward
     # half above, so the two directions cannot drift apart.
@@ -864,7 +866,7 @@ async def reconcile_launch(
     # can reach it is a task created while the step *was* released, whose
     # step has since stopped being one — reachable by an authoring change
     # or by a dependency's task being reopened. Completing that task is
-    # work a person did on work they were given, and recording it is
+    # work a member did on work they were given, and recording it is
     # right: release governs what the system asks for, never what it
     # accepts. Gating here would discard real work for arriving early.
     defined = {

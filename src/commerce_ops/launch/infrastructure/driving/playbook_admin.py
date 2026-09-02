@@ -19,20 +19,20 @@ through a stylesheet URL either.
 Collaborators are module-level names referenced as bare globals — the
 `clickup_webhook.py` pattern that lets tests substitute fakes with
 `monkeypatch.setattr`: `steps` (the step-set store; in production a
-wrapper opening its own session per operation), and `roster` /
+wrapper opening its own session per operation), and `members` /
 `admin_sessions`, injected by `main.py` the way `slack_entry`'s catalog
 registrar is, because this module may not import the access module's
 infrastructure.
 
-`roster` serves **two** contracts, and conflating them is what broke
+`members` serves **two** contracts, and conflating them is what broke
 every write on this page. The guard hands it to `verify_admin_session`,
-which needs the roster *store*; the authoring writes need a *reader*,
-answering `list_people()`. The read path adapted it from the start and
+which needs the membership *store*; the authoring writes need a *reader*,
+answering `list_members()`. The read path adapted it from the start and
 the write path did not, so each write reached the use cases holding a
 store they could not read and died on a `TypeError` before judging
 anything. Both directions are now explicit: the global is typed as the
-store, and `_roster_reader` is the reader the writes are given — over
-`_roster_people`, so a write is judged against the same roster the page
+store, and `_members_reader` is the reader the writes are given — over
+`_members`, so a write is judged against the same membership the page
 rendered from.
 """
 
@@ -52,8 +52,8 @@ from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from jinja2 import ChoiceLoader, Environment, FileSystemLoader, select_autoescape
 
 from commerce_ops.access.application import (
-    RosterStore,
-    list_people,
+    MembersStore,
+    list_members,
     verify_admin_session,
 )
 from commerce_ops.launch.application import (
@@ -90,7 +90,7 @@ from commerce_ops.shared.infrastructure.driving.admin_assets import TEMPLATES_DI
 
 __all__ = [
     "admin_sessions",
-    "roster",
+    "members",
     "router",
     "steps",
     "verify_admin_session",
@@ -260,88 +260,88 @@ class _RequestScopedSteps:
 steps: StepSetStore = _RequestScopedSteps()
 
 # Injected by `main.py` after the app is built (the `register_catalog_product`
-# pattern): the roster store and the access module's session store. Resolved
+# pattern): the members store and the access module's session store. Resolved
 # at call time; absent injection refuses every request, which is the
 # failing-closed direction.
 #
 # Typed as the *store* it is, rather than `Any`. That is what makes the
 # mistake this change exists to fix a type error rather than a runtime
-# one: handing this object to an authoring write as its `roster=` reader
-# no longer type-checks, because a `RosterStore` does not satisfy
-# `RosterReader`. It was `Any`, so nothing objected.
-roster: RosterStore | None = None
+# one: handing this object to an authoring write as its `members=` reader
+# no longer type-checks, because a `MembersStore` does not satisfy
+# `MembersReader`. It was `Any`, so nothing objected.
+members: MembersStore | None = None
 admin_sessions: Any = None
 
 
-async def _roster_people() -> tuple[Any, ...]:
-    """Everyone the roster carries, however the collaborator is shaped.
+async def _members() -> tuple[Any, ...]:
+    """Everyone the membership carries, however the collaborator is shaped.
 
-    In production `roster` is the roster *store* the composition root
-    injects, read through `access`'s public `list_people`; a test
-    substitutes a reader answering `list_people()` directly. Both are
-    accepted, because the seam is what the page needs of the roster and
+    In production `members` is the membership *store* the composition root
+    injects, read through `access`'s public `list_members`; a test
+    substitutes a reader answering `list_members()` directly. Both are
+    accepted, because the seam is what the page needs of the membership and
     not which object happens to satisfy it."""
-    if roster is None:
+    if members is None:
         return ()
-    reader = getattr(roster, "list_people", None)
+    reader = getattr(members, "list_members", None)
     if reader is not None:
         return tuple(await reader())
-    return tuple(await list_people(roster=roster))
+    return tuple(await list_members(members=members))
 
 
-class _PageRosterReader:
-    """The `RosterReader` the authoring writes take, over whatever the
+class _PageMembersReader:
+    """The `MembersReader` the authoring writes take, over whatever the
     composition root injected.
 
     The page holds **one** collaborator serving two contracts. The guard
     passes it to `access`'s `verify_admin_session`, which is typed
-    `RosterStore` and genuinely needs a store; the writes need a reader.
-    The read path has always adapted it — `_roster_people` above — and
+    `MembersStore` and genuinely needs a store; the writes need a reader.
+    The read path has always adapted it — `_members` above — and
     the write path did not, so every write reached
-    `playbook_authoring._read_people` holding a `load()`/`save()` store,
+    `playbook_authoring._read_members` holding a `load()`/`save()` store,
     which that function could not read. That is the whole production
     fault, and this class is the missing half of the adaptation.
 
-    Delegating to `_roster_people` rather than resolving the roster
-    again is the point: the roster a write is judged against is then the
-    same roster the page rendered its assignee control from, by
+    Delegating to `_members` rather than resolving the membership
+    again is the point: the membership a write is judged against is then the
+    same members the page rendered its assignee control from, by
     construction rather than by two call sites agreeing.
     """
 
-    async def list_people(self) -> tuple[Any, ...]:
-        return await _roster_people()
+    async def list_members(self) -> tuple[Any, ...]:
+        return await _members()
 
 
 #: Resolved per call through the module global, so a test that swaps
-#: `roster` needs no second seam and injection order stays irrelevant.
-_roster_reader: Final = _PageRosterReader()
+#: `members` needs no second seam and injection order stays irrelevant.
+_members_reader: Final = _PageMembersReader()
 
 
-def _person_identifier(person: Any) -> str:
-    for name in ("identifier", "id", "person_id"):
-        value = getattr(person, name, None)
+def _member_identifier(member: Any) -> str:
+    for name in ("identifier", "id", "member_id"):
+        value = getattr(member, name, None)
         if value is not None:
             return str(value)
-    raise ValueError(f"a roster person exposes no identifier: {person!r}")
+    raise ValueError(f"a member exposes no identifier: {member!r}")
 
 
 _logger = logging.getLogger(__name__)
 
 
-def _people_by_identifier(people: Sequence[Any]) -> dict[str, Any]:
-    return {_person_identifier(person): person for person in people}
+def _members_by_identifier(members: Sequence[Any]) -> dict[str, Any]:
+    return {_member_identifier(member): member for member in members}
 
 
-def _assignee_options(people: Sequence[Any]) -> list[tuple[str, str]]:
+def _assignee_options(members: Sequence[Any]) -> list[tuple[str, str]]:
     """Who the form offers, by display name.
 
-    Active people only: an author cannot name someone who does not exist,
+    Active members only: an author cannot name someone who does not exist,
     and offering a departed colleague would invite a write the rules
     refuse."""
     return [
-        (_person_identifier(person), str(person.display_name))
-        for person in people
-        if getattr(person, "active", True)
+        (_member_identifier(member), str(member.display_name))
+        for member in members
+        if getattr(member, "active", True)
     ]
 
 
@@ -350,13 +350,13 @@ async def _require_admin(request: Request) -> str:
     404 — identical to an unregistered route, whatever actually failed."""
     session_id = request.cookies.get(SESSION_COOKIE)
     principal: str | None = None
-    # `roster is not None` is the failing-closed direction the comment on
+    # `members is not None` is the failing-closed direction the comment on
     # the global already claimed and nothing enforced: un-injected, the
     # guard used to hand `None` to `verify_admin_session` and refuse with
     # whatever that raised. Typing the global surfaced it.
-    if session_id and roster is not None:
+    if session_id and members is not None:
         principal = await verify_admin_session(
-            roster,
+            members,
             admin_sessions,
             session_id=session_id,
             now=datetime.now(UTC),
@@ -559,6 +559,10 @@ def _authorable_fields(
     # exactly that reason.
     fields["starts_at_gate"] = (form.get("starts_at_gate") or "").strip() or None
     fields["handler"] = (form.get("handler") or "").strip() or None
+    # Passed on as the raw string the form submitted: the use case is the
+    # boundary that turns it into a `MetricId`, and refusing a malformed
+    # one there is what makes the rejection reachable from a submission.
+    fields["metric_id"] = (form.get("metric_id") or "").strip() or None
     # An empty selection is "no confirmation needed", carried as `None`
     # rather than the empty string — the same single-valued-optional
     # shape `starts_at_gate` already uses.
@@ -671,12 +675,12 @@ _CROSSINGS: Final = (
     # The write-time preconditions, from the application layer. The two
     # confirmer entries go before the assignee ones they'd otherwise be
     # swallowed by: `_crossing` returns on the first substring match, and
-    # "whom the roster does not carry" is common to both an unknown
+    # "whom the membership does not carry" is common to both an unknown
     # assignee's message and an unknown confirmer's.
     _Crossing("names confirmer", ("confirmer",), True),
-    _Crossing("whom the roster does not carry", ("assignees",), True),
+    _Crossing("whom the membership does not carry", ("assignees",), True),
     _Crossing(
-        "names no assignee who is active on the roster",
+        "names no assignee who is active on the membership",
         ("kind", "status", "assignees"),
         True,
     ),
@@ -759,7 +763,7 @@ def _rejection(rejected: Exception, *, creating: bool = False) -> _Rejection:
     )
 
 
-def _row(record: Any, people: Mapping[str, Any]) -> dict[str, Any]:
+def _row(record: Any, members: Mapping[str, Any]) -> dict[str, Any]:
     definition = record.definition
     return {
         "identifier": definition.identifier,
@@ -771,16 +775,16 @@ def _row(record: Any, people: Mapping[str, Any]) -> dict[str, Any]:
         "kind": definition.kind.value,
         "status": definition.status.value,
         # By display name, since an author knows colleagues by name and
-        # not by generated identifier. An identifier the roster no longer
+        # not by generated identifier. An identifier the membership no longer
         # carries is shown as itself rather than dropped — an assignee
         # nobody can read is still an assignee the write rules see.
         "assignees": [
-            getattr(people.get(identifier), "display_name", identifier)
+            getattr(members.get(identifier), "display_name", identifier)
             for identifier in definition.assignees
         ],
         "confirmer": (
             getattr(
-                people.get(definition.confirmer), "display_name", definition.confirmer
+                members.get(definition.confirmer), "display_name", definition.confirmer
             )
             if definition.confirmer is not None
             else None
@@ -1039,7 +1043,7 @@ async def _render_page(
     created: str = "",
 ) -> HTMLResponse:
     records, version = await steps.load()
-    people = _people_by_identifier(await _roster_people())
+    members = _members_by_identifier(await _members())
     outside = _created_outside(records, narrowing, created) if created else None
 
     gates = []
@@ -1065,7 +1069,7 @@ async def _render_page(
         rows = []
         pending = []
         for record in shown:
-            row = _row(record, people)
+            row = _row(record, members)
             row["live_count"] = len(live)
             row["up"] = row["down"] = None
             if not _is_active(record):
@@ -1112,7 +1116,7 @@ async def _render_page(
             if outside is not None
             else None
         ),
-        assignee_options=_assignee_options(list(people.values())),
+        assignee_options=_assignee_options(list(members.values())),
         dependency_options=_dependency_options(records, editing=None, rendered_gate=""),
         **_option_context(),
     )
@@ -1137,7 +1141,7 @@ async def _render_new(
         marks=rejection.marks,
         notice=notice,
         narrowing=narrowing,
-        assignee_options=_assignee_options(await _roster_people()),
+        assignee_options=_assignee_options(await _members()),
         dependency_options=await _dependency_options_for(
             # The gate the create form will actually *show*: an unsubmitted
             # create carries no gate, and its control then falls back to the
@@ -1178,7 +1182,7 @@ async def _render_edit(
         marks=rejection.marks,
         notice=notice,
         narrowing=narrowing,
-        assignee_options=_assignee_options(await _roster_people()),
+        assignee_options=_assignee_options(await _members()),
         dependency_options=await _dependency_options_for(
             editing=step_id, rendered_gate=str(values.get("gate", ""))
         ),
@@ -1208,6 +1212,7 @@ def _edit_values(record: Any) -> dict[str, Any]:
         "assignees": list(definition.assignees),
         "handler": definition.handler or "",
         "confirmer": definition.confirmer or "",
+        "metric_id": str(definition.metric_id) if definition.metric_id else "",
         "anchor_kind": anchor["kind"],
         "anchor_days": anchor["days"],
         "anchor_start": anchor["start"],
@@ -1248,6 +1253,7 @@ def _submitted_values(
         "after_steps": list(after_steps),
         "handler": form.get("handler", ""),
         "confirmer": form.get("confirmer", ""),
+        "metric_id": form.get("metric_id", ""),
         "anchor_kind": form.get("anchor_kind", "offset"),
         "anchor_days": form.get("anchor_days", ""),
         "anchor_start": form.get("anchor_start", ""),
@@ -1269,7 +1275,7 @@ async def _form_of(
 ) -> tuple[dict[str, str], tuple[str, ...], tuple[str, ...]]:
     """The submitted form, plus the two multi-valued controls read as the
     many values they are — a single-valued mapping would keep only the
-    last person a step names, and only the last step it waits on."""
+    last member a step names, and only the last step it waits on."""
     posted = await request.form()
     fields = {key: str(value) for key, value in posted.items()}
     assignees = tuple(str(value) for value in posted.getlist("assignees") if str(value))
@@ -1340,7 +1346,7 @@ async def save_edit(
             steps=steps,
             principal=principal,
             step_id=step_id,
-            roster=_roster_reader,
+            members=_members_reader,
             handlers=HANDLERS,
             **fields,
         )
@@ -1397,7 +1403,7 @@ async def create(
             steps=steps,
             principal=principal,
             discipline=discipline,
-            roster=_roster_reader,
+            members=_members_reader,
             handlers=HANDLERS,
             **fields,
         )
@@ -1437,7 +1443,7 @@ async def retire(
             steps=steps,
             principal=principal,
             step_id=step_id,
-            roster=_roster_reader,
+            members=_members_reader,
             handlers=HANDLERS,
         )
     except InvalidPlaybookError as rejected:
@@ -1457,7 +1463,7 @@ async def unretire(
             steps=steps,
             principal=principal,
             step_id=step_id,
-            roster=_roster_reader,
+            members=_members_reader,
             handlers=HANDLERS,
         )
     except InvalidPlaybookError as rejected:
@@ -1494,7 +1500,7 @@ async def change_status(
             principal=principal,
             step_id=step_id,
             status=status,
-            roster=_roster_reader,
+            members=_members_reader,
             handlers=HANDLERS,
         )
     except InvalidPlaybookError as rejected:

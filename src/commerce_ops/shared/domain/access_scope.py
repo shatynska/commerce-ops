@@ -2,7 +2,7 @@
 
 Implements `shared-vocabulary`'s access-scope requirement. Vocabulary only:
 a scope carries visibility and answers `permits`, but nothing here derives a
-scope from a person or a grant — that is the `access` context's work, the
+scope from a member or a grant — that is the `access` context's work, the
 way `LifecycleStage` carries `is_temporary` while its transition rules
 belong to `catalog`.
 

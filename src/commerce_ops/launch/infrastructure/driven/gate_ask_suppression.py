@@ -1,4 +1,4 @@
-"""Driven adapter: when a launch's gate was last put to a person.
+"""Driven adapter: when a launch's gate was last put to a member.
 
 Implements the retention half of `launch-gate-progression`'s *A gate is
 asked about at most once a day*.
@@ -11,7 +11,7 @@ younger than the cool-off stands.
 only *after* the ask reaches Slack -- recording first and then failing to
 deliver would silence a gate for a day with nobody having been asked, the
 mistake `field_gap_suppression` documents for its own row. `record_rejection`
-is written having delivered nothing at all: a person who declines a gate
+is written having delivered nothing at all: a member who declines a gate
 starts the day running from their decision, or one who declines at hour 23
 is asked again an hour later.
 

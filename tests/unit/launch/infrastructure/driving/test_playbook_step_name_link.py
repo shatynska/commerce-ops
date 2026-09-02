@@ -53,7 +53,7 @@ INVENTED, each with its correction point named in the code:
   (distinguishing it from the row's `edit`-labelled action, whose own
   text is exactly "edit"). Correction point: `_edit_links`,
   `_name_link`, `_edit_action`.
-- Every module seam, the step-store double and the roster double — taken
+- Every module seam, the step-store double and the membership double — taken
   unchanged from `test_playbook_admin_page.py`.
 
 Correcting a locator is a fixture correction (failure state 3 in
@@ -167,17 +167,17 @@ def _seeded_store() -> _FakeStepStore:
     return _FakeStepStore((_Record(_step(), display_order=10),))
 
 
-class _FakePerson:
-    def __init__(self, person_id: str, display_name: str) -> None:
-        self.id = person_id
+class _FakeMember:
+    def __init__(self, member_id: str, display_name: str) -> None:
+        self.id = member_id
         self.display_name = display_name
         self.clickup_user_id: str | None = "clickup-1"
         self.active = True
 
 
-class _FakeRoster:
-    async def list_people(self) -> tuple[_FakePerson, ...]:
-        return (_FakePerson(ASSIGNEE, ASSIGNEE_NAME),)
+class _FakeMembers:
+    async def list_members(self) -> tuple[_FakeMember, ...]:
+        return (_FakeMember(ASSIGNEE, ASSIGNEE_NAME),)
 
 
 async def _fake_verify(*args: Any, **kwargs: Any) -> str | None:
@@ -190,7 +190,7 @@ def _signed_client(
 ) -> TestClient:
     monkeypatch.setattr(page_module, "steps", store)
     monkeypatch.setattr(page_module, "verify_admin_session", _fake_verify)
-    monkeypatch.setattr(page_module, "roster", _FakeRoster())
+    monkeypatch.setattr(page_module, "members", _FakeMembers())
     app = FastAPI()
     app.include_router(page_module.router)
     client = TestClient(app)

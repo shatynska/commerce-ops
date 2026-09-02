@@ -58,7 +58,7 @@ Launch state is owned three ways, and the split is deliberate — neither system
 
 - **The repository** owns the playbook *framework*: the gate sequence, the opening modes, the authored metric conditions, and every coherence rule, as code in `launch_playbook.py`. The *step definitions* moved to Postgres as a live set (`move-playbook-steps-to-postgres`, 2026-08): seeded once from the authored YAML, then edited only through the `playbook-authoring` write use cases, each write validated as the whole playbook it would produce — so the database can hold nothing the repository's rulebook would reject. A launch records the served version identifier as an audit stamp; no read branches on it.
 
-  A step declares a **name** (one line, what a person scans in a list of work) and an optional multi-line **description**, the gate it precedes, its discipline, scope, timing anchor and blocking flag, its **assignees** (roster people, by identifier), its **kind** — `human` or `automated` — and, separately, whether the result **needs confirmation** by a person, plus a lifecycle **status**: `draft`, `in-development`, `active` or `retired`. Only `active` steps are served to a launch, hold a gate, or reach ClickUp; the rest are visible to authors alone, which is what lets work be written down before it is ready. An `automated` step carries an **automation brief** (owed once it leaves `draft`) and a **handler** naming the use case that resolves it (owed to become `active`) (`redesign-step-fields`, 2026-08). Registering a handler makes its name resolvable and loads nothing the handler needs in order to run: every process that consults the registry registers every handler in order to consult it at all, so a handler's model client, graph or HTTP session is obtained when it resolves a step, never when it is registered (`keep-handler-imports-cheap`, 2026-08).
+  A step declares a **name** (one line, what a member scans in a list of work) and an optional multi-line **description**, the gate it precedes, its discipline, scope, timing anchor and blocking flag, its **assignees** (members, by identifier), its **kind** — `human` or `automated` — and, separately, whether the result **needs confirmation** by a member, plus a lifecycle **status**: `draft`, `in-development`, `active` or `retired`. Only `active` steps are served to a launch, hold a gate, or reach ClickUp; the rest are visible to authors alone, which is what lets work be written down before it is ready. An `automated` step carries an **automation brief** (owed once it leaves `draft`) and a **handler** naming the use case that resolves it (owed to become `active`) (`redesign-step-fields`, 2026-08). Registering a handler makes its name resolvable and loads nothing the handler needs in order to run: every process that consults the registry registers every handler in order to consult it at all, so a handler's model client, graph or HTTP session is obtained when it resolves a step, never when it is registered (`keep-handler-imports-cheap`, 2026-08).
 - **Postgres** also owns each product's *position* in that playbook and its per-step completion state — per-product and mutable, like the step set itself.
 - **ClickUp** owns *human completion*. The ops team marks work done where they already work, and ClickUp reports completion back so gate-opening logic can evaluate against it.
 
@@ -96,7 +96,7 @@ Both install commands are required — the first covers commit-time checks, the 
 
 ## Local Postgres
 
-`tests/integration/products/` (and any future integration test touching Postgres) needs a real database. Bring up the same `postgres` service `docker-compose.yml` deploys, standalone:
+`tests/integration/` needs a real database. Bring up the same `postgres` service `docker-compose.yml` deploys, standalone:
 
 ```
 POSTGRES_PASSWORD=local-dev docker compose up postgres -d
@@ -115,10 +115,24 @@ It looks in three places, in order: the `DATABASE_URL` environment variable, the
 
 ```
 createdb commerce_ops_test          # once
-DATABASE_URL=postgresql+asyncpg://commerce_ops:local-dev@localhost:5432/commerce_ops_test \
-  uv run alembic upgrade head       # once
-echo 'DATABASE_URL=postgresql+asyncpg://commerce_ops:local-dev@localhost:5432/commerce_ops_test' > .env.test
+export DATABASE_URL=postgresql+asyncpg://commerce_ops:local-dev@localhost:5432/commerce_ops_test
+uv run alembic upgrade head                      # once — the schema
+uv run python -m commerce_ops.seed_playbook      # once — and the seed
+echo "DATABASE_URL=$DATABASE_URL" > .env.test
 ```
+
+**Both commands, not just the first.** The migration writes the rows it always
+did; the rest of the step set comes from `seed_playbook`, which every container
+runs on start (see the `Dockerfile`'s CMD chain) and which no migration performs.
+A database carrying only the schema fails four tests, and they say so in their own
+assertion messages.
+
+**The name's `_test` must come last.** Two modules rewrite the stored step set and
+refuse any database whose name does not end `_test`, so `commerce_ops_x_test` runs
+them and `commerce_ops_test_x` does not. It is a suffix check, not the literal name
+`commerce_ops_test` — and a worktree wanting its own database should use the suffix
+rather than share this one, since the tier writes freely and two sessions against
+one database produce failures that read as defects.
 
 `.gitignore` already covers `.env.*`. Only `DATABASE_URL` is read from either file — never the Slack, OpenAI or ClickUp values beside it, because every test that needs one sets its own, and inheriting an ambient credential would let a test that forgot pass anyway.
 
@@ -126,7 +140,7 @@ With no database configured anywhere, tests needing one skip and say so. **With 
 
 Note the pre-push hook exists only if you ran the second install command above; without it, none of this runs before a push. CI runs the tier unconditionally against its own Postgres, where an absent or unreachable database fails the job rather than skipping.
 
-Once the database *is* reachable, the roster needs a first admin. In a deployed container this happens on its own: the start chain runs `preflight`, then `alembic upgrade head`, then the seeding step, then the server, and the step makes the Slack identity `BOOTSTRAP_ADMIN_IDENTITY` names an active admin. If the roster has no admin and the variable is unset, that step fails and the server never starts — a deployment nobody can administer stops at a named step rather than crash-looping.
+Once the database *is* reachable, the membership needs a first admin. In a deployed container this happens on its own: the start chain runs `preflight`, then `alembic upgrade head`, then the seeding step, then the server, and the step makes the Slack identity `BOOTSTRAP_ADMIN_IDENTITY` names an active admin. If the membership has no admin and the variable is unset, that step fails and the server never starts — a deployment nobody can administer stops at a named step rather than crash-looping.
 
 Running `uvicorn` directly skips that chain, so a fresh local database has no admin until you run the step yourself — the same shape as needing `alembic upgrade head`:
 
@@ -135,7 +149,7 @@ export BOOTSTRAP_ADMIN_IDENTITY=U078TC45LHM
 uv run python -m commerce_ops.seed_admin
 ```
 
-It is inert once the roster holds an admin of its own. The integration tier needs the variable for the same reason a deployment does.
+It is inert once the membership holds an admin of its own. The integration tier needs the variable for the same reason a deployment does.
 
 ## Deferred work
 

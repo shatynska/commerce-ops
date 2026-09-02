@@ -15,11 +15,11 @@ Two principles carry the whole model:
 
 Launch and Monitoring are therefore **not two parallel systems** — and not even two sequential phases. Launch is a *temporary product state*, exactly as Inventory Override is: a launching product is monitored **concurrently**, against launch-keyed thresholds, with fewer applicable metrics (sales-trend checks apply only in steady state — a launching SKU has no history to compare against). Launch is an overlay on one continuously observed product, not a stage before observation begins.
 
-More than that: **Launch depends on Monitoring's kind of evaluation.** Half the launch gates are not task checklists at all — Gate `stock-ready` ("60–80 fulfillable units, excluding Vine") is a threshold check; so are `phase-one-complete` ("~10 units/day, organic above 40%") and `graduated` ("TACOS falling, rating stable at 4.5"). The model reflects this directly (see `GateCondition` below) instead of pretending every gate is a pile of TASK rows.
+More than that: **Launch depends on Monitoring's kind of evaluation.** Half the launch gates turn on a threshold rather than on a checklist — Gate `stock-ready` ("60–80 fulfillable units, excluding Vine"), `phase-one-complete` ("~10 units/day, organic above 40%") and `graduated` ("TACOS falling, rating stable at 4.5"). Until `replace-metric-conditions-with-steps` the model reflected that with a second kind of gate condition; it now reflects it with a **step**, since each of those thresholds is a row of the reference document like any other, and the step carries the `MetricId` of the quantity it establishes. What survives is the dependency: the quantity a launch step establishes is the quantity monitoring later observes.
 
 | | TASK side (launch work) | CHECK side (observation) |
 |---|---|---|
-| Judged by | completion / attestation | value vs. stage-keyed threshold |
+| Judged by | completion | value vs. stage-keyed threshold |
 | Ordering logic | commitment-gate sequence | cause order (root cause wins) |
 | Definition owned by | repo: versioned playbook | repo: versioned metric registry |
 | Runtime state owned by | Postgres (position, outcomes) + ClickUp (human completion) | Postgres (runs, observations) |
@@ -100,14 +100,14 @@ The one place that answers "which products exist and what stage is each in". Eve
 Runs a product from commitment to graduation against a versioned playbook.
 
 - **`PlaybookDefinition`** — versioned, repo-owned (YAML), loaded and validated, never mutated or persisted. A specification object, not an aggregate. Versioning cut-off (recorded 2026-08-23, `complete-playbook-definition`): the shipped `v1` file is edited in place while no real launch has been started against it; from slice 3 on — once a `Launch` records the version it runs under — a definition change means a new version.
-  - `Gate` (VO): id, position, `OpeningMode` (automatic | requires-confirmation), and its **`GateCondition`s**:
+  - `Gate` (VO): id, position, `OpeningMode` (automatic | requires-confirmation). What it waits on is **not** authored on it: a gate's conditions are derived, one `StepObligation(step_id)` per blocking step attached to it, and there is no second kind.
 
     ```
-    GateCondition = StepObligation(step_id)              ← TASK: a person/agent does it
-                  | MetricCondition(metric_id, threshold)← CHECK: observation satisfies it
+    StepObligation(step_id)   ← the one thing a gate waits on
+    StepDefinition.metric_id  ← optional: the quantity this step establishes
     ```
 
-    This split is what makes `stock-ready`, `phase-one-complete` and `graduated` modelable as what they are. Until marketplace access lands, a `MetricCondition` is satisfied by **human attestation** through the same recording path; when live data arrives, `monitoring` evaluates it — the domain model does not change. That is the marketplace deferral done cleanly.
+    A gate that turns on a threshold is held by the step that establishes it, resolved by that step's recorded outcome like any other. The `metric_id` is inert — it changes no rule and nothing validates it, no registry existing to validate against — and exists so that an observation of the same quantity can later be related to the step. That is the marketplace deferral done cleanly: when live data arrives, `monitoring` evaluates the quantity the step already names, and the launch model does not change. *(Recorded 2026-09-01, `replace-metric-conditions-with-steps`, which removed `MetricCondition` and attestation: the obligation was expressible as a step, and expressing it twice meant a second way to satisfy it that no surface ever offered — so every gate authoring one stalled every launch that reached it.)*
   - `StepDefinition` (VO) — the shipped `launch-playbook` spec mandates the full attribute set, and the map carries all of it: id, **`description`** (required — the work the step asks for, in one line, so a step can be read without the reference document; empty or whitespace-only is a load-time fault, as is one spanning several lines), gate, owning `Discipline` (shared vocabulary), **`Scope`** (the product itself | the product on one marketplace), `TimingAnchor` (VO: offset | window | open-ended | recurring, anchored to launch date), **`Binding`** (framework — a rule the launch is held to | lesson — advice), blocking flag, rule policy (optional while the team's decision is outstanding), **provenance** (an optional citation into whatever source material a step derives from — a citation only, never an identifier) — and two **orthogonal axes** that must not be collapsed into one "step kind" (the current `launch_playbook.py` already has them separate, and correctly):
 
     ```
@@ -121,7 +121,7 @@ Runs a product from commitment to graduation against a versioned playbook.
   - **A step's description names its ClickUp task** (recorded 2026-08-24, `describe-playbook-steps`) — a projected task is named `<description> · <identifier>`, discipline omitted because the identifier's second segment already carries it. The name is set **at creation only and never rewritten**, unlike the due date the system keeps in step with the schedule: a title is something a person may legitimately edit, and restoring it would discard their edit. **The step-to-task association is always the recorded mapping, never the name.** ClickUp's name limit is 2048 characters (measured 2026-08-24; it rejects rather than truncates) against a worst composed name of 271, so the shortening rule — cut description, `…`, ` · `, identifier in full, with the full description in the task body — is a guarantee held in reserve rather than a path the shipped set takes.
 - **Aggregate: `Launch`** (root) — one per product per playbook run. One aggregate for the whole run (all invariants in one place; ~100–150 step rows per product is not a scale problem), with per-gate splitting as the documented escape hatch if it ever is.
   - `ProductId` ref (by ID only), `PlaybookVersion`, `LaunchDate` (VO, movable), current `GatePosition`.
-  - `StepProgress` (per step): a **`StepOutcome`** — not a boolean — plus completion **provenance**: source (`clickup` | `automated` | `attestation`), who, when, evidence. Given the webhook-drift obligation the README names, where a completion came from belongs in the model, not only in the sync code.
+  - `StepProgress` (per step): a **`StepOutcome`** — not a boolean — plus completion **provenance**: source (`clickup` | `automated`), who, when, evidence. Given the webhook-drift obligation the README names, where a completion came from belongs in the model, not only in the sync code.
 
     ```
     StepOutcome = NotStarted | InProgress | Satisfied | Blocked(reason)
@@ -129,7 +129,7 @@ Runs a product from commitment to graduation against a versioned playbook.
                 | NotApplicable(reason)    ← "missing is not fine": absent and inapplicable differ
     ```
 
-  - `GateApproval` (VO): decision (approving | rejecting — only an approving decision opens a gate), approver, timestamp — required for confirmation gates. The graduation approval additionally carries the **approver-chosen `Posture`**: catalog's "the system never self-stamps a posture" means no default posture is legal, so the human approving graduation chooses the steady state the product enters (recorded 2026-08-23, `introduce-launch-aggregate`). `MetricAttestation` (VO): a human's recorded satisfaction of a `MetricCondition`, with evidence.
+  - `GateApproval` (VO): decision (approving | rejecting — only an approving decision opens a gate), approver, timestamp — required for confirmation gates. The graduation approval additionally carries the **approver-chosen `Posture`**: catalog's "the system never self-stamps a posture" means no default posture is legal, so the human approving graduation chooses the steady state the product enters (recorded 2026-08-23, `introduce-launch-aggregate`).
   - Invariants: gates advance monotonically, never skipped; a gate opens only when every blocking condition attached to it is satisfied; a confirmation gate additionally requires an approval; a `Refused` outcome can never satisfy anything; every step's due date derives from `LaunchDate + TimingAnchor`; completion from ClickUp is *recorded*, never inferred. The **at-risk rule** (recorded 2026-08-23, `introduce-launch-aggregate`): the launch date is at risk exactly when a blocking step's due period has fully passed without the step reaching a permitted terminal outcome — evaluated as of a given date, the clock never lives in the domain.
   - Domain events: `LaunchStarted`, `StepSatisfied`, `StepRefused`, `GateOpened`, `GateBlocked`, `LaunchDateMoved`, `LaunchDateAtRisk`, `LaunchGraduated` (→ catalog stamps `SteadyState`, → monitoring switches the product to steady-state thresholds).
   - `LaunchDateMoved` has a wide blast radius by design: production and sea-freight lead times dominate the launch calendar and slip constantly. When the date moves, **every timing anchor re-resolves at once** — due dates, at-risk judgements, and already-created ClickUp tasks all cascade from this one event. It is a first-class domain occurrence, not a field edit.
@@ -151,7 +151,7 @@ Watches every product — launching ones included, against launch-keyed threshol
   - `Observation` (VO — the report contract): metric_id, entity, market, period, comparison, value, prior, delta, `Verdict` (finding | no-finding | cannot-answer), `EvidenceRef`, `DataFreshness`.
   - Invariants: an observation failing the contract is **rejected, not interpreted**; stale data is not a finding; *cannot-answer* ≠ *no-finding*; only reported numbers exist downstream.
 - **One deterministic evaluation engine, not eleven agents**: the disciplines (sales, PPC, inventory, rank, price, finance, traffic, listing, customer, health, external) are a `Discipline` field partitioning one registry, evaluated by one engine over per-discipline collector ports — read as code, discipline rules are deterministic rule chains, not judgment. A genuinely judgment-shaped check opts into LLM assistance per-check (`ai-assisted` execution mode on its definition), not per-discipline. Across the whole system the genuine LLM seams are three: interpretation (behind `briefing`), generation (creative and copy, in `launch`'s orbit), and conversation (Omni).
-- **Blocked on marketplace access** only for real collectors — the whole domain layer (registry, contract, run lifecycle) is buildable and testable now against stubs; gate `MetricCondition`s run on attestation meanwhile.
+- **Blocked on marketplace access** only for real collectors — the whole domain layer (registry, contract, run lifecycle) is buildable and testable now against stubs; meanwhile a launch's thresholds are held by blocking steps a person completes, each naming the quantity it establishes.
 
 ### `briefing` — the convergence point (core)
 
@@ -210,7 +210,7 @@ Modules appear when domain work needs them (README's incremental rule): the MVP 
 | # | Slice | Modules | Gated on |
 |---|---|---|---|
 | 1 | Shared vocabulary + `catalog`: Product, `LifecycleStage`, stage stamp split out of the launch record | `shared`, `catalog` | — |
-| 2 | Playbook definition completed: `GateCondition` split, `StepOutcome`, timing anchors — plus a report of steps whose rule policy is still undecided | `launch` | — |
+| 2 | Playbook definition completed: gate conditions, `StepOutcome`, timing anchors — plus a report of steps whose rule policy is still undecided | `launch` | — |
 | 3 | **The `Launch` aggregate**: gate evaluation, outcomes, attestations, approvals, due dates, events — the heart of the MVP — **realized** 2026-08-23 (`introduce-launch-aggregate`) | `launch` | — |
 | 4 | **ClickUp completion loop**: per-launch list projection, step↔task mapping, webhook intake, reconciliation pass — **realized** 2026-08-23 (`add-clickup-completion-loop`) | `launch` infra | — |
 | 5 | **`briefing` with the launch-side cause order**: AttentionItems, severity, silent-when-clean, Slack delivery + gate-confirmation requests — **realized** 2026-08-23 (`introduce-launch-briefing`) | `briefing` | — |

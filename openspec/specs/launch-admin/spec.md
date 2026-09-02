@@ -3,7 +3,7 @@
 ## Purpose
 The launch-tracking surface: lets a signed-in admin see every product in
 launch at once — where each stands in the gate sequence, whether its date
-is at risk and whether it waits on a person — and open one launch to read
+is at risk and whether it waits on a member — and open one launch to read
 its steps, their recorded outcomes and its journal. It reports what the
 launch context already holds and changes none of it.
 
@@ -126,7 +126,7 @@ error is worse than one that answers it with identifiers.
 - **THEN** exactly the permitted products' launches are rendered
 
 *(No principal resolves to such a scope today — `access-scope` resolves
-every active roster member unrestricted — so this scenario is exercised
+every active member unrestricted — so this scenario is exercised
 with the **scope resolver alone** stubbed to return a restricted scope,
 the real enumeration behind it, asserting the rows actually rendered.
 Stubbing further and asserting only that the surface passed the scope on
@@ -526,7 +526,7 @@ stylesheet the other admin surfaces load, rather than from styling
 carried in the pages themselves, so that a change to the vocabulary
 reaches every admin surface rather than some of them.
 
-`roster-admin` already requires this of itself, and records why: a page
+`members-admin` already requires this of itself, and records why: a page
 carrying its own styling is why two surfaces an admin moves between look
 like two products, and — more to the point — why a presentation fix
 applied to one silently does not apply to the other, a divergence nothing
@@ -757,7 +757,7 @@ that defines `--tokens` and sets no rendered property changes nothing on a
 surface that never reads them, and the theme blocks every token in this
 vocabulary is declared in are exactly that. The obligation is about what a
 rule *renders*, not about what it matches —
-which today is the step list, the roster page, the product index and the product
+which today is the step list, the Team page, the product index and the product
 dossier, and tomorrow is whatever is added next.
 
 What can be read from a response is that the regions are marked, that no fact
@@ -790,7 +790,7 @@ SHALL be confirmed by direct inspection of the rendered page.
 #### Scenario: No selector this change adds reaches another surface
 
 - **WHEN** the served stylesheet is read
-- **THEN** no selector this change adds matches an element rendered by the step list, the roster page, the product index or the product dossier
+- **THEN** no selector this change adds matches an element rendered by the step list, the Team page, the product index or the product dossier
 
 #### Scenario: A reused class name is never selected unqualified
 
@@ -1064,7 +1064,54 @@ launch link SHALL reach that launch's detail page.
 - **THEN** its breadcrumb trail offers the launch list and that launch's detail page, each in one action
 - **AND** the trail's last segment names the journal and is not a link
 
-### Requirement: A launch's journal page renders its journal, newest first
+### Requirement: A launch's detail page distinguishes a step that has not started
+
+A launch's detail page SHALL render every served step whether or not the launch has released it, and SHALL distinguish those it has not released. Hiding them is forbidden: the page exists to show the launch's whole plan against its position, and a page showing less than the playbook would misrepresent what the launch is committed to.
+
+An unreleased step SHALL carry a mark saying what it is waiting for — the gate it starts at, the steps it waits on, or both — so that a reader can tell a step nobody has begun from a step nobody *may yet* begin. The two are different facts about the launch and the surface SHALL NOT collapse them: a step that is unrecorded and released is work outstanding, and a step that is unrecorded and unreleased is work not yet asked for.
+
+The mark's wording SHALL be drawn from *starting*, and SHALL NOT use *blocked* or any inflection of it. This surface already renders a step's `blocking` declaration and the `Blocked` step outcome, which are two distinct senses of the word on one page; a third would make the page unreadable. A step's own gate and its start gate SHALL likewise be worded so that neither can be read as the other.
+
+A step whose start gate the launch has not reached SHALL NOT be marked overdue. The page SHALL NOT reach that conclusion itself: the overdue judgement is taken from the launch report, as this capability already requires, and `launch-instance` carries the rule. Stated here as what the page renders rather than as what it decides — a surface suppressing the mark on its own would leave the page, the report and the daily briefing saying different things about one step, which is the arrangement carrying the fact on the report exists to prevent.
+
+A step the launch has reached but which waits on an unresolved dependency MAY be both marked overdue and marked as waiting, and the page SHALL render both rather than letting either suppress the other. The two say different things — the work is late, and this is what it is late behind — and a reader needs them together.
+
+#### Scenario: An unreleased step is rendered, not hidden
+
+- **WHEN** a launch standing at `commit` is rendered and its served playbook carries steps that start at `listable`
+- **THEN** those steps appear on the page under their own gates
+
+#### Scenario: An unreleased step says what it waits for
+
+- **WHEN** a step the launch has not released is rendered
+- **THEN** it carries a mark naming the gate it starts at, the steps it waits on, or both
+
+#### Scenario: Unreleased is distinguishable from unrecorded
+
+- **WHEN** a page renders one released step with no recorded outcome and one unreleased step with no recorded outcome
+- **THEN** the two are distinguishable from one another on the page
+
+#### Scenario: A released step carries no such mark
+
+- **WHEN** a step the launch has released is rendered
+- **THEN** it carries no start mark, whatever it declares
+
+#### Scenario: A step whose start gate is not reached is never marked overdue
+
+- **WHEN** a step whose start gate the launch has not reached has a due period that has passed
+- **THEN** it is not marked overdue, the launch report not stating it as overdue
+
+#### Scenario: A step waiting on a dependency can be both overdue and waiting
+
+- **WHEN** a step the launch has reached waits on an unresolved dependency and the report states it as overdue
+- **THEN** the page renders both the overdue mark and the mark naming what it waits for
+
+#### Scenario: The page carries no third sense of blocked
+
+- **WHEN** the detail page is rendered for a launch with unreleased steps
+- **THEN** no mark introduced for release uses the word *blocked* or an inflection of it
+
+### Requirement: A launch's journal page renders every entry as a row, newest first
 
 The journal page SHALL render the launch's journal as a table, with the
 most recent entry first, a row for each entry carrying when it
@@ -1072,23 +1119,25 @@ occurred, its label, a gate/step, its source, who recorded it, and a
 detail — when leading the row, since a journal is read by when
 something happened before it is read by what happened.
 The gate/step column SHALL carry the entry's subject where that subject
-names a gate or a step, and SHALL be empty otherwise — a
-`metric-attested` entry's subject is the metric condition being
-attested, neither a gate nor a step, so it carries no gate/step and
-that condition text is instead part of the row's detail. Detail is
+names a gate or a step, and SHALL be empty otherwise. Detail is
 this page's own composed phrase, built from `launch-journal`'s per-kind
 fact fields (`playbook_version`, `outcome`, `reason`, `evidence`,
-`gate_id`, `decision`, `posture`, `standing_at`, `previous_date`,
-`new_date`, `unsatisfied`, and — for `metric-attested` alone — the
-condition text otherwise excluded from gate/step) — the page tried a
+`decision`, `posture`, `standing_at`, `previous_date`,
+`new_date`, `unsatisfied`) — the page tried a
 column per fact, then two columns, and settled on one short readable
 phrase per entry, the shape closest to how a reader actually wants to
 scan a kind-specific fact. The phrase SHALL NOT restate a subject that
 already has its own gate/step column.
 
-Where an entry's `actor` matches a person the roster carries — by that
-person's roster identifier or by their ClickUp user id — the page
-SHALL render the person's name rather than the raw identifier; where
+Every journal kind now names either a gate or a step as its subject, so
+the gate/step column is empty only where an occurrence names no subject
+at all. A metric obligation reaches this page as an ordinary step, its
+threshold being the step's own description, and needs no exception to
+the columns' meaning.
+
+Where an entry's `actor` matches a member the membership carries — by that
+member's member identifier or by their ClickUp user id — the page
+SHALL render the member's name rather than the raw identifier; where
 it matches neither, the page SHALL render the raw value rather than
 omitting it or failing.
 
@@ -1155,29 +1204,29 @@ regardless of whether anything is recorded.
 - **WHEN** a launch's journal holds an entry carrying a subject that names a gate or a step
 - **THEN** its row's detail column does not repeat that subject — the subject is read from its own gate/step column instead
 
-#### Scenario: A metric condition is not a gate or a step
+#### Scenario: A metric step reads as a step
 
-- **WHEN** a launch's journal holds a `metric-attested` entry
-- **THEN** its row's gate/step column is empty, and its detail column names the attested condition alongside the gate it was attested against
+- **WHEN** a launch's journal holds a `step-outcome-recorded` entry for a blocking step declaring a metric identifier
+- **THEN** its row's gate/step column carries that step, exactly as for any other step, and its detail column carries the entry's own facts
 
 #### Scenario: A sourceless entry's source column says system
 
 - **WHEN** a launch's journal holds an entry carrying no source
 - **THEN** its row's source column reads `system`, whether or not that entry names an actor
 
-#### Scenario: A known actor resolves to their name by roster identifier
+#### Scenario: A known actor resolves to their name by member identifier
 
-- **WHEN** an entry's `actor` is the roster identifier of a person the roster carries
-- **THEN** the row shows that person's name rather than the raw identifier
+- **WHEN** an entry's `actor` is the member identifier of a member the membership carries
+- **THEN** the row shows that member's name rather than the raw identifier
 
 #### Scenario: A known actor resolves to their name by ClickUp user id
 
-- **WHEN** an entry's `actor` is the ClickUp user id of a person the roster carries
-- **THEN** the row shows that person's name rather than the raw identifier
+- **WHEN** an entry's `actor` is the ClickUp user id of a member the membership carries
+- **THEN** the row shows that member's name rather than the raw identifier
 
 #### Scenario: An unresolvable actor renders as its raw value
 
-- **WHEN** an entry's `actor` does not match any person the roster carries, by either identifier
+- **WHEN** an entry's `actor` does not match any member the membership carries, by either identifier
 - **THEN** the row shows the raw actor value rather than omitting it
 
 #### Scenario: An entry's row shows its label as a coloured kind tag and carries its category marker
@@ -1199,50 +1248,3 @@ regardless of whether anything is recorded.
 
 - **WHEN** a launch's journal holds no entry
 - **THEN** the journal page renders and states that nothing is recorded
-
-### Requirement: A launch's detail page distinguishes a step that has not started
-
-A launch's detail page SHALL render every served step whether or not the launch has released it, and SHALL distinguish those it has not released. Hiding them is forbidden: the page exists to show the launch's whole plan against its position, and a page showing less than the playbook would misrepresent what the launch is committed to.
-
-An unreleased step SHALL carry a mark saying what it is waiting for — the gate it starts at, the steps it waits on, or both — so that a reader can tell a step nobody has begun from a step nobody *may yet* begin. The two are different facts about the launch and the surface SHALL NOT collapse them: a step that is unrecorded and released is work outstanding, and a step that is unrecorded and unreleased is work not yet asked for.
-
-The mark's wording SHALL be drawn from *starting*, and SHALL NOT use *blocked* or any inflection of it. This surface already renders a step's `blocking` declaration and the `Blocked` step outcome, which are two distinct senses of the word on one page; a third would make the page unreadable. A step's own gate and its start gate SHALL likewise be worded so that neither can be read as the other.
-
-A step whose start gate the launch has not reached SHALL NOT be marked overdue. The page SHALL NOT reach that conclusion itself: the overdue judgement is taken from the launch report, as this capability already requires, and `launch-instance` carries the rule. Stated here as what the page renders rather than as what it decides — a surface suppressing the mark on its own would leave the page, the report and the daily briefing saying different things about one step, which is the arrangement carrying the fact on the report exists to prevent.
-
-A step the launch has reached but which waits on an unresolved dependency MAY be both marked overdue and marked as waiting, and the page SHALL render both rather than letting either suppress the other. The two say different things — the work is late, and this is what it is late behind — and a reader needs them together.
-
-#### Scenario: An unreleased step is rendered, not hidden
-
-- **WHEN** a launch standing at `commit` is rendered and its served playbook carries steps that start at `listable`
-- **THEN** those steps appear on the page under their own gates
-
-#### Scenario: An unreleased step says what it waits for
-
-- **WHEN** a step the launch has not released is rendered
-- **THEN** it carries a mark naming the gate it starts at, the steps it waits on, or both
-
-#### Scenario: Unreleased is distinguishable from unrecorded
-
-- **WHEN** a page renders one released step with no recorded outcome and one unreleased step with no recorded outcome
-- **THEN** the two are distinguishable from one another on the page
-
-#### Scenario: A released step carries no such mark
-
-- **WHEN** a step the launch has released is rendered
-- **THEN** it carries no start mark, whatever it declares
-
-#### Scenario: A step whose start gate is not reached is never marked overdue
-
-- **WHEN** a step whose start gate the launch has not reached has a due period that has passed
-- **THEN** it is not marked overdue, the launch report not stating it as overdue
-
-#### Scenario: A step waiting on a dependency can be both overdue and waiting
-
-- **WHEN** a step the launch has reached waits on an unresolved dependency and the report states it as overdue
-- **THEN** the page renders both the overdue mark and the mark naming what it waits for
-
-#### Scenario: The page carries no third sense of blocked
-
-- **WHEN** the detail page is rendered for a launch with unreleased steps
-- **THEN** no mark introduced for release uses the word *blocked* or an inflection of it

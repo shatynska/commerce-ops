@@ -1,4 +1,4 @@
-"""A mis-wired decision blames neither roster membership nor confirmer status.
+"""A mis-wired decision blames neither membership nor confirmer status.
 
 Derived strictly from the delta spec:
 `openspec/changes/add-step-confirmer/specs/launch-step-automation/spec.md`
@@ -9,20 +9,20 @@ beyond what the REMOVED requirement it replaces already said:
 
 > "an unreadable collaborator SHALL NOT be resolved into 'this identity is
 > not the confirmer' ... and SHALL NOT leave a decider with any reason to
-> believe their roster entry **or their standing as confirmer** is at
+> believe their members entry **or their standing as confirmer** is at
 > fault."
 
 The REMOVED requirement's equivalent paragraph said only "SHALL NOT be
-resolved into 'the roster does not know that Slack identity' ... any
-reason to believe their roster entry ... is at fault" — it had no
+resolved into 'the membership does not know that Slack identity' ... any
+reason to believe their members entry ... is at fault" — it had no
 confirmer to misattribute to, because there was no confirmer. This file
 adds the one assertion the widened wording makes possible: that a
 mis-wired reply says nothing that reads as a statement about the
-decider's *confirmer* standing, not only nothing about their roster
+decider's *confirmer* standing, not only nothing about their members
 membership.
 
 The rest of scenario *A mis-wiring is never reported as an unknown
-identity* — that the decider is not told the roster does not know their
+identity* — that the decider is not told the membership does not know their
 identity, and that the mis-wiring is logged at `error` level or above
 with its exception — is unchanged in substance from the REMOVED
 requirement's version and stays covered by
@@ -38,7 +38,7 @@ session/persistence seams — the identical placement and technique
 
 ## Expected first-run state
 
-Nothing in the adapter today distinguishes "not on the roster" from "not
+Nothing in the adapter today distinguishes "not on the membership" from "not
 the confirmer" in its reply wording (there being no confirmer yet), and
 the wiring fault is not caught at all before this change lands, so this
 test fails the same way `test_automated_decision_wiring.py`'s wiring
@@ -71,21 +71,21 @@ ALICE_SLACK: Final = "U01ALICE"
 DECIDED_AT: Final = datetime(2027, 1, 6, 10, 0, tzinfo=UTC)
 LAUNCH_DATE: Final = date(2027, 3, 2)
 
-#: Wording that would blame the decider's roster membership — kept
+#: Wording that would blame the decider's membership — kept
 #: identical to the sibling wiring file's list.
-_BLAMES_ROSTER_MEMBERSHIP: Final = (
+_BLAMES_MEMBERSHIP: Final = (
     "does not know",
     "doesn't know",
-    "not on the roster",
+    "not on the membership",
     "unknown identity",
     "unrecognised",
     "unrecognized",
-    "no such person",
+    "no such member",
     "not known",
 )
 
 #: NEW for this delta: wording that would blame the decider's *confirmer*
-#: standing specifically, distinct from roster membership.
+#: standing specifically, distinct from membership.
 _BLAMES_CONFIRMER_STANDING: Final = (
     "not the confirmer",
     "not a confirmer",
@@ -107,7 +107,7 @@ async def _fake_session() -> AsyncIterator[None]:
 
 
 _SESSION_SEAM_NAMES: Final = ("session", "transaction")
-_PERSISTENCE_SUFFIXES: Final = ("Repository", "Repositories", "Store", "Roster")
+_PERSISTENCE_SUFFIXES: Final = ("Repository", "Repositories", "Store", "Members")
 
 
 class _AnswersNothing:
@@ -256,23 +256,23 @@ def _blames(text: str, markers: tuple[str, ...]) -> bool:
     return any(marker in lowered for marker in markers)
 
 
-async def test_a_mis_wiring_blames_neither_roster_membership_nor_confirmer_standing(
+async def test_a_mis_wiring_blames_neither_members_membership_nor_confirmer_standing(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     """Scenario: A mis-wiring is never reported as an unknown identity —
     the widened clause this delta adds.
 
-    WHEN a decision is judged against a roster collaborator that cannot
-    answer who the roster carries
+    WHEN a decision is judged against a members collaborator that cannot
+    answer who the membership carries
     THEN the decider is not told that their identity is not the
     confirmer, and the mis-wiring is reported where operators see faults.
 
     SPECIFIED: the reply must carry no clause reading as a statement about
     the decider's *confirmer* standing, in addition to carrying none about
-    their roster membership — a decider whose deployment is mis-wired
+    their membership — a decider whose deployment is mis-wired
     must not be told, in either vocabulary, that the fault is about them.
     """
-    monkeypatch.setattr(automation_confirmation, "read_people", None)
+    monkeypatch.setattr(automation_confirmation, "read_members", None)
 
     with caplog.at_level(logging.DEBUG):
         answer = await _drive_decision()
@@ -282,11 +282,11 @@ async def test_a_mis_wiring_blames_neither_roster_membership_nor_confirmer_stand
         "the assertions below would pass for the wrong reason"
     )
 
-    # SPECIFIED (unchanged half, regression guard): not blamed for roster
+    # SPECIFIED (unchanged half, regression guard): not blamed for members
     # membership.
-    assert not _blames(answer.text, _BLAMES_ROSTER_MEMBERSHIP), (
+    assert not _blames(answer.text, _BLAMES_MEMBERSHIP), (
         "a mis-wired deployment told the decider something about their "
-        f"roster membership: {answer.text!r}"
+        f"membership: {answer.text!r}"
     )
     # SPECIFIED (the widened clause): not blamed for confirmer standing
     # either.

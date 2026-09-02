@@ -79,7 +79,7 @@ OPTIONAL = frozenset(
         # degradation of that one surface, while everything else serves.
         "ADMIN_BASE_URL",
         # Added by move-principals-to-roster (tasks 3.4): names the first
-        # admin for the startup seed; inert once the roster holds one.
+        # admin for the startup seed; inert once the membership holds one.
         "BOOTSTRAP_ADMIN_IDENTITY",
         "CLICKUP_API_TOKEN",
         # Added by record-gate-and-discipline-as-fields (tasks 1.1/1.2):

@@ -1,7 +1,7 @@
 """Driving adapter: the product surfaces (`product-dossier`).
 
 Two server-rendered pages, the shape `playbook_admin` established and
-`roster_admin` and `launch_admin` followed: an index of every product the
+`members_admin` and `launch_admin` followed: an index of every product the
 caller may see, and, for one product, its identity as the catalog holds it
 together with the record of what automated steps produced about it.
 
@@ -13,7 +13,7 @@ renders for one that never launched and for one that has graduated alike.
 
 **Read-only, by requirement rather than by omission.** Accepting and
 rejecting a pending result keep the Slack path `launch-step-automation`
-specifies. Its once-only settlement, its roster checks and its refusals
+specifies. Its once-only settlement, its members checks and its refusals
 are all written against a decision arriving there; offering a second door
 would put those guarantees behind something nothing has specified.
 
@@ -22,7 +22,7 @@ Two things the record does that are easy to get wrong:
 - A `voided` result is labelled **withdrawn**, never rejected, and shows
   no decider — because none is recorded. Voiding refuses a decision
   rather than making one, and presenting it as a rejection attributes to
-  the person who tried to decide a judgement they never made.
+  the member who tried to decide a judgement they never made.
 - The record is labelled as the results retained **for a decision**, not
   as everything produced. Only a terminal proposal on a step naming a
   confirmer reaches the store; a page implying otherwise would be wrong
@@ -30,9 +30,9 @@ Two things the record does that are easy to get wrong:
   confirmer.
 
 The decider is rendered as recorded and never re-resolved against the
-roster, which is why this module has no roster seam at all.
+members, which is why this module has no members seam at all.
 
-`catalog`, `results`, `roster` and `admin_sessions` are injected by
+`catalog`, `results`, `members` and `admin_sessions` are injected by
 `main.py` after the app is built, the pattern every admin surface uses;
 absent injection refuses every request, which is the failing-closed
 direction.
@@ -80,8 +80,8 @@ __all__ = [
     "PAGE_PATH",
     "admin_sessions",
     "catalog",
+    "members",
     "results",
-    "roster",
     "router",
     "steps",
 ]
@@ -149,13 +149,13 @@ class _RequestScopedSteps:
 results: Any = _RequestScopedResults()
 steps: Any = _RequestScopedSteps()
 
-# Injected by `main.py` after the app is built. `roster` and
+# Injected by `main.py` after the app is built. `members` and
 # `admin_sessions` come from the access module, whose infrastructure this
 # one may not import; `catalog` is here for the same reason — the
 # `products-infrastructure-boundary` contract permits this module
 # `catalog.application` and forbids it `catalog.infrastructure`, so only
 # the composition root can build the store the reads run against.
-roster: Any = None
+members: Any = None
 catalog: Any = None
 admin_sessions: Any = None
 
@@ -191,7 +191,7 @@ async def _require_admin(request: Request) -> str:
     principal: str | None = None
     if session_id:
         principal = await verify_admin_session(
-            roster,
+            members,
             admin_sessions,
             session_id=session_id,
             now=datetime.now(UTC),
@@ -202,7 +202,7 @@ async def _require_admin(request: Request) -> str:
 
 
 async def _scope_for(principal: str) -> Any:
-    return await resolve_scope(roster, identity=principal)
+    return await resolve_scope(members, identity=principal)
 
 
 # ---------------------------------------------------------------------------

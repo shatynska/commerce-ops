@@ -72,8 +72,7 @@ import commerce_ops.step_handlers.listing.subcategory_advisor as advisor_graph
 from commerce_ops.launch.domain.launch_playbook import Blocked, Satisfied
 from commerce_ops.shared.domain.result import Success
 from commerce_ops.step_handlers.listing.subcategory_advisor import (
-    Supported,
-    Unsupported,
+    AdvisorResponse,
 )
 
 PRODUCT_NAME: Final = "Bamboo Cutting Board with Juice Groove"
@@ -84,6 +83,11 @@ COMMENT: Final = (
     "Kitchen > Home Decor > Decorative Trays, which understates the "
     "compliance surface."
 )
+
+
+@pytest.fixture(scope="module")
+def anyio_backend() -> str:
+    return "asyncio"
 
 
 # ---------------------------------------------------------------------------
@@ -104,8 +108,18 @@ class _ScriptedStructuredRunnable:
         }
 
     def invoke(self, input_: Any, *args: Any, **kwargs: Any) -> dict[str, Any]:
-        self.received.append(input_)
-        return self._answer()
+        # `tasks.md` 2.5 / `design.md` Decision 2's model-level guard.
+        # Both entry points are real on a structured-output runnable, so a
+        # `recommend` body reverted to `structured.invoke(...)` inside an
+        # `async def` would work, pin the invoking loop for the whole
+        # round-trip, and pass every assertion in this file about what the
+        # advisor produces. It fails here instead, naming the mistake.
+        raise AssertionError(
+            "the advisor reached the model through the model's synchronous "
+            "`invoke(...)` entry point instead of awaiting `ainvoke(...)` — "
+            "the enclosing coroutine then never yields, and the invoking "
+            "loop is pinned for the whole of the round-trip"
+        )
 
     async def ainvoke(self, input_: Any, *args: Any, **kwargs: Any) -> dict[str, Any]:
         self.received.append(input_)
@@ -176,10 +190,10 @@ def _finding_of(proposal: Any) -> Any:
     return getattr(proposal, "finding", _ABSENT)
 
 
-def _propose(outcome: Any) -> tuple[Any, _ScriptedStructuredChatModel]:
+async def _propose(outcome: Any) -> tuple[Any, _ScriptedStructuredChatModel]:
     model = _ScriptedStructuredChatModel(outcome)
     graph = advisor_graph.build_graph(model)
-    proposal = advisor_graph.propose(
+    proposal = await advisor_graph.propose(
         product_name=PRODUCT_NAME, marketplace=MARKETPLACE, graph=graph
     )
     return proposal, model
@@ -190,7 +204,8 @@ def _propose(outcome: Any) -> tuple[Any, _ScriptedStructuredChatModel]:
 # ---------------------------------------------------------------------------
 
 
-def test_producing_a_recommendation_invokes_no_tools() -> None:
+@pytest.mark.anyio
+async def test_producing_a_recommendation_invokes_no_tools() -> None:
     """Scenario: Producing a recommendation invokes no tools.
 
     WHEN the advisor produces a recommendation
@@ -203,7 +218,9 @@ def test_producing_a_recommendation_invokes_no_tools() -> None:
     the advisor's own code path binds no *executable* side-effecting tool
     to the model, whatever the structured-output plumbing does internally.
     """
-    proposal, model = _propose(Supported(ok=True, value=NODE, comment=COMMENT))
+    proposal, model = await _propose(
+        AdvisorResponse(ok=True, value=NODE, comment=COMMENT)
+    )
 
     assert _outcome_of(proposal) is Satisfied
     # SPECIFIED: nothing answered as a tool, nothing requested one, on the
@@ -213,7 +230,8 @@ def test_producing_a_recommendation_invokes_no_tools() -> None:
         assert not isinstance(received, ToolMessage)
 
 
-def test_structured_output_is_not_a_tool_invocation() -> None:
+@pytest.mark.anyio
+async def test_structured_output_is_not_a_tool_invocation() -> None:
     """Scenario: Structured output is not a tool invocation.
 
     WHEN the advisor's model call uses a structured-output mechanism to
@@ -227,7 +245,9 @@ def test_structured_output_is_not_a_tool_invocation() -> None:
     there is no code path in this capability that inspects "was structured
     output used" and treats it as a violation.
     """
-    proposal, model = _propose(Supported(ok=True, value=NODE, comment=COMMENT))
+    proposal, model = await _propose(
+        AdvisorResponse(ok=True, value=NODE, comment=COMMENT)
+    )
 
     # SPECIFIED: the structured-output seam was used, and using it is not
     # itself a fault — the proposal completed normally.
@@ -244,14 +264,15 @@ def test_structured_output_is_not_a_tool_invocation() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_a_supported_recommendation_carries_a_recordable_finding() -> None:
+@pytest.mark.anyio
+async def test_a_supported_recommendation_carries_a_recordable_finding() -> None:
     """Scenario: A supported recommendation carries a recordable finding.
 
     WHEN the advisor proposes the step's satisfying outcome
     THEN a typed finding whose value is exactly the proposed sub-category
     node is available alongside the rendered text.
     """
-    proposal, _ = _propose(Supported(ok=True, value=NODE, comment=COMMENT))
+    proposal, _ = await _propose(AdvisorResponse(ok=True, value=NODE, comment=COMMENT))
 
     assert _outcome_of(proposal) is Satisfied
     finding = _finding_of(proposal)
@@ -259,21 +280,23 @@ def test_a_supported_recommendation_carries_a_recordable_finding() -> None:
     assert finding.value == NODE
 
 
-def test_an_unsupported_recommendation_carries_no_finding() -> None:
+@pytest.mark.anyio
+async def test_an_unsupported_recommendation_carries_no_finding() -> None:
     """Scenario: An unsupported recommendation carries no finding.
 
     WHEN the advisor proposes a non-terminal outcome
     THEN no typed finding is made available — there is nothing supported
     to record.
     """
-    proposal, _ = _propose(Unsupported(ok=False, error="no confident answer"))
+    proposal, _ = await _propose(AdvisorResponse(ok=False, error="no confident answer"))
 
     outcome = _outcome_of(proposal)
     assert isinstance(outcome, Blocked)
     assert _finding_of(proposal) is None
 
 
-def test_only_the_findings_value_is_ever_written_to_the_product() -> None:
+@pytest.mark.anyio
+async def test_only_the_findings_value_is_ever_written_to_the_product() -> None:
     """Scenario: Only the finding's value is ever written to the product.
 
     WHEN a typed finding is produced for a supported recommendation and
@@ -291,7 +314,7 @@ def test_only_the_findings_value_is_ever_written_to_the_product() -> None:
     alone, per `design.md`'s `SubCategoryRecorder` signature), asserted at
     the pass level in `test_automation_pass_finding.py`.
     """
-    proposal, _ = _propose(Supported(ok=True, value=NODE, comment=COMMENT))
+    proposal, _ = await _propose(AdvisorResponse(ok=True, value=NODE, comment=COMMENT))
 
     finding = _finding_of(proposal)
     assert isinstance(finding, Success)

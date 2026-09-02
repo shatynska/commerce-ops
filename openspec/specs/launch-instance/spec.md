@@ -2,13 +2,13 @@
 
 ## Purpose
 
-Runs a concrete product's launch against the `launch-playbook` definition: persists the launch record — the recorded playbook-version audit stamp, current gate, launch date, step progress, approvals, attestations — referencing the product `product-catalog` owns, and holds the rules of the run itself: gate evaluation, step-outcome recording with provenance, human attestation of metric conditions, due-date derivation, at-risk detection, and graduation.
+Runs a concrete product's launch against the `launch-playbook` definition: persists the launch record — the recorded playbook-version audit stamp, current gate, launch date, step progress, approvals — referencing the product `product-catalog` owns, and holds the rules of the run itself: gate evaluation, step-outcome recording with provenance, due-date derivation, at-risk detection, and graduation.
 
 ## Requirements
 
 ### Requirement: A launch position is persisted for a catalog product
 
-The system SHALL persist a launch record carrying: a reference to a catalog product by its product identifier, the `launch-playbook` version identifier the launch was started under (recorded at start as an audit stamp, never changed for the life of the launch, and read through by no behavior — every read of the playbook serves the live step set), the current gate, an optional launch date, the per-step progress recorded so far, the gate approvals recorded so far, and the metric attestations recorded so far. At most one launch record SHALL exist per product. Creating a launch for a product identifier that no catalog product has SHALL be rejected. Starting a launch SHALL be reported as a `LaunchStarted` occurrence carrying the product identifier and the recorded version identifier.
+The system SHALL persist a launch record carrying: a reference to a catalog product by its product identifier, the `launch-playbook` version identifier the launch was started under (recorded at start as an audit stamp, never changed for the life of the launch, and read through by no behavior — every read of the playbook serves the live step set), the current gate, an optional launch date, the per-step progress recorded so far, and the gate approvals recorded so far. At most one launch record SHALL exist per product. Creating a launch for a product identifier that no catalog product has SHALL be rejected. Starting a launch SHALL be reported as a `LaunchStarted` occurrence carrying the product identifier and the recorded version identifier.
 
 #### Scenario: A launch position is created for an existing product
 
@@ -41,14 +41,14 @@ A launch record's current gate SHALL be one of the eight gate ids `launch-playbo
 
 ### Requirement: A launch position can be read back by product identifier
 
-The system SHALL retrieve a persisted launch record given the product identifier it references — the recorded version identifier, current gate, launch date, every recorded step progress with its provenance, every gate approval, and every metric attestation — and SHALL report absence rather than an error when the product has no launch record.
+The system SHALL retrieve a persisted launch record given the product identifier it references — the recorded version identifier, current gate, launch date, every recorded step progress with its provenance, and every gate approval — and SHALL report absence rather than an error when the product has no launch record.
 
 A read made on a caller's behalf SHALL additionally be subject to that caller's access scope: a launch whose product identifier the scope does not permit SHALL report the same absence as a product with no launch record, so that a read can never confirm the existence of a launch the caller may not see. The scope decides whether a read yields a record at all; it SHALL NOT change what a retrieved record carries, and it SHALL NOT require any particular read to carry the whole persisted record.
 
 #### Scenario: A launch position is retrieved
 
-- **WHEN** a launch that has recorded step outcomes, a gate approval, and a metric attestation is read using its product identifier
-- **THEN** the record is returned with the recorded version identifier, current gate, launch date, each step's outcome and provenance, each approval, and each attestation it was persisted with
+- **WHEN** a launch that has recorded step outcomes and a gate approval is read using its product identifier
+- **THEN** the record is returned with the recorded version identifier, current gate, launch date, each step's outcome and provenance, and each approval it was persisted with
 
 #### Scenario: A product without a launch position reports absence
 
@@ -62,11 +62,13 @@ A read made on a caller's behalf SHALL additionally be subject to that caller's 
 
 ### Requirement: A step outcome is recorded with provenance
 
-The system SHALL record, against a launch, an outcome for a step the served playbook defines, using the `launch-playbook` outcome vocabulary (`NotStarted`, `InProgress`, `Satisfied`, `Blocked` with a reason, `Refused`, `NotApplicable` with a reason). Every recorded outcome — non-terminal ones included — SHALL carry recording provenance: a source (`clickup`, `automated`, or `attestation`), who recorded it, when, and evidence. Completion is always recorded, never inferred. Terminal outcomes SHALL be restricted by the step's hazard as `launch-playbook` defines: a `prohibited-tactic` step can only terminate in `Refused`; any other step terminates in `Satisfied` or `NotApplicable` and can never be `Refused`. A later recording for the same step SHALL replace the stored outcome and its provenance — the hazard restrictions apply to every recording — and a re-recording SHALL NOT reverse a gate that has already opened. Recording an outcome for a step identifier the served playbook does not define — an identifier that never existed and a retired step's alike — SHALL be rejected; outcomes already recorded against a step before its retirement remain stored and readable. A step reaching `Satisfied` SHALL be reported as a `StepSatisfied` occurrence; a step reaching `Refused` SHALL be reported as a `StepRefused` occurrence.
+The system SHALL record, against a launch, an outcome for a step the served playbook defines, using the `launch-playbook` outcome vocabulary (`NotStarted`, `InProgress`, `Satisfied`, `Blocked` with a reason, `Refused`, `NotApplicable` with a reason). Every recorded outcome — non-terminal ones included — SHALL carry recording provenance: a source (`clickup` or `automated`), who recorded it, when, and evidence. Completion is always recorded, never inferred. Terminal outcomes SHALL be restricted by the step's hazard as `launch-playbook` defines: a `prohibited-tactic` step can only terminate in `Refused`; any other step terminates in `Satisfied` or `NotApplicable` and can never be `Refused`. A later recording for the same step SHALL replace the stored outcome and its provenance — the hazard restrictions apply to every recording — and a re-recording SHALL NOT reverse a gate that has already opened. Recording an outcome for a step identifier the served playbook does not define — an identifier that never existed and a retired step's alike — SHALL be rejected; outcomes already recorded against a step before its retirement remain stored and readable. A step reaching `Satisfied` SHALL be reported as a `StepSatisfied` occurrence; a step reaching `Refused` SHALL be reported as a `StepRefused` occurrence.
+
+A step establishing a metric is recorded through this same path, with the source that recorded it — there is no source naming the significance of the step rather than the channel the outcome arrived through.
 
 #### Scenario: A satisfied step is recorded with its provenance
 
-- **WHEN** a `Satisfied` outcome is recorded for a defined step with source `attestation`, a named recorder, a timestamp, and evidence
+- **WHEN** a `Satisfied` outcome is recorded for a defined step with source `clickup`, a named recorder, a timestamp, and evidence
 - **THEN** reading the launch back reports that step's outcome as `Satisfied` with exactly that provenance, and a `StepSatisfied` occurrence is reported
 
 #### Scenario: A re-recorded outcome replaces the stored one without reopening gates
@@ -96,7 +98,9 @@ The system SHALL record, against a launch, an outcome for a step the served play
 
 ### Requirement: A gate opens only when every blocking condition attached to it is satisfied
 
-A launch SHALL advance from its current gate only to the next gate in the `launch-playbook` sequence — gates advance monotonically, are never skipped, and never move backwards. The current gate SHALL open only when every blocking condition attached to it is satisfied: every step obligation (a blocking step attached to the gate) has reached a permitted terminal outcome (`Satisfied` or `NotApplicable`), and every authored metric condition is satisfied. A `Refused` outcome never satisfies any condition. Advancing SHALL be reported as a `GateOpened` occurrence; an advance attempted while any blocking condition is unsatisfied SHALL be rejected and reported as a `GateBlocked` occurrence naming each unsatisfied condition.
+A launch SHALL advance from its current gate only to the next gate in the `launch-playbook` sequence — gates advance monotonically, are never skipped, and never move backwards. The current gate SHALL open only when every blocking condition attached to it is satisfied: every step obligation (a blocking step attached to the gate) has reached a permitted terminal outcome (`Satisfied` or `NotApplicable`). A `Refused` outcome never satisfies any condition. Advancing SHALL be reported as a `GateOpened` occurrence; an advance attempted while any blocking condition is unsatisfied SHALL be rejected and reported as a `GateBlocked` occurrence naming each unsatisfied condition.
+
+A gate waits on its blocking steps and on nothing else, so a threshold a gate turns on holds it as the obligation of the step that establishes it, satisfied by that step's recorded outcome.
 
 #### Scenario: An automatic gate opens when every blocking condition is satisfied
 
@@ -117,6 +121,11 @@ A launch SHALL advance from its current gate only to the next gate in the `launc
 
 - **WHEN** the launch advances from its current gate
 - **THEN** the current gate becomes exactly the next gate in the `launch-playbook` sequence — the advance operation offers no way to target a later or an earlier gate, so gates can never be skipped and never move backwards
+
+#### Scenario: An unresolved metric step holds its gate closed
+
+- **WHEN** the launch is advanced while a blocking step declaring a metric identifier, attached to the current gate, has no permitted terminal outcome
+- **THEN** the advance is rejected and a `GateBlocked` occurrence names that step, exactly as for any other blocking step
 
 ### Requirement: A confirmation gate additionally requires a recorded approval
 
@@ -145,25 +154,6 @@ For a gate whose `launch-playbook` opening mode is `requires-confirmation`, the 
 #### Scenario: A posture on a non-graduation approval is rejected
 
 - **WHEN** an approval for a gate other than `graduated` names a posture
-- **THEN** the recording is rejected
-
-### Requirement: A metric condition is satisfied by human attestation until live evaluation exists
-
-Until the metric registry evaluates live observations, a gate's authored metric condition SHALL count as satisfied only when a metric attestation has been recorded against the launch for that gate's condition, carrying who attested, when, and evidence. Recording an attestation for a metric condition the served playbook does not author on that gate SHALL be rejected.
-
-#### Scenario: An attested metric condition counts as satisfied
-
-- **WHEN** an attestation with a named attester and evidence is recorded for a metric condition authored on the current gate, and every other blocking condition is satisfied
-- **THEN** the gate's conditions count as satisfied and the launch can advance
-
-#### Scenario: An unattested metric condition keeps the gate closed
-
-- **WHEN** the launch is advanced while a metric condition authored on the current gate has no recorded attestation
-- **THEN** the advance is rejected and a `GateBlocked` occurrence names that metric condition
-
-#### Scenario: An attestation for a condition the gate does not author is rejected
-
-- **WHEN** an attestation is recorded for a metric identifier the served playbook does not author on the named gate
 - **THEN** the recording is rejected
 
 ### Requirement: Step due dates derive from the launch date and re-resolve when it moves
@@ -512,6 +502,12 @@ The unresolved dependencies SHALL be named by identifier, so that a consumer can
 
 The system SHALL persist, against a launch record, the Slack identity of whoever submitted it and an optional Slack thread reference. The submitter SHALL be recorded once, when the launch is started, and SHALL NOT change afterward. The thread reference SHALL be absent until first needed, established by whichever per-product Slack message about that launch is delivered first, and never re-created once set — a later delivery for the same launch SHALL reuse the existing reference rather than posting a second anchor message. Two per-product messages triggered for the same launch before either has observed a thread reference SHALL still result in exactly one anchor message and a single, shared thread reference for both.
 
+**The anchor message SHALL be composed from the launch's product as the system resolves it at establishment time, read once for that purpose**, and SHALL NOT be composed from product facts supplied by whichever delivery path happens to be establishing the thread. What the anchor names is unchanged and is stated by `launch-entry`: the product, its SKU, its marketplace, and its launch date or the absence of one. This clause governs only where those values come from, and it exists because the anchor is permanent: a delivery path that could supply less than another would make the launch's header depend on which message arrived first, with no later message able to correct it.
+
+**Where the launch's product cannot be resolved, the thread SHALL NOT be established** — no anchor is posted, no thread reference is persisted, and the delivery that attempted it fails and is reported, to be handled by the rule that already governs that delivery — retried where that rule retries, and reported to the submitter directly where `launch-entry` requires that instead. A product that is unreadable, absent, or whose reader is not configured are one case and SHALL be treated alike: the system cannot say what the product is. An anchor posted with missing facts would be permanent and unrepairable, while a thread not yet established costs one message for which its own capability already specifies a handling — so the incomplete anchor is the outcome to refuse, and the delay is the one to accept.
+
+**The product SHALL NOT be read for the anchor's purpose where the thread reference is already set.** Establishment for a launch that already carries one reuses it without resolving the product, so a launch with a thread is unaffected by whether the product can be resolved. This governs only the anchor's own read: a message delivered into an existing thread still reads the product for whatever its own capability requires it to name.
+
 #### Scenario: The submitter is recorded at launch start
 
 - **WHEN** a launch is started
@@ -527,6 +523,26 @@ The system SHALL persist, against a launch record, the Slack identity of whoever
 - **WHEN** the first message about a launch that has no thread reference is delivered
 - **THEN** an anchor message is posted and its identifying reference is persisted on the launch record
 
+#### Scenario: The anchor names the product the system resolved, not what the caller held
+
+- **WHEN** a delivery path that holds no product facts, or partial ones, establishes a launch's thread
+- **THEN** the anchor names the product, SKU and marketplace as resolved from the launch's product at establishment time
+
+#### Scenario: A product that cannot be read refuses establishment
+
+- **WHEN** a per-product message would establish a launch's thread and the launch's product cannot be read
+- **THEN** no anchor is posted, no thread reference is persisted, and the delivery fails and is reported
+
+#### Scenario: A product that resolves to nothing refuses establishment
+
+- **WHEN** a per-product message would establish a launch's thread and the launch's product resolves to nothing
+- **THEN** no anchor is posted, no thread reference is persisted, and the delivery fails and is reported
+
+#### Scenario: A refused establishment leaves the next delivery free to establish
+
+- **WHEN** establishment was refused because the product could not be resolved, and a later message for the same launch is delivered while the product can be resolved
+- **THEN** that message establishes the thread and posts a complete anchor
+
 #### Scenario: A concurrent race to establish the thread produces exactly one anchor
 
 - **WHEN** two per-product Slack messages are triggered for the same launch at the same time, and neither has yet observed a thread reference
@@ -536,3 +552,8 @@ The system SHALL persist, against a launch record, the Slack identity of whoever
 
 - **WHEN** a per-product Slack message is delivered for a launch that already has a thread reference
 - **THEN** no new anchor message is posted, and the existing thread reference is reused
+
+#### Scenario: A launch with a thread never reads its product
+
+- **WHEN** a per-product Slack message is delivered for a launch that already has a thread reference and whose product cannot be read
+- **THEN** the existing thread reference is reused, no product is resolved for the anchor, and the message is delivered

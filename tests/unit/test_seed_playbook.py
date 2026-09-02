@@ -8,7 +8,7 @@ set, because a stored row that differs from its vendored counterpart is
 indistinguishable from a row an author edited — the difference is the edit.
 
 That makes it idempotent, which is why nothing arms it: its condition is
-readable from the stored set, the way the roster seeder's is from the roster.
+readable from the stored set, the way the membership seeder's is from the membership.
 """
 
 from __future__ import annotations
@@ -44,8 +44,8 @@ def test_an_empty_set_receives_the_whole_vendored_set(
     """3.12 — a database carrying none of the vendored steps gets all of them."""
     candidate, added = compose([], vendored)
 
-    assert added == len(vendored) == 352
-    assert len(candidate) == 352
+    assert added == len(vendored) == 358
+    assert len(candidate) == 358
 
 
 def test_running_again_changes_nothing(vendored: tuple[Any, ...]) -> None:
@@ -79,7 +79,7 @@ def test_an_edited_step_is_left_exactly_as_it_stands(
             by_identifier["lp.rank.001"],
             name="a name an author chose",
             status=StepStatus.ACTIVE,
-            assignees=("a-roster-identifier",),
+            assignees=("a-member-identifier",),
         ),
         updated_by="helen",
         updated_on=now,
@@ -92,11 +92,11 @@ def test_an_edited_step_is_left_exactly_as_it_stands(
     )
     assert kept.definition.name == "a name an author chose"
     assert kept.definition.status is StepStatus.ACTIVE
-    assert kept.definition.assignees == ("a-roster-identifier",)
+    assert kept.definition.assignees == ("a-member-identifier",)
     assert kept.updated_by == "helen"
     assert kept.updated_on == now
     # Everything else the vendored set carries is still added.
-    assert added == 351
+    assert added == 357
 
 
 def test_a_retired_step_is_not_returned_by_a_seeding_run(
@@ -148,8 +148,8 @@ def test_a_step_the_vendored_set_does_not_name_survives(
     )
     assert survivor.definition.name == "hand-made"
     assert survivor.created_by == "helen"
-    assert added == 352
-    assert len(candidate) == 353
+    assert added == 358
+    assert len(candidate) == 359
 
 
 def test_a_reference_row_added_later_is_delivered(
@@ -198,7 +198,7 @@ def test_nothing_stored_is_ever_absent_from_the_candidate(
 
 
 def test_the_start_chain_runs_the_step_in_its_specified_position() -> None:
-    """3.19 — SPECIFIED (`deploy-pipeline`): after the roster seed, and before
+    """3.19 — SPECIFIED (`deploy-pipeline`): after the members seed, and before
     the handler-registration report, so that report describes the set the
     deployment is about to serve.
 

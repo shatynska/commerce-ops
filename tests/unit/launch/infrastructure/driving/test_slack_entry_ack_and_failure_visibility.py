@@ -59,11 +59,15 @@ import time
 import urllib.parse
 from collections.abc import AsyncIterator, Iterator
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime
 from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
 from slack_sdk.signature import SignatureVerifier
+
+from commerce_ops.catalog.domain.product import Product
+from commerce_ops.shared.domain.identity import MarketplaceId, Sku
 
 SLACK_ENTRY_PATH = "/product_agent/slack/events"  # ASSUMED
 SIGNING_SECRET = "test-product-agent-signing-secret"  # not a real credential
@@ -81,6 +85,11 @@ SLACK_ENTRY_MODULE = "commerce_ops.launch.infrastructure.driving.slack_entry"
 _MODULES_WITH_CACHED_FACTORIES = (
     SLACK_ENTRY_MODULE,
     "commerce_ops.shared.infrastructure.driving.slack_app",
+    # `ensure_launch_thread` posts the anchor through its own `lru_cache`d
+    # `AsyncWebClient`. This file is the first in the tier to construct it,
+    # and it is built while `AsyncWebClient.api_call` is patched -- so
+    # without resetting it here the cached client outlives these tests.
+    "commerce_ops.launch.application.thread_establishment",
 )
 
 REGISTRAR_ATTRIBUTES: tuple[str, ...] = (
@@ -148,7 +157,11 @@ class _RecordingSlackApi:
                 "payload": dict(payload) if isinstance(payload, dict) else payload,
             }
         )
-        return _FakeSlackResponse({"ok": True})
+        # `ts` because `ensure_launch_thread` reads `response["ts"]` to record
+        # the thread reference. Without it the `KeyError` is swallowed by
+        # `slack_entry` into the fallback DM, and the test fails on the
+        # channel assertion rather than on anything it is about.
+        return _FakeSlackResponse({"ok": True, "ts": THREAD_TS})
 
 
 class _SlowRegistrar:
@@ -265,10 +278,97 @@ async def _fake_transaction() -> AsyncIterator[None]:
     yield None
 
 
+THREAD_TS = "1700000000.000100"
+
+
+class _ThreadlessLaunch:
+    """The launch `ensure_launch_thread` reads: no thread established yet."""
+
+    def __init__(self) -> None:
+        self.slack_thread_id: str | None = None
+        self.launch_date = None
+        self.submitter = SUBMITTER_ID
+
+
+class _FakeLaunchStore:
+    """`LaunchRepository`, for the thread-establishment read and write.
+
+    One launch, shared per instantiation of the fixture, because
+    `establish_thread_and_resolve_mention` reads it twice -- once inside
+    `ensure_launch_thread` and once for `resolve_mention_target` -- and the
+    thread reference written by the first read must be visible to the
+    second. `product_id` is ignored: this file's registrar double returns
+    `None`, so there is no identity to key on and none is needed.
+    """
+
+    launch: _ThreadlessLaunch
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None: ...
+
+    async def get_by_product_id(self, product_id: Any) -> Any:
+        return type(self).launch
+
+    async def save(self, launch: Any) -> None:
+        """`ensure_launch_thread` persists the thread reference through this.
+
+        Absent, the `AttributeError` lands in `slack_entry`'s swallowing
+        `except` and the test observes the fallback DM instead of the
+        threaded reply -- failing on the channel assertion, with nothing in
+        the failure naming the cause.
+        """
+
+
+async def _no_lock(*args: Any, **kwargs: Any) -> None:
+    """`hold_launch_thread_establishment_lock`, which needs a real session."""
+
+
+async def _resolves_a_product(*args: Any, **kwargs: Any) -> Any:
+    """`launch_thread_delivery.read_product`, the anchor's own catalog read.
+
+    Substituted for the same reason as the three collaborators beside it,
+    and it became necessary with `inject-the-thread-anchor-poster`: the
+    anchor's facts are resolved at establishment time now rather than
+    supplied by the caller, so without this the composition root's real
+    reader runs against this file's registrar double -- which returns
+    `None` for the product identifier -- and establishment refuses, leaving
+    the fallback DM where the test asserts a threaded reply.
+
+    Answers the real `Product`, not a stand-in with fewer fields: the
+    anchor reads `name`, `sku` and `marketplace_id` off it directly, and a
+    double modelling less than the aggregate could satisfy a check the real
+    store would fail.
+    """
+    return Product.register(
+        sku=Sku("SKU-0002"),
+        marketplace_id=MarketplaceId("ATVPDKIKX0DER"),
+        name="Widget",
+        registered_at=datetime(2026, 8, 23, 9, 0, tzinfo=UTC),
+    )
+
+
 @pytest.fixture(autouse=True)
 def sessionless(monkeypatch: pytest.MonkeyPatch) -> None:
     module = importlib.import_module(SLACK_ENTRY_MODULE)
     monkeypatch.setattr(module, "transaction", _fake_transaction)
+
+    # `establish_thread_and_resolve_mention` opens its *own* `transaction()`,
+    # imported into its own module, so substituting `slack_entry.transaction`
+    # above does not reach it -- which is why this file was gated on
+    # `DATABASE_URL` and skipped wholesale.
+    #
+    # The seam substituted is the one *beneath* the preamble, not the
+    # preamble itself: the anchor message is posted inside
+    # `ensure_launch_thread`, and this file asserts on an anchor *and* a
+    # threaded reply, so substituting `establish_thread_and_resolve_mention`
+    # would remove the anchor and force that assertion down to one post.
+    delivery = importlib.import_module(
+        "commerce_ops.launch.infrastructure.driven.launch_thread_delivery"
+    )
+    _FakeLaunchStore.launch = _ThreadlessLaunch()
+    monkeypatch.setattr(delivery, "transaction", _fake_transaction)
+    monkeypatch.setattr(delivery, "LaunchRepository", _FakeLaunchStore)
+    monkeypatch.setattr(delivery, "hold_launch_thread_establishment_lock", _no_lock)
+    monkeypatch.setattr(delivery, "read_product", _resolves_a_product)
 
 
 class _FakePlaybookRepository:
@@ -498,12 +598,16 @@ def test_a_slow_transaction_does_not_miss_the_acknowledgement_window(
     channel. Updated per this file's own module docstring instruction
     (`tasks.md` 8.3) and the change's `test-manifest.md`, which named this
     scenario's success-path assertion as a candidate for exactly this. Not
-    independently verified against a real database here: `_register_and_start`
-    reads the live playbook for real regardless of how its registrar and
-    `start_launch` are mocked, which is why this whole file stays gated on
-    `DATABASE_URL` -- a pre-existing, `start-launch-from-slack`-era
-    constraint this change does not remove. The full, DB-backed scenario is
-    verified for real in `tests/integration/launch/test_slack_entry_start.py`.
+    independently verified against a real database here; the full, DB-backed
+    scenario is verified for real in
+    `tests/integration/launch/test_slack_entry_start.py`.
+
+    This file was previously recorded as "gated on `DATABASE_URL`", and
+    skipped wholesale on that basis. It never needed a database:
+    `restore-the-skipped-unit-tests` found that the only thing reaching one
+    was `establish_thread_and_resolve_mention` opening its own
+    `transaction()`, which the `sessionless` fixture now substitutes at the
+    seam beneath it. The file runs in the commit-time tier.
     """
     module = _require_slack_entry_module()
     slow_registrar = _SlowRegistrar(delay=SLOW_PERSISTENCE_SECONDS)

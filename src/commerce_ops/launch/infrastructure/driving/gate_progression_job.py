@@ -43,8 +43,8 @@ from commerce_ops.launch.infrastructure.driven.clickup_mapping import (
     ClickUpMappingRepository,
 )
 from commerce_ops.launch.infrastructure.driven.clickup_sync import (
+    MembersReader,
     ProductReader,
-    RosterReader,
     converge_launch_eagerly,
 )
 from commerce_ops.launch.infrastructure.driven.gate_ask_suppression import (
@@ -81,7 +81,7 @@ __all__ = [
     "gate_progression_pass",
     "post_gate_ask",
     "progress_launch",
-    "read_people",
+    "read_members",
     "read_product",
     "run_gate_progression_pass",
     "session",
@@ -94,19 +94,19 @@ TASK_NAME = "launch.gates.progression_pass"
 
 # Injected by the composition root (`worker.py` in the worker process,
 # `main.py` in the HTTP process — each supplies its own reader, exactly as
-# `clickup_sync_job.read_product`/`read_people` are injected by `worker.py`
+# `clickup_sync_job.read_product`/`read_members` are injected by `worker.py`
 # alone, because `launch` may not import catalog's or access's own stores).
 # `None` until injected; `converge_launch_eagerly` requires `read_product`
 # (see `clickup_sync.py`'s `ProductReader`, which has no default) and treats
-# `read_people` as optional, exactly as `converge_launch` does.
+# `read_members` as optional, exactly as `converge_launch` does.
 read_product: ProductReader | None = None
-read_people: RosterReader = None
+read_members: MembersReader = None
 
 _FINAL_GATE = GATE_SEQUENCE[-1]
 
 # Matching the ClickUp pass rather than beating it. `*/5` was the design's
 # first answer -- this is the cheapest pass in the system, and the interval
-# is what a person waits between a gate becoming ready and being asked about
+# is what a member waits between a gate becoming ready and being asked about
 # it -- and `scheduled-jobs`' longest-gap computation refuses it: it walks
 # every occurrence over a 400-day horizon and caps that walk at 60,000, which
 # `*/5` exceeds (115,200) and `*/10` does not (57,600). The horizon is
@@ -121,9 +121,9 @@ PROGRESSION_SCHEDULE = "*/10 * * * *"
 # be reported overdue.
 PROGRESSION_TOLERANCE = datetime.timedelta(hours=6)
 
-# How long an ask stands before the same gate is put to a person again.
+# How long an ask stands before the same gate is put to a member again.
 # A module constant, never configuration: there is no per-deployment answer
-# to how often a person should be asked the same question, and a configured
+# to how often a member should be asked the same question, and a configured
 # value would owe the four obligations `AGENTS.md` places on every runtime
 # variable. The reasoning `automation_pass.COOL_OFF` records, for the same
 # shape of question.
@@ -219,7 +219,7 @@ async def _converge_crossed_launch_eagerly(
                 clickup=clickup,
                 mapping=ClickUpMappingRepository(db_session),
                 read_product=_read_product_or_fail,
-                roster=read_people,
+                members=read_members,
                 folder_id=_launch_folder_id(),
             )
     except Exception:

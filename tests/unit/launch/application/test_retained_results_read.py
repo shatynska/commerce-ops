@@ -66,7 +66,7 @@ Fixed by the artifacts:
   state, decider and decision moment — not the ORM row (`tasks.md` 2.4).
 - That a voided row's absent decider is carried through as absent
   (`tasks.md` 2.6), and that the decider is never re-resolved against
-  the roster (`tasks.md` 2.7; `design.md` — Decision 6).
+  the membership (`tasks.md` 2.7; `design.md` — Decision 6).
 - The four states, `voided` distinct from `rejected` (the delta, and
   `launch-step-automation` as served).
 
@@ -424,7 +424,7 @@ async def test_a_settled_result_is_still_readable() -> None:
     WHEN every result retained for a product is read after one of them
     was accepted and another rejected
     THEN both are answered, each carrying the state it reached, the
-    person who decided it and the moment of the decision.
+    member who decided it and the moment of the decision.
     """
     results = _FakeResults(_accepted(), _rejected())
 
@@ -494,9 +494,9 @@ async def test_a_voided_result_carries_no_decider() -> None:
     assert _read_field(voided, "decided_by") is None
     # SPECIFIED by `tasks.md` 2.7 and `design.md` — Decision 6: the
     # decider is whatever the row recorded, never re-resolved. A read
-    # taking a roster collaborator could not honour that.
-    assert not any("roster" in name for name in _parameters()), (
-        "the retained-results read takes a roster collaborator, so a "
+    # taking a members collaborator could not honour that.
+    assert not any("members" in name for name in _parameters()), (
+        "the retained-results read takes a members collaborator, so a "
         "decider could be re-resolved at read time (`tasks.md` 2.7)"
     )
 

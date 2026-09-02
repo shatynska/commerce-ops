@@ -1,7 +1,7 @@
 """Serialising the two paths that advance one launch's gates.
 
 `launch-gate-progression` gives a launch two advancing paths: the recurring
-pass, and a person's decision in Slack. A gate crossing is not idempotent —
+pass, and a member's decision in Slack. A gate crossing is not idempotent —
 it emits `GateOpened` and journals it — so the two must not cross the same
 gate at once.
 

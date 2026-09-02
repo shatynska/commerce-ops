@@ -19,7 +19,7 @@ Two properties this module is responsible for, and the repository is not:
   what the module's public surface exists to prevent.
 
 The decider is carried as recorded and is never re-resolved against the
-roster. `decided_by` holds the name written at the moment of the decision,
+members. `decided_by` holds the name written at the moment of the decision,
 so rendering it as stored is both the store's shape and the requirement: a
 record of past decisions that silently re-renders itself as its subjects
 change is not a record. A voided row carries no decider at all — voiding
@@ -58,7 +58,7 @@ class RetainedResult:
 
     @property
     def decided(self) -> bool:
-        """Whether a person decided this result.
+        """Whether a member decided this result.
 
         A voided row is settled without a decider, so "has a state other
         than pending" and "somebody decided it" are different questions.

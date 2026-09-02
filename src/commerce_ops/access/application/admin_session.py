@@ -25,8 +25,8 @@ import secrets
 from datetime import datetime, timedelta
 from typing import Final
 
+from commerce_ops.access.application.members import MembersStore
 from commerce_ops.access.application.ports import AdminSessionStore, LinkTokenStore
-from commerce_ops.access.application.roster import RosterStore
 from commerce_ops.access.application.use_cases import resolve_admin_capability
 
 TOKEN_LIFETIME: Final = timedelta(minutes=10)
@@ -43,7 +43,7 @@ def _hashed(value: str) -> str:
 
 
 async def mint_admin_link(
-    roster: RosterStore,
+    members: MembersStore,
     tokens: LinkTokenStore,
     *,
     identity: str,
@@ -57,7 +57,7 @@ async def mint_admin_link(
     refusal kinds are one and the same `None`, so nothing downstream can
     leak which one occurred.
     """
-    if not await resolve_admin_capability(roster, identity=identity):
+    if not await resolve_admin_capability(members, identity=identity):
         return None
     raw = secrets.token_urlsafe(32)
     await tokens.save(
@@ -94,7 +94,7 @@ async def exchange_link_token(
 
 
 async def verify_admin_session(
-    roster: RosterStore,
+    members: MembersStore,
     sessions: AdminSessionStore,
     *,
     session_id: str,
@@ -110,6 +110,6 @@ async def verify_admin_session(
     principal = await sessions.find(_hashed(session_id), now=now)
     if principal is None:
         return None
-    if not await resolve_admin_capability(roster, identity=principal):
+    if not await resolve_admin_capability(members, identity=principal):
         return None
     return principal

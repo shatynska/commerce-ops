@@ -56,6 +56,7 @@ from commerce_ops.launch.infrastructure.driven.models import (
     PlaybookStepSet,
 )
 from commerce_ops.shared.domain.discipline import Discipline
+from commerce_ops.shared.domain.identity import MetricId
 
 _SET_ROW_ID = 1
 
@@ -105,6 +106,10 @@ def _definition_from_row(row: PlaybookStep) -> StepDefinition:
         handler=row.handler,
         confirmer=row.confirmer,
         provenance=row.provenance,
+        # Constructed rather than passed through: the column is a plain
+        # string and the domain speaks the shared identity value object,
+        # which refuses an empty or padded value at its own boundary.
+        metric_id=MetricId(row.metric_id) if row.metric_id else None,
     )
 
 
@@ -143,6 +148,9 @@ def _row_from_record(record: Any) -> PlaybookStep:
         handler=definition.handler,
         confirmer=definition.confirmer,
         provenance=definition.provenance,
+        metric_id=(
+            str(definition.metric_id) if definition.metric_id is not None else None
+        ),
         display_order=getattr(record, "display_order", 0),
         created_by=record.created_by,
         created_on=record.created_on,

@@ -211,7 +211,7 @@ class ClickUpMappingRepository:
 
         An *empty* assignee sequence is a value, not an absence: it
         records that the system last set nobody, which is what lets a
-        later pass tell its own silence from a person's edit."""
+        later pass tell its own silence from a member's edit."""
         row_id = _row_id(product_id)
         if row_id is None:
             raise ValueError(f"no launch for product '{product_id.value}'")

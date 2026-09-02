@@ -46,6 +46,26 @@ from commerce_ops.launch.domain.launch_playbook import (
     gate_holding_faults,
     unheld_gates_of,
 )
+from commerce_ops.shared.domain.identity import MetricId
+
+_UNSET: Any = object()
+"""Distinguishes an unsupplied `metric_id` from one deliberately cleared."""
+
+
+def _metric_identifier(value: MetricId | str | None) -> MetricId | None:
+    """The validated identifier a write persists, from whatever it was given.
+
+    A form submits a string, so the string is what a rejection has to be
+    reachable from: `MetricId` refuses an empty or padded value at its own
+    boundary, and that refusal is the whole of the validation this field
+    gets. Nothing checks that the metric it names is *defined* — no
+    registry exists to check against, and a rule requiring resolution
+    would reject every write of every metric step.
+    """
+    if value is None or isinstance(value, MetricId):
+        return value
+    return MetricId(value)
+
 
 AUTHORED_NAMESPACE = "mg"
 """The generated-identifier namespace, distinct from the seeded `lp.*`."""
@@ -54,13 +74,13 @@ _WRITE_ATTEMPTS = 3
 """How many times a write retries after losing the set-version race."""
 
 
-class RosterReader(Protocol):
-    """The one shape a roster collaborator answers to.
+class MembersReader(Protocol):
+    """The one shape a members collaborator answers to.
 
-    The write-side preconditions need to know who the roster carries; the
+    The write-side preconditions need to know who the membership carries; the
     module boundary forbids `launch` resolving that itself, so a caller
     supplies a reader. It used to be addressed by guessing among several
-    shapes, and the shape production actually supplied — the `RosterStore`
+    shapes, and the shape production actually supplied — the `MembersStore`
     the composition root holds, which answers `load()` and `save()` — was
     not among them. Every write from the admin page therefore died on a
     `TypeError` raised from inside the write.
@@ -70,11 +90,11 @@ class RosterReader(Protocol):
     mistake was made and where nothing was watching.
     """
 
-    async def list_people(self) -> Sequence[Any]: ...
+    async def list_members(self) -> Sequence[Any]: ...
 
 
-class UnreadableRosterError(TypeError):
-    """A roster collaborator that does not answer `RosterReader`.
+class UnreadableMembersError(TypeError):
+    """A members collaborator that does not answer `MembersReader`.
 
     A defect of *wiring*, and deliberately not an `InvalidPlaybookError`:
     that type carries a rejected write's fault list, which the admin page
@@ -199,65 +219,68 @@ def _validate(records: Sequence[Any], version: int) -> None:
     )
 
 
-async def _roster_identifiers(roster: RosterReader) -> tuple[set[str], set[str]]:
-    """(everyone the roster carries, everyone active on it), by identifier.
+async def _member_identifiers(members: MembersReader) -> tuple[set[str], set[str]]:
+    """(everyone the membership carries, everyone active on it), by identifier.
 
     The reader is a collaborator the composition root supplies across the
     module boundary — `.importlinter` forbids `launch` reaching into
     `access`'s internals — so it is addressed by shape rather than by
-    type, and a person's identifier is read under either spelling the
-    roster's own rows use.
+    type, and a member's identifier is read under either spelling the
+    membership's own rows use.
     """
-    people = await _read_people(roster)
+    # `entries`, not `members`: the parameter is the *reader* and this is
+    # what it returns. Two names for two things -- reusing one would let a
+    # later edit read the reader where it means its result.
+    entries = await _read_members(members)
     known: set[str] = set()
     active: set[str] = set()
-    for person in people:
-        identifier = person_identifier(person)
+    for member in entries:
+        identifier = member_identifier(member)
         known.add(identifier)
-        if getattr(person, "active", True):
+        if getattr(member, "active", True):
             active.add(identifier)
     return known, active
 
 
-async def _read_people(roster: RosterReader) -> tuple[Any, ...]:
-    """Everyone the roster carries, read through the one stated shape.
+async def _read_members(members: MembersReader) -> tuple[Any, ...]:
+    """Everyone the membership carries, read through the one stated shape.
 
-    It once accepted three — a `list_people()` reader, a callable, or a
-    plain iterable — and fell through to `tuple(roster)` for anything
-    else, which is how a `RosterStore` produced `'PostgresRoster' object
+    It once accepted three — a `list_members()` reader, a callable, or a
+    plain iterable — and fell through to `tuple(members)` for anything
+    else, which is how a `MembersStore` produced `'PostgresMembers' object
     is not iterable` from the middle of a write. One shape now, and
     anything else is refused by name before the write is attempted.
     """
-    lister = getattr(roster, "list_people", None)
+    lister = getattr(members, "list_members", None)
     if lister is None:
-        raise UnreadableRosterError(
-            f"the roster collaborator is a {type(roster).__name__!r}, which "
-            f"cannot answer who the roster carries: a roster reader must "
-            f"provide `list_people()`, and this one does not. Pass a reader "
-            f"rather than a roster store, or pass no roster at all to leave "
-            f"the two roster preconditions unevaluated"
+        raise UnreadableMembersError(
+            f"the members collaborator is a {type(members).__name__!r}, which "
+            f"cannot answer who the membership carries: a members reader must "
+            f"provide `list_members()`, and this one does not. Pass a reader "
+            f"rather than a members store, or pass no members at all to leave "
+            f"the two membership preconditions unevaluated"
         )
     return tuple(await lister())
 
 
-def person_identifier(person: Any) -> str:
-    """One roster person's generated identifier.
+def member_identifier(member: Any) -> str:
+    """One member's generated identifier.
 
-    `access`'s own `Person` spells it `identifier`; a reader that answers
+    `access`'s own `Member` spells it `identifier`; a reader that answers
     rows of its own may spell it `id`. Both are read here so the seam is
     a shape rather than a type."""
-    for name in ("identifier", "id", "person_id"):
-        value = getattr(person, name, None)
+    for name in ("identifier", "id", "member_id"):
+        value = getattr(member, name, None)
         if value is not None:
             return str(value)
-    raise ValueError(f"a roster person exposes no identifier: {person!r}")
+    raise ValueError(f"a member exposes no identifier: {member!r}")
 
 
 async def _precondition_faults(
     touched: Sequence[StepDefinition],
     *,
     candidate: Sequence[StepDefinition],
-    roster: RosterReader | None,
+    members: MembersReader | None,
     handlers: Any,
 ) -> list[str]:
     """The checks a load cannot make, over the steps a write touches.
@@ -269,17 +292,17 @@ async def _precondition_faults(
     declined to invent.
 
     The dependency rules are evaluated **whatever the caller supplies as
-    a roster, and whether or not one is supplied at all**. Only the
-    assignee and confirmer rules turn on the roster; a dependency is a
-    function of the step set alone, and skipping it because no roster
+    a membership, and whether or not one is supplied at all**. Only the
+    assignee and confirmer rules turn on the membership; a dependency is a
+    function of the step set alone, and skipping it because no members
     arrived would leave a step-set rule unevaluated for a reason having
     nothing to do with it. They read the whole candidate set — that is
     where a named step's status and hazard live — while still being
     *reported* only for the steps the write touched.
     """
     faults: list[str] = []
-    if roster is not None:
-        known, active = await _roster_identifiers(roster)
+    if members is not None:
+        known, active = await _member_identifiers(members)
         faults.extend(assignee_faults(touched, known=known, active=active))
         faults.extend(confirmer_faults(touched, known=known, active=active))
     faults.extend(dependency_faults(touched, defined=candidate))
@@ -293,13 +316,13 @@ async def _accept(
     touched: Sequence[StepDefinition],
     *,
     prior_unheld: Sequence[str],
-    roster: RosterReader | None,
+    members: MembersReader | None,
     handlers: Any,
 ) -> None:
     """Judge the write whole, and report every fault it carries at once.
 
     The load-side rules are evaluated over the entire set the write would
-    produce; the two the roster and the registry decide are evaluated
+    produce; the two the membership and the registry decide are evaluated
     over the steps the write touches. Both are gathered before either is
     raised, so a rejection does not have to be corrected one fault at a
     time — the shape `InvalidPlaybookError` has carried since the load
@@ -333,7 +356,7 @@ async def _accept(
         await _precondition_faults(
             touched,
             candidate=authored_definitions(candidate),
-            roster=roster,
+            members=members,
             handlers=handlers,
         )
     )
@@ -489,7 +512,7 @@ async def create_step(
     timing_anchor: TimingAnchor,
     blocking: bool,
     kind: StepKind,
-    roster: RosterReader | None = None,
+    members: MembersReader | None = None,
     handlers: Any = None,
     description: str | None = None,
     status: StepStatus = StepStatus.DRAFT,
@@ -499,10 +522,12 @@ async def create_step(
     after_steps: Sequence[str] = (),
     handler: str | None = None,
     confirmer: str | None = None,
+    metric_id: MetricId | str | None = None,
 ) -> StepRecord:
     """Create a step with a generated `mg.*` identifier, attributed to
     `principal`. Validated as the whole playbook it would produce, plus
     the two preconditions a load cannot check."""
+    metric = _metric_identifier(metric_id)
     for _ in range(_WRITE_ATTEMPTS):
         records, version = await steps.load()
         prior_unheld = unheld_gates_of(authored_definitions(records))
@@ -524,6 +549,7 @@ async def create_step(
             after_steps=tuple(after_steps),
             handler=handler,
             confirmer=confirmer,
+            metric_id=metric,
         )
         record = StepRecord(
             definition=definition,
@@ -541,7 +567,7 @@ async def create_step(
             version,
             (definition,),
             prior_unheld=prior_unheld,
-            roster=roster,
+            members=members,
             handlers=handlers,
         )
         try:
@@ -559,7 +585,7 @@ async def _write_fields(
     steps: StepSetStore,
     principal: str,
     step_id: str,
-    roster: RosterReader | None,
+    members: MembersReader | None,
     handlers: Any,
     attribute_as_update: bool,
     what: str,
@@ -591,7 +617,7 @@ async def _write_fields(
             version,
             (definition,),
             prior_unheld=prior_unheld,
-            roster=roster,
+            members=members,
             handlers=handlers,
         )
         try:
@@ -607,8 +633,9 @@ async def update_step(
     steps: StepSetStore,
     principal: str,
     step_id: str,
-    roster: RosterReader | None = None,
+    members: MembersReader | None = None,
     handlers: Any = None,
+    metric_id: MetricId | str | None = _UNSET,
     **fields: Any,
 ) -> StepRecord:
     """Update a step's authorable fields — never its identifier and never
@@ -632,11 +659,19 @@ async def update_step(
     # defeat both.
     if "after_steps" in fields:
         fields["after_steps"] = tuple(fields["after_steps"])
+    # Named rather than left to `**fields` so that what this operation
+    # writes is answerable from its signature — `playbook-authoring`'s
+    # framework rule is stated over the targets a write *accepts*, and a
+    # field reachable only through `**fields` cannot be enumerated. Its
+    # sentinel default keeps "not supplied" distinct from "cleared",
+    # which `None` is: clearing an identifier is a legitimate edit.
+    if metric_id is not _UNSET:
+        fields["metric_id"] = _metric_identifier(metric_id)
     return await _write_fields(
         steps=steps,
         principal=principal,
         step_id=step_id,
-        roster=roster,
+        members=members,
         handlers=handlers,
         attribute_as_update=True,
         what="update_step",
@@ -649,7 +684,7 @@ async def retire_step(
     steps: StepSetStore,
     principal: str,
     step_id: str,
-    roster: RosterReader | None = None,
+    members: MembersReader | None = None,
     handlers: Any = None,
 ) -> StepRecord:
     """Retire a step: its status becomes `retired`, which excludes it
@@ -661,7 +696,7 @@ async def retire_step(
         steps=steps,
         principal=principal,
         step_id=step_id,
-        roster=roster,
+        members=members,
         handlers=handlers,
         attribute_as_update=False,
         what="retire_step",
@@ -771,7 +806,7 @@ async def unretire_step(
     steps: StepSetStore,
     principal: str,
     step_id: str,
-    roster: RosterReader | None = None,
+    members: MembersReader | None = None,
     handlers: Any = None,
 ) -> StepRecord:
     """Return a retired step to `in-development` under its original
@@ -785,7 +820,7 @@ async def unretire_step(
         steps=steps,
         principal=principal,
         step_id=step_id,
-        roster=roster,
+        members=members,
         handlers=handlers,
         attribute_as_update=False,
         what="unretire_step",
@@ -799,7 +834,7 @@ async def change_step_status(
     principal: str,
     step_id: str,
     status: StepStatus,
-    roster: RosterReader | None = None,
+    members: MembersReader | None = None,
     handlers: Any = None,
 ) -> StepRecord:
     """Move a step to `status`, validated by the rules of the status it
@@ -813,7 +848,7 @@ async def change_step_status(
         steps=steps,
         principal=principal,
         step_id=step_id,
-        roster=roster,
+        members=members,
         handlers=handlers,
         status=status,
     )

@@ -96,8 +96,7 @@ from commerce_ops.launch.domain.launch_playbook import (
 )
 from commerce_ops.shared.domain.result import Success
 from commerce_ops.step_handlers.listing.subcategory_advisor import (
-    Supported,
-    Unsupported,
+    AdvisorResponse,
 )
 
 PRODUCT_NAME: Final = "Bamboo Cutting Board with Juice Groove"
@@ -167,8 +166,18 @@ class _ScriptedStructuredRunnable:
         }
 
     def invoke(self, input_: Any, *args: Any, **kwargs: Any) -> dict[str, Any]:
-        self.received.append(input_)
-        return self._answer()
+        # `tasks.md` 2.5 / `design.md` Decision 2's model-level guard.
+        # Both entry points are real on a structured-output runnable, so a
+        # `recommend` body reverted to `structured.invoke(...)` inside an
+        # `async def` would work, pin the invoking loop for the whole
+        # round-trip, and pass every assertion in this file about what the
+        # advisor produces. It fails here instead, naming the mistake.
+        raise AssertionError(
+            "the advisor reached the model through the model's synchronous "
+            "`invoke(...)` entry point instead of awaiting `ainvoke(...)` — "
+            "the enclosing coroutine then never yields, and the invoking "
+            "loop is pinned for the whole of the round-trip"
+        )
 
     async def ainvoke(self, input_: Any, *args: Any, **kwargs: Any) -> dict[str, Any]:
         self.received.append(input_)
@@ -247,10 +256,10 @@ def _finding_of(proposal: Any) -> Any:
     return getattr(proposal, "finding", _ABSENT)
 
 
-def _propose(outcome: Any) -> Any:
+async def _propose(outcome: Any) -> Any:
     model = _ScriptedStructuredChatModel(outcome)
     graph = advisor_graph.build_graph(model)
-    return advisor_graph.propose(
+    return await advisor_graph.propose(
         product_name=PRODUCT_NAME, marketplace=MARKETPLACE, graph=graph
     )
 
@@ -279,8 +288,9 @@ def _assert_withheld(proposal: Any) -> Any:
 # ---------------------------------------------------------------------------
 
 
-def test_a_supported_choice_proposes_satisfaction() -> None:
-    proposal = _propose(Supported(ok=True, value=NODE, comment=COMMENT))
+@pytest.mark.anyio
+async def test_a_supported_choice_proposes_satisfaction() -> None:
+    proposal = await _propose(AdvisorResponse(ok=True, value=NODE, comment=COMMENT))
 
     assert _outcome_of(proposal) is Satisfied
     finding = _finding_of(proposal)
@@ -293,8 +303,9 @@ def test_a_supported_choice_proposes_satisfaction() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_an_unsupported_choice_proposes_no_satisfaction() -> None:
-    proposal = _propose(Unsupported(ok=False, error=REFUSAL_ERROR_A))
+@pytest.mark.anyio
+async def test_an_unsupported_choice_proposes_no_satisfaction() -> None:
+    proposal = await _propose(AdvisorResponse(ok=False, error=REFUSAL_ERROR_A))
 
     outcome = _assert_withheld(proposal)
     reason = outcome.reason.lower()
@@ -307,14 +318,15 @@ def test_an_unsupported_choice_proposes_no_satisfaction() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_a_refusal_is_recognised_however_it_is_worded() -> None:
+@pytest.mark.anyio
+async def test_a_refusal_is_recognised_however_it_is_worded() -> None:
     """WHEN the advisor reports two unsupported responses whose error text
     shares no wording THEN both propose a non-terminal outcome, since
     support is read from the `ok` discriminant and never searched for in
     text.
     """
-    a = _propose(Unsupported(ok=False, error=REFUSAL_ERROR_A))
-    b = _propose(Unsupported(ok=False, error=REFUSAL_ERROR_B))
+    a = await _propose(AdvisorResponse(ok=False, error=REFUSAL_ERROR_A))
+    b = await _propose(AdvisorResponse(ok=False, error=REFUSAL_ERROR_B))
 
     _assert_withheld(a)
     _assert_withheld(b)
@@ -325,9 +337,10 @@ def test_a_refusal_is_recognised_however_it_is_worded() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_the_recommendations_wording_does_not_establish_the_outcome() -> None:
-    proposal = _propose(
-        Supported(ok=True, value=NODE, comment=ALTERNATIVE_CALLED_UNSUPPORTABLE)
+@pytest.mark.anyio
+async def test_the_recommendations_wording_does_not_establish_the_outcome() -> None:
+    proposal = await _propose(
+        AdvisorResponse(ok=True, value=NODE, comment=ALTERNATIVE_CALLED_UNSUPPORTABLE)
     )
 
     assert _outcome_of(proposal) is Satisfied, (
@@ -342,8 +355,11 @@ def test_the_recommendations_wording_does_not_establish_the_outcome() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_a_verdict_contradicting_its_own_prose_withholds_satisfaction() -> None:
-    proposal = _propose(Supported(ok=True, value=NODE, comment=REFUSAL_IN_COMMENT))
+@pytest.mark.anyio
+async def test_a_verdict_contradicting_its_own_prose_withholds_satisfaction() -> None:
+    proposal = await _propose(
+        AdvisorResponse(ok=True, value=NODE, comment=REFUSAL_IN_COMMENT)
+    )
 
     _assert_withheld(proposal)
     assert _finding_of(proposal) is None
@@ -354,27 +370,29 @@ def test_a_verdict_contradicting_its_own_prose_withholds_satisfaction() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_a_missing_verdict_is_unsupported_not_supported() -> None:
+@pytest.mark.anyio
+async def test_a_missing_verdict_is_unsupported_not_supported() -> None:
     """WHEN the advisor's structured call completes but produces content
     satisfying neither the supported nor the unsupported variant THEN it
     proposes a non-terminal outcome.
     """
-    proposal = _propose(None)
+    proposal = await _propose(None)
 
     _assert_withheld(proposal)
     assert _finding_of(proposal) is None
 
 
-def test_an_unreadable_verdict_is_unsupported_not_supported() -> None:
+@pytest.mark.anyio
+async def test_an_unreadable_verdict_is_unsupported_not_supported() -> None:
     """WHEN the advisor's structured call completes and the response
     fails schema validation against both variants THEN it proposes a
     non-terminal outcome, exactly as a missing verdict does — the same
     condition, stated twice by the delta itself.
     """
-    proposal = _propose(None)
+    proposal = await _propose(None)
 
     outcome = _assert_withheld(proposal)
-    missing = _assert_withheld(_propose(None))
+    missing = _assert_withheld(await _propose(None))
     assert outcome.reason == missing.reason, (
         "the same schema-validation-failure condition, invoked twice, "
         "produced two different reasons"
@@ -386,8 +404,9 @@ def test_an_unreadable_verdict_is_unsupported_not_supported() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_a_fail_safe_reason_names_what_was_wrong() -> None:
-    proposal = _propose(None)
+@pytest.mark.anyio
+async def test_a_fail_safe_reason_names_what_was_wrong() -> None:
+    proposal = await _propose(None)
     reason = _reason_of(proposal).lower()
 
     assert "verdict" in reason, (
@@ -408,13 +427,14 @@ def test_a_fail_safe_reason_names_what_was_wrong() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_an_unrecognised_verdict_reads_the_same_as_a_missing_one() -> None:
+@pytest.mark.anyio
+async def test_an_unrecognised_verdict_reads_the_same_as_a_missing_one() -> None:
     """WHEN the advisor's structured call completes but the response fails
     schema validation THEN the reason names that the response could not be
     read as a verdict — the same single reason a missing verdict produces.
     """
-    unrecognised = _reason_of(_propose(None))
-    missing = _reason_of(_propose(None))
+    unrecognised = _reason_of(await _propose(None))
+    missing = _reason_of(await _propose(None))
 
     assert unrecognised == missing, (
         "structured output should no longer distinguish 'nothing "
@@ -428,8 +448,11 @@ def test_an_unrecognised_verdict_reads_the_same_as_a_missing_one() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_a_vetoed_verdict_names_the_contradiction() -> None:
-    proposal = _propose(Supported(ok=True, value=NODE, comment=REFUSAL_IN_COMMENT))
+@pytest.mark.anyio
+async def test_a_vetoed_verdict_names_the_contradiction() -> None:
+    proposal = await _propose(
+        AdvisorResponse(ok=True, value=NODE, comment=REFUSAL_IN_COMMENT)
+    )
     reason = _reason_of(proposal).lower()
 
     assert any(
@@ -442,16 +465,17 @@ def test_a_vetoed_verdict_names_the_contradiction() -> None:
     )
 
 
-def test_routes_1_2_and_3_carry_distinguishable_reasons() -> None:
+@pytest.mark.anyio
+async def test_routes_1_2_and_3_carry_distinguishable_reasons() -> None:
     """`tasks.md` 5.5-5.6: routes 1-2 share one reason; route 3 is
     distinct, "since this *is* a finding, not a shortfall."
     """
-    shortfall = _reason_of(_propose(None))
+    shortfall = _reason_of(await _propose(None))
     empty_comment_shortfall = _reason_of(
-        _propose(Supported(ok=True, value=NODE, comment=""))
+        await _propose(AdvisorResponse(ok=True, value=NODE, comment=""))
     )
     contradiction = _reason_of(
-        _propose(Supported(ok=True, value=NODE, comment=REFUSAL_IN_COMMENT))
+        await _propose(AdvisorResponse(ok=True, value=NODE, comment=REFUSAL_IN_COMMENT))
     )
 
     assert shortfall == empty_comment_shortfall, (
@@ -469,7 +493,8 @@ def test_routes_1_2_and_3_carry_distinguishable_reasons() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_a_response_that_is_not_text_still_fails_visibly() -> None:
+@pytest.mark.anyio
+async def test_a_response_that_is_not_text_still_fails_visibly() -> None:
     """WHEN the model answers with content that is not plain text at all
     THEN the failure is surfaced as a model failure, and no outcome is
     proposed for the step.
@@ -482,7 +507,7 @@ def test_a_response_that_is_not_text_still_fails_visibly() -> None:
     graph = advisor_graph.build_graph(_ScriptedStructuredChatModel(fault))
 
     with pytest.raises(Exception) as failure:
-        advisor_graph.propose(
+        await advisor_graph.propose(
             product_name=PRODUCT_NAME, marketplace=MARKETPLACE, graph=graph
         )
 
@@ -496,7 +521,8 @@ def test_a_response_that_is_not_text_still_fails_visibly() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_an_unsupported_recommendation_still_says_so_in_prose() -> None:
+@pytest.mark.anyio
+async def test_an_unsupported_recommendation_still_says_so_in_prose() -> None:
     """WHEN the advisor cannot support a node choice THEN the rendered
     text states that it cannot support one, readable without reference to
     the structured discriminant.
@@ -507,7 +533,7 @@ def test_an_unsupported_recommendation_still_says_so_in_prose() -> None:
     `propose()`'s rendered `result`, unlike the pre-change prompt-level
     test it supersedes.
     """
-    proposal = _propose(Unsupported(ok=False, error=REFUSAL_ERROR_A))
+    proposal = await _propose(AdvisorResponse(ok=False, error=REFUSAL_ERROR_A))
     text = _text_of(proposal)
 
     # SPECIFIED: the error reaches the reader.

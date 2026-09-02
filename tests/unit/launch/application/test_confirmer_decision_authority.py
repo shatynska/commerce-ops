@@ -5,9 +5,9 @@ Derived strictly from the delta spec:
 
 Covers the ADDED requirement *Only the step's named confirmer may decide
 a pending result*, whose behavior genuinely narrows on the requirement it
-replaces (*Only a known, active person may decide a pending result*,
-REMOVED): decision authority moves from "any known, active roster
-person" to "the one identity the step names as its `confirmer`". This is
+replaces (*Only a known, active member may decide a pending result*,
+REMOVED): decision authority moves from "any known, active members
+member" to "the one identity the step names as its `confirmer`". This is
 the change the proposal states as **BREAKING**, so — unlike the coherence
 -rule rename in `launch-playbook` (a structural REMOVED+ADDED pair over
 otherwise-unchanged content, per `design.md`) — every scenario of this
@@ -17,22 +17,22 @@ requirement is written fresh here:
 - *An unknown identity cannot decide*
 - *Someone other than the confirmer cannot decide* — the scenario that
   most directly discriminates the new rule from the old: an identity the
-  roster holds as active, but who is not the step's confirmer, must now
+  members holds as active, but who is not the step's confirmer, must now
   be refused, where the old rule would have let them decide.
 - *A deactivated confirmer cannot decide*
 
 The requirement's three wiring scenarios — *A collaborator that cannot
-answer who the roster carries is refused by name*, *An absent
+answer who the membership carries is refused by name*, *An absent
 collaborator is refused the same way, not silently*, *A mis-wiring is
 never reported as an unknown identity* — turn on mechanics `tasks.md` 4.3
 states are explicitly unchanged ("Preserve the existing wiring-fault
 handling unchanged — only the identity-matching rule changes, not how a
-broken roster collaborator is reported"), and stay covered by
-`tests/unit/launch/application/test_automated_decision_roster_shape.py`
+broken members collaborator is reported"), and stay covered by
+`tests/unit/launch/application/test_automated_decision_members_shape.py`
 and `tests/unit/launch/infrastructure/driving/
 test_automated_decision_wiring.py`. The one genuinely new clause inside
 that third scenario — that a mis-wired reply must not blame the decider's
-"standing as confirmer" either, not only their roster membership — is
+"standing as confirmer" either, not only their membership — is
 covered separately in
 `tests/unit/launch/infrastructure/driving/
 test_confirmer_mis_wiring_reply_wording.py`.
@@ -46,8 +46,8 @@ Also covers, from the two MODIFIED requirements this narrowing touches:
   leaves the step live*, restated: "the step's named confirmer rejects".
 
 `test_automated_result_decisions.py` is not superseded outright: its
-"known, active person" framing is now narrower than the rule actually
-implemented (it never asserts that a *different* active person may also
+"known, active member" framing is now narrower than the rule actually
+implemented (it never asserts that a *different* active member may also
 decide, so nothing in it contradicts the new rule), but the requirement it
 was derived from is REMOVED, so it is recorded in `test-manifest.md`'s
 obsolete list as a candidate for confirmation — its accept/reject
@@ -63,16 +63,16 @@ already established, reused here rather than reinvented.
 
 Identical to `test_automated_result_decisions.py`'s: the use-case names
 (`_ACCEPT_NAMES`/`_REJECT_NAMES`/`_DECIDE_NAMES`), its call shape
-(`_decide`), the roster collaborator's one stated read (`list_people`),
+(`_decide`), the members collaborator's one stated read (`list_members`),
 and how a refusal is signalled (`_says_refused`, accepting either a
 raised error or a returned refusal-shaped value).
 
 ## Expected first-run state
 
 `confirmer` does not exist on `StepDefinition` yet, and the decision use
-cases (however named) authorize by roster membership and activity alone,
+cases (however named) authorize by membership and activity alone,
 not by matching the step's confirmer — so every test here fails either on
-an absent field or on a decision from a non-confirmer active person being
+an absent field or on a decision from a non-confirmer active member being
 wrongly accepted.
 """
 
@@ -230,7 +230,7 @@ def _launch(playbook: LaunchPlaybook) -> Launch:
 
 
 @dataclass
-class _Person:
+class _Member:
     id: str
     display_name: str
     slack_identity: str
@@ -239,24 +239,24 @@ class _Person:
     admin: bool = False
 
 
-class _FakeRoster:
-    """Answers `list_people` and nothing else — the one stated shape."""
+class _FakeMembers:
+    """Answers `list_members` and nothing else — the one stated shape."""
 
-    def __init__(self, *people: _Person) -> None:
-        self._people = list(people)
+    def __init__(self, *members: _Member) -> None:
+        self._members = list(members)
 
-    async def list_people(self) -> tuple[_Person, ...]:
-        return tuple(self._people)
+    async def list_members(self) -> tuple[_Member, ...]:
+        return tuple(self._members)
 
 
-def _roster() -> _FakeRoster:
+def _members() -> _FakeMembers:
     """Alice, Bohdan and Charlie are all known; Bohdan is active but is
     never the step's confirmer; Charlie is the step's confirmer on some
     tests but has since been deactivated; the stranger is on no list."""
-    return _FakeRoster(
-        _Person(id=ALICE, display_name=ALICE_NAME, slack_identity=ALICE_SLACK),
-        _Person(id=BOHDAN, display_name=BOHDAN_NAME, slack_identity=BOHDAN_SLACK),
-        _Person(
+    return _FakeMembers(
+        _Member(id=ALICE, display_name=ALICE_NAME, slack_identity=ALICE_SLACK),
+        _Member(id=BOHDAN, display_name=BOHDAN_NAME, slack_identity=BOHDAN_SLACK),
+        _Member(
             id=CHARLIE,
             display_name=CHARLIE_NAME,
             slack_identity=CHARLIE_SLACK,
@@ -379,7 +379,7 @@ def _pending(**overrides: Any) -> _PendingRow:
 @dataclass
 class _Collaborators:
     results: _FakeResults
-    roster: _FakeRoster
+    members: _FakeMembers
     launches: _FakeLaunches
     playbook: LaunchPlaybook
     recorder: _RecordingOutcomes
@@ -394,7 +394,7 @@ def _setup(
     launch = _launch(playbook)
     return _Collaborators(
         results=_FakeResults(row if row is not None else _pending()),
-        roster=_roster(),
+        members=_members(),
         launches=_FakeLaunches(launch),
         playbook=playbook,
         recorder=_RecordingOutcomes(),
@@ -436,7 +436,7 @@ async def _decide(
 ) -> Any:
     supplied: dict[str, Any] = {
         "results": collaborators.results,
-        "roster": collaborators.roster,
+        "members": collaborators.members,
         "launches": collaborators.launches,
         "playbook": collaborators.playbook,
         "record_outcome": collaborators.recorder,
@@ -511,7 +511,7 @@ async def test_the_named_confirmer_can_decide(accept: bool) -> None:
     """Scenario: The named confirmer can decide.
 
     WHEN a decision arrives from the Slack identity belonging to the
-    step's named confirmer, whom the roster holds as active
+    step's named confirmer, whom the membership holds as active
     THEN it is accepted, and the pending result is settled per
     *Accepting records the proposed outcome and names the accepter* or
     *Rejecting does not terminate the step*.
@@ -529,7 +529,7 @@ async def test_the_named_confirmer_can_decide(accept: bool) -> None:
 async def test_an_unknown_identity_cannot_decide(accept: bool) -> None:
     """Scenario: An unknown identity cannot decide.
 
-    WHEN a decision arrives from a Slack identity the roster does not
+    WHEN a decision arrives from a Slack identity the membership does not
     know
     THEN it is refused, no outcome is recorded, the pending result still
     stands, and the decider is told.
@@ -553,14 +553,14 @@ async def test_an_unknown_identity_cannot_decide(accept: bool) -> None:
 async def test_someone_other_than_the_confirmer_cannot_decide(accept: bool) -> None:
     """Scenario: Someone other than the confirmer cannot decide.
 
-    WHEN a decision arrives from a Slack identity belonging to a person
-    the roster holds as active, who is not the step's named confirmer
+    WHEN a decision arrives from a Slack identity belonging to a member
+    the membership holds as active, who is not the step's named confirmer
     THEN it is refused, no outcome is recorded, and the pending result
     still stands.
 
     The scenario that most directly discriminates this requirement from
-    the one it replaces: Bohdan is known to the roster **and** active —
-    under the superseded "any known, active person" rule this decision
+    the one it replaces: Bohdan is known to the membership **and** active —
+    under the superseded "any known, active member" rule this decision
     would have been accepted. The step names Alice, not Bohdan, as its
     confirmer.
     """
@@ -574,7 +574,7 @@ async def test_someone_other_than_the_confirmer_cannot_decide(accept: bool) -> N
     assert collaborators.results.only.state == "pending"
     assert collaborators.results.only.decided_by is None
     assert _says_refused(refusal), (
-        "a known, active person who is not the step's confirmer decided a "
+        "a known, active member who is not the step's confirmer decided a "
         "pending result — this is exactly the latitude this requirement "
         "removes"
     )
@@ -585,7 +585,7 @@ async def test_a_deactivated_confirmer_cannot_decide(accept: bool) -> None:
     """Scenario: A deactivated confirmer cannot decide.
 
     WHEN a decision arrives from the Slack identity belonging to the
-    step's named confirmer, whose roster entry the roster holds as
+    step's named confirmer, whose members entry the membership holds as
     inactive
     THEN it is refused, no outcome is recorded, and the pending result
     still stands.

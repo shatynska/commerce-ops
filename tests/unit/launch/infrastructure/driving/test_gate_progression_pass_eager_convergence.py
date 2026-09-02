@@ -26,7 +26,7 @@ and at a gate crossing*, the scenarios stated over this call site:
   stand-down.
 
 `tasks.md` 2.1's own worker-wiring obligation (`gate_progression_job.py`
-gaining its own `read_product`/`read_people` module globals) is a
+gaining its own `read_product`/`read_members` module globals) is a
 composition-root detail with no scenario of its own; this file asserts the
 one thing it exists to serve — that the eager helper, once reached, is
 reachable from this module at all — and does not otherwise test wiring
@@ -88,7 +88,6 @@ from commerce_ops.launch.domain.launch_playbook import (
     GateOpening,
     Hazard,
     LaunchPlaybook,
-    MetricCondition,
     OffsetAnchor,
     Satisfied,
     Scope,
@@ -100,7 +99,6 @@ from commerce_ops.launch.domain.launch_run import (
     ApprovalDecision,
     GateApproval,
     Launch,
-    MetricAttestation,
     Provenance,
 )
 from commerce_ops.shared.domain.discipline import Discipline
@@ -190,11 +188,6 @@ def _gates() -> tuple[Gate, ...]:
             identifier=identifier,
             position=position,
             opening=_opening_for(identifier),
-            metric_conditions=(
-                (MetricCondition(STOCK_METRIC, STOCK_THRESHOLD),)
-                if identifier == "stock-ready"
-                else ()
-            ),
         )
         for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1)
     )
@@ -226,17 +219,6 @@ def _satisfy_everything(launch: Launch, playbook: LaunchPlaybook) -> None:
                 outcome=Satisfied,
                 provenance=_provenance(),
             )
-    if launch.current_gate == "stock-ready":
-        launch.record_metric_attestation(
-            playbook,
-            MetricAttestation(
-                gate_id="stock-ready",
-                metric_id=STOCK_METRIC,
-                attester="Mira",
-                when=NOW,
-                evidence="72 fulfillable units confirmed in Seller Central",
-            ),
-        )
     if launch.current_gate in CONFIRMATION_GATES:
         launch.approve_gate(
             launch.current_gate,
@@ -799,7 +781,7 @@ async def test_a_stood_down_pass_never_reaches_the_eager_helper(
 # DELIBERATELY UNTESTED, recorded rather than omitted
 #
 # - `tasks.md` 2.1's own worker-process wiring (`gate_progression_job.py`
-#   gaining its own `read_product`/`read_people` module globals, injected
+#   gaining its own `read_product`/`read_members` module globals, injected
 #   by `worker.py`). A composition-root detail with no scenario of its
 #   own; the eager helper being reachable from this module at all is what
 #   the tests above already require in order to pass.

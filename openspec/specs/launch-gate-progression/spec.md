@@ -9,9 +9,9 @@ Moves a launch through the gate sequence: a recurring pass that advances every l
 
 The system SHALL, on a recurring schedule, advance each launch that has not reached the final gate past its current gate where that gate may open. Where the gate opens, the system SHALL consider the resulting launch again, and SHALL continue while gates keep opening, so that a launch whose conditions have been met for several consecutive gates reaches the furthest gate its recorded state permits within one pass rather than one pass per gate.
 
-The pass SHALL establish that a gate may open **before** commanding the advance, rather than commanding it and treating the refusal as the answer. That judgement SHALL be made from the same facts the advance itself is judged on — every condition the served playbook attaches to the gate, weighed against the launch's own recorded step outcomes, metric attestations and approvals — and SHALL be made by the launch, so that the pass and the advance cannot disagree about whether a gate may open. It SHALL NOT be derived from the launch report, which states each served step's recorded outcome but states neither a gate's authored metric conditions nor whether they have been attested, and whose awaiting-confirmation flag is false for an automatic gate whatever its conditions' state. `launch-journal` requires every refused advance to be journaled with the conditions that blocked it, and a pass that commanded an advance for every launch on every run would append that entry hundreds of times a day per launch — burying, in the record kept for people to read, the refusals that record a real attempt. A gate whose conditions the pass reads as unsatisfied SHALL therefore produce no command and no journal entry.
+The pass SHALL establish that a gate may open **before** commanding the advance, rather than commanding it and treating the refusal as the answer. That judgement SHALL be made from the same facts the advance itself is judged on — every condition the served playbook attaches to the gate, weighed against the launch's own recorded step outcomes and approvals — and SHALL be made by the launch, so that the pass and the advance cannot disagree about whether a gate may open. It SHALL NOT be derived from the launch report, whose awaiting-confirmation flag is false for an automatic gate whatever its conditions' state. `launch-journal` requires every refused advance to be journaled with the conditions that blocked it, and a pass that commanded an advance for every launch on every run would append that entry hundreds of times a day per launch — burying, in the record kept for members to read, the refusals that record a real attempt. A gate whose conditions the pass reads as unsatisfied SHALL therefore produce no command and no journal entry.
 
-Advancement is a convergence pass and not a consequence of recording an outcome: the pass SHALL reach the same launch state whether the conditions became satisfied through a recorded step outcome, a recorded metric attestation, a recorded approval, or a change to the served playbook. A gate therefore opens no later than one pass interval after its last condition is met. Within this capability, advancement SHALL be caused by this pass and by a recorded decision (below), and by nothing else. In particular this capability SHALL NOT advance a launch as part of recording a step outcome, so that a launch's position is never a side effect of a completion arriving — **with one named exception**: the ClickUp webhook's own recording of a step outcome MAY also trigger the same advance-and-ask cascade for that launch, run immediately rather than waiting for the pass. This exception is narrow and procedural — it names one call site, not a new advancement rule — and does not generalize: every other path that records a step outcome (the ClickUp reconciliation pass, the automation pass, and an automated result's confirmation) remains fully bound by the SHALL NOT, exactly as before. A launch the webhook's trigger reaches is still judged, advanced and journaled by the same rules this requirement states throughout — read-before-command, one gate at a time, silent on an unsatisfied condition — the exception concerns only *when* the cascade is invoked, not *how* it decides or acts once invoked.
+Advancement is a convergence pass and not a consequence of recording an outcome: the pass SHALL reach the same launch state whether the conditions became satisfied through a recorded step outcome, a recorded approval, or a change to the served playbook. A gate therefore opens no later than one pass interval after its last condition is met. Within this capability, advancement SHALL be caused by this pass and by a recorded decision (below), and by nothing else. In particular this capability SHALL NOT advance a launch as part of recording a step outcome, so that a launch's position is never a side effect of a completion arriving — **with one named exception**: the ClickUp webhook's own recording of a step outcome MAY also trigger the same advance-and-ask cascade for that launch, run immediately rather than waiting for the pass. This exception is narrow and procedural — it names one call site, not a new advancement rule — and does not generalize: every other path that records a step outcome (the ClickUp reconciliation pass, the automation pass, and an automated result's confirmation) remains fully bound by the SHALL NOT, exactly as before. A launch the webhook's trigger reaches is still judged, advanced and journaled by the same rules this requirement states throughout — read-before-command, one gate at a time, silent on an unsatisfied condition — the exception concerns only *when* the cascade is invoked, not *how* it decides or acts once invoked.
 
 A launch left where it is because a condition is unsatisfied is the ordinary case, not a fault, and SHALL NOT be reported as a failure of the pass.
 
@@ -29,6 +29,11 @@ A launch left where it is because a condition is unsatisfied is the ordinary cas
 
 - **WHEN** the pass runs against a launch whose current gate has an unsatisfied blocking condition
 - **THEN** the launch's current gate is unchanged, no advance is commanded, no refused-advance entry is journaled, and the pass is not failed by it
+
+#### Scenario: A gate held by an unresolved metric step is left where it is
+
+- **WHEN** the pass runs against a launch whose current gate carries a blocking step declaring a metric identifier, and that step has no satisfying outcome recorded
+- **THEN** the launch's current gate is unchanged, exactly as for any other unresolved blocking step
 
 #### Scenario: Recording an outcome does not itself advance a launch
 
@@ -74,7 +79,7 @@ A gate declining to open SHALL end the cascade as a **stop**, never as a failure
 
 A cascade that fails part-way — for any reason other than a gate declining to open — SHALL leave the launch at the gate it stood at when the pass reached it — every crossing made during that cascade is undone, not only the one that failed. This is deliberately unlike `launch-clickup-sync`'s rule that work completed for a launch before its failure stands, and the difference is what the work costs to redo: that pass's unit is a launch's whole projection, many calls against a rate budget, where discarding completed work is expensive and externally visible; a crossing here is a cheap local write with no external effect, which the next pass redoes. An atomic unit is worth more than a partially-advanced launch nobody chose.
 
-A recorded approval SHALL NOT be undone by the failure of the cascade it triggered. A decision is a fact about what a person did; discarding it would leave that person believing they had approved, while the record that suppresses repeated asks — written before the decision and outside its work — would keep the gate from being asked about again.
+A recorded approval SHALL NOT be undone by the failure of the cascade it triggered. A decision is a fact about what a member did; discarding it would leave that member believing they had approved, while the record that suppresses repeated asks — written before the decision and outside its work — would keep the gate from being asked about again.
 
 Containment covers errors raised by the work itself. It SHALL NOT contain a cancellation or a shutdown of the process running the pass.
 
@@ -149,7 +154,7 @@ The system SHALL record, for a launch and a gate, when it was last asked about o
 
 One rule SHALL cover three cases, which differ only in what happened after the previous ask: a gate is asked about once rather than on every pass; a gate whose ask nobody answered is asked about again the following day; and a gate whose approval was **rejected** is not proposed again until a day has passed. The last mirrors the cool-off `launch-step-automation` applies to a rejected automated result, and exists for the reason that requirement gives — without it one rejection buys a fresh Slack message on every pass, forever.
 
-Recording a rejecting decision SHALL refresh the record, so the day is counted from the decision rather than from the ask that prompted it. The rejecting approval and that refresh SHALL land together: unlike a delivery, where a lost write costs one duplicate message, a lost refresh here re-proposes a gate a person has just declined, which is the case this rule exists to prevent.
+Recording a rejecting decision SHALL refresh the record, so the day is counted from the decision rather than from the ask that prompted it. The rejecting approval and that refresh SHALL land together: unlike a delivery, where a lost write costs one duplicate message, a lost refresh here re-proposes a gate a member has just declined, which is the case this rule exists to prevent.
 
 The record SHALL be held in storage rather than in the memory of the process running the pass, so that restarting the process does not resume the flood the record exists to prevent.
 
@@ -178,42 +183,42 @@ The record SHALL be held in storage rather than in the memory of the process run
 - **WHEN** the process running the pass restarts and runs a pass while a delivered ask is less than twenty-four hours old
 - **THEN** no second ask is posted
 
-### Requirement: Only a known, active person may approve a gate
+### Requirement: Only a known, active member may approve a gate
 
-The system SHALL accept a gate decision only from a Slack identity the roster knows and that is active. A decision from an unrecognised or deactivated identity SHALL be refused, SHALL record no approval, SHALL leave the gate as it stands, and SHALL tell the decider it was refused.
+The system SHALL accept a gate decision only from a Slack identity the membership knows and that is active. A decision from an unrecognised or deactivated identity SHALL be refused, SHALL record no approval, SHALL leave the gate as it stands, and SHALL tell the decider it was refused.
 
-The person the roster resolves SHALL be recorded as the approval's named approver, so that every recorded approval names a real person on the roster and no approver is ever supplied by the system itself.
+The member the membership resolves SHALL be recorded as the approval's named approver, so that every recorded approval names a real member on the membership and no approver is ever supplied by the system itself.
 
 Decisions arrive on the same verified `product_agent` Slack surface `launch-entry` already uses, so a decision whose authenticity cannot be established never reaches this rule.
 
-Administrative authority on the roster SHALL NOT be required. Roster `admin` marks who may administer the system — the roster and the playbook — and a launch commitment is not an act of system administration; requiring it would make the two authorities the same concept, which no requirement in this repository states them to be.
+Administrative authority on the membership SHALL NOT be required. Members `admin` marks who may administer the system — the membership and the playbook — and a launch commitment is not an act of system administration; requiring it would make the two authorities the same concept, which no requirement in this repository states them to be.
 
-The roster this rule is evaluated against is supplied by the caller, and SHALL answer to **one** stated shape: it SHALL be able to answer who the roster carries, **deactivated entries included**, since both halves of "known and active" are decided here rather than by whatever supplies the roster. A collaborator that cannot answer that — including no collaborator at all — SHALL be refused as a defect of *wiring*: a named error identifying what was supplied and what was expected, raised before the deciding identity is judged. That refusal SHALL NOT be reachable as a decision refusal, SHALL NOT be resolved into "the roster does not carry that identity", SHALL NOT be reported to the decider as a fact about their identity, and SHALL be reported where operators see faults. The decider SHALL still be told their decision was not processed.
+The membership this rule is evaluated against is supplied by the caller, and SHALL answer to **one** stated shape: it SHALL be able to answer who the membership carries, **deactivated entries included**, since both halves of "known and active" are decided here rather than by whatever supplies the membership. A collaborator that cannot answer that — including no collaborator at all — SHALL be refused as a defect of *wiring*: a named error identifying what was supplied and what was expected, raised before the deciding identity is judged. That refusal SHALL NOT be reachable as a decision refusal, SHALL NOT be resolved into "the membership does not carry that identity", SHALL NOT be reported to the decider as a fact about their identity, and SHALL be reported where operators see faults. The decider SHALL still be told their decision was not processed.
 
 #### Scenario: An unknown identity cannot approve
 
-- **WHEN** a gate decision arrives from a Slack identity the roster does not know
+- **WHEN** a gate decision arrives from a Slack identity the membership does not know
 - **THEN** it is refused, no approval is recorded, the gate is unchanged, and the decider is told
 
-#### Scenario: A deactivated person cannot approve, and is told which fact refused them
+#### Scenario: A deactivated member cannot approve, and is told which fact refused them
 
-- **WHEN** a gate decision arrives from a Slack identity belonging to a person the roster holds as inactive
+- **WHEN** a gate decision arrives from a Slack identity belonging to a member the membership holds as inactive
 - **THEN** it is refused as inactive rather than as unknown, no approval is recorded, and the gate is unchanged
 
 #### Scenario: A non-administrator may approve
 
-- **WHEN** a gate decision arrives from a Slack identity belonging to an active person the roster does not mark as an administrator
-- **THEN** the approval is recorded naming that person
+- **WHEN** a gate decision arrives from a Slack identity belonging to an active member the membership does not mark as an administrator
+- **THEN** the approval is recorded naming that member
 
-#### Scenario: An absent roster collaborator is refused the same way, not silently
+#### Scenario: An absent members collaborator is refused the same way, not silently
 
-- **WHEN** a gate decision is judged with no roster collaborator supplied at all
+- **WHEN** a gate decision is judged with no members collaborator supplied at all
 - **THEN** it is refused as the same wiring fault, by a named error, and not reported to the decider as a fact about their identity
 
-#### Scenario: An unreadable roster collaborator is refused by name
+#### Scenario: An unreadable members collaborator is refused by name
 
-- **WHEN** a gate decision is judged against a roster collaborator that cannot answer who the roster carries
-- **THEN** it is refused with a named error identifying the collaborator supplied and the shape expected, no approval is recorded, and the decider is told their decision was not processed without being told anything about their own roster entry
+- **WHEN** a gate decision is judged against a members collaborator that cannot answer who the membership carries
+- **THEN** it is refused with a named error identifying the collaborator supplied and the shape expected, no approval is recorded, and the decider is told their decision was not processed without being told anything about their own members entry
 
 ### Requirement: A decision records the approval and reports what it did
 
@@ -223,7 +228,7 @@ The reply to the decider SHALL be derived from the launch as it stands once the 
 
 A decision SHALL be acknowledged within Slack's timeout independently of whether the recording and advance it triggers have completed.
 
-A decision arriving while the served playbook cannot hold a launch SHALL be refused and SHALL record no approval, and the decider SHALL be told why. The pass stands down in that state rather than acting on a set that is being authored, and a decision recorded against it would commit a person to a gate the system has declined to evaluate.
+A decision arriving while the served playbook cannot hold a launch SHALL be refused and SHALL record no approval, and the decider SHALL be told why. The pass stands down in that state rather than acting on a set that is being authored, and a decision recorded against it would commit a member to a gate the system has declined to evaluate.
 
 A decision naming the final gate of the sequence SHALL be refused and SHALL record no approval, for the reason the ask requirement gives: this capability does not obtain that gate's approval, and recording one without the posture `launch-instance` requires would be rejected in any case.
 
@@ -233,13 +238,13 @@ A launch SHALL be advanced by one path at a time. The decision path, the recurri
 
 #### Scenario: An approving decision opens the gate and says so
 
-- **WHEN** an active person presses the approving control for a gate whose every other condition is satisfied
-- **THEN** an approving approval naming that person is recorded, the gate opens, and the reply states that it opened
+- **WHEN** an active member presses the approving control for a gate whose every other condition is satisfied
+- **THEN** an approving approval naming that member is recorded, the gate opens, and the reply states that it opened
 
 #### Scenario: A rejecting decision keeps the gate closed
 
-- **WHEN** an active person presses the rejecting control
-- **THEN** a rejecting approval naming that person is recorded, no advance is attempted, the gate is unchanged, and the reply states that the gate stays closed
+- **WHEN** an active member presses the rejecting control
+- **THEN** a rejecting approval naming that member is recorded, no advance is attempted, the gate is unchanged, and the reply states that the gate stays closed
 
 #### Scenario: A decision whose gate the pass crossed first still reports it opened
 

@@ -6,7 +6,7 @@ Derived strictly from the delta spec:
 Covers, from the ADDED requirements, every scenario stated over *a
 decision arriving*:
 
-- *Only a known, active person may decide a pending result* — both
+- *Only a known, active member may decide a pending result* — both
   scenarios.
 - *Accepting records the proposed outcome and names the accepter* — both
   scenarios.
@@ -35,13 +35,13 @@ already holds for this module's other write-side rules.
 Fixed by this change's artifacts:
 
 - Acceptance records "exactly the outcome the handler proposed, with
-  source `automated`, naming the accepting person", and rejection records
-  `Blocked` "with source `automated` and the rejecting person as the
+  source `automated`, naming the accepting member", and rejection records
+  `Blocked` "with source `automated` and the rejecting member as the
   recorder" (`tasks.md` 3.3, 3.4).
 - The four pending-result states, with `voided` its own state and never a
   flavour of `rejected` (`tasks.md` 1.1; `design.md`).
-- That the deciding authority is roster membership and activity, not
-  admin authority (`design.md`, "The deciding authority is roster
+- That the deciding authority is membership and activity, not
+  admin authority (`design.md`, "The deciding authority is members
   membership").
 - Recording and settlement in one transaction, so a failed recording
   leaves the result decidable (`tasks.md` 3.3).
@@ -54,16 +54,16 @@ question with its correction point:
   fails loudly rather than defaulting.
 - Its call shape — collaborators plus the decided-on identity as keyword
   arguments. `_decide` is the single correction point.
-- The roster collaborator's read. This was INVENTED and has since been
-  RESOLVED: `_FakeRoster` once answered under every spelling this
-  repository's roster doubles use (`list_people`, `people`, `person`, a
+- The members collaborator's read. This was INVENTED and has since been
+  RESOLVED: `_FakeMembers` once answered under every spelling this
+  repository's members doubles use (`list_members`, `members`, `member`, a
   bare call), so that whichever shape the implementation picked was
   already satisfied. That was the right call while the shape was
   unstated — and the wrong one afterwards, because a double answering
   to everything cannot fail the way production failed. Production
   supplied a `load()`/`save()` store, matching none of the spellings,
-  and every decision was refused as "the roster does not know that
-  Slack identity". The double now answers `list_people` and nothing
+  and every decision was refused as "the membership does not know that
+  Slack identity". The double now answers `list_members` and nothing
   else, which is the one stated shape (`restore-automated-decisions`,
   design.md — Decision 5). No assertion here changed.
 - How a refusal is *signalled*. The spec says a refused decision "SHALL
@@ -242,7 +242,7 @@ def _launch(playbook: LaunchPlaybook) -> Launch:
 
 
 @dataclass
-class _Person:
+class _Member:
     id: str
     display_name: str
     slack_identity: str
@@ -251,8 +251,8 @@ class _Person:
     admin: bool = False
 
 
-class _FakeRoster:
-    """Answers `list_people` and nothing else — the one stated shape.
+class _FakeMembers:
+    """Answers `list_members` and nothing else — the one stated shape.
 
     It used to answer six spellings at once so that any implementation
     was satisfied. Keeping that would mean this file could not tell a
@@ -261,19 +261,19 @@ class _FakeRoster:
     any of them. One shape, so a caller reaching for another fails here.
     """
 
-    def __init__(self, *people: _Person) -> None:
-        self._people = list(people)
+    def __init__(self, *members: _Member) -> None:
+        self._members = list(members)
 
-    async def list_people(self) -> tuple[_Person, ...]:
-        return tuple(self._people)
+    async def list_members(self) -> tuple[_Member, ...]:
+        return tuple(self._members)
 
 
-def _roster() -> _FakeRoster:
+def _members() -> _FakeMembers:
     """Alice is known and active; Bohdan is known and inactive; the
     stranger is on neither list."""
-    return _FakeRoster(
-        _Person(id=ALICE, display_name=ALICE_NAME, slack_identity=ALICE_SLACK),
-        _Person(
+    return _FakeMembers(
+        _Member(id=ALICE, display_name=ALICE_NAME, slack_identity=ALICE_SLACK),
+        _Member(
             id=BOHDAN,
             display_name=BOHDAN_NAME,
             slack_identity=BOHDAN_SLACK,
@@ -401,7 +401,7 @@ def _pending(**overrides: Any) -> _PendingRow:
 @dataclass
 class _Collaborators:
     results: _FakeResults
-    roster: _FakeRoster
+    members: _FakeMembers
     launches: _FakeLaunches
     playbook: LaunchPlaybook
     recorder: _RecordingOutcomes
@@ -422,7 +422,7 @@ def _setup(
     served = _playbook(served_step) if served_step is not None else started_against
     return _Collaborators(
         results=_FakeResults(row if row is not None else _pending()),
-        roster=_roster(),
+        members=_members(),
         launches=_FakeLaunches(launch),
         playbook=served,
         recorder=_RecordingOutcomes(failing=failing_recorder),
@@ -464,7 +464,7 @@ async def _decide(
     """INVENTED call shape — the single correction point."""
     supplied: dict[str, Any] = {
         "results": collaborators.results,
-        "roster": collaborators.roster,
+        "members": collaborators.members,
         "launches": collaborators.launches,
         "playbook": collaborators.playbook,
         "record_outcome": collaborators.recorder,
@@ -535,7 +535,7 @@ def _says_refused(refusal: _Refusal) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# Requirement: Only a known, active person may decide a pending result
+# Requirement: Only a known, active member may decide a pending result
 # ---------------------------------------------------------------------------
 
 
@@ -543,7 +543,7 @@ def _says_refused(refusal: _Refusal) -> bool:
 async def test_an_unknown_identity_cannot_decide(accept: bool) -> None:
     """Scenario: An unknown identity cannot decide.
 
-    WHEN a decision arrives from a Slack identity the roster does not
+    WHEN a decision arrives from a Slack identity the membership does not
     know
     THEN it is refused, no outcome is recorded, the pending result still
     stands, and the decider is told.
@@ -571,16 +571,16 @@ async def test_an_unknown_identity_cannot_decide(accept: bool) -> None:
 
 
 @pytest.mark.parametrize("accept", [True, False], ids=["accepting", "rejecting"])
-async def test_a_deactivated_person_cannot_decide(accept: bool) -> None:
-    """Scenario: A deactivated person cannot decide.
+async def test_a_deactivated_member_cannot_decide(accept: bool) -> None:
+    """Scenario: A deactivated member cannot decide.
 
-    WHEN a decision arrives from a Slack identity belonging to a person
-    the roster holds as inactive
+    WHEN a decision arrives from a Slack identity belonging to a member
+    the membership holds as inactive
     THEN it is refused, no outcome is recorded, and the pending result
     still stands.
 
     Separate from the unknown-identity case because "known" and "active"
-    are two facts, and an implementation resolving the person and then
+    are two facts, and an implementation resolving the member and then
     forgetting to read `active` passes the test above and fails here.
     """
     collaborators = _setup()
@@ -602,7 +602,7 @@ async def test_a_deactivated_person_cannot_decide(accept: bool) -> None:
 async def test_an_accepted_result_becomes_the_steps_outcome() -> None:
     """Scenario: An accepted result becomes the step's outcome.
 
-    WHEN a known active person accepts a pending result proposing
+    WHEN a known active member accepts a pending result proposing
     `Satisfied`
     THEN `Satisfied` is recorded for that step with source `automated`,
     naming the accepter and the moment of the decision, with evidence
@@ -686,7 +686,7 @@ async def test_a_failed_recording_leaves_the_result_decidable() -> None:
 async def test_a_rejected_result_leaves_the_step_live() -> None:
     """Scenario: A rejected result leaves the step live.
 
-    WHEN a known active person rejects a pending result
+    WHEN a known active member rejects a pending result
     THEN a `Blocked` outcome is recorded whose reason names the
     rejecter, with source `automated` and the rejecter as recorder, and
     the step is not at a terminal outcome.
@@ -807,7 +807,7 @@ async def test_a_decision_on_a_de_activated_step_is_refused_and_the_result_voide
 
     `voided`, not `rejected`: `design.md` makes the distinction
     load-bearing — folding it into `rejected` would misrecord a refused
-    decision as that person's rejection and park the step for the whole
+    decision as that member's rejection and park the step for the whole
     cool-off after it returned to the served set.
     """
     collaborators = _setup(served_step=_step(status=StepStatus.IN_DEVELOPMENT))

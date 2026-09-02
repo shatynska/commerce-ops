@@ -12,9 +12,9 @@ predecessor *...against each step's status*:
 - Scenario: *A sole assignee who is also the confirmer fails to load*
 
 and the corresponding paragraph of the ADDED requirement *A step names
-who confirms an automated result*: "Unlike the two [roster] preconditions
+who confirms an automated result*: "Unlike the two [members] preconditions
 above, this is a **load-time coherence rule**: it is a pure function of
-the step set's own `assignees` and `confirmer` fields, needs no roster to
+the step set's own `assignees` and `confirmer` fields, needs no members to
 evaluate ... a playbook already carrying this shape SHALL fail to load,
 not merely fail its next write."
 
@@ -160,7 +160,7 @@ def test_a_sole_assignee_who_is_also_the_confirmer_fails_to_load() -> None:
     """Scenario: A sole assignee who is also the confirmer fails to load.
 
     WHEN a playbook contains a step naming exactly one assignee and naming
-    that same person as its confirmer
+    that same member as its confirmer
     THEN loading fails with an error naming that step.
 
     SPECIFIED reason: "a single actor confirming their own work is not a

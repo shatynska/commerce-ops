@@ -14,7 +14,7 @@ produces one.
 **Terminality, not whether a confirmer is named, decides what is held.**
 A non-terminal outcome is recorded directly whatever the step says about
 confirmation: it is a handler reporting that the step is *not* resolved,
-and holding it would ask a person to accept "in progress" — a proposal
+and holding it would ask a member to accept "in progress" — a proposal
 with nothing in it to agree with, which would then suppress re-invocation
 until they clicked. Only a terminal proposal is a result anyone can
 accept.
@@ -95,7 +95,7 @@ _logger = logging.getLogger(__name__)
 
 _AUTOMATED_SOURCE = "automated"
 
-# How long a person's rejection stands before the same step is proposed
+# How long a member's rejection stands before the same step is proposed
 # again. A module constant, never configuration: there is no
 # per-deployment answer to how long a disagreement should hold, and a
 # configured value would owe the four obligations `AGENTS.md` places on
@@ -105,7 +105,7 @@ COOL_OFF = datetime.timedelta(hours=24)
 
 # After a handler repeats the non-terminal outcome the step already
 # carries. Its own constant rather than a reuse of `COOL_OFF`: the two
-# answer different questions — a person disagreed, versus a machine
+# answer different questions — a member disagreed, versus a machine
 # repeated itself — and sharing one would mean a later change to either
 # silently moving the other. Same value today, and a fixed property of
 # the system rather than a configured one, for the reason the rejection
@@ -314,7 +314,7 @@ async def _deliver_waiting(
     the adapter: the requirement is that the message *names the product
     and the step*, and a row carries only their identifiers. Delivering
     without them produces a message headed "an unnamed product", which
-    names nothing a person can act on.
+    names nothing a member can act on.
 
     A failure leaves `delivered_at` unstamped and the row standing, so the
     next pass tries again — the decoupling the daily briefing already keeps
@@ -330,8 +330,17 @@ async def _deliver_waiting(
             # catalog read wants the value object. A stored row is read back
             # long after the pass that wrote it, so the conversion belongs
             # here rather than being assumed of whatever produced the row.
-            product = await read_product(ProductId(str(getattr(row, "product_id", ""))))
+            product_id = ProductId(str(getattr(row, "product_id", "")))
+            product = await read_product(product_id)
+            # The same converted identifier reaches the delivery, rather than
+            # the adapter digging one out of the row for itself. It used to
+            # demand a `ProductId` off a row that carries a `uuid.UUID`, so
+            # every delivery raised into the `except` below and was retried
+            # forever; the conversion this line already performs is the one
+            # the delivery needed, and naming it once is what makes the two
+            # halves of the seam agree.
             await deliver(
+                product_id=product_id,
                 result=row,
                 product=product,
                 step_name=step.name if step else None,
@@ -540,16 +549,40 @@ async def _note_repeat(
 
 
 def _stuck_step_message(
-    *, launch: Launch, step: StepDefinition, produced: str, product: Any
+    *,
+    launch: Launch,
+    step: StepDefinition,
+    produced: str,
+    product: Any,
+    unresolved_confirmer: str | None = None,
 ) -> str:
     named = getattr(product, "name", None) or getattr(product, "sku", None)
+    # `launch.product_id.value`, not the object: an identifier rendered as
+    # `ProductId(value='…')` is what `shared-vocabulary` forbids, and this
+    # message may be the first one a launch ever posts -- in which case the
+    # anchor it establishes carries that heading permanently, since a thread
+    # reference is established once and never re-created.
+    gap = ""
+    if unresolved_confirmer is not None:
+        # Named in the text, not only in the log, because this report falls
+        # back to the submitter and a reader must still be able to tell "this
+        # step names no confirmer" from "this step's confirmer could not be
+        # reached". That distinction is the whole reason the pending-result
+        # ask refuses the same fallback; keeping it here is what lets this
+        # message summon somebody without losing it.
+        gap = (
+            f"\n\nThis step names a confirmer ({unresolved_confirmer}) who "
+            f"could not be resolved to a Slack account, so the launch's "
+            f"submitter is tagged instead. Someone should correct the step's "
+            f"confirmer or the membership."
+        )
     return (
         f"An automated launch step has stopped making progress — "
         f"'{step.name}' ({step.identifier}) on "
-        f"{named or launch.product_id}. Its handler reported the same "
+        f"{named or launch.product_id.value}. Its handler reported the same "
         f"thing twice running, so it will not be asked again for a day. "
-        f"It needs something a person can supply.\n\n"
-        f"What the handler produced:\n{produced}"
+        f"It needs something a member can supply.\n\n"
+        f"What the handler produced:\n{produced}{gap}"
     )
 
 
@@ -580,23 +613,37 @@ async def _report_stuck_step(
             launch.product_id,
         )
         return
-    message = _stuck_step_message(
-        launch=launch, step=step, produced=produced, product=product
-    )
     try:
-        sku_value = ""
-        marketplace_value = ""
-        if product:
-            sku = getattr(product, "sku", None)
-            sku_value = sku.value if sku else ""
-            marketplace = getattr(product, "marketplace_id", None)
-            marketplace_value = marketplace.value if marketplace else ""
+        # `product` stays: `_stuck_step_message` names the product in the
+        # report's body. What leaves is the anchor's copy of those same
+        # facts -- the establishment path resolves them itself now.
         thread_ts, mention = await establish_thread(
             launch.product_id,
-            product.name if product else str(launch.product_id),
-            sku_value,
-            marketplace_value,
             step=step,
+        )
+        # Where the step names a confirmer the membership could not resolve, this
+        # report tags the launch's submitter and says in its text that it did
+        # so -- the opposite of what the pending-result ask does on the very
+        # same condition, and deliberately.
+        #
+        # The ask's reason does not transfer: only a step's named, active
+        # confirmer may decide a pending result, so a fallback tag there
+        # summons someone whose decision is refused. Nothing governs who may
+        # act on a stuck step. This report exists "so that a member can supply
+        # what the handler is missing", so reaching nobody defeats its whole
+        # purpose, and an untagged report is a worse outcome than a tagged one
+        # naming the gap.
+        unresolved_confirmer = (
+            step.confirmer if step.confirmer and mention is None else None
+        )
+        if unresolved_confirmer is not None:
+            mention = launch.submitter
+        message = _stuck_step_message(
+            launch=launch,
+            step=step,
+            produced=produced,
+            product=product,
+            unresolved_confirmer=unresolved_confirmer,
         )
         mention_tag = f" <@{mention}>" if mention else ""
         await notifier.post_monitoring_message(
@@ -690,7 +737,7 @@ async def _is_open(
     if cooled:
         return False
     if await results.pending_for(launch.product_id, step.identifier) is not None:
-        # A step awaiting a person is not a step awaiting more work, and a
+        # A step awaiting a member is not a step awaiting more work, and a
         # second result would leave two proposals and no way to say which
         # was decided.
         return False

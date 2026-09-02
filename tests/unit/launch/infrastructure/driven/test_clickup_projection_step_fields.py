@@ -12,13 +12,13 @@ carrying their name, description and assignees*, the scenarios whose
 - *A step's description becomes the task's body*, including its second
   clause — a step carrying **no** description is projected with **no
   body written at all**,
-- *A task is assigned to the step's people*,
+- *A task is assigned to the step's members*,
 - *An existing unowned task gains its step's assignees*,
-- *A person's own assignment change is not overwritten*,
+- *A member's own assignment change is not overwritten*,
 - *An assignee with no ClickUp account is reported, not silently
   dropped*,
 - *A step activated mid-launch is projected*,
-- *A person's body note survives a wording edit* (the body's meaning
+- *A member's body note survives a wording edit* (the body's meaning
   changes, so the rule guarding it is re-established),
 - *An unedited legacy task starts healing* (`tasks.md` 4.7: confirm an
   unedited existing task heals to the **new** composition),
@@ -54,9 +54,9 @@ The harness follows `test_clickup_sync_projection.py` in this directory —
 `converge_launch(launch=, playbook=, clickup=, mapping=, read_product=,
 folder_id=)` over in-memory fakes — extended for this change with:
 
-- a `roster=` collaborator, the same reader `launch`'s use cases take
+- a `members=` collaborator, the same reader `launch`'s use cases take
   from `access`'s public application surface (`proposal.md` Impact:
-  "`launch` needs to resolve roster people ... through `access`'s public
+  "`launch` needs to resolve members ... through `access`'s public
   application surface"). Correction point: `_converge`.
 - assignees on the mapping's retained compositions, alongside the
   retained name and body (SPECIFIED: "The system SHALL retain, with the
@@ -237,49 +237,49 @@ class _FakeCatalog:
         return self._product
 
 
-class _Person:
+class _Member:
     def __init__(
         self,
-        person_id: str,
+        member_id: str,
         display_name: str,
         *,
         clickup_user_id: str | None,
         active: bool = True,
     ) -> None:
-        self.id = person_id
+        self.id = member_id
         self.display_name = display_name
         self.clickup_user_id = clickup_user_id
         self.active = active
 
 
-class _FakeRoster:
-    """The roster reader, offering several plausible call shapes so a
+class _FakeMembers:
+    """The members reader, offering several plausible call shapes so a
     correction to the seam is one line here."""
 
-    def __init__(self, people: tuple[_Person, ...]) -> None:
-        self._people = people
+    def __init__(self, members: tuple[_Member, ...]) -> None:
+        self._members = members
 
-    async def list_people(self) -> tuple[_Person, ...]:
-        return self._people
+    async def list_members(self) -> tuple[_Member, ...]:
+        return self._members
 
-    people = list_people
+    members = list_members
 
-    async def person(self, person_id: str) -> _Person | None:
-        for person in self._people:
-            if person.id == person_id:
-                return person
+    async def member(self, member_id: str) -> _Member | None:
+        for member in self._members:
+            if member.id == member_id:
+                return member
         return None
 
-    async def __call__(self) -> tuple[_Person, ...]:
-        return await self.list_people()
+    async def __call__(self) -> tuple[_Member, ...]:
+        return await self.list_members()
 
 
-def _roster() -> _FakeRoster:
-    return _FakeRoster(
+def _members() -> _FakeMembers:
+    return _FakeMembers(
         (
-            _Person(ALICE, "Alice Admin", clickup_user_id=ALICE_CLICKUP),
-            _Person(BOHDAN, "Bohdan Colleague", clickup_user_id=BOHDAN_CLICKUP),
-            _Person(NO_ACCOUNT, "Chris Newcomer", clickup_user_id=None),
+            _Member(ALICE, "Alice Admin", clickup_user_id=ALICE_CLICKUP),
+            _Member(BOHDAN, "Bohdan Colleague", clickup_user_id=BOHDAN_CLICKUP),
+            _Member(NO_ACCOUNT, "Chris Newcomer", clickup_user_id=None),
         )
     )
 
@@ -577,7 +577,7 @@ class _Collaborators:
             _CatalogProduct(name=PRODUCT_NAME, sku=PRODUCT_SKU)
         )
     )
-    roster: _FakeRoster = field(default_factory=_roster)
+    members: _FakeMembers = field(default_factory=_members)
 
 
 async def _converge(
@@ -595,7 +595,7 @@ async def _converge(
         clickup=collaborators.clickup,
         mapping=collaborators.mapping,
         read_product=collaborators.catalog,
-        roster=collaborators.roster,
+        members=collaborators.members,
         folder_id=folder_id,
     )
 
@@ -786,10 +786,10 @@ async def test_a_pre_existing_body_is_left_standing_when_the_step_has_none() -> 
     assert collaborators.clickup.body_writes_for("task-legacy") == []
 
 
-async def test_a_task_is_assigned_to_the_steps_people() -> None:
-    """Scenario: A task is assigned to the step's people.
+async def test_a_task_is_assigned_to_the_steps_members() -> None:
+    """Scenario: A task is assigned to the step's members.
 
-    WHEN a task is projected for a step naming two assignees the roster
+    WHEN a task is projected for a step naming two assignees the membership
     records ClickUp user ids for
     THEN the created task is assigned to both of those ClickUp users.
     """
@@ -804,8 +804,8 @@ async def test_a_task_is_assigned_to_the_steps_people() -> None:
     await _converge(_start(playbook), playbook, collaborators)
 
     task_id = _task_id_named(collaborators, "Conform the title")
-    # SPECIFIED: assigned to both, resolved through the roster to their
-    # ClickUp users — never to the roster's own identifiers.
+    # SPECIFIED: assigned to both, resolved through the membership to their
+    # ClickUp users — never to the membership's own identifiers.
     assert set(collaborators.clickup.tasks[task_id].assignees) == {
         ALICE_CLICKUP,
         BOHDAN_CLICKUP,
@@ -817,7 +817,7 @@ async def test_an_existing_unowned_task_gains_its_steps_assignees() -> None:
 
     WHEN a pass runs over a task the system assigned to nobody and whose
     step now names an assignee
-    THEN the task is assigned to that person.
+    THEN the task is assigned to that member.
 
     SPECIFIED, and the reason reconciliation is not create-time only: "so
     that tasks projected before steps had assignees stop being unowned —
@@ -850,8 +850,8 @@ async def test_an_existing_unowned_task_gains_its_steps_assignees() -> None:
     assert set(collaborators.clickup.tasks["task-legacy"].assignees) == {ALICE_CLICKUP}
 
 
-async def test_a_persons_own_assignment_change_is_not_overwritten() -> None:
-    """Scenario: A person's own assignment change is not overwritten.
+async def test_a_members_own_assignment_change_is_not_overwritten() -> None:
+    """Scenario: A member's own assignment change is not overwritten.
 
     WHEN a task's assignees have been changed in ClickUp from what the
     system last set, and a pass runs
@@ -859,7 +859,7 @@ async def test_a_persons_own_assignment_change_is_not_overwritten() -> None:
 
     The task below is assigned to Bohdan while the system last set Alice
     and the step still names Alice — so an implementation that simply
-    reconciles towards the step would reassign it, discarding a person's
+    reconciles towards the step would reassign it, discarding a member's
     deliberate handover.
     """
     step = _step(
@@ -894,13 +894,13 @@ async def test_an_assignee_with_no_clickup_account_is_reported_not_dropped(
     """Scenario: An assignee with no ClickUp account is reported, not
     silently dropped.
 
-    WHEN a task is projected for a step naming an assignee the roster
+    WHEN a task is projected for a step naming an assignee the membership
     carries without a ClickUp user id
     THEN the task is created and assigned to the step's remaining
     assignees, and the omission is reported.
 
     SPECIFIED: reported "as a warning-level application log record naming
-    the step, the person and the task rather than silently dropped — the
+    the step, the member and the task rather than silently dropped — the
     pass itself succeeds, since a failed run would hide a data gap behind
     a retry".
     """
@@ -920,7 +920,7 @@ async def test_an_assignee_with_no_clickup_account_is_reported_not_dropped(
     assert set(collaborators.clickup.tasks[task_id].assignees) == {ALICE_CLICKUP}
 
     # SPECIFIED: the omission is reported at warning level or above,
-    # naming the step and the person.
+    # naming the step and the member.
     warnings = [
         record.getMessage()
         for record in caplog.records
@@ -972,14 +972,14 @@ async def test_a_step_activated_mid_launch_is_projected() -> None:
     assert "listing.a-plus-content" in created["name"]
 
 
-async def test_a_persons_body_note_survives_a_wording_edit() -> None:
-    """Scenario: A person's body note survives a wording edit.
+async def test_a_members_body_note_survives_a_wording_edit() -> None:
+    """Scenario: A member's body note survives a wording edit.
 
-    WHEN a person has edited a mapped task's body, the task's name still
+    WHEN a member has edited a mapped task's body, the task's name still
     carries the system's retained composition, the step's name is edited,
     and the pass runs
     THEN the task's name is rewritten to the current composition
-    AND the task's body is left exactly as the person wrote it.
+    AND the task's body is left exactly as the member wrote it.
 
     Re-established here rather than left to the existing test, because
     the body's *meaning* changes with this delta: it used to be the
@@ -999,12 +999,12 @@ async def test_a_persons_body_note_survives_a_wording_edit() -> None:
     retained_name = (
         f"Conform the title to the style guide{SEPARATOR}listing.title-conforms"
     )
-    person_note = "The authored description.\n\nNB: waiting on legal — Alice"
+    member_note = "The authored description.\n\nNB: waiting on legal — Alice"
     collaborators.clickup.seed_task(
         LIST_ID,
         "task-1",
         name=retained_name,
-        body=person_note,
+        body=member_note,
         assignees=(ALICE_CLICKUP,),
     )
     collaborators.mapping.seed_task(
@@ -1023,8 +1023,8 @@ async def test_a_persons_body_note_survives_a_wording_edit() -> None:
         "Conform the title to the style guide, revised"
         f"{SEPARATOR}listing.title-conforms"
     )
-    # ...and the person's body note is left exactly as written.
-    assert task.body == person_note
+    # ...and the member's body note is left exactly as written.
+    assert task.body == member_note
 
 
 async def test_an_unedited_task_heals_to_the_new_composition() -> None:
@@ -1037,7 +1037,7 @@ async def test_an_unedited_task_heals_to_the_new_composition() -> None:
     made checkable: a task carrying the old composition, with no retained
     values recorded, is observed carrying exactly what the system would
     now compose — so it is adopted and healed thereafter rather than
-    treated as person-edited and frozen forever.
+    treated as member-edited and frozen forever.
     """
     step = _step(
         identifier="listing.title-conforms",
@@ -1127,7 +1127,7 @@ async def test_automated_steps_are_never_projected() -> None:
 
     The filter moves from the removed `human-attested` execution mode to
     `kind`, and naming a confirmer is explicitly not part of it: an
-    implementation reading "names a confirmer" as "a person is
+    implementation reading "names a confirmer" as "a member is
     involved, so project it" would project the step that used to be
     `ai-assisted`, which was never projected.
     """

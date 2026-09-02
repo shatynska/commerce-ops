@@ -45,7 +45,7 @@ reading the two new fields.
 ## Level
 
 The launch router mounted alone, over fakes for the launch/playbook/
-catalog/roster ports and the `read_journal` seam — the same composition
+catalog/members ports and the `read_journal` seam — the same composition
 `test_launch_admin_detail.py` uses for its own journal scenarios, pared
 to what a journal-only page needs: no step or gate content is exercised
 here, so the fixture playbook holds the eight specified gates and no
@@ -108,7 +108,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from commerce_ops.access.application import create_person, list_people
+from commerce_ops.access.application import create_member, list_members
 from commerce_ops.catalog.domain.product import Product
 from commerce_ops.launch.domain.launch_playbook import (
     Gate,
@@ -263,7 +263,7 @@ class _FakePlaybooks:
         return PLAYBOOK
 
 
-class _FakeRosterStore:
+class _FakeMembersStore:
     def __init__(self, rows: tuple[Any, ...] = (), version: int = 13) -> None:
         self.rows = tuple(rows)
         self.version = version
@@ -276,10 +276,10 @@ class _FakeRosterStore:
         self.version += 1
 
 
-async def _build_roster() -> _FakeRosterStore:
-    store = _FakeRosterStore()
-    await create_person(
-        roster=store,
+async def _build_members() -> _FakeMembersStore:
+    store = _FakeMembersStore()
+    await create_member(
+        members=store,
         principal="the-seeding-admin",
         display_name="Alice Admin",
         slack_identity=PRINCIPAL,
@@ -289,17 +289,17 @@ async def _build_roster() -> _FakeRosterStore:
     return store
 
 
-async def _roster_with_extra_person(
+async def _members_with_extra_member(
     display_name: str, *, slack_identity: str, clickup_user_id: str | None = None
-) -> _FakeRosterStore:
-    """`_build_roster()`'s usual roster (the admin session's own principal,
+) -> _FakeMembersStore:
+    """`_build_members()`'s usual members (the admin session's own principal,
     "Alice Admin" — needed for the session to verify and for scope to
-    permit the product at all), plus one more named person, for a test
-    that needs to know that second person's generated identifier ahead
+    permit the product at all), plus one more named member, for a test
+    that needs to know that second member's generated identifier ahead
     of time."""
-    store = await _build_roster()
-    await create_person(
-        roster=store,
+    store = await _build_members()
+    await create_member(
+        members=store,
         principal="the-seeding-admin",
         display_name=display_name,
         slack_identity=slack_identity,
@@ -309,8 +309,8 @@ async def _roster_with_extra_person(
     return store
 
 
-def _roster_store() -> _FakeRosterStore:
-    return asyncio.run(_build_roster())
+def _members_store() -> _FakeMembersStore:
+    return asyncio.run(_build_members())
 
 
 class _Catalog:
@@ -339,7 +339,7 @@ _SEAMS: Final[dict[str, tuple[str, ...]]] = {
     "verify": ("verify_admin_session",),
     "launches": ("launches", "launch_store", "launch_positions", "store"),
     "playbooks": ("playbooks", "playbook_store", "playbook_repository", "playbook"),
-    "roster": ("roster", "people", "roster_store", "read_roster"),
+    "members": ("members", "members_store", "read_members"),
     "list_products": ("list_products", "products", "catalog_products"),
     "get_product_by_id": ("get_product_by_id", "product_by_id", "get_product"),
 }
@@ -398,14 +398,17 @@ def _surface(
     launches: _FakeLaunchStore,
     catalog: _Catalog,
     journal_entries: tuple[Any, ...] = (),
-    roster: Any = None,
+    members: Any = None,
 ) -> _Surface:
     module = _page_module()
     _install(monkeypatch, module, "verify", _fake_verify)
     _install(monkeypatch, module, "launches", launches)
     _install(monkeypatch, module, "playbooks", _FakePlaybooks())
     _install(
-        monkeypatch, module, "roster", roster if roster is not None else _roster_store()
+        monkeypatch,
+        module,
+        "members",
+        members if members is not None else _members_store(),
     )
     _install(monkeypatch, module, "list_products", catalog.list_products)
     _install(monkeypatch, module, "get_product_by_id", catalog.get_product_by_id)
@@ -719,12 +722,12 @@ def test_an_entry_names_when_it_occurred_and_shows_subject_source_who(
     when = datetime(2027, 3, 2, 10, 30, tzinfo=UTC)
     subject = "commit"
     source = "slack"
-    # An actor not present in `_roster_store()`'s fixture roster (only
+    # An actor not present in `_members_store()`'s fixture members (only
     # "Alice Admin" is seeded), so `who` renders this raw value rather
     # than a resolved display name -- resolution itself is exercised by
     # `test_an_entrys_who_column_resolves_a_known_actor_to_their_name`
     # and its ClickUp-id sibling below.
-    actor = "an-actor-not-on-the-roster"
+    actor = "an-actor-who-is-not-a-member"
     entry = _entry(
         kind="gate-approval-recorded",
         when=when,
@@ -817,54 +820,6 @@ def test_a_detail_phrase_does_not_restate_the_subject(
         f"the detail column restates the subject {subject!r}: "
         f"{_all_text(detail_cell)!r}"
     )
-
-
-def test_metric_attesteds_condition_is_not_a_gate_or_step(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """A `metric-attested` entry's subject is the condition being
-    attested -- not a gate or a step -- so the gate/step column SHALL
-    leave it out, and the condition text SHALL instead be part of the
-    row's composed detail phrase alongside the gate it was attested
-    against.
-
-    Not a scenario named in the delta spec (which speaks of `subject`
-    generically); DERIVED from the spec's own description of `_gate_or_step`
-    excluding `metric-attested` and folding its condition into `detail`.
-    """
-    condition = "conversion rate >= 2%, uniquely-marked-condition"
-    gate = "commit"
-    entry = _entry(
-        kind="metric-attested",
-        when=datetime(2027, 3, 2, 10, 30, tzinfo=UTC),
-        label="Attestation",
-        category="judgment",
-        subject=condition,
-        gate_id=gate,
-    )
-    world = _world(monkeypatch, journal_entries=(entry,))
-
-    html = _detail_html(world.surface, world.product.id)
-
-    row = _journal_row(html, condition)
-    subject_cell = next(
-        element
-        for element in _elements(row)
-        if "subject" in element.attrs.get("class", "")
-    )
-    # SPECIFIED (this refinement): the gate/step column leaves the
-    # condition out -- it names neither a gate nor a step.
-    assert _all_text(subject_cell).strip() in ("", "—"), (
-        f"the gate/step column shows the metric condition, which is "
-        f"neither a gate nor a step: {_all_text(subject_cell)!r}"
-    )
-    # SPECIFIED: the condition and the gate it was attested against both
-    # appear, in the detail column.
-    text = _all_text(row)
-    assert condition.lower() in text, (
-        f"the row does not show the attested condition: {text!r}"
-    )
-    assert gate in text, f"the row does not show the gate attested against: {text!r}"
 
 
 def test_journal_entries_render_newest_first(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -980,21 +935,23 @@ def test_an_entrys_who_column_resolves_a_known_actor_to_their_name(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """The journal table's `Who` column, for a follow-on refinement to
-    `structure-the-launch-journal-table`: an entry's `actor` is a roster
-    identifier (`Person.identifier`) where it names one, and a reader
-    should see the person's name rather than that raw identifier.
+    `structure-the-launch-journal-table`: an entry's `actor` is a members
+    identifier (`Member.identifier`) where it names one, and a reader
+    should see the member's name rather than that raw identifier.
 
-    Built against a roster with one extra named person beyond the usual
-    admin-session principal (`_roster_with_extra_person`), so that
-    person's generated identifier is known ahead of time rather than
+    Built against a membership with one extra named member beyond the usual
+    admin-session principal (`_members_with_extra_member`), so that
+    member's generated identifier is known ahead of time rather than
     assumed, while the session still verifies and scope still permits
     the product.
     """
     store = asyncio.run(
-        _roster_with_extra_person("Olena Approver", slack_identity="U0OLENA")
+        _members_with_extra_member("Olena Approver", slack_identity="U0OLENA")
     )
-    people = asyncio.run(list_people(roster=store))
-    olena = next(person for person in people if person.display_name == "Olena Approver")
+    members = asyncio.run(list_members(members=store))
+    olena = next(
+        member for member in members if member.display_name == "Olena Approver"
+    )
     identifier = olena.identifier
 
     entry = _entry(
@@ -1014,17 +971,17 @@ def test_an_entrys_who_column_resolves_a_known_actor_to_their_name(
         launches=_FakeLaunchStore(launch),
         catalog=_Catalog(product),
         journal_entries=(entry,),
-        roster=store,
+        members=store,
     )
 
     html = _detail_html(surface, product.id)
     text = _all_text(_tree(html))
 
-    # SPECIFIED (this refinement): the actor resolves to the person's name.
+    # SPECIFIED (this refinement): the actor resolves to the member's name.
     assert "olena approver" in text, (
         f"the journal does not show the resolved actor name: {text!r}"
     )
-    # DERIVED guard: the raw roster identifier is not shown in its place
+    # DERIVED guard: the raw member identifier is not shown in its place
     # -- resolution replaces the raw value rather than accompanying it.
     assert identifier.lower() not in text, (
         f"the journal shows the raw actor identifier {identifier!r} "
@@ -1036,16 +993,16 @@ def test_an_entrys_who_column_resolves_a_known_actor_by_clickup_user_id(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """The journal table's `Who` column, for `raw-out-the-journal-columns`:
-    a ClickUp-sourced entry's `actor` is the acting person's ClickUp user
+    a ClickUp-sourced entry's `actor` is the acting member's ClickUp user
     id (`clickup_webhook`'s `_status_change`, fixed by this change to
     prefer `user.id` over `username`/`email`), and a reader should see
-    that person's name where the roster carries a matching
-    `clickup_user_id` — the same resolution the roster-identifier case
+    that member's name where the membership carries a matching
+    `clickup_user_id` — the same resolution the member-identifier case
     above gets, over the other identifier space.
     """
     clickup_id = "48213"
     store = asyncio.run(
-        _roster_with_extra_person(
+        _members_with_extra_member(
             "Petro Fulfilment", slack_identity="U0PETRO", clickup_user_id=clickup_id
         )
     )
@@ -1067,13 +1024,13 @@ def test_an_entrys_who_column_resolves_a_known_actor_by_clickup_user_id(
         launches=_FakeLaunchStore(launch),
         catalog=_Catalog(product),
         journal_entries=(entry,),
-        roster=store,
+        members=store,
     )
 
     html = _detail_html(surface, product.id)
     text = _all_text(_tree(html))
 
-    # SPECIFIED: the actor resolves to the person's name, by ClickUp id.
+    # SPECIFIED: the actor resolves to the member's name, by ClickUp id.
     assert "petro fulfilment" in text, (
         f"the journal does not show the resolved actor name: {text!r}"
     )

@@ -6,7 +6,7 @@ Derived strictly from the delta specs:
 every scenario stated as a write) and
 `.../specs/playbook-authoring/spec.md` (MODIFIED requirement *Every write
 is validated as the playbook it would produce* — the new confirmer-scoped
-bullets and the new scenario *A roster change does not break an accepted
+bullets and the new scenario *A membership change does not break an accepted
 step's confirmer*).
 
 Mirrors `test_step_assignee_preconditions.py`'s structure and doubles,
@@ -22,28 +22,28 @@ Covered here:
   load-time version is
   `tests/unit/launch/domain/test_confirmer_assignee_coherence.py`)
 - *A confirmer among several assignees is not rejected*
-- *Correcting a person does not touch the steps that confirm through them*
-- *A roster change does not break an accepted step's confirmer*
+- *Correcting a member does not touch the steps that confirm through them*
+- *A membership change does not break an accepted step's confirmer*
   (playbook-authoring)
 
 Not covered here (unaffected by this delta, cited instead):
 
 - *A collaborator of the wrong shape is refused by name*, *A mis-wiring is
   not reported as a rejection of the submission*, *A mis-shaped
-  collaborator never passes for an absent one*, *No roster is still a
+  collaborator never passes for an absent one*, *No members is still a
   permitted case* — the wiring-fault mechanics `confirmer_faults` shares
   with `assignee_faults` are unchanged by this delta and stay covered by
   `test_step_assignee_preconditions.py` and
-  `test_authoring_roster_collaborator_shape.py`.
+  `test_authoring_members_collaborator_shape.py`.
 
-**Level.** The use cases over a step-store double, with the roster reader
+**Level.** The use cases over a step-store double, with the members reader
 as a collaborator — the same level `test_step_assignee_preconditions.py`
 uses.
 
 ## INVENTED shapes
 
-As `test_step_assignee_preconditions.py` records: `roster=` and
-`handlers=` collaborators on each use case, the roster reader answering
+As `test_step_assignee_preconditions.py` records: `members=` and
+`handlers=` collaborators on each use case, the members reader answering
 rows carrying an identifier, display name and active flag, and `REJECTED`
 as the tuple of acceptable refusal types since the delta fixes the
 outcome and not the exception type.
@@ -178,27 +178,27 @@ class _FakeStepStore:
         self.version += 1
 
 
-class _Person:
+class _Member:
     def __init__(
-        self, person_id: str, display_name: str, *, active: bool = True
+        self, member_id: str, display_name: str, *, active: bool = True
     ) -> None:
-        self.id = person_id
+        self.id = member_id
         self.display_name = display_name
         self.active = active
         self.clickup_user_id: str | None = "clickup-1"
 
 
-class _FakeRoster:
-    def __init__(self, people: tuple[_Person, ...]) -> None:
-        self.people_rows = people
+class _FakeMembers:
+    def __init__(self, members: tuple[_Member, ...]) -> None:
+        self.members_rows = members
 
-    async def list_people(self) -> tuple[_Person, ...]:
-        return self.people_rows
+    async def list_members(self) -> tuple[_Member, ...]:
+        return self.members_rows
 
-    people = list_people
+    members = list_members
 
-    async def __call__(self) -> tuple[_Person, ...]:
-        return await self.list_people()
+    async def __call__(self) -> tuple[_Member, ...]:
+        return await self.list_members()
 
 
 class _FakeHandlerRegistry:
@@ -215,8 +215,8 @@ class _FakeHandlerRegistry:
         return self._names
 
 
-class _FakeRosterStore:
-    """The roster store `access`'s own write use cases take — see
+class _FakeMembersStore:
+    """The members store `access`'s own write use cases take — see
     `test_step_assignee_preconditions.py`'s identical double."""
 
     def __init__(self, rows: tuple[Any, ...] = (), version: int = 7) -> None:
@@ -234,34 +234,34 @@ class _FakeRosterStore:
         self.version += 1
 
 
-_ROSTER_ID_NAMES: Final = ("id", "person_id", "identifier")
-_ROSTER_SLACK_NAMES: Final = ("slack_identity", "slack_user_id", "slack_id")
+_MEMBERS_ID_NAMES: Final = ("id", "member_id", "identifier")
+_MEMBERS_SLACK_NAMES: Final = ("slack_identity", "slack_user_id", "slack_id")
 
 
-def _roster_field(row: Any, names: tuple[str, ...], what: str) -> Any:
-    for target in (row, getattr(row, "person", None), getattr(row, "entry", None)):
+def _members_field(row: Any, names: tuple[str, ...], what: str) -> Any:
+    for target in (row, getattr(row, "member", None), getattr(row, "entry", None)):
         if target is None:
             continue
         for name in names:
             if hasattr(target, name):
                 return getattr(target, name)
-    pytest.fail(f"a stored roster row exposes no {what} under any of {names}")
+    pytest.fail(f"a stored membership row exposes no {what} under any of {names}")
 
 
-def _roster_person_id(store: _FakeRosterStore, slack_identity: str) -> Any:
+def _member_id(store: _FakeMembersStore, slack_identity: str) -> Any:
     for row in store.rows:
-        if str(_roster_field(row, _ROSTER_SLACK_NAMES, "Slack identity")) == (
+        if str(_members_field(row, _MEMBERS_SLACK_NAMES, "Slack identity")) == (
             slack_identity
         ):
-            return _roster_field(row, _ROSTER_ID_NAMES, "generated identifier")
-    pytest.fail(f"no stored roster row carries the Slack identity {slack_identity!r}")
+            return _members_field(row, _MEMBERS_ID_NAMES, "generated identifier")
+    pytest.fail(f"no stored members row carries the Slack identity {slack_identity!r}")
 
 
-def _roster(*, alice_active: bool = True, bohdan_active: bool = True) -> _FakeRoster:
-    return _FakeRoster(
+def _members(*, alice_active: bool = True, bohdan_active: bool = True) -> _FakeMembers:
+    return _FakeMembers(
         (
-            _Person(ALICE, ALICE_NAME, active=alice_active),
-            _Person(BOHDAN, "Bohdan Colleague", active=bohdan_active),
+            _Member(ALICE, ALICE_NAME, active=alice_active),
+            _Member(BOHDAN, "Bohdan Colleague", active=bohdan_active),
         )
     )
 
@@ -296,13 +296,13 @@ _CREATE_DEFAULTS: Final = {
 
 
 async def _create(
-    store: _FakeStepStore, *, roster: _FakeRoster | None = None, **overrides: Any
+    store: _FakeStepStore, *, members: _FakeMembers | None = None, **overrides: Any
 ) -> Any:
     fields = {**_CREATE_DEFAULTS, **overrides}
     return await create_step(
         steps=store,
         principal=PRINCIPAL,
-        roster=roster or _roster(),
+        members=members or _members(),
         handlers=_FakeHandlerRegistry(),
         **fields,
     )
@@ -312,14 +312,14 @@ async def _update(
     store: _FakeStepStore,
     step_id: str,
     *,
-    roster: _FakeRoster | None = None,
+    members: _FakeMembers | None = None,
     **fields: Any,
 ) -> Any:
     return await update_step(
         steps=store,
         principal=PRINCIPAL,
         step_id=step_id,
-        roster=roster or _roster(),
+        members=members or _members(),
         handlers=_FakeHandlerRegistry(),
         **fields,
     )
@@ -327,14 +327,14 @@ async def _update(
 
 # ---------------------------------------------------------------------------
 # Requirement: A step names who confirms an automated result — the
-# roster-dependent write-time preconditions
+# members-dependent write-time preconditions
 # ---------------------------------------------------------------------------
 
 
 async def test_an_unknown_confirmer_is_rejected() -> None:
     """Scenario: An unknown confirmer is rejected.
 
-    WHEN a step names a confirmer identifier the roster does not carry
+    WHEN a step names a confirmer identifier the membership does not carry
     THEN the write is rejected with a fault naming the step and that
     identifier.
 
@@ -348,7 +348,7 @@ async def test_an_unknown_confirmer_is_rejected() -> None:
     with pytest.raises(REJECTED) as caught:
         await _create(
             store,
-            name="Watch the Buy Box, confirmed by nobody the roster knows",
+            name="Watch the Buy Box, confirmed by nobody the membership knows",
             status=StepStatus.DRAFT,
             confirmer=NOBODY,
         )
@@ -361,7 +361,7 @@ async def test_an_active_automated_steps_confirmer_must_be_active() -> None:
     """Scenario: A deactivated confirmer does not satisfy the requirement.
 
     WHEN an `active` `automated` step is written naming a confirmer whose
-    roster entry is deactivated
+    members entry is deactivated
     THEN the write is rejected, exactly as if it named nobody.
     """
     store = _store()
@@ -372,7 +372,7 @@ async def test_an_active_automated_steps_confirmer_must_be_active() -> None:
             name="Watch the Buy Box, confirmed by someone who has left",
             status=StepStatus.ACTIVE,
             confirmer=BOHDAN,
-            roster=_roster(bohdan_active=False),
+            members=_members(bohdan_active=False),
         )
 
     assert "price.buy-box-check" in str(caught.value) or BOHDAN in str(caught.value)
@@ -384,8 +384,8 @@ async def test_a_deactivated_confirmer_may_still_be_named_on_a_step_not_yet_acti
 ):
     """The bound of the rule above, SPECIFIED by its own wording: it is an
     **`active` `automated`** step whose confirmer "SHALL be active on the
-    roster." A `draft` (or `in-development`) naming a deactivated person
-    the roster still carries breaks no stated rule.
+    members." A `draft` (or `in-development`) naming a deactivated member
+    the membership still carries breaks no stated rule.
 
     DERIVED where the spec is silent about non-`active` statuses, mirroring
     `test_step_assignee_preconditions.py`'s identically-shaped test for
@@ -398,7 +398,7 @@ async def test_a_deactivated_confirmer_may_still_be_named_on_a_step_not_yet_acti
         name="Watch the Buy Box, drafted while Bohdan is away",
         status=StepStatus.DRAFT,
         confirmer=BOHDAN,
-        roster=_roster(bohdan_active=False),
+        members=_members(bohdan_active=False),
     )
 
     created = [
@@ -413,11 +413,11 @@ async def test_a_deactivated_confirmer_may_still_be_named_on_a_step_not_yet_acti
 async def test_a_sole_assignee_cannot_also_be_the_confirmer_write() -> None:
     """Scenario: A sole assignee cannot also be the confirmer.
 
-    WHEN a step names exactly one assignee, and names that same person as
+    WHEN a step names exactly one assignee, and names that same member as
     its confirmer
     THEN the write is rejected with a fault naming the step.
 
-    The domain-level version of this rule (construction with no roster in
+    The domain-level version of this rule (construction with no members in
     reach) is
     `tests/unit/launch/domain/test_confirmer_assignee_coherence.py`; this
     is the write path, which is how the rule is actually reached in
@@ -469,47 +469,47 @@ async def test_a_confirmer_among_several_assignees_is_not_rejected() -> None:
     assert created[0].definition.confirmer == BOHDAN
 
 
-async def test_correcting_a_person_does_not_touch_the_steps_that_confirm_through_them() -> (
+async def test_correcting_a_member_does_not_touch_the_steps_that_confirm_through_them() -> (
     None
 ):
-    """Scenario: Correcting a person does not touch the steps that
+    """Scenario: Correcting a member does not touch the steps that
     confirm through them.
 
-    WHEN a person's display name is corrected on the roster
+    WHEN a member's display name is corrected on the membership
     THEN every step naming them as confirmer still names them, unchanged.
 
-    Driven through the **real** roster write, exactly as
+    Driven through the **real** members write, exactly as
     `test_step_assignee_preconditions.py`'s identically-named test for
     `assignees` is, because a correction nobody performed would make the
     assertions below true of any implementation.
     """
-    from commerce_ops.access.application import create_person, update_person
+    from commerce_ops.access.application import create_member, update_member
 
-    roster_store = _FakeRosterStore()
-    await create_person(
-        roster=roster_store,
+    members_store = _FakeMembersStore()
+    await create_member(
+        members=members_store,
         principal=PRINCIPAL,
         display_name="Alice Admin",
         slack_identity="U01ALICE",
         clickup_user_id="clickup-1",
         admin=True,
     )
-    person_id = _roster_person_id(roster_store, "U01ALICE")
+    member_id = _member_id(members_store, "U01ALICE")
 
     confirmed = _Record(
         _step(
             identifier="price.buy-box-check",
             name="Watch the Buy Box",
-            confirmer=person_id,
+            confirmer=member_id,
         )
     )
     store = _store(extra=(confirmed,))
     definition_before = _record_named(store, "price.buy-box-check").definition
 
-    await update_person(
-        roster=roster_store,
+    await update_member(
+        members=members_store,
         principal=PRINCIPAL,
-        person_id=person_id,
+        member_id=member_id,
         display_name="Alice Admin-Shatynska",
     )
 
@@ -517,7 +517,7 @@ async def test_correcting_a_person_does_not_touch_the_steps_that_confirm_through
     assert store.saves == []
     definition_after = _record_named(store, "price.buy-box-check").definition
     assert definition_after == definition_before
-    assert definition_after.confirmer == person_id
+    assert definition_after.confirmer == member_id
     assert "Alice Admin" not in repr(definition_after)
 
 
@@ -527,12 +527,12 @@ async def test_correcting_a_person_does_not_touch_the_steps_that_confirm_through
 # ---------------------------------------------------------------------------
 
 
-async def test_a_roster_change_does_not_break_an_accepted_steps_confirmer() -> None:
-    """Scenario: A roster change does not break an accepted step's
+async def test_a_members_change_does_not_break_an_accepted_steps_confirmer() -> None:
+    """Scenario: A membership change does not break an accepted step's
     confirmer.
 
     WHEN the confirmer of an `active` `automated` step is deactivated on
-    the roster
+    the membership
     THEN the playbook still loads and still serves that step, and its
     automated results continue to be held pending.
 
@@ -555,10 +555,10 @@ async def test_a_roster_change_does_not_break_an_accepted_steps_confirmer() -> N
         store, name="Watch the Buy Box, confirmed by Bohdan", confirmer=BOHDAN
     )
 
-    stale_roster = _roster(bohdan_active=False)
+    stale_members = _members(bohdan_active=False)
     assert any(
-        person.id == BOHDAN and not person.active
-        for person in await stale_roster.list_people()
+        member.id == BOHDAN and not member.active
+        for member in await stale_members.list_members()
     )
 
     def _opening_for(identifier: str) -> GateOpening:

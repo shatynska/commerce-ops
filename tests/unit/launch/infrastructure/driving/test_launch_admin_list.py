@@ -76,7 +76,7 @@ Fixed by the artifacts:
 INVENTED, each with its correction point named in the code:
 
 - Every module seam: which attribute the adapter exposes for the launch
-  store, the playbook port, the roster, the session guard, the scope
+  store, the playbook port, the membership, the session guard, the scope
   resolver and the two catalog reads. `_SEAMS` and `_install` are the
   single correction point, and they fail loudly.
 - How the render date is injected (`_render_on`): either a module-level
@@ -122,7 +122,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from commerce_ops.access.application import create_person
+from commerce_ops.access.application import create_member
 from commerce_ops.catalog.domain.product import Product
 from commerce_ops.launch.domain.launch_playbook import (
     Gate,
@@ -198,7 +198,7 @@ A_DISCIPLINE: Final = Discipline("listing")
 MARKETPLACE: Final = MarketplaceId("ATVPDKIKX0DER")
 
 #: The session principal the guard hands the page, and the Slack identity
-#: the seeded roster carries for it, so the real `resolve_scope` runs.
+#: the seeded membership carries for it, so the real `resolve_scope` runs.
 PRINCIPAL: Final = "U01ALICE"
 _SESSION_COOKIE: Final = "admin_session"
 _SESSION_VALUE: Final = "a-verified-admin-session"
@@ -429,7 +429,7 @@ PLAYBOOK: Final = _playbook()
 
 def _provenance() -> Provenance:
     return Provenance(
-        source="attestation",
+        source="clickup",
         who=APPROVER,
         when=RECORDED_AT,
         evidence="screenshot in the launch Slack thread",
@@ -585,7 +585,7 @@ class _FakePlaybooks:
         return self._playbook
 
 
-class _FakeRosterStore:
+class _FakeMembersStore:
     def __init__(self, rows: tuple[Any, ...] = (), version: int = 13) -> None:
         self.rows = tuple(rows)
         self.version = version
@@ -601,10 +601,10 @@ class _FakeRosterStore:
         self.version += 1
 
 
-async def _build_roster() -> _FakeRosterStore:
-    store = _FakeRosterStore()
-    await create_person(
-        roster=store,
+async def _build_members() -> _FakeMembersStore:
+    store = _FakeMembersStore()
+    await create_member(
+        members=store,
         principal="the-seeding-admin",
         display_name="Alice Admin",
         slack_identity=PRINCIPAL,
@@ -614,10 +614,10 @@ async def _build_roster() -> _FakeRosterStore:
     return store
 
 
-def _roster_store() -> _FakeRosterStore:
+def _members_store() -> _FakeMembersStore:
     """Built off the event loop: these tests are synchronous and drive the
     ASGI app through `TestClient`'s own portal."""
-    return asyncio.run(_build_roster())
+    return asyncio.run(_build_members())
 
 
 class _Catalog:
@@ -658,7 +658,7 @@ _SEAMS: Final[dict[str, tuple[str, ...]]] = {
     "verify": ("verify_admin_session",),
     "launches": ("launches", "launch_store", "launch_positions", "store"),
     "playbooks": ("playbooks", "playbook_store", "playbook_repository", "playbook"),
-    "roster": ("roster", "people", "roster_store", "read_roster"),
+    "members": ("members", "members_store", "read_members"),
     "resolve_scope": ("resolve_scope",),
     "list_products": ("list_products", "products", "catalog_products"),
     "get_product_by_id": ("get_product_by_id", "product_by_id", "get_product"),
@@ -749,13 +749,13 @@ def _surface(
     `scope` stubs **the scope resolver and nothing else** — the real
     enumeration stays behind it, per `design.md` Decision 3 and
     `tasks.md` 7.3. Left `None`, the real `resolve_scope` runs over a
-    roster seeded with the session principal.
+    members seeded with the session principal.
     """
     module = _page_module()
     _install(monkeypatch, module, "verify", _fake_verify)
     _install(monkeypatch, module, "launches", launches)
     _install(monkeypatch, module, "playbooks", _FakePlaybooks())
-    _install(monkeypatch, module, "roster", _roster_store())
+    _install(monkeypatch, module, "members", _members_store())
     _install(monkeypatch, module, "list_products", catalog.list_products)
     _install(monkeypatch, module, "get_product_by_id", catalog.get_product_by_id)
     _render_on(monkeypatch, module, day)

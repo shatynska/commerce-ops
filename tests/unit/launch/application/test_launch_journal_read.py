@@ -69,7 +69,7 @@ Fixed by this change's artifacts: `read_launch_journal(journal, *,
 product_id, scope)` (`tasks.md` 7.1); the read model
 `JournalEntry(kind, what, when, cause)` (`design.md` Decision 5, whose
 field names are the ones `add-launch-tracking-pages` stubbed); that
-`cause` is the person and source where the occurrence names one and the
+`cause` is the member and source where the occurrence names one and the
 command where it names nobody (delta spec R7); that the three empty cases
 are indistinguishable (`tasks.md` 7.2); and that entries naming no moment
 are stamped by the store (`design.md` Decision 6), which is why
@@ -477,8 +477,8 @@ async def test_an_entry_reports_its_distinguishing_facts_as_their_own_fields() -
     fields.
 
     WHEN a launch whose journal holds a step outcome recorded by a named
-    person from a named source is read
-    THEN that entry carries the moment it occurred as `when`, that person
+    member from a named source is read
+    THEN that entry carries the moment it occurred as `when`, that member
     as `actor`, that source as `source`, and the recorded outcome and its
     reason as `outcome` and `reason`, each in its own field.
     """
@@ -494,7 +494,7 @@ async def test_an_entry_reports_its_distinguishing_facts_as_their_own_fields() -
     # SPECIFIED: when it occurred — the moment the occurrence named, not
     # the moment of the append (design.md Decision 6).
     assert read.when == RECORDED_AT
-    # SPECIFIED: the person and the source, each in its own field.
+    # SPECIFIED: the member and the source, each in its own field.
     assert read.actor == RECORDER
     assert read.source == SOURCE
     # SPECIFIED: the recorded outcome and its reason, each in its own
@@ -532,7 +532,7 @@ async def test_a_kinds_distinguishing_facts_are_absent_from_an_entry_of_another_
     # The premise: the occurrence names nobody.
     (stored,) = journal.appended
     assert stored.actor is None, (
-        "fixture premise: a moved launch date names no person "
+        "fixture premise: a moved launch date names no member "
         f"(design.md Decision 4); the entry carries actor={stored.actor!r}"
     )
 
@@ -547,7 +547,9 @@ async def test_a_kinds_distinguishing_facts_are_absent_from_an_entry_of_another_
     assert read.outcome is None
     assert read.reason is None
     assert read.decision is None
-    assert read.gate_id is None
+    # `gate_id` left the entry shape with `metric-attested`, its only
+    # populator (`replace-metric-conditions-with-steps`), so there is no
+    # longer a field here to assert absent.
     assert read.standing_at is None
     assert read.posture is None
     assert read.playbook_version is None

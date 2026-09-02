@@ -1,7 +1,7 @@
 """Driving adapter: the launch-tracking pages (`launch-admin`).
 
 Server-rendered HTML end to end, the shape `playbook_admin` established
-and `roster_admin` followed, so the admin surfaces read the same way and
+and `members_admin` followed, so the admin surfaces read the same way and
 none of them needs JavaScript to work.
 
 **Read-only, by requirement rather than by omission.** Nothing here
@@ -29,7 +29,7 @@ surface this one is modelled on grew to 1400 lines because the two were
 not, and its nearest thing to a view model returns `dict[str, Any]`,
 which mypy cannot check a template against.
 
-`launches`, `playbooks`, `roster`, `catalog` and `admin_sessions` are
+`launches`, `playbooks`, `members`, `catalog` and `admin_sessions` are
 injected by `main.py` after the app is built, the pattern both existing
 admin surfaces use; absent injection refuses every request, which is the
 failing-closed direction.
@@ -48,7 +48,7 @@ from fastapi.responses import HTMLResponse
 from jinja2 import ChoiceLoader, Environment, FileSystemLoader, select_autoescape
 
 from commerce_ops.access.application import (
-    list_people,
+    list_members,
     resolve_scope,
     verify_admin_session,
 )
@@ -73,9 +73,9 @@ __all__ = [
     "admin_sessions",
     "catalog",
     "launches",
+    "members",
     "playbooks",
     "read_journal",
-    "roster",
     "router",
 ]
 
@@ -128,13 +128,13 @@ launches: Any = _RequestScopedLaunches()
 playbooks: Any = None
 
 # Injected by `main.py` after the app is built, the pattern both other
-# admin surfaces use. `roster` and `admin_sessions` come from the access
+# admin surfaces use. `members` and `admin_sessions` come from the access
 # module, whose infrastructure this one may not import; `catalog` is here
 # for the same reason and not for want of a shim -- the
 # `products-infrastructure-boundary` contract permits this module
 # `catalog.application` and forbids it `catalog.infrastructure`, so only
 # the composition root can build the store the reads run against.
-roster: Any = None
+members: Any = None
 catalog: Any = None
 # The journal *read*, injected by `main.py` after the app is built: a
 # callable taking the product and the caller's scope and answering that
@@ -163,7 +163,7 @@ async def _require_admin(request: Request) -> str:
     principal: str | None = None
     if session_id:
         principal = await verify_admin_session(
-            roster,
+            members,
             admin_sessions,
             session_id=session_id,
             now=datetime.now(UTC),
@@ -284,24 +284,22 @@ class GateGroup:
 class JournalLine:
     """One journal entry as the detail page renders it.
 
-    `who` is the entry's `actor`, resolved against the roster to a
-    display name where it names a known person (by roster identifier or
+    `who` is the entry's `actor`, resolved against the membership to a
+    display name where it names a known member (by member identifier or
     by ClickUp user id — `_actor_names`), and left as the raw value
     otherwise.
 
     `subject` is the page's own narrowing of `JournalEntry.subject` to
     what its column is named for: a gate or a step (`_gate_or_step`).
-    `metric-attested`'s subject is a metric condition, neither a gate
-    nor a step, so it carries `None` here -- that condition text renders
-    as part of `detail` instead.
+    Every kind names one of those now, so the narrowing excludes only an
+    occurrence that names no subject at all.
 
     `detail` is this page's own composed phrase, built from
-    `JournalEntry`'s per-kind raw fields (`outcome`, `decision`,
-    `gate_id`, ...) — the page tried a column per fact and then two
-    columns (`detail`/`note`) and settled on one short readable phrase,
-    the same shape the page's original composed `what` sentence had,
-    minus the subject clause for every kind except `metric-attested`
-    (`subject` already has its own column for the others, so repeating
+    `JournalEntry`'s per-kind raw fields (`outcome`, `decision`, ...) —
+    the page tried a column per fact and then two columns
+    (`detail`/`note`) and settled on one short readable phrase, the same
+    shape the page's original composed `what` sentence had, minus the
+    subject clause (`subject` already has its own column, so repeating
     it here would duplicate that column). Composition the page performs,
     the same way it already composes `who`, not a fact `journal.py`
     stores or exposes as its own field (`_journal_detail`)."""
@@ -539,29 +537,31 @@ def _gate_of(report: Any, line: StepLine) -> str:
     return ""
 
 
-async def _actor_names(roster: Any) -> dict[str, str]:
+async def _actor_names(members: Any) -> dict[str, str]:
     """Every identifier a journal entry's `actor` might carry, mapped to
-    the person's display name: a Slack-sourced entry's `actor` is a
-    roster identifier (`Person.identifier`), a ClickUp-sourced one is
-    that person's `clickup_user_id` (`clickup_webhook`'s `_status_change`,
+    the member's display name: a Slack-sourced entry's `actor` is a
+    member identifier (`Member.identifier`), a ClickUp-sourced one is
+    that member's `clickup_user_id` (`clickup_webhook`'s `_status_change`,
     `raw-out-the-journal-columns`). Both map into one dict, since the two
     identifier spaces do not collide in practice.
 
-    Empty where the roster is unavailable or unreadable, the same
+    Empty where the membership is unavailable or unreadable, the same
     fail-quiet fallback `_label_for` uses for an unresolved product: an
     actor then renders by its raw value rather than the page failing.
     """
-    if roster is None:
+    if members is None:
         return {}
     try:
-        people = await list_people(roster=roster)
-    except Exception:  # noqa: BLE001 — an unreadable roster still renders raw ids
+        # `entries`, not `members`: the argument is the reader and this is
+        # its result. Two names for two things.
+        entries = await list_members(members=members)
+    except Exception:  # noqa: BLE001 — an unreadable membership still renders raw ids
         return {}
     names: dict[str, str] = {}
-    for person in people:
-        names[person.identifier] = person.display_name
-        if person.clickup_user_id:
-            names[person.clickup_user_id] = person.display_name
+    for member in entries:
+        names[member.identifier] = member.display_name
+        if member.clickup_user_id:
+            names[member.clickup_user_id] = member.display_name
     return names
 
 
@@ -572,16 +572,16 @@ def _who(actor: str | None, actor_names: dict[str, str]) -> str | None:
 
 
 def _gate_or_step(entry: Any) -> str | None:
-    """`subject` where it names a gate or a step -- every kind except
-    `metric-attested`, whose subject is the metric condition being
-    attested, not a gate or a step. That condition text is folded into
-    `_journal_detail` instead, so this column stays true to its name.
+    """`subject` where the occurrence named one, and nothing otherwise.
 
-    `gate_id` is unique to `metric-attested` among this entry's fields,
-    so its presence is what distinguishes the one kind this column
-    excludes."""
-    if entry.gate_id is not None:
-        return None
+    Every journal kind now names either a gate or a step as its subject,
+    so this column is empty only where an occurrence names no subject at
+    all. It carried an exception until
+    `replace-metric-conditions-with-steps`: a `metric-attested` entry's
+    subject was the metric condition being attested, which is neither,
+    and its `gate_id` was what distinguished it. A metric obligation
+    reaches this page as an ordinary step now, so the exception has
+    nothing left to exclude."""
     subject = entry.subject
     return None if subject is None else str(subject)
 
@@ -596,9 +596,9 @@ def _journal_detail(entry: Any) -> str | None:
     composed `what` sentence had, minus the subject clause, since
     `subject` already has its own column (the gate/step column,
     `_gate_or_step`) and repeating it here would duplicate that column.
-    The one exception is `metric-attested`, whose subject is not a gate
-    or a step and so has no column of its own -- its condition text is
-    composed in here instead.
+    Every subject has that column now, so the clause has no exception:
+    `metric-attested` was the one kind whose subject went here instead,
+    and it retired with the metric conditions it attested.
 
     Dispatches on which raw field is populated rather than on `kind`,
     since each field belongs to exactly one or two kinds already — the
@@ -615,11 +615,6 @@ def _journal_detail(entry: Any) -> str | None:
     if entry.decision is not None:
         decided = f"{entry.decision} decision recorded"
         return f"{decided}, posture '{entry.posture}'" if entry.posture else decided
-    if entry.gate_id is not None:
-        attested = (
-            f"the condition '{entry.subject}' attested on the {entry.gate_id} gate"
-        )
-        return f"{attested} — {entry.evidence}" if entry.evidence else attested
     if entry.standing_at is not None:
         return f"opened; the launch now stands at {entry.standing_at}"
     if entry.previous_date is not None or entry.new_date is not None:
@@ -728,7 +723,7 @@ async def _playbook_port() -> Any:
 
 
 async def _scope_for(principal: str) -> Any:
-    return await resolve_scope(roster, identity=principal)
+    return await resolve_scope(members, identity=principal)
 
 
 async def _journal_for(product_id: ProductId, scope: Any) -> tuple[JournalLine, ...]:
@@ -749,7 +744,7 @@ async def _journal_for(product_id: ProductId, scope: Any) -> tuple[JournalLine, 
     if read_journal is None:
         return ()
     entries = await read_journal(product_id=product_id, scope=scope)
-    return _journal_lines(entries, await _actor_names(roster))
+    return _journal_lines(entries, await _actor_names(members))
 
 
 async def _products_by_id(scope: Any) -> tuple[dict[str, Any], bool]:

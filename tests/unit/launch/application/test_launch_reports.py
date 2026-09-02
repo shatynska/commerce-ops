@@ -221,7 +221,7 @@ def _satisfy_fillers(launch: Launch, playbook: LaunchPlaybook) -> None:
 
 def _provenance() -> Provenance:
     return Provenance(
-        source="attestation",
+        source="clickup",
         who=APPROVER,
         when=RECORDED_AT,
         evidence="screenshot in the launch Slack thread",

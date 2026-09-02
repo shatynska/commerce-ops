@@ -213,7 +213,7 @@ The next step added to the start chain must re-take this reading. At 32.50s ther
 
 Both run as `python -m commerce_ops.<module>`, so `__name__` is `"__main__"` and their module logger is `__main__` — which inherits **root** at `WARNING`, not `commerce_ops` at `INFO`. Every `INFO` record from them is dropped in production.
 
-Verified directly: `logging.getLogger("__main__").getEffectiveLevel()` is 30 and `isEnabledFor(INFO)` is `False` after `configure_logging()`, and both processes emit nothing at all on a successful run. `seed_admin` is unaffected because it logs through `commerce_ops.access.application.roster`, a real package logger. `preflight` is unaffected because it uses `print`.
+Verified directly: `logging.getLogger("__main__").getEffectiveLevel()` is 30 and `isEnabledFor(INFO)` is `False` after `configure_logging()`, and both processes emit nothing at all on a successful run. `seed_admin` is unaffected because it logs through `commerce_ops.access.application.members`, a real package logger. `preflight` is unaffected because it uses `print`.
 
 The consequence is not cosmetic: `seed_playbook`'s "added N step(s)" line is how anyone would know the seeding ran, so **the 352-row seed reached production silently**. `ERROR` records still surface, so a *failing* step does still name itself — but a step that hangs emits neither, which is why a mid-chain hang in either process is diagnosable only by `docker exec`.
 
@@ -223,21 +223,21 @@ The fix is small — give each module a package logger rather than `__name__` un
 
 ### The admin stays server-rendered, in this repository
 
-The admin surface — the steps page and the roster today, a launch-products page and a product list planned — could move onto a JSON API, onto React, and/or into its own repository. All three were weighed on 2026-08-27 and deferred. They are recorded together because they are not independent moves.
+The admin surface — the steps page and the membership today, a launch-products page and a product list planned — could move onto a JSON API, onto React, and/or into its own repository. All three were weighed on 2026-08-27 and deferred. They are recorded together because they are not independent moves.
 
 **A separate repository forces the API**; React does not. In-process calls into `launch.application` and `access.application` become network calls the moment the admin leaves this deployable, so the possible order is API → React → repository, each optional given the one before it. Nothing recorded here forecloses any of them.
 
-**React is a foundation change, not a UI choice.** The Node-free stance is deliberate and already recorded twice: `AGENTS.md` picks gitlint over commitlint "specifically to avoid a Node.js dependency in this otherwise pure-Python project", and `README.md`'s Technology section names Python/FastAPI/LangGraph as owner-supplied rather than proposed. Adopting React means editing that section, not adding a page. Against that cost, the only admin surface React genuinely earns is a monitoring dashboard with charts — and monitoring's live numbers are slice 8 of `docs/domain-map.md`, blocked on marketplace access. Steps, roster, launch products and a product list are tables and forms, which htmx already renders.
+**React is a foundation change, not a UI choice.** The Node-free stance is deliberate and already recorded twice: `AGENTS.md` picks gitlint over commitlint "specifically to avoid a Node.js dependency in this otherwise pure-Python project", and `README.md`'s Technology section names Python/FastAPI/LangGraph as owner-supplied rather than proposed. Adopting React means editing that section, not adding a page. Against that cost, the only admin surface React genuinely earns is a monitoring dashboard with charts — and monitoring's live numbers are slice 8 of `docs/domain-map.md`, blocked on marketplace access. Steps, members, launch products and a product list are tables and forms, which htmx already renders.
 
-**The repository split's costs are flat — they do not shrink by waiting.** Auth crosses the wire: `verify_admin_session` resolves a session's principal against the roster in-process, and the roster is the source of truth for admin capability. `.importlinter`'s 18 contracts stop applying, so a module boundary this project enforces mechanically at commit time becomes whatever the API happens to expose. Every change touching a domain rule *and* its admin rendering becomes two coordinated PRs, against `AGENTS.md`'s rule that a change reaches the server through one — `record-gate-and-discipline-as-fields`, 58 tasks across domain, specs and admin, is exactly the shape that would split. Two deploy pipelines double `AGENTS.md`'s four-step rule for adding a runtime variable, while the drift check in `tests/unit/shared/application/test_settings.py` still covers one of them. `admin-session`, `playbook-admin` and `roster-admin` would move to a second OpenSpec store. `shared/domain`'s vocabulary — `Discipline`, `LifecycleStage`, `Severity`, `ProductId`, `Sku` — is then duplicated, published as a package, or reduced to bare strings. And CORS becomes necessary, which `main.py` does not configure at all today.
+**The repository split's costs are flat — they do not shrink by waiting.** Auth crosses the wire: `verify_admin_session` resolves a session's principal against the membership in-process, and the membership is the source of truth for admin capability. `.importlinter`'s 18 contracts stop applying, so a module boundary this project enforces mechanically at commit time becomes whatever the API happens to expose. Every change touching a domain rule *and* its admin rendering becomes two coordinated PRs, against `AGENTS.md`'s rule that a change reaches the server through one — `record-gate-and-discipline-as-fields`, 58 tasks across domain, specs and admin, is exactly the shape that would split. Two deploy pipelines double `AGENTS.md`'s four-step rule for adding a runtime variable, while the drift check in `tests/unit/shared/application/test_settings.py` still covers one of them. `admin-session`, `playbook-admin` and `members-admin` would move to a second OpenSpec store. `shared/domain`'s vocabulary — `Discipline`, `LifecycleStage`, `Severity`, `ProductId`, `Sku` — is then duplicated, published as a package, or reduced to bare strings. And CORS becomes necessary, which `main.py` does not configure at all today.
 
 **If React is what is actually wanted, it does not require the split.** An `admin-ui/` directory in this repository, built in a second `Dockerfile` stage and served as static files by FastAPI, with TypeScript types generated from FastAPI's own OpenAPI schema, buys React and TS without any cost in the paragraph above, and keeps one PR shipping a domain change together with its UI. Node enters the build, not the runtime image. It adds no process to the `CMD` chain, so the `--start-period` clearance measured above is unaffected.
 
 **The one thing worth doing, and it is not itself a deferral.** *Corrected 2026-08-28: the surfaces built since have done it, and the entry as first written no longer holds.* `launch_admin.py` and `product_dossier.py` both name a read-model layer as typed frozen dataclasses — `LaunchRow`, `StepLine`, `GateGroup`, `JournalLine`, `LaunchDetail`; `ProductRow`, `Identity`, `RecordEntry`, `Dossier` — with shaping separable from rendering and checkable by `mypy`. That was this entry's advice, taken.
 
-What remains true is the *older* surface. `playbook_admin.py` is still 1403 lines mixing form parsing, fault attribution, ordering and rendering, and its nearest thing to a view model is still `_row(record, people) -> dict[str, Any]` (`playbook_admin.py:719`) — private, untyped, and inseparable from the adapter around it. Retrofitting it is a change in its own right and nobody has proposed one.
+What remains true is the *older* surface. `playbook_admin.py` is still 1403 lines mixing form parsing, fault attribution, ordering and rendering, and its nearest thing to a view model is still `_row(record, members) -> dict[str, Any]` (`playbook_admin.py:719`) — private, untyped, and inseparable from the adapter around it. Retrofitting it is a change in its own right and nobody has proposed one.
 
-`_require_admin` has gone the other way: three copies when this was written, **five** now (`playbook_admin.py`, `roster_admin.py`, `admin_assets.py`, `launch_admin.py`, `product_dossier.py`). Each new admin surface adds one, and the shape is identical in all five — a session cookie verified against an injected verifier, refusing with the app's own 404. That is the duplication worth naming now, and it is smaller than the read-model retrofit was.
+`_require_admin` has gone the other way: three copies when this was written, **five** now (`playbook_admin.py`, `members_admin.py`, `admin_assets.py`, `launch_admin.py`, `product_dossier.py`). Each new admin surface adds one, and the shape is identical in all five — a session cookie verified against an injected verifier, refusing with the app's own 404. That is the duplication worth naming now, and it is smaller than the read-model retrofit was.
 
 The API argument is unchanged and is now better supported: a `@dataclass(frozen=True)` is a FastAPI response model in all but the decorator, and two of the four admin surfaces already have theirs. Resource-shaped URLs cost nothing extra and spare the same rework.
 
@@ -286,10 +286,59 @@ recommendation, and that `Satisfied` is proposed with a pending result
 delivered to Slack. All three are asserted in
 `tests/agents/step_handlers/listing/`, against stubs.
 
+**A fourth, added by `await-the-subcategory-advisors-graph` (2026-09-02):
+the async transport.** The advisor now reaches the model through
+`ainvoke` rather than `invoke`, and no live run has yet exercised that
+path either — the deployment holds no classifiable product, so the first
+real invocation exercises the supported branch *and* the awaited
+round-trip together, neither previously observed in production. The
+stubs answer `ainvoke` faithfully, but a stub is not an HTTP client:
+what is unobserved is the real `httpx` async path under `ChatOpenAI`,
+including how a timeout or a retry surfaces through it.
+
 **Trigger to close.** The first product registered with a name a model can
 classify — a real listing rather than a placeholder. Read the pass's result
 then: a pending result carrying a node path, its demands and a rejected
-alternative closes it.
+alternative closes it. Check the worker's own progress across that run
+too, not only the result: the point of the async conversion is that the
+pass's other work continued while the model was answering, and a run that
+produced a good recommendation while stalling everything else would look
+identical in the result alone.
+
+### No test can catch a blocking call added inside the advisor's async node
+
+`await-the-subcategory-advisors-graph` left the advisor with three guards
+against the loop-pinning defect it repaired, and established by mutation —
+each revert applied to the shipped code, the suite re-run — that a fourth
+shape defeats all three.
+
+| Reverted to | Caught by | Result |
+| --- | --- | --- |
+| `propose()` → `running.invoke(...)` | the graph's own `TypeError` | caught |
+| `recommend` body → `structured.invoke(...)` | the stubs' raising `invoke` | 106 failed |
+| `recommend` made synchronous | the refusal test, and the stubs' raising `invoke` | 3 failed |
+| a blocking call added *inside* an otherwise-correct async `recommend` | **nothing** | **117 passed** |
+
+The fourth passes because every guard's premise still holds: LangGraph has
+already yielded by the time the node body runs, so "other work progressed"
+is satisfied; the node is still a coroutine, so nothing raises; the
+dependency is still awaited on the invoking thread, so thread identity is
+satisfied. The mutated suite ran in 4.0s against 0.9s and nothing asserted
+on that, because a wall-clock assertion is what `AGENTS.md`'s determinism
+rule forbids this tier to carry.
+
+This is a limit of what a deterministic test can establish about a
+coroutine, not a gap a cleverer assertion closes — which is why
+`launch-step-automation`'s *A handler's waiting does not stop the process*
+places "which entry point a handler reached" at review rather than at
+runtime. Recorded so the next author reads the boundary rather than
+inferring from three green guards that there is none.
+
+**Trigger to close.** A mechanism that makes loop-blocking observable
+without wall-clock timing — `asyncio`'s debug mode and its slow-callback
+logging are the obvious candidate, and it would apply to every handler
+rather than to this one. Not attempted here: it is a test-harness
+capability, not a change to the advisor.
 
 ### The integration tier's local setup is per-clone, and fails open
 
@@ -300,6 +349,10 @@ something other than what the person running it assumes, and says nothing.
 `.env`. If none resolves it **skips**, and `pre-push` reports
 `pytest (integration)... Passed` for a tier that never ran. Surveyed on
 2026-08-28:
+
+Surveyed 2026-08-28 and **not re-surveyed since**; two of its rows name clones that
+no longer exist, and two worktrees created since are absent. Treat it as evidence
+that the shape recurs, not as a census.
 
 | Clone | `.env.test` names | |
 | --- | --- | --- |
@@ -328,22 +381,181 @@ sessions push at once produce failures that read as defects and are not.
 database per worktree on the same container, which costs a `CREATE DATABASE` and
 an `alembic upgrade head`, no second container and no second port.
 
-**Rung 3 can reach the working database.** `commerce-ops/.env` names
-`commerce_ops` — the database carrying 1880 launch positions — and is shadowed
-only by that clone's `.env.test`. Delete or rename one file and the tier falls
-through to it and runs that unscoped delete against real data, green. Nothing in
-the resolver refuses a URL naming the database the developer works in, though
-`.env.test` exists precisely to "keep the tier out of" it.
+**Rung 3 can reach the development database.** `commerce-ops/.env` names
+`commerce_ops`, and is shadowed only by that clone's `.env.test`. Delete or
+rename one file and the tier falls through to it and runs that unscoped delete
+against it, green. Nothing in the resolver refuses a URL naming the database the
+developer works in, though `.env.test` exists precisely to "keep the tier out
+of" it.
+
+**Corrected 2026-09-02, because the original wording overstated this and the
+overstatement was repeated.** This entry used to call `commerce_ops` "the
+database carrying 1880 launch positions" and the hazard "that unscoped delete
+against **real data**". It is a *development* database. Production is the
+deployed container on its own host with its own volume; nothing here is business
+data, and no local run can reach it. Losing `commerce_ops` costs local state, not
+records anyone needs.
+
+The hazard survives the correction, for a different reason, and the reason is the
+better one: the tier **writes freely** into whatever it finds, and
+`test_playbook_seed.py` asserts a "before any authored edit" premise that any
+admin-UI editing done in a development database breaks. So rung 3 produces a
+wrecked development state and a run whose failures read as defects and are not —
+which is this file's recurring pattern, not a data-loss event. Whoever closes
+this should argue it on correctness, not on stakes that are not there.
 
 **Recorded in**: `2026-08-25-verify-the-integration-tier`'s `design.md` — *A
 required-tier flag turns a skip into a failure — in CI only*, which argues the
 `pre-push` decision and the rung order. The survey above and the rung-3 hazard
 are recorded here first.
 
-**Trigger to close.** Any of the three moving: `pre-push` setting the flag, a
-per-worktree database convention with a script that creates and migrates one,
-or the resolver refusing a URL that names the working database. The last is the
-one worth doing whether or not the others are.
+**The first gap is closed for the gate, and only for the gate**
+(`restore-the-skipped-integration-tests`, 2026-09-02). CI's ephemeral database is
+named `commerce_ops_test`, and `COMMERCE_OPS_REQUIRE_DATABASE` now also arms
+`tests/conftest.py`'s no-skip guard over `tests/integration`, so a skipped *test*
+fails the job whatever its reason. That change was prompted by a worse instance of
+the same defect than this entry records: the gate was running **132 of 137**
+integration tests and reporting a pass, because the five that check gate readiness
+and stand-down refuse a database not named `*_test` and CI's was named
+`commerce_ops`. The flag could not see it — it fires only when no URL resolves, and
+one resolved. `pre-push` still sets nothing, so a worktree with no `.env.test` still
+skips the tier and still reports `Passed`.
+
+**Accumulated debris is inert — measured, not assumed** (2026-09-02). A
+`TEMPLATE` copy of the shared `commerce_ops_test`, carrying 1325 `retired` rows in
+`ignition`, passed exactly as a freshly seeded database did — `137 passed, 1 skipped`
+when measured, *before* that change deleted one test; the same comparison today reads
+`137 passed, 0 skipped` on both. The point is the equality, not the figure.
+The "harmless residue" premise in `test_playbook_authoring_live.py`'s docstring
+holds at that volume, so none of the three gaps below owes a cleanup. A red
+integration run met locally is a configuration fault until proven otherwise; check
+the database is seeded as well as migrated before concluding anything else.
+
+**Trigger to close.** Either of the two that remain: `pre-push` setting the flag,
+now that a failure there would name a real fault rather than an absent Postgres; or
+a per-worktree database convention with a script that creates, migrates **and
+seeds** one. Plus the third, which was always independent: the resolver refusing a
+URL that names the working database. The last is still the one worth doing whether
+or not the others are.
+
+### Per-worktree test databases accumulate, and nothing drops them
+
+The convention `docs/deferred-work.md` proposes — one database per worktree on the
+shared container — is already in use, unwritten and unautomated. Sessions that hit
+the fail-open trap create one by hand and name it after their branch. Nobody deletes
+it when the worktree goes.
+
+Surveyed 2026-09-02, on the running container:
+
+| database | its worktree |
+| --- | --- |
+| `commerce_ops` | the working database — not a test database at all |
+| `commerce_ops_test` | the main clone |
+| `commerce_ops_anchor_test` | `inject-the-thread-anchor-poster` — live |
+| `commerce_ops_failopen_test` | `close-the-integration-tier-fail-open` — live |
+| `commerce_ops_await_test` | **orphan** — worktree gone |
+| `commerce_ops_gate_progression_test` | **orphan** — worktree gone |
+| `commerce_ops_launch_journal_test` | **orphan** — clone gone |
+
+Three of seven are orphans, and two live worktrees
+(`playbooks-as-versioned-graphs`, `rebuild-the-member-directory`) carry no
+`.env.test` at all, so the tier fails open in both right now.
+
+Nothing here is broken today: an orphan costs disk and nothing else. It is recorded
+because it is an obligation the provisioning script has to answer *before* it is
+written, not after. A script that creates a database per worktree without deciding
+who drops it converts an occasional hand-made mess into a systematic one — and
+`EnterWorktree`/`ExitWorktree` know nothing about databases, so removal cannot simply
+be hung off worktree teardown. Whoever writes that script owns this question.
+
+### The working database is behind head, which is currently hiding the rung-3 hazard
+
+`commerce_ops` — the development database `.env` names, holding **2019** launch
+positions accumulated by development and testing, not by anyone's business — sits at
+`1a2b3c4d5e6f`, four revisions behind the repository's head `c04d95ba6e31`
+(2026-09-02). Every test database on the container is at head.
+
+That matters for one reason. The entry above records that the resolver's third rung
+reaches this database, and that the tier would then run its unscoped
+`DELETE FROM known_work` against real data, green. Today it probably would not get
+that far: the schema is old enough that the tier would fail early and loudly instead.
+
+**That is luck, not a guard, and it expires the moment anyone runs
+`alembic upgrade head` against their development database** — an ordinary thing to
+do, which would silently remove the only thing currently standing between rung 3 and
+those 2019 rows. Nobody should rely on it, and nobody should be reassured by never
+having seen rung 3 do damage: the reason is a stale schema, not a safety property.
+
+There is a second, unrelated reason to migrate it anyway, and it points the other
+way. CI creates an empty Postgres and migrates that; the deploy host migrates a
+populated one. So **no migration in this repository is exercised against populated
+data anywhere except in production.** This database is the only populated one
+available, which makes `alembic upgrade head` against it a free rehearsal of what a
+deploy does — and makes dropping and recreating it a loss of the only fixture that
+rehearsal has. Worth weighing before anyone tidies it away.
+
+It also means a rung-3 failure met today reads as a migration error rather than as a
+misconfigured tier, which is one more way this class of fault arrives wearing the
+wrong label.
+
+### The gate's green depends on one integration test seeding a roster for another
+
+`tests/integration/launch/test_playbook_authoring_roster_live.py` skips when the
+roster carries no active person, and says in its own docstring that it "adds nobody
+to a shared roster to avoid the skip". Nothing in CI's preparation creates one:
+`alembic upgrade head` inserts no person and `seed_playbook` writes no roster at all.
+
+It passes only because `test_gate_progression_atomicity_live.py`'s `_seed_decider`
+creates an active admin earlier in the same session, through the real `access` use
+cases, and never removes it. Confirmed on a local test database: exactly **one**
+active roster person, and it is that one.
+
+The coupling predates `restore-the-skipped-integration-tests`. What that change did
+was convert its failure mode from a silent skip into a **hard failure of the whole
+validation job**, since a skipped integration test now fails the gate. So reordering
+or renaming a launch test file, running the tier under `-k`, `--lf` or xdist, or
+having the atomicity test error before it reaches `_press`, turns the gate red for a
+reason unrelated to the code under review. Found by `/code-review` on PR #149
+(2026-09-02).
+
+Two fixes are available and the choice is not obvious, which is why this is recorded
+rather than done: seed a roster person in CI's preparation chain — cheap, and it puts
+a person in a database whose emptiness some other test may one day rely on — or have
+the roster test create its own, which is more correct and makes that file a
+roster-writing module with the cleanup obligations that implies. A tier-level fixture
+is a third option and inherits the first's objection.
+
+### A wall-clock assertion in the commit-time tier fails under CI load
+
+`tests/unit/launch/infrastructure/driving/test_slack_entry_ack_and_failure_visibility.py`
+asserts a Slack acknowledgement returns within `SLOW_PERSISTENCE_SECONDS / 2` — 0.75s
+— while a collaborator is made to take 1.5s, proving the ack does not wait on
+persistence. On a loaded two-core GitHub runner it measured **2.175s** and failed the
+job (2026-09-02, PR #149); the same commit passed on re-run, passes locally, and had
+passed eleven consecutive CI runs before.
+
+So it is event-loop starvation meeting a wall-clock budget, not a defect in the code
+under test — a real property asserted by a proxy that shared hardware can violate. It
+will fire again at random, and the next reader will spend an afternoon on it, which is
+the "failures that read as defects and are not" pattern this file exists to shorten.
+Whoever takes it should decide whether the property can be asserted without a
+stopwatch — observing that the response is produced before the collaborator completes,
+rather than timing it — since widening the budget only makes the flake rarer.
+
+### `launch-playbook` says the seeded set is entirely human, and it is not
+
+`openspec/specs/launch-playbook/spec.md`'s *A registered runtime does not activate a
+seeded step* states "the seeded set is entirely `human` drafts", while
+`tests/integration/launch/test_registered_handlers_activate_nothing.py` asserts the
+seeded set carries automated steps — and passes. Both are right about their own
+moment: `lp.listing.014` and `lp.traffic.001` are `automated`, backfilled before
+`seed-the-reference-step-set` made the seed human-only, and they survive.
+
+Noticed during review of `restore-the-skipped-integration-tests` (2026-09-02) and
+deliberately not fixed there, per the scope rule. It is not urgent: the failure mode
+is a loud assertion failure in a test that names the discrepancy, not a silent
+vacuum. What it needs is a decision about which sentence is wrong — the scenario's
+clause, or the two surviving rows — and that belongs to `launch-playbook`.
 
 ### Graduation cannot be triggered, and the persisted launch cannot say it happened
 
@@ -351,13 +563,24 @@ one worth doing whether or not the others are.
 gates and deliberately stops short of `graduated`. Two separate things block it,
 and the second is a defect rather than a scope decision.
 
-**Nothing can reach the graduation gate.** `graduated` authors metric
-conditions, and so do `stock-ready` and `phase-one-complete`. A metric condition
-is satisfied only by a recorded human attestation until live evaluation exists
-(`launch-instance`, domain-map slice 7), and `record_metric_attestation` has no
-surface — no route, no Slack handler, no job calls it. A launch therefore
-advances to `stock-ready` and stops. Wiring graduation before attestation has a
-surface would specify behaviour production cannot exercise.
+**~~Nothing can reach the graduation gate.~~ Closed 2026-09-01 by
+`replace-metric-conditions-with-steps`.** `graduated`, `stock-ready` and
+`phase-one-complete` authored metric conditions satisfiable only by an
+attestation nothing could record, so a launch advanced to `stock-ready` and
+stopped. Gates author no conditions now: each of those obligations is a
+blocking step, resolved by a recorded outcome through the path every other
+obligation already uses.
+
+Two things that change carries are worth keeping here rather than only in the
+archive. The six steps are seeded `draft`, so **the launches parked at
+`stock-ready` when it deployed advanced past it unchecked** and no activation
+pulls them back — gate readiness reads only the current gate. And
+`graduated`'s `review-rating` condition was removed **with no successor**: no
+reference row restates it, so there was no step to seed and the change did not
+invent one. A person still weighs rating stability, `graduated` being a
+confirmation gate; what went is the machine-checkable obligation.
+
+The rest of this entry stands.
 
 **The persisted launch cannot distinguish a graduated launch from one standing
 at the final gate.** `launch-instance`'s enumeration requirement states this as
@@ -367,8 +590,17 @@ to show, and the stored shape cannot tell it from one whose gate already opened.
 `Launch.__init__` sets `_graduated = False` on every rehydration, so the flag is
 process-local and does not survive a read.
 
-That gap is latent today because nothing advances gates. It stops being latent
-the moment something does, and it breaks in both directions:
+**No longer latent — confirmed in production, 2026-09-02.** A launch (product
+`399a0a06-0a2d-4b79-b9c5-182ede671fbd`, launch date 2027-02-01) reached
+`graduated` that morning on its `phase-one-complete` approval, and stands there
+with no way to be asked. `/admin/launches` reports it as awaiting confirmation,
+reading `list_all`; the ten-minute pass, reading `list_active`, has never seen
+it — the walk logs 21 launches and this is not one of them. Its
+`launch_gate_ask_suppression` rows record an ask for `commit`, `order` and
+`phase-one-complete`, and none for `graduated`. So the first bullet below is
+live; the second is still latent, no advancing pass reading `list_all`.
+
+It breaks in both directions:
 
 - A pass reading `list_active` never sees a launch standing at `graduated` —
   `list_active` filters on `current_gate != 'graduated'` — so the graduation ask
@@ -381,12 +613,23 @@ the moment something does, and it breaks in both directions:
   reported as "an error naming the manual catalog correction required" — a false
   instruction to correct a correctly-stamped product, delivered on every pass.
 
-**So a future change owes three things together**, and they are one change
-because none of them is useful alone: a surface for `record_metric_attestation`,
-a persisted graduation marker on the launch, and the graduation ask itself — the
-five-posture approving choice, and carrying a refused catalog stamp back to the
-decider. The posture choice cannot be defaulted: `launch-instance` requires the
-approver to name it, because the system never chooses one.
+**So a future change owes two things together** — three until
+`replace-metric-conditions-with-steps` removed attestation outright, taking the
+surface for `record_metric_attestation` off the list — and they are one change
+because neither is useful alone: a persisted graduation marker on the launch,
+and the graduation ask itself — the five-posture approving choice, and carrying
+a refused catalog stamp back to the decider. The posture choice cannot be
+defaulted: `launch-instance` requires the approver to name it, because the
+system never chooses one.
+
+The domain half is already built and waiting. `Launch.approve_gate` requires a
+posture on the graduation approval and rejects one on every other gate,
+`LaunchGraduated` carries it, and `progress_launch` stamps the catalog through
+`stamp_steady_state`. What is missing is only the way to obtain the posture from
+a person — today's ask carries two buttons and no third choice — together with
+the three refusals standing in for it: `gate_decisions.py`'s `_FINAL_GATE`
+refusal, `gate_confirmation.py`'s `FinalGateNotAsked`, and `list_active`'s
+filter.
 
 Note also that `InventoryOverride` is one of the five postures and
 `shared-vocabulary` marks it temporary — "a state a product must eventually
@@ -396,6 +639,37 @@ ask should offer it is an open question for that change, not a settled one.
 **Recorded in**: `advance-gates-and-confirm-in-slack`'s `design.md` (Non-Goals
 and Risks) and `proposal.md` (Impact). Found by `openspec-change-reviewer`
 during that change's spec review, 2026-08-28.
+
+### Nothing records that a gate was asked about, or that an ask failed
+
+`launch-journal` defines seven entry kinds — `launch-started`,
+`step-outcome-recorded`, `gate-approval-recorded`, `gate-opened`,
+`launch-graduated`, `launch-date-moved`, `advance-refused` — and none of them is
+an ask. The only trace an ask leaves is a `launch_gate_ask_suppression` row,
+which is a cool-off record rather than a history: one row per (launch, gate),
+overwritten on each ask, also written by `record_rejection` having delivered
+nothing at all, and reachable from no admin surface.
+
+A failed delivery leaves less than that. `_ask_if_owed` catches it, logs a
+warning and returns, and `launch-gate-progression` requires exactly that — "a
+delivery that fails ... SHALL NOT fail the run" — so `/health/scheduled-runs`
+reports the pass healthy while every ask it owes is failing. The reasoning for
+that is sound and is not what is deferred here. What is deferred is that nothing
+a person can reach says an ask was owed, attempted, or lost.
+
+The consequence: "the admin says a gate awaits confirmation and no message
+arrived" is not answerable from any surface this project offers. On 2026-09-02
+it was answered instead by reading worker container logs and querying
+`launch_gate_ask_suppression` over SSH — and the answer was the final-gate
+deferral above, a case where no ask was ever owed. A journal entry when an ask
+is delivered and when one fails would have made that a glance.
+
+Worth pairing with the graduation change rather than doing first. The entry
+above is why the question got asked, and observability that still cannot say
+"this gate will never be asked about" leaves the same confusion standing.
+
+**Recorded in**: nothing yet — found while diagnosing a launch standing at
+`graduated`, 2026-09-02. This file is its first record.
 
 ### `LaunchRepository.save` overwrites the whole aggregate, with no optimistic concurrency
 
@@ -523,6 +797,41 @@ without it not even the warning appears.
 this system and not in ClickUp; or the first launch where an author uses
 `after_steps` in earnest and wants the ordering where the work is done.
 
+### `omni_agent`'s graph node is synchronous, and reaches the model blockingly
+
+`omni_agent/application/graph.py`'s `call_model` node is a plain `def`
+calling `model.invoke(state["messages"])` — the shape the sub-category
+advisor was copied from, and the one
+`await-the-subcategory-advisors-graph` removed there in 2026-09.
+
+**It is not the same defect, and the difference is why this is an entry
+rather than a change.** Its caller already awaits: `use_cases.py:34` runs
+`await graph.ainvoke(...)`, and LangGraph hands a synchronous node to a
+worker thread when reached that way (measured, `langgraph` 1.2.11 — the
+node body observes a different `threading.get_ident()`). So the event
+loop is not pinned, which the advisor's was. What remains is a blocking
+client inside a graph whose library offers a native async path, costing a
+thread per invocation for work that is only waiting, and depending on an
+accommodation the framework makes rather than on the code asking for the
+right thing.
+
+`launch-step-automation`'s *A handler's waiting does not stop the process*
+does not reach it: `omni_agent` is not a step handler, and that
+requirement governs handlers. Its own capability, `omni-agent`, says
+nothing about transport. So nothing in the repository currently obliges
+this to change — which is the actual finding.
+
+The fix is the same two lines the advisor took: `call_model` becomes
+`async def`, `model.invoke` becomes `await model.ainvoke`. What makes it a
+change rather than a chore is that it makes that graph async-only too, so
+every caller and every test of it moves with it, and the question of
+whether the obligation should be stated somewhere `omni_agent` reads
+belongs with it.
+
+**Trigger to close.** Whenever `omni_agent` is next worked on for its own
+reasons, or when a second handler-like graph appears and the obligation
+needs a home broader than `launch-step-automation`.
+
 ### The step set's provenance is split across two files, one of which is stale
 
 `alembic/data/playbook_v1.yaml` (97 steps) and
@@ -598,9 +907,304 @@ whoever owns that workspace, not something to do by the way.
 **Recorded in**: `shift-clickup-completions-to-webhook`'s `tasks.md`, now at
 `openspec/changes/archive/2026-08-30-shift-clickup-completions-to-webhook/`.
 
+### A handler's finding recorder is keyed by a step identifier Postgres owns
+
+`worker.py:136` wires the sub-category advisor's recording capability as
+`automation_pass.recorders = {"lp.listing.007": _record_sub_category}`, and
+`_record_finding` (`automation_pass.py:762-795`) looks the recorder up by
+`step.identifier`.
+
+The literal is correct against `launch-step-automation`, which wires a
+recorder *"for `lp.listing.007` specifically — not for every step"*, and the
+`recorders` docstring argues correctly that keying by handler name would be
+wrong, since a handler's name says nothing about which step invoked it.
+
+What is deferred is the consequence. Since `move-playbook-steps-to-postgres`
+the step set is a live, admin-editable set of rows, and this literal is a
+reference into it from source. A step re-authored to carry
+`listing.subcategory_advisor` under a different identifier — or the advisor
+being pointed at a second step — resolves no recorder, and
+`_record_finding` returns `True` and lets the outcome settle **with no log
+line at all**. The finding is dropped in silence, and the only symptom is a
+product whose `sub_category` never fills in while its step records
+`Satisfied` on schedule.
+
+The narrow fix is one `INFO` record when a `Success` finding arrives for a
+step no recorder is wired for — enough to make the gap visible without
+inventing a policy. The broader question, deferred: whether "which steps
+record a finding" belongs in source at all, or is a property of the step
+row, like `handler` already is.
+
+**Trigger to close.** A second step gaining a recording capability, or the
+first time `lp.listing.007` is re-authored.
+
+### Rejecting an automated result records no reason, and nothing can learn from it
+
+`reject_automated_result` records a fixed string (`automated_decisions.py:205-213`):
+
+```python
+Blocked(reason=f"{who} rejected the automated result produced by {handler}")
+```
+
+with evidence `f"{handler}: {produced} — rejected by {who}"`. The person
+rejecting it has nowhere to say **what was wrong, or what would have been
+right**, so a rejection carries who and when and nothing about why.
+
+The concrete case is `lp.listing.007`: the advisor proposes a sub-category,
+its confirmer judges a different one better, and there is no field to say
+which one or on what grounds. The step records `Blocked`, the pass re-runs
+it under `cool-off-a-repeatedly-blocked-step`'s cool-off, and the advisor
+reasons its way to the same answer, having been told nothing.
+
+**The reading half already works.** A re-invoked handler can reach the prior
+outcome with no new plumbing: `StepContext.launch` is the `Launch`
+aggregate, `progress_for` (`launch_run.py:344`) returns
+`StepProgress(outcome, provenance)`, and `Provenance` carries `evidence`.
+The retry loop closes on its own. What is missing is only the *capture* — a
+text input on the Slack rejection, threaded through
+`reject_automated_result` into the recorded reason.
+
+Note that the opposite direction already exists: `Success.comment`
+(`shared/domain/result.py`) is documented as *"optional — additional
+information, for a person or for tuning"*, which is the handler talking to a
+person. This entry is the person talking back.
+
+**One limit to design around.** `Launch._step_progress` is keyed by step
+identifier and holds only the latest outcome, so a handler would see the
+last rejection, not a history of them. One corrective round is free; several
+rounds of "not this, and not that either" need the append-only launch
+journal and a reader for it, which is its own decision.
+
+**Trigger to close.** The first handler whose output is a judgement a person
+is likely to disagree with more than once — or *write on acceptance, not on
+production* landing, since both touch the same Slack decision path.
+
+### The shared test database is a shared mutable resource, and one module rewrites it
+
+`tests/integration/launch/test_playbook_readiness_live.py` demotes each
+gate's blocking step to `draft`, asserts what that makes unready, and
+restores the snapshot in a `finally` — with a module-scoped restore around
+the whole file and a final test that re-reads the set so a lost restore is
+loud. That is careful, and it is still only safe while **exactly one test run
+touches the database at a time**.
+
+It is not currently safe, because nothing enforces that. `AGENTS.md` names
+one database, `commerce_ops_test`, and every worktree and session points at
+it. Two overlapping runs interleave snapshot and restore — A snapshots
+`active`, B demotes to `draft`, A restores `active`, B restores from a
+snapshot taken after A's demotion — and the last writer wins with the wrong
+value. An interrupted run loses the `finally` outright.
+
+**Observed, 2026-09-02.** `commerce_ops_test` was left with `lp.strategy.030`
+— the `graduated` gate's only blocking step — sitting at `draft`. The tier
+then failed 62 tests, 54 of them raising
+`PlaybookNotReadyError: gate 'graduated' has no active blocking step
+attached` from files with nothing to do with the step set, and 7 more
+failing downstream of it. The first run after the corruption was green; the
+next was not, so the failure looked like whatever change was in hand. It was
+repaired through `change_step_status`, the validated authoring use case,
+rather than by an `UPDATE` — the same write the module's own restore makes.
+
+Two facts worth keeping, because each rules something out:
+
+- **Concurrency alone does not corrupt it.** Two integration tiers run
+  simultaneously against a freshly seeded database produced 12 failures
+  between them and left every gate held. The interleaving has to land in the
+  wrong order, so this is rare and non-deterministic — which is exactly what
+  makes it expensive when it happens.
+- **`seed_playbook` cannot repair it.** That step adds only rows no stored
+  step names and never touches an existing one, deliberately: a row that
+  differs from its vendored counterpart is indistinguishable from an
+  authored edit. So a demoted step stays demoted through any number of
+  re-seeds.
+
+The same database also carries **1,315 retired `ignition` steps** and several
+hundred drafts accumulated by past runs. That debris is noise rather than
+breakage — the tier passes with it present — but it is the same cause seen
+over a longer period.
+
+**The fix is an isolated database per worktree**, which two sessions reached
+independently on 2026-09-02 and which `AGENTS.md` does not yet describe:
+`createdb`, `alembic upgrade head`, `python -m commerce_ops.seed_playbook`,
+and a `.env.test` naming it. It composes with the entry above — the seeding
+sentence that file already owes is the same sentence.
+
+**Trigger to close.** Whenever `AGENTS.md`'s integration-tier section is next
+edited: both this and *A migrated database is not a seeded one* are closed by
+the same paragraph.
+
+### A migrated database is not a seeded one
+
+`AGENTS.md` tells a developer to "create and migrate `commerce_ops_test` once
+by hand". Migrating is not enough, and has not been since
+`move-playbook-steps-to-postgres`: the migration-era seed
+(`d2f8b3c64e17_seed_playbook_steps.py:52`) reads its own vendored file,
+`alembic/data/playbook_v1.yaml`, and inserts **107** steps. The served set
+comes from the *preparation step*, `seed_playbook.py`, which reads
+`alembic/data/playbook_reference.yaml` — **358** steps since
+`replace-metric-conditions-with-steps`, 352 before it.
+
+So a database that has only been migrated carries a quarter of the step set,
+and a test asserting the served count fails against it for a reason that looks
+like a defect in whatever change is in hand. `replace-metric-conditions-with-steps`
+widened the gap from 245 steps to 251; it did not create it.
+
+The fix is a sentence in `AGENTS.md` and, where CI builds a database, a
+`seed_playbook` run after `alembic upgrade head`. It is not this change's to
+make: the gap predates it, and closing it is a change of its own.
+
+**Trigger to close.** The next time a developer or a CI job is set up against
+a fresh database — or the next test that asserts the served step count and
+fails for this reason rather than its own.
+
+**The trigger fired, 2026-09-02**, and the entry cost what it predicted.
+`inject-the-thread-anchor-poster` built an isolated `commerce_ops_anchor_test`
+rather than mutate the shared one; `alembic upgrade head` alone left 97 `lp.*`
+steps, and four integration tests failed asserting 358 — the failures naming a
+step count, not a seed. `uv run python -m commerce_ops.seed_playbook` against
+the same `DATABASE_URL` brought it to 358 and the tier to green. That command
+is the missing sentence, and it is still owed to `AGENTS.md`.
+
+### Production code carries tolerances for incomplete test doubles
+
+Several modules read one value through several attribute spellings, or
+through `getattr` with a default, explicitly so that a test's stand-in need
+not model the real collaborator:
+
+- `gate_progression_job.py:256` — *"tolerating a caller's fake that models
+  less than the real `LaunchProgressed` does"*
+- `gate_progression_job.py:266` — `_awaiting_gate` probes
+  `("awaiting_gate", "gate_id", "current_gate")` for one value
+- `clickup_sync.py:128-136` — `_members` probes three shapes for one
+  reader
+- `automated_decisions.py:86-90` — *"three spellings"* for one member lookup
+- `playbook_authoring.py:243-253` — `member_identifier` probes
+  `("identifier", "id", "member_id")`
+
+Part of this is legitimate: `.importlinter` forbids `launch` from naming
+`catalog`'s and `access`'s types, so a shape is read where a type cannot be
+named. The rest is the dependency running backwards — production code
+widened so that a double written to the minimum keeps passing. It is also
+where a good deal of `automation_pass.py`'s 35 `: Any` annotations come
+from, which is `mypy strict` being satisfied nominally.
+
+Not fixable on its own. A tolerance may only be deleted once the doubles it
+tolerates are complete, so this closes behind `share-the-unit-test-harness`
+(complete builders) and `unify-launch-adapter-dependencies` (protocols
+naming a shape without naming a forbidden type) — recorded here because
+the finding predates both and outlives either landing alone.
+
+### Migration `1a2b3c4d5e6f` carries a hand-invented revision id
+
+`alembic/versions/1a2b3c4d5e6f_add_slack_thread_fields_to_launch_positions.py`
+uses a sequential placeholder where every other revision in the tree carries
+generated hex (`028812c68321`, `e6c1a92d7f04`, `d715ad9feed4`). It is
+cosmetic and it collides with nothing.
+
+**It must not be corrected.** The id is written into `alembic_version` in
+every environment that has run it, production included; renaming it would
+strand those databases at a revision that no longer exists. Recorded so the
+inconsistency is not rediscovered as a defect and "fixed".
+
+The generalisable part is the convention: a revision id comes from
+`alembic revision`, never from typing one out.
+
+### The stuck-step report cannot reach the notifier the worker injects
+
+Found 2026-09-02 while writing `inject-the-thread-anchor-poster`'s design,
+and **not** folded into it: it is a live defect in a neighbouring path, not
+part of that change's scope.
+
+`automation_pass._report_stuck_step` posts through the module's injected
+notifier with three keyword arguments (`automation_pass.py:656`):
+
+```python
+await notifier.post_monitoring_message(
+    channel=launches_channel(), text=mention_tag + message, thread_ts=thread_ts
+)
+```
+
+The notifier `worker.py:83` injects is **`briefing`'s**, not `launch`'s
+(`worker.py:40` imports `slack_notifier` from
+`commerce_ops.briefing.infrastructure.driven`), and its signature is
+`post_monitoring_message(message: str) -> None`. The call cannot bind:
+
+```
+>>> inspect.signature(briefing_notifier.post_monitoring_message).bind(
+...     channel="C1", text="hi", thread_ts="1.2")
+TypeError: missing a required argument: 'message'
+```
+
+So every stuck-step report raises `TypeError`, is swallowed by
+`_report_stuck_step`'s own `except Exception` into a warning
+(`automation_pass.py:661-670`), nothing is stamped as reported, and the next
+pass tries again and fails the same way. A step that has stopped making
+progress is never reported to anybody — the same shape as the mention defect
+`fix-launch-thread-mentions` corrected, and by the same mechanism: a
+delivery fault inside a swallowing `except`.
+
+**Why `mypy --strict` does not catch it.** The module global is typed
+(`notifier: MonitoringNotifier | None`, `:142`), but `_report_stuck_step`
+re-declares its own parameter as `notifier: Any` (`:595`), and the pass
+threads it through three more `notifier: Any` signatures before the call.
+The one annotation that would have caught it is erased at the first hop.
+
+**Why the tests do not catch it.** They substitute a double that accepts the
+keyword form, so they assert the call the code makes rather than the call
+the injected collaborator accepts — the tolerance *Production code carries
+tolerances for incomplete test doubles* above describes, arriving as a
+missed defect rather than as a missed field.
+
+Two candidate fixes, and the choice is a real one: inject `launch`'s own
+notifier here (it has the channel-taking signature the call already assumes,
+and the launches channel is where a threaded report belongs), or narrow
+`_report_stuck_step`'s `notifier: Any` to the port whose shape it actually
+requires so the mismatch is a type error rather than a runtime one. The
+second is the one that stops the next instance; the first is the one that
+makes today's report arrive. Probably both.
+
+**Worth its own change**, sequenced ahead of the tidy-ups in
+`docs/proposed-change-order.md`: like `fix-launch-thread-mentions`, the harm
+is happening now.
+
+### Three seams a unit test has to work around, measured
+
+`restore-the-skipped-unit-tests` (2026-09-01) restored 44 tests that had been
+skipped wholesale under the false reason "Unit test requires database". None
+needed a database. What each of them actually needed was to get around a place
+where production code reaches for a global instead of taking a collaborator,
+and the corrections are still standing in `tests/` because removing the seams
+was `inject-the-thread-anchor-poster`'s scope, not that change's. **One of the
+three is now gone** — that change retired the Slack client; the other two
+stand, and its design says why each was out of its scope.
+
+Recorded with what each one cost, because this is the most concrete evidence
+that change has:
+
+| Seam | What it cost a test |
+|---|---|
+| `launch_thread_delivery.establish_thread_and_resolve_mention` opens its own `transaction()` (`:82`) | Substituting `slack_entry.transaction` does not reach a second module's own import of the same name. This is what made two files look database-bound. Two test files now substitute `transaction`, `LaunchRepository` and `hold_launch_thread_establishment_lock` on that module. |
+| ~~`thread_establishment._get_slack_client()` is an `lru_cache`d `AsyncWebClient` reading `PRODUCT_AGENT_SLACK_BOT_TOKEN`~~ — **retired** by `inject-the-thread-anchor-poster` (2026-09-02) | It cost this: the anchor post bypassed the injected poster entirely, so a test could only observe it by patching `AsyncWebClient.api_call` at class level, and had then to add `thread_establishment` to its cache-reset list or the cached client outlived the test. The client is now the injected `post_anchor` port. `test_thread_establishment_race.py` substitutes a plain recording callable; no cache-reset list names `thread_establishment` anywhere in `tests/`, and no fixture sets `PRODUCT_AGENT_SLACK_BOT_TOKEN` for this reason alone. |
+| `launches_channel()` reads `os.environ` directly (`slack_notifier.py:44`) | Raises `KeyError` inside `_report_stuck_step`'s own `try`, which swallows it into a warning — seven tests failing on an empty message list with nothing in the failure naming the cause. Three files now set the variable by fixture. |
+
+The common shape is worth stating once: **each fault is absorbed by an
+`except` before it reaches an assertion**, so every one of them presents as
+"the message never arrived" rather than as itself. That is why five commits in
+one afternoon read the whole set as a database problem and widened a skip list
+instead of diagnosing it.
+
+A related finding, not in the table because it is not a seam: an incomplete
+double can produce a *passing* test through the same swallowing path.
+`test_slack_entry_unready_playbook.py::test_a_start_against_a_ready_playbook_is_unaffected`
+passed for weeks while `RuntimeError: DATABASE_URL is not set` was raised on
+every run and answered by the direct-message fallback, so it observed none of
+the threaded delivery it is about. It is fixed, but the class is general and
+the commit-time tier's new zero-skip guard cannot catch it — a swallowed error
+produces a pass, not a skip.
+
 ### Small cleanups, not worth a change each
 
-Verified present at the time of writing; suitable for one chore commit.
+Verified present 2026-09-01; suitable for one chore commit.
 
 | Item | Why |
 |---|---|
@@ -609,3 +1213,7 @@ Verified present at the time of writing; suitable for one chore commit.
 | `httpx2` in dev dependencies | It is a runtime requirement of `openai`, not a test dependency. Likely added by mistake. |
 | `description = "Add your description here"` | Placeholder from the project template. Deliberately excluded from `tighten-type-checking` as unrelated scope. |
 | No `known-first-party` for ruff's isort | Without `known-first-party = ["commerce_ops"]` under `[tool.ruff.lint.isort]`, ruff infers first-party packages per invocation, so the classification changes with the set of files it is handed. `uv run ruff check` over the whole project passes while the `pre-commit` hook — which passes explicit staged paths — fails `I001` on those same files, and fixing one file at a time reports success while fixing them together still finds errors. Cost a commit two attempts to diagnose; the one-line declaration makes it deterministic. |
+| `post_monitoring_message` is misnamed | `launch/infrastructure/driven/slack_notifier.py` takes `channel` as an argument and is called with `launches_channel()` at every launch-thread site. It posts to whichever channel it is given; only its name still says otherwise. `post_message`. **Measured, 2026-09-02, and declined by `inject-the-thread-anchor-poster` rather than folded in as this row previously invited.** The rename's scope is **14 occurrences over 5 source files** (`slack_notifier.py` 2, `gate_confirmation.py` 4, `automation_confirmation.py` 4, `slack_entry.py` 3, `launch_thread_delivery.py` 1) plus the launch-side tests. An unqualified `grep` gives 27 source and 42 test occurrences; of those, 11 source and 20 test belong to `briefing`/`shared` and their **different function of the same name**, as do both `Protocol` declarations (`shared/application/ports.py`, `briefing/application/ports.py`), which declare `(message: str)` and are not part of the rename. The trap: `clickup_sync_job.py:200` and `automation_pass.py:656` call this name *inside `launch`* on an injected collaborator that is `briefing`'s notifier, so renaming by module or by name would rename them and break the first — see *The stuck-step report cannot reach the notifier the worker injects* for why the second is already broken. **Worth doing** when that defect is fixed, since fixing it settles which notifier each of those two sites is talking to, which is the fact a safe rename needs. |
+| `Proposal.outcome` and `Proposal.finding` are `Any` | `step_handlers/listing/subcategory_advisor.py:229-236`. `StepResolution` types the same two values properly (`StepOutcomeValue`, `Result[Any, Any] \| None`), and `Proposal` exists only to carry them one function further. Nothing forces the widening — no import boundary is crossed here. |
+| `docs/domain-map.md` still describes `Principal` and a repo-owned YAML | Its access slice names `Principal` as the `access` root model, and describes principals as "repo-owned YAML granting by SKU" with grants "translated to identifiers at resolution time". Both were made false by `move-principals-to-roster` (2026-08), which replaced the file with a Postgres-backed directory and the grant model with active-member → unrestricted. **Deliberately left by `rename-the-roster-to-members`**, which corrected the same vocabulary everywhere else, and which excludes this file whole so the exclusion is enforced rather than asserted: the stale text carries neither stem, so no substitution row or completeness check reaches it, and correcting it means a hand edit outside the machine-checked half of a change whose whole warrant is that everything is inside it. More to the point, a correct fix is not a rename — the SKU-granting design no longer exists in any form — so it is a judgement about the map's accuracy, which is different work. |
+| Comment archaeology in `main.py` | `main.py:261-272` spends five lines describing what a *previous version of a comment* said. Git holds that. The comment convention this project keeps — record the reasoning, not just the behaviour — is worth keeping; recording the reasoning's own edit history is not. |

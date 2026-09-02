@@ -5,6 +5,20 @@ Implements `shared-vocabulary`'s identity requirements (see
 Vocabulary only: construction-time validation, value equality, immutability
 — no transition rules or other behavior. Lives in `shared.domain` so every
 module speaks the same validated values instead of raw strings.
+
+Each of these renders as its own value (`__str__`), per `shared-vocabulary`'s
+requirement that a single-valued vocabulary object's textual form *is* its
+value. That is a guard, not a convenience: `fix-launch-thread-mentions`
+records the same mistake made four times in three modules — an identifier
+composed into a Slack message, a thread anchor, a prompt and a control
+payload as `ProductId(value='…')`, silently each time, and permanently
+wherever the text was written once and never rewritten. A rule obeyed only
+by remembering it was broken four times; a spelling that is correct by
+default cannot be.
+
+`__repr__` is deliberately left as the dataclass default. It is the
+diagnostic form — what a debugger, a traceback and a `%r` log line want —
+and the requirement keeps the two distinct rather than collapsing them.
 """
 
 from __future__ import annotations
@@ -33,6 +47,9 @@ class ProductId:
         if not self.value:
             raise ValueError("product identifier must not be empty")
 
+    def __str__(self) -> str:
+        return self.value
+
 
 @dataclass(frozen=True, slots=True)
 class Sku:
@@ -40,6 +57,9 @@ class Sku:
 
     def __post_init__(self) -> None:
         _require_well_formed(self.value, "SKU")
+
+    def __str__(self) -> str:
+        return self.value
 
 
 @dataclass(frozen=True, slots=True)
@@ -54,6 +74,9 @@ class Asin:
                 f"{self.value!r}"
             )
 
+    def __str__(self) -> str:
+        return self.value
+
 
 @dataclass(frozen=True, slots=True)
 class MarketplaceId:
@@ -61,6 +84,9 @@ class MarketplaceId:
 
     def __post_init__(self) -> None:
         _require_well_formed(self.value, "marketplace identifier")
+
+    def __str__(self) -> str:
+        return self.value
 
 
 @dataclass(frozen=True, slots=True)
@@ -76,3 +102,6 @@ class MetricId:
 
     def __post_init__(self) -> None:
         _require_well_formed(self.value, "metric identifier")
+
+    def __str__(self) -> str:
+        return self.value

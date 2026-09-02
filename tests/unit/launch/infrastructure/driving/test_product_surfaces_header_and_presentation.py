@@ -20,13 +20,13 @@ and the project questions this file answered by assumption.
 `tasks.md` 6.6 is why the third scenario is driven over the *existing*
 admin surfaces rather than over a header this change ships: "a test
 derived from this change alone would not catch an existing surface's
-header failing to offer the index". The playbook and roster routers are
+header failing to offer the index". The playbook and membership routers are
 therefore mounted alongside the new one, the way `main.py` composes
 them, and their headers are what the assertion reads. This change edits
 no existing test file to do it — `test_admin_surface_navigation_and_
 assets.py` is left exactly as it stands.
 
-This change carries **no** `roster-admin` and no `playbook-admin` delta,
+This change carries **no** `members-admin` and no `playbook-admin` delta,
 deliberately and in either archive order (`tasks.md` 7.4). Both
 capabilities' served requirements already oblige the header to name "the
 admin surfaces the session can reach", so a header naming the product
@@ -61,9 +61,9 @@ INVENTED, each recorded in the manifest with its correction point:
 - That "reachable in one action" is read as a **live anchor** whose path
   is the index's — needing no scripting. Correction point:
   `_offers_in_one_action`.
-- The playbook and roster page modules' own seams and store doubles,
+- The playbook and Team page modules' own seams and store doubles,
   taken from `test_admin_surface_navigation_and_assets.py` and
-  `test_roster_admin_page.py`. Correction point: `_existing_surfaces`.
+  `test_members_admin_page.py`. Correction point: `_existing_surfaces`.
 - That a revoked admin presents to the page as a verification that
   refuses. The *verification* half — that a principal who has lost the
   admin declaration is refused — is `access.application`'s and is
@@ -97,8 +97,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from commerce_ops.access.application import create_person
-from commerce_ops.access.infrastructure.driving import roster_admin as roster_module
+from commerce_ops.access.application import create_member
+from commerce_ops.access.infrastructure.driving import members_admin as members_module
 from commerce_ops.catalog.domain.product import Product
 from commerce_ops.launch.domain.launch_playbook import (
     Hazard,
@@ -133,7 +133,7 @@ NAME: Final = "Bamboo Cutting Board"
 
 ALICE: Final = "prs_01HQ8Z6M4A"
 ALICE_NAME: Final = "Alice Admin"
-ROSTER_ADMIN_IDENTITY: Final = "U01ALICE"
+MEMBER_ADMIN_IDENTITY: Final = "U01ALICE"
 
 SPECIFIED_GATE_ORDER: Final = (
     "commit",
@@ -344,7 +344,12 @@ _STEPS_NAMES: Final = (
     "read_playbook",
     "served_playbook",
 )
-_PLAYBOOK_ROSTER_NAMES: Final = ("roster", "read_roster", "people", "roster_reader")
+_PLAYBOOK_MEMBERS_NAMES: Final = (
+    "members",
+    "read_members",
+    "members",
+    "members_reader",
+)
 
 
 def _install(
@@ -472,20 +477,20 @@ class _FakeStepStore:
         self.version += 1
 
 
-class _Person:
-    def __init__(self, person_id: str, display_name: str) -> None:
-        self.id = person_id
+class _Member:
+    def __init__(self, member_id: str, display_name: str) -> None:
+        self.id = member_id
         self.display_name = display_name
         self.clickup_user_id: str | None = "clickup-1"
         self.active = True
 
 
-class _PlaybookRoster:
-    async def list_people(self) -> tuple[_Person, ...]:
-        return (_Person(ALICE, ALICE_NAME),)
+class _PlaybookMembers:
+    async def list_members(self) -> tuple[_Member, ...]:
+        return (_Member(ALICE, ALICE_NAME),)
 
 
-class _FakeRosterStore:
+class _FakeMembersStore:
     def __init__(self, rows: tuple[Any, ...] = (), version: int = 13) -> None:
         self.rows = tuple(rows)
         self.version = version
@@ -514,13 +519,13 @@ def _seeded_steps() -> _FakeStepStore:
     return _FakeStepStore(records)
 
 
-async def _build_roster_store() -> _FakeRosterStore:
-    store = _FakeRosterStore()
-    await create_person(
-        roster=store,
+async def _build_members_store() -> _FakeMembersStore:
+    store = _FakeMembersStore()
+    await create_member(
+        members=store,
         principal="the-creating-admin",
         display_name=ALICE_NAME,
-        slack_identity=ROSTER_ADMIN_IDENTITY,
+        slack_identity=MEMBER_ADMIN_IDENTITY,
         clickup_user_id=None,
         admin=True,
     )
@@ -569,19 +574,19 @@ def _install_product_seams(monkeypatch: pytest.MonkeyPatch, product: Product) ->
 
 
 def _existing_surfaces(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The playbook and roster admin surfaces, wired the way
+    """The playbook and members admin surfaces, wired the way
     `test_admin_surface_navigation_and_assets.py` wires them."""
     monkeypatch.setattr(playbook_module, "steps", _seeded_steps())
     monkeypatch.setattr(playbook_module, "verify_admin_session", _fake_verify)
     _install(
         monkeypatch,
         playbook_module,
-        _PLAYBOOK_ROSTER_NAMES,
-        _PlaybookRoster(),
-        "roster",
+        _PLAYBOOK_MEMBERS_NAMES,
+        _PlaybookMembers(),
+        "members",
     )
-    monkeypatch.setattr(roster_module, "roster", asyncio.run(_build_roster_store()))
-    monkeypatch.setattr(roster_module, "verify_admin_session", _fake_verify)
+    monkeypatch.setattr(members_module, "members", asyncio.run(_build_members_store()))
+    monkeypatch.setattr(members_module, "verify_admin_session", _fake_verify)
 
 
 def _app(
@@ -598,7 +603,7 @@ def _app(
     if with_existing_surfaces:
         _existing_surfaces(monkeypatch)
         app.include_router(playbook_module.router)
-        app.include_router(roster_module.router)
+        app.include_router(members_module.router)
     assets = _assets_module()
     if assets is not None:
         monkeypatch.setattr(assets, "verify", _fake_verify)
@@ -629,8 +634,8 @@ def _playbook_path() -> str:
     return _shortest_get_route(playbook_module.router)
 
 
-def _roster_path() -> str:
-    return _shortest_get_route(roster_module.router)
+def _members_path() -> str:
+    return _shortest_get_route(members_module.router)
 
 
 def _dossier_template() -> str:
@@ -713,7 +718,7 @@ def test_a_revoked_admin_resolves_to_the_same_absence(
     """Scenario: A revoked admin resolves to the same absence.
 
     WHEN either page is requested with an unexpired session whose
-    principal's roster entry has since lost the admin declaration
+    principal's members entry has since lost the admin declaration
     THEN the request is refused with the absence-shaped response.
 
     The response-shape half only: a revoked principal presents to the
@@ -752,7 +757,7 @@ def test_the_index_is_reachable_from_another_admin_surface(
 
     for label, path in (
         ("the playbook surface", _playbook_path()),
-        ("the roster surface", _roster_path()),
+        ("the membership surface", _members_path()),
     ):
         rendered = surfaces.client.get(path)
         assert rendered.status_code == 200, rendered.text
@@ -799,7 +804,7 @@ def test_the_dossier_carries_the_header(monkeypatch: pytest.MonkeyPatch) -> None
     for label, path in (
         ("the product index", _index_path()),
         ("the playbook surface", _playbook_path()),
-        ("the roster surface", _roster_path()),
+        ("the membership surface", _members_path()),
     ):
         assert _offers_in_one_action(page, path), (
             f"the dossier offers no live link to {label} at {path!r}, so it "
@@ -820,7 +825,7 @@ def test_presentation_is_shared_not_page_local(
     "The shared admin stylesheet" is read as the route `shared` owns
     (`admin_assets`), not `playbook_admin.py`'s own static route:
     depending on a route belonging to another admin surface is what
-    `roster-admin`'s presentation requirement forbids (`tasks.md` 6.3).
+    `members-admin`'s presentation requirement forbids (`tasks.md` 6.3).
     The stylesheet is fetched from an app mounting *only* the shared
     asset router, so one served by `launch`'s own route is
     distinguishable from one the shared route serves.
@@ -876,7 +881,7 @@ def _shared_assets_client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
 #   current surface within it. `product-dossier`'s header requirement
 #   states reachability and which surface the header names, and states
 #   no current-surface obligation of its own; `playbook-admin`'s and
-#   `roster-admin`'s do, and their own tests assert them. `tasks.md` 9.1
+#   `members-admin`'s do, and their own tests assert them. `tasks.md` 9.1
 #   carries the by-hand check that the links work in a real browser.
 # - The three `vocabulary.css` rules `tasks.md` 6.4a adds. A rule is a
 #   computed style; no server response carries one, and asserting the

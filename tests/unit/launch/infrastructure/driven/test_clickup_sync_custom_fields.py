@@ -70,7 +70,7 @@ Fixed by this change's artifacts, so treated as SPECIFIED:
 - That the create call carries no Custom Field value and that the values
   are set after the task exists (`tasks.md` 4.4/4.4a; the requirement says
   so in as many words).
-- That a differing value is **corrected** rather than treated as a person's
+- That a differing value is **corrected** rather than treated as a member's
   edit, and that a value the step does not resolve to is left standing
   rather than approximated or cleared.
 - That a per-task write failure warns naming the step, the field and the
@@ -443,37 +443,37 @@ class _FakeCatalog:
         return self._product
 
 
-class _Person:
+class _Member:
     def __init__(
-        self, person_id: str, display_name: str, *, clickup_user_id: str | None
+        self, member_id: str, display_name: str, *, clickup_user_id: str | None
     ) -> None:
-        self.id = person_id
+        self.id = member_id
         self.display_name = display_name
         self.clickup_user_id = clickup_user_id
         self.active = True
 
 
-class _FakeRoster:
-    def __init__(self, people: tuple[_Person, ...]) -> None:
-        self._people = people
+class _FakeMembers:
+    def __init__(self, members: tuple[_Member, ...]) -> None:
+        self._members = members
 
-    async def list_people(self) -> tuple[_Person, ...]:
-        return self._people
+    async def list_members(self) -> tuple[_Member, ...]:
+        return self._members
 
-    people = list_people
+    members = list_members
 
-    async def person(self, person_id: str) -> _Person | None:
-        for person in self._people:
-            if person.id == person_id:
-                return person
+    async def member(self, member_id: str) -> _Member | None:
+        for member in self._members:
+            if member.id == member_id:
+                return member
         return None
 
-    async def __call__(self) -> tuple[_Person, ...]:
-        return await self.list_people()
+    async def __call__(self) -> tuple[_Member, ...]:
+        return await self.list_members()
 
 
-def _roster() -> _FakeRoster:
-    return _FakeRoster((_Person(ALICE, "Alice Admin", clickup_user_id=ALICE_CLICKUP),))
+def _members() -> _FakeMembers:
+    return _FakeMembers((_Member(ALICE, "Alice Admin", clickup_user_id=ALICE_CLICKUP),))
 
 
 @dataclass
@@ -712,7 +712,7 @@ class _FakeMapping:
     Deliberately carries no per-task Custom Field column: the requirement
     keeps no retained value for these two fields, because "a Custom Field is
     single-valued and wholly determined by the step, so a divergence is
-    drift" -- there is no legitimate person-edit to distinguish and so
+    drift" -- there is no legitimate member-edit to distinguish and so
     nothing to retain. An implementation reaching for one is recorded in
     `probed`.
     """
@@ -826,7 +826,7 @@ class _Collaborators:
             _CatalogProduct(name=PRODUCT_NAME, sku=PRODUCT_SKU)
         )
     )
-    roster: _FakeRoster = field(default_factory=_roster)
+    members: _FakeMembers = field(default_factory=_members)
 
 
 async def _converge(
@@ -848,7 +848,7 @@ async def _converge(
         clickup=collaborators.clickup,
         mapping=collaborators.mapping,
         read_product=collaborators.catalog,
-        roster=collaborators.roster,
+        members=collaborators.members,
         folder_id=folder_id,
         **extra,
     )
@@ -1172,7 +1172,7 @@ async def test_a_re_gated_steps_task_is_corrected() -> None:
     This is the defect the tag representation could not retire: "a step
     moved to a different gate keeps its old gate tag". Deliberately unlike
     the name, the body and the assignees -- a divergence here is drift, not
-    a person's own meaning.
+    a member's own meaning.
     """
     former_gate = "commit"
     playbook = _playbook((_step(gate="live"),))

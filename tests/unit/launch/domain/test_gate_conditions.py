@@ -22,13 +22,11 @@ root):
 
 - `commerce_ops.launch.domain.launch_playbook` as the module (the renamed
   `products` module), re-exporting the names the earlier pass already
-  used, plus `MetricCondition`, `StepObligation`, and
-  `Gate.metric_conditions` per `tasks.md` 4.1-4.2.
-- `MetricCondition(metric_id, threshold)` with attributes `metric_id` and
-  `threshold` — `proposal.md` writes the constructor exactly so; the spec
-  calls the second element a "threshold description", so
-  `threshold_description` is the recorded alternative spelling.
+  used, plus `StepObligation`.
 - `StepObligation(step_id)` with attribute `step_id`, per `proposal.md`.
+  Since `replace-metric-conditions-with-steps` it is the *only* kind of
+  gate condition: a gate carries no authored conditions of its own, so
+  the tests that read them back retired with the type.
 - `LaunchPlaybook.conditions_for_gate(gate_id)` returning an iterable of
   `GateCondition`, per `tasks.md` 4.2; "each identifiable as its kind" is
   read as an `isinstance` check against the two condition types.
@@ -43,7 +41,6 @@ from commerce_ops.launch.domain.launch_playbook import (
     GateOpening,
     Hazard,
     LaunchPlaybook,
-    MetricCondition,
     OffsetAnchor,
     Scope,
     StepDefinition,
@@ -52,7 +49,6 @@ from commerce_ops.launch.domain.launch_playbook import (
     StepStatus,
 )
 from commerce_ops.shared.domain.discipline import Discipline
-from commerce_ops.shared.domain.identity import MetricId
 
 # SPECIFIED (main spec, unchanged): the eight gates, in this order.
 SPECIFIED_GATE_ORDER: Final = (
@@ -88,38 +84,22 @@ def _opening_for(identifier: str) -> GateOpening:
     return GateOpening.AUTOMATIC
 
 
-def specified_gates(
-    metric_conditions: dict[str, tuple[MetricCondition, ...]] | None = None,
-) -> tuple[Gate, ...]:
-    """The eight gates in the specified order, optionally carrying authored
-    metric conditions on named gates.
+def specified_gates() -> tuple[Gate, ...]:
+    """The eight gates in the specified order.
 
-    DERIVED: `metric_conditions` as a keyword on `Gate` defaulting to
-    empty, per `tasks.md` 4.1 ("give `Gate` an authored `metric_conditions`
-    tuple defaulting to empty"). Gates not named in the mapping are built
-    without the keyword at all, so the default itself is exercised.
+    A gate carries its identifier, position and opening mode and nothing
+    else — `replace-metric-conditions-with-steps` removed the authored
+    metric conditions it used to carry, so there is no longer anything to
+    author onto one.
     """
-    authored = metric_conditions or {}
-    gates = []
-    for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1):
-        if identifier in authored:
-            gates.append(
-                Gate(
-                    identifier=identifier,
-                    position=position,
-                    opening=_opening_for(identifier),
-                    metric_conditions=authored[identifier],
-                )
-            )
-        else:
-            gates.append(
-                Gate(
-                    identifier=identifier,
-                    position=position,
-                    opening=_opening_for(identifier),
-                )
-            )
-    return tuple(gates)
+    return tuple(
+        Gate(
+            identifier=identifier,
+            position=position,
+            opening=_opening_for(identifier),
+        )
+        for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1)
+    )
 
 
 def _step(**overrides: Any) -> StepDefinition:
@@ -187,68 +167,6 @@ STOCK_THRESHOLD: Final = "60-80 fulfillable units, excluding Vine"
 # ---------------------------------------------------------------------------
 
 
-def test_a_gates_metric_conditions_are_read_back() -> None:
-    """Scenario: A gate's metric conditions are read back.
-
-    WHEN a gate authored with a metric condition is read from a loaded
-    playbook
-    THEN the condition reports its metric identifier and its threshold
-    description.
-    """
-    condition = MetricCondition(MetricId("units-fulfillable"), STOCK_THRESHOLD)
-    playbook = _playbook(
-        gates=specified_gates({"stock-ready": (condition,)}),
-    )
-
-    gates = {gate.identifier: gate for gate in playbook.gates}
-    (read_back,) = gates["stock-ready"].metric_conditions
-
-    # SPECIFIED: the condition reports its metric identifier and its
-    # threshold description.
-    assert read_back.metric_id == MetricId("units-fulfillable")
-    assert read_back.threshold == STOCK_THRESHOLD
-
-
-def test_a_gate_with_no_metric_conditions_is_valid() -> None:
-    """Scenario: A gate with no metric conditions is valid.
-
-    WHEN a gate authored with no metric conditions is read
-    THEN it reports an empty set of metric conditions.
-    """
-    playbook = _playbook()
-
-    for gate in playbook.gates:
-        # SPECIFIED: zero authored conditions is valid, and reads back as
-        # an empty collection — not as an error and not as an absent
-        # attribute.
-        assert list(gate.metric_conditions) == []
-
-
-def test_a_gate_may_carry_more_than_one_metric_condition() -> None:
-    """Requirement statement: "zero or more authored metric conditions".
-
-    DERIVED from the requirement statement rather than a named scenario:
-    the two scenarios cover one and zero; "or more" is the remaining
-    clause, without which an implementation capping conditions at one
-    would pass both.
-    """
-    conditions = (
-        MetricCondition(MetricId("sales-velocity"), "~10 units/day sustained"),
-        MetricCondition(MetricId("organic-share"), "organic share above 40%"),
-    )
-    playbook = _playbook(
-        gates=specified_gates({"phase-one-complete": conditions}),
-    )
-
-    gates = {gate.identifier: gate for gate in playbook.gates}
-    assert len(gates["phase-one-complete"].metric_conditions) == 2
-
-
-# ---------------------------------------------------------------------------
-# Requirement: Gate conditions unify step obligations and metric conditions
-# ---------------------------------------------------------------------------
-
-
 def test_a_blocking_step_appears_as_a_step_obligation() -> None:
     """Scenario: A blocking step appears as a step obligation.
 
@@ -299,54 +217,22 @@ def test_a_non_blocking_step_produces_no_condition() -> None:
     assert len(conditions) == 1
 
 
-def test_authored_metric_conditions_appear_alongside_derived_obligations() -> None:
-    """Scenario: Authored metric conditions appear alongside derived
-    obligations.
-
-    WHEN a gate has both a blocking step attached and an authored metric
-    condition
-    THEN reading its conditions returns both, each identifiable as its
-    kind.
-    """
-    condition = MetricCondition(MetricId("units-fulfillable"), STOCK_THRESHOLD)
-    step = _step(
-        identifier="inventory.stock-checked-in",
-        gate="stock-ready",
-        blocking=True,
-    )
-    playbook = _playbook(
-        gates=specified_gates({"stock-ready": (condition,)}),
-        steps=(step,),
-    )
-
-    conditions = list(playbook.conditions_for_gate("stock-ready"))
-
-    # SPECIFIED: both kinds are returned, each identifiable as its kind.
-    obligations = [c for c in conditions if isinstance(c, StepObligation)]
-    metrics = [c for c in conditions if isinstance(c, MetricCondition)]
-    assert len(conditions) == 2
-    assert [o.step_id for o in obligations] == ["inventory.stock-checked-in"]
-    assert [m.metric_id for m in metrics] == [MetricId("units-fulfillable")]
-
-
 def test_conditions_are_scoped_to_the_asked_gate() -> None:
     """Requirement statement: obligations are derived from "the blocking
     step definitions attached to the gate".
 
     DERIVED from the requirement statement rather than a named scenario:
     a blocking step at one gate must not surface as a condition of
-    another, and an authored condition on one gate must not surface on
     another — without this, `conditions_for_gate` returning every
-    condition in the playbook would pass the three scenarios above.
+    condition in the playbook would pass the scenarios above.
     """
-    condition = MetricCondition(MetricId("units-fulfillable"), STOCK_THRESHOLD)
     listable_step = _step(
         identifier="listing.a-plus-content",
         gate="listable",
         blocking=True,
     )
     playbook = _playbook(
-        gates=specified_gates({"stock-ready": (condition,)}),
+        gates=specified_gates(),
         steps=(listable_step,),
     )
 
@@ -354,7 +240,7 @@ def test_conditions_are_scoped_to_the_asked_gate() -> None:
     listable_conditions = list(playbook.conditions_for_gate("listable"))
 
     # `live` carries exactly its holding filler's obligation — never the
-    # listable step's obligation or the stock-ready metric condition.
+    # listable step's obligation.
     assert [c.step_id for c in live_conditions if isinstance(c, StepObligation)] == [
         "hold.live"
     ]

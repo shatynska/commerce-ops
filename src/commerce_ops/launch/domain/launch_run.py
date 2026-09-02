@@ -13,9 +13,9 @@ The rules here are the launch process itself, readable in one place:
   backwards — `advance_gate` takes no target, so no other move exists.
 - A gate opens only when every blocking condition attached to it is
   satisfied: every blocking step has reached a permitted terminal outcome
-  (`Satisfied` or `NotApplicable`), and every authored metric condition
-  has a recorded human attestation (until live evaluation exists,
-  domain-map slice 7). A `Refused` outcome never satisfies anything.
+  (`Satisfied` or `NotApplicable`). That is the whole of it — a gate
+  waits on its blocking steps and on nothing else. A `Refused` outcome
+  never satisfies anything.
 - A `requires-confirmation` gate additionally requires a recorded
   approval whose decision is approving; a rejecting decision is recorded
   but keeps the gate closed.
@@ -44,7 +44,7 @@ Blocked(reason)`` both read the way the rule is stated.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date, datetime
 from enum import Enum
@@ -57,23 +57,26 @@ from commerce_ops.launch.domain.launch_playbook import (
     Hazard,
     InProgress,
     LaunchPlaybook,
-    MetricCondition,
     NotApplicable,
     NotStarted,
     Refused,
     Satisfied,
     StepDefinition,
-    StepObligation,
     StepOutcome,
     StepStatus,
     gate_position,
     permissible_terminal_outcomes,
     start_position_of,
 )
-from commerce_ops.shared.domain.identity import MetricId, ProductId
+from commerce_ops.shared.domain.identity import ProductId
 from commerce_ops.shared.domain.lifecycle_stage import Posture
 
-PROVENANCE_SOURCES: tuple[str, ...] = ("clickup", "automated", "attestation")
+PROVENANCE_SOURCES: tuple[str, ...] = ("clickup", "automated")
+"""Where a recorded outcome came from — the channel it arrived through,
+never the significance of the step it resolved. `attestation` retired with
+the metric conditions it existed for: a step establishing a metric is
+completed in ClickUp or by a handler like any other, and records the
+source that recorded it."""
 
 StepOutcomeValue = (
     StepOutcome | type[NotStarted] | type[InProgress] | type[Satisfied] | type[Refused]
@@ -148,25 +151,6 @@ class GateApproval:
     def __post_init__(self) -> None:
         if not self.approver:
             raise ValueError("a gate approval requires a named approver")
-
-
-@dataclass(frozen=True, slots=True)
-class MetricAttestation:
-    """A human's recorded satisfaction of a gate's authored metric
-    condition, with evidence — the interim satisfaction path until live
-    evaluation exists (domain-map slice 7)."""
-
-    gate_id: str
-    metric_id: MetricId
-    attester: str
-    when: datetime
-    evidence: str
-
-    def __post_init__(self) -> None:
-        if not self.attester:
-            raise ValueError("a metric attestation requires a named attester")
-        if not self.evidence:
-            raise ValueError("a metric attestation requires evidence")
 
 
 # ---------------------------------------------------------------------------
@@ -297,7 +281,6 @@ class Launch:
         launch_date: date | None,
         step_progress: Mapping[str, StepProgress] | None = None,
         approvals: Mapping[str, GateApproval] | None = None,
-        attestations: Iterable[MetricAttestation] = (),
         submitter: str | None = None,
         slack_thread_id: str | None = None,
     ) -> None:
@@ -311,7 +294,6 @@ class Launch:
         self.launch_date = launch_date
         self._step_progress: dict[str, StepProgress] = dict(step_progress or {})
         self._approvals: dict[str, GateApproval] = dict(approvals or {})
-        self._attestations: list[MetricAttestation] = list(attestations)
         self._graduated = False
         self.submitter = submitter
         self._slack_thread_id = slack_thread_id
@@ -346,10 +328,6 @@ class Launch:
 
     def approval_for(self, gate_id: str) -> GateApproval | None:
         return self._approvals.get(gate_id)
-
-    @property
-    def attestations(self) -> tuple[MetricAttestation, ...]:
-        return tuple(self._attestations)
 
     @property
     def recorded_step_ids(self) -> tuple[str, ...]:
@@ -405,25 +383,6 @@ class Launch:
             return (StepSatisfied(product_id=self.product_id, step_id=step_id),)
         if kind is Refused:
             return (StepRefused(product_id=self.product_id, step_id=step_id),)
-        return ()
-
-    def record_metric_attestation(
-        self, playbook: LaunchPlaybook, attestation: MetricAttestation
-    ) -> tuple[LaunchEvent, ...]:
-        """Record a human's satisfaction of a metric condition the pinned
-        playbook authors on the named gate; any other (gate, metric)
-        pairing is rejected."""
-        authored = any(
-            condition.metric_id == attestation.metric_id
-            for condition in self._authored_conditions(playbook, attestation.gate_id)
-        )
-        if not authored:
-            raise LaunchError(
-                f"the pinned playbook does not author metric condition "
-                f"'{attestation.metric_id.value}' on gate "
-                f"'{attestation.gate_id}'"
-            )
-        self._attestations.append(attestation)
         return ()
 
     def approve_gate(
@@ -617,16 +576,6 @@ class Launch:
             f"no step '{step_id}'"
         )
 
-    def _authored_conditions(
-        self, playbook: LaunchPlaybook, gate_id: str
-    ) -> tuple[MetricCondition, ...]:
-        return tuple(
-            condition
-            for gate in playbook.gates
-            if gate.identifier == gate_id
-            for condition in gate.metric_conditions
-        )
-
     def unsatisfied_conditions(self, playbook: LaunchPlaybook) -> list[str]:
         """Names of the current gate's unsatisfied conditions, the missing
         approval included — empty exactly when the gate may open.
@@ -643,7 +592,7 @@ class Launch:
         could disagree is the one place it matters.
 
         A read: it inspects nothing a caller could not already reach
-        through the recorded outcomes, attestations and approvals, and it
+        through the recorded outcomes and approvals, and it
         changes nothing."""
         unsatisfied = self._unsatisfied_gate_conditions(playbook)
 
@@ -664,24 +613,13 @@ class Launch:
         """
         unsatisfied: list[str] = []
         for condition in playbook.conditions_for_gate(self.current_gate):
-            if isinstance(condition, StepObligation):
-                progress = self._step_progress.get(condition.step_id)
-                resolved = progress is not None and _outcome_type(progress.outcome) in (
-                    Satisfied,
-                    NotApplicable,
-                )
-                if not resolved:
-                    unsatisfied.append(f"blocking step '{condition.step_id}'")
-            else:
-                attested = any(
-                    attestation.gate_id == self.current_gate
-                    and attestation.metric_id == condition.metric_id
-                    for attestation in self._attestations
-                )
-                if not attested:
-                    unsatisfied.append(
-                        f"metric condition '{condition.metric_id.value}'"
-                    )
+            progress = self._step_progress.get(condition.step_id)
+            resolved = progress is not None and _outcome_type(progress.outcome) in (
+                Satisfied,
+                NotApplicable,
+            )
+            if not resolved:
+                unsatisfied.append(f"blocking step '{condition.step_id}'")
         return unsatisfied
 
     def _requires_confirmation(self, playbook: LaunchPlaybook) -> bool:
@@ -723,7 +661,7 @@ class Launch:
         This governs what the system **asks for** — the projection into a
         task tracker and the invocation of a handler — and never what it
         accepts or evaluates. Recording an outcome is outside it: work a
-        person completed early is work done. Gate opening is outside it
+        member completed early is work done. Gate opening is outside it
         too, and that one matters more: `unsatisfied_conditions` turns on
         recorded outcomes alone, and gating a blocking condition on
         release would open a gate over work that had merely not been asked

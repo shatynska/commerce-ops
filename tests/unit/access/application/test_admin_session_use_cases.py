@@ -83,8 +83,8 @@ from typing import Any, Final
 import pytest
 
 from commerce_ops.access.application import (
-    Person,
-    PersonRecord,
+    Member,
+    MemberRecord,
     exchange_link_token,
     mint_admin_link,
     verify_admin_session,
@@ -115,8 +115,8 @@ def anyio_backend() -> str:
 # ---------------------------------------------------------------------------
 
 
-class _FakeRosterStore:
-    """The roster these tests mint and verify against.
+class _FakeMembersStore:
+    """The membership these tests mint and verify against.
 
     Adapted from a YAML directory by `move-principals-to-roster`: the
     requirements exercised below — single-use tokens and bounded
@@ -124,27 +124,27 @@ class _FakeRosterStore:
     read admin capability from moved.
     """
 
-    def __init__(self, people: tuple[Person, ...]) -> None:
-        self.rows = tuple(PersonRecord(person=person) for person in people)
+    def __init__(self, members: tuple[Member, ...]) -> None:
+        self.rows = tuple(MemberRecord(member=member) for member in members)
 
     async def load(self) -> tuple[tuple[Any, ...], int]:
         return self.rows, 1
 
     async def save(self, rows: Any, *, expected_version: int) -> None:
-        raise AssertionError("these tests never write to the roster")
+        raise AssertionError("these tests never write to the membership")
 
 
-def _roster_with_admin() -> _FakeRosterStore:
-    return _FakeRosterStore(
+def _members_with_admin() -> _FakeMembersStore:
+    return _FakeMembersStore(
         (
-            Person(
-                identifier="person-admin",
+            Member(
+                identifier="member-admin",
                 display_name="Alice Admin",
                 slack_identity=ADMIN_IDENTITY,
                 admin=True,
             ),
-            Person(
-                identifier="person-member",
+            Member(
+                identifier="member-member",
                 display_name="Bob Member",
                 slack_identity=VISIBILITY_ONLY_IDENTITY,
             ),
@@ -257,7 +257,7 @@ async def test_a_token_exchanges_once_for_a_bounded_session() -> None:
     AND (requirement *A browser session is bounded ...*) the stored
     session expires no more than twelve hours after it was established.
     """
-    directory = _roster_with_admin()
+    directory = _members_with_admin()
     tokens = _FakeLinkTokens()
     sessions = _FakeAdminSessions()
     link = await _mint(directory, tokens, ADMIN_IDENTITY)
@@ -287,7 +287,7 @@ async def test_a_spent_token_is_refused_like_one_that_never_existed() -> None:
     that does not exist") is route-level, in
     `test_admin_link_exchange_route.py`.
     """
-    directory = _roster_with_admin()
+    directory = _members_with_admin()
     tokens = _FakeLinkTokens()
     sessions = _FakeAdminSessions()
     link = await _mint(directory, tokens, ADMIN_IDENTITY)
@@ -315,7 +315,7 @@ async def test_an_expired_token_is_refused_identically() -> None:
     THEN the exchange refuses it with the same outcome as the spent and
     never-minted cases, and establishes no session.
     """
-    directory = _roster_with_admin()
+    directory = _members_with_admin()
     tokens = _FakeLinkTokens()
     sessions = _FakeAdminSessions()
     link = await _mint(directory, tokens, ADMIN_IDENTITY)
@@ -346,7 +346,7 @@ async def test_a_session_outlives_its_lifetime_and_stops_working() -> None:
 
     The response-shape half is in `test_playbook_admin_page.py`.
     """
-    directory = _roster_with_admin()
+    directory = _members_with_admin()
     tokens = _FakeLinkTokens()
     sessions = _FakeAdminSessions()
     link = await _mint(directory, tokens, ADMIN_IDENTITY)

@@ -124,7 +124,6 @@ from commerce_ops.launch.domain.launch_playbook import (
     GateOpening,
     Hazard,
     LaunchPlaybook,
-    MetricCondition,
     OffsetAnchor,
     Satisfied,
     Scope,
@@ -136,7 +135,6 @@ from commerce_ops.launch.domain.launch_run import (
     ApprovalDecision,
     GateApproval,
     Launch,
-    MetricAttestation,
     Provenance,
 )
 from commerce_ops.shared.domain.discipline import Discipline
@@ -224,11 +222,6 @@ def _gates() -> tuple[Gate, ...]:
             identifier=identifier,
             position=position,
             opening=_opening_for(identifier),
-            metric_conditions=(
-                (MetricCondition(STOCK_METRIC, STOCK_THRESHOLD),)
-                if identifier == "stock-ready"
-                else ()
-            ),
         )
         for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1)
     )
@@ -276,17 +269,6 @@ def _satisfy_everything(launch: Launch, playbook: LaunchPlaybook) -> None:
                 outcome=Satisfied,
                 provenance=_provenance(),
             )
-    if launch.current_gate == "stock-ready":
-        launch.record_metric_attestation(
-            playbook,
-            MetricAttestation(
-                gate_id="stock-ready",
-                metric_id=STOCK_METRIC,
-                attester="Mira",
-                when=NOW,
-                evidence="72 fulfillable units confirmed in Seller Central",
-            ),
-        )
     if launch.current_gate in CONFIRMATION_GATES:
         launch.approve_gate(
             launch.current_gate,
