@@ -1,9 +1,10 @@
 # Proposed change order
 
 **Status: working queue.** Eight changes were proposed on 2026-09-01 from a
-review of the work merged between 2026-08-28 and 2026-09-01. **Six remain.**
-`restore-the-skipped-unit-tests` was implemented and archived on 2026-09-01,
-and `await-the-subcategory-advisors-graph` on 2026-09-02; both entries were
+review of the work merged between 2026-08-28 and 2026-09-01. **Five remain.**
+`restore-the-skipped-unit-tests` and `fix-launch-thread-mentions` were
+implemented and archived on 2026-09-01, and
+`await-the-subcategory-advisors-graph` on 2026-09-02; all three entries were
 deleted, per the rule below. The rest exist as a `proposal.md`
 on their own branch and are unimplemented — except where one is in flight,
 which this file does not track, since a queue that also tracked progress
@@ -34,28 +35,7 @@ before any code is applied.
 
 ---
 
-## 1. `fix-launch-thread-mentions`
-
-Three live defects shipped by `thread-launch-slack-notifications`:
-
-- `resolve_mention_target` returns `step.confirmer` — a roster identifier,
-  generated as a `uuid4` — where every caller interpolates it as `<@…>`.
-  Pending-result asks and stuck-step reports therefore notify nobody. It must
-  resolve through the roster to `Person.slack_identity`. The gate ask is
-  unaffected: it passes `step=None` and falls through to `launch.submitter`,
-  which genuinely is a Slack identity.
-- `str(product_id)` renders `ProductId(value='…')` into the thread anchor
-  (`automation_confirmation.py:166`, `automation_pass.py:595`), and
-  `launch-instance` requires the anchor never to be re-posted — so it is
-  permanent.
-- A started launch's confirmation is now thread-only, inside a swallowing
-  `except`. A thread failure leaves the submitter told nothing, while the
-  *failure* path still always reaches them.
-
-**First**, because it is the only item on this list where the harm is
-happening now.
-
-## 2. `inject-the-thread-anchor-poster`
+## 1. `inject-the-thread-anchor-poster`
 
 `launch/application/thread_establishment.py` builds its own
 `slack_sdk.AsyncWebClient`, reads a credential from the environment, and
@@ -65,7 +45,7 @@ reason. `import-linter` passes because its contracts govern edges inside
 `commerce_ops`, not third-party imports. Also moves anchor composition out of
 the four call sites that each assemble it from whatever they happen to hold.
 
-**Second**, and its stated reason has changed. It was written as retiring "the
+**First**, and its stated reason has changed. It was written as retiring "the
 last 2 skips" left by `restore-the-skipped-unit-tests`; that change left none,
 and none of the 44 was database-bound in the first place. What it retires
 instead is the three seams that change had to work around and could not
@@ -75,7 +55,7 @@ test: `launch_thread_delivery`'s own `transaction()`,
 `launches_channel`'s direct `os.environ` read. It still removes the *class* of
 defect that `fix-launch-thread-mentions` patched instance by instance.
 
-## 3. `defer-eager-clickup-convergence`
+## 2. `defer-eager-clickup-convergence`
 
 `converge_launch_eagerly` holds a database connection open across the entire
 ClickUp conversation — and `retry-clickup-rate-limits` adds up to ~30 s of
@@ -89,7 +69,7 @@ trigger blocks into one.
 and whether its runs belong in `scheduled-jobs`' freshness history at all.
 Worth `/openspec-explore` before `design.md`.
 
-## 4. `unify-launch-adapter-dependencies`
+## 3. `unify-launch-adapter-dependencies`
 
 One dependencies object per process, replacing 11 mutable module globals, 5
 verbatim copies of `_launch_folder_id`, and 6 of `_read_product_or_fail`
@@ -100,7 +80,7 @@ those globals outright by moving convergence off the four request-path
 adapters. Re-scope it on arrival rather
 than executing it as written.
 
-## 5. `unify-the-launch-advisory-locks`
+## 4. `unify-the-launch-advisory-locks`
 
 `launch_advisory_lock.py` and `launch_thread_lock.py` are the same module
 twice, differing in one constant — and the load-bearing docstring is already
@@ -111,7 +91,7 @@ so "these must not collide" is checkable by reading four lines.
 `defer-eager-clickup-convergence`, which changes how long the advance lock is
 held and by which process.
 
-## 6. `share-the-unit-test-harness`
+## 5. `share-the-unit-test-harness`
 
 162,335 lines of tests against 23,629 of source, across 272 test files and
 **four** `conftest.py` files. Eleven separate `_FakeSession` classes. This is

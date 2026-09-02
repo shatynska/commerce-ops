@@ -884,6 +884,64 @@ inconsistency is not rediscovered as a defect and "fixed".
 The generalisable part is the convention: a revision id comes from
 `alembic revision`, never from typing one out.
 
+### The stuck-step report cannot reach the notifier the worker injects
+
+Found 2026-09-02 while writing `inject-the-thread-anchor-poster`'s design,
+and **not** folded into it: it is a live defect in a neighbouring path, not
+part of that change's scope.
+
+`automation_pass._report_stuck_step` posts through the module's injected
+notifier with three keyword arguments (`automation_pass.py:656`):
+
+```python
+await notifier.post_monitoring_message(
+    channel=launches_channel(), text=mention_tag + message, thread_ts=thread_ts
+)
+```
+
+The notifier `worker.py:83` injects is **`briefing`'s**, not `launch`'s
+(`worker.py:40` imports `slack_notifier` from
+`commerce_ops.briefing.infrastructure.driven`), and its signature is
+`post_monitoring_message(message: str) -> None`. The call cannot bind:
+
+```
+>>> inspect.signature(briefing_notifier.post_monitoring_message).bind(
+...     channel="C1", text="hi", thread_ts="1.2")
+TypeError: missing a required argument: 'message'
+```
+
+So every stuck-step report raises `TypeError`, is swallowed by
+`_report_stuck_step`'s own `except Exception` into a warning
+(`automation_pass.py:661-670`), nothing is stamped as reported, and the next
+pass tries again and fails the same way. A step that has stopped making
+progress is never reported to anybody — the same shape as the mention defect
+`fix-launch-thread-mentions` corrected, and by the same mechanism: a
+delivery fault inside a swallowing `except`.
+
+**Why `mypy --strict` does not catch it.** The module global is typed
+(`notifier: MonitoringNotifier | None`, `:142`), but `_report_stuck_step`
+re-declares its own parameter as `notifier: Any` (`:595`), and the pass
+threads it through three more `notifier: Any` signatures before the call.
+The one annotation that would have caught it is erased at the first hop.
+
+**Why the tests do not catch it.** They substitute a double that accepts the
+keyword form, so they assert the call the code makes rather than the call
+the injected collaborator accepts — the tolerance *Production code carries
+tolerances for incomplete test doubles* above describes, arriving as a
+missed defect rather than as a missed field.
+
+Two candidate fixes, and the choice is a real one: inject `launch`'s own
+notifier here (it has the channel-taking signature the call already assumes,
+and the launches channel is where a threaded report belongs), or narrow
+`_report_stuck_step`'s `notifier: Any` to the port whose shape it actually
+requires so the mismatch is a type error rather than a runtime one. The
+second is the one that stops the next instance; the first is the one that
+makes today's report arrive. Probably both.
+
+**Worth its own change**, sequenced ahead of the tidy-ups in
+`docs/proposed-change-order.md`: like `fix-launch-thread-mentions`, the harm
+is happening now.
+
 ### Three seams a unit test has to work around, measured
 
 `restore-the-skipped-unit-tests` (2026-09-01) restored 44 tests that had been
