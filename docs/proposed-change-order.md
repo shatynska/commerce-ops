@@ -1,10 +1,13 @@
 # Proposed change order
 
 **Status: working queue.** Eight changes were proposed on 2026-09-01 from a
-review of the work merged between 2026-08-28 and 2026-09-01. **Seven remain**;
-`restore-the-skipped-unit-tests` was implemented and archived on 2026-09-01
-and its entry deleted, per the rule below. The rest exist as a `proposal.md`
-on their own branch and are unimplemented. This document records the order
+review of the work merged between 2026-08-28 and 2026-09-01. **Six remain.**
+`restore-the-skipped-unit-tests` was implemented and archived on 2026-09-01,
+and `await-the-subcategory-advisors-graph` on 2026-09-02; both entries were
+deleted, per the rule below. The rest exist as a `proposal.md`
+on their own branch and are unimplemented — except where one is in flight,
+which this file does not track, since a queue that also tracked progress
+would need updating twice. This document records the order
 they should be worked in and the dependencies between them, because that
 ordering is a real constraint and it lives nowhere else — a proposal states
 its own sequencing notes, but nothing reads all of them together.
@@ -72,19 +75,7 @@ test: `launch_thread_delivery`'s own `transaction()`,
 `launches_channel`'s direct `os.environ` read. It still removes the *class* of
 defect that `fix-launch-thread-mentions` patched instance by instance.
 
-## 3. `await-the-subcategory-advisors-graph`
-
-`advise_sub_category` is `async def`, and calls LangGraph's **synchronous**
-`invoke` underneath — so the only shipped handler blocks the worker's event
-loop for the whole OpenAI round-trip. Adds the obligation to
-`launch-step-automation` so the next handler cannot reintroduce it, since the
-`StepHandler` type cannot express it and `ruff`'s `ASYNC` rules do not catch
-it.
-
-**Third**, but genuinely order-independent — it touches nothing the others
-touch. Move it earlier if a small, self-contained one is wanted.
-
-## 4. `defer-eager-clickup-convergence`
+## 3. `defer-eager-clickup-convergence`
 
 `converge_launch_eagerly` holds a database connection open across the entire
 ClickUp conversation — and `retry-clickup-rate-limits` adds up to ~30 s of
@@ -98,7 +89,7 @@ trigger blocks into one.
 and whether its runs belong in `scheduled-jobs`' freshness history at all.
 Worth `/openspec-explore` before `design.md`.
 
-## 5. `unify-launch-adapter-dependencies`
+## 4. `unify-launch-adapter-dependencies`
 
 One dependencies object per process, replacing 11 mutable module globals, 5
 verbatim copies of `_launch_folder_id`, and 6 of `_read_product_or_fail`
@@ -109,7 +100,7 @@ those globals outright by moving convergence off the four request-path
 adapters. Re-scope it on arrival rather
 than executing it as written.
 
-## 6. `unify-the-launch-advisory-locks`
+## 5. `unify-the-launch-advisory-locks`
 
 `launch_advisory_lock.py` and `launch_thread_lock.py` are the same module
 twice, differing in one constant — and the load-bearing docstring is already
@@ -120,7 +111,7 @@ so "these must not collide" is checkable by reading four lines.
 `defer-eager-clickup-convergence`, which changes how long the advance lock is
 held and by which process.
 
-## 7. `share-the-unit-test-harness`
+## 6. `share-the-unit-test-harness`
 
 162,335 lines of tests against 23,629 of source, across 272 test files and
 **four** `conftest.py` files. Eleven separate `_FakeSession` classes. This is
