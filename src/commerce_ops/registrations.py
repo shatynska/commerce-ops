@@ -62,6 +62,9 @@ from commerce_ops.shared.infrastructure.driving import (
 from commerce_ops.step_handlers.listing import (
     subcategory_advisor as _subcategory_advisor,
 )
+from commerce_ops.step_handlers.strategy import (
+    compliance_screen as _compliance_screen,
+)
 
 __all__ = ["HANDLER_MODULES", "JOB_MODULES", "register_all"]
 
@@ -74,7 +77,7 @@ JOB_MODULES: tuple[ModuleType, ...] = (
 )
 
 
-HANDLER_MODULES: tuple[ModuleType, ...] = (_subcategory_advisor,)
+HANDLER_MODULES: tuple[ModuleType, ...] = (_subcategory_advisor, _compliance_screen)
 
 
 def register_all() -> None:
