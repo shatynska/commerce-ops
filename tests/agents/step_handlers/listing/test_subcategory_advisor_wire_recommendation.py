@@ -125,8 +125,18 @@ class _ScriptedWireRunnable:
         }
 
     def invoke(self, input_: Any, *args: Any, **kwargs: Any) -> dict[str, Any]:
-        self.received.append(input_)
-        return self._answer()
+        # `tasks.md` 2.5 / `design.md` Decision 2's model-level guard.
+        # Both entry points are real on a structured-output runnable, so a
+        # `recommend` body reverted to `structured.invoke(...)` inside an
+        # `async def` would work, pin the invoking loop for the whole
+        # round-trip, and pass every assertion in this file about what the
+        # advisor produces. It fails here instead, naming the mistake.
+        raise AssertionError(
+            "the advisor reached the model through the model's synchronous "
+            "`invoke(...)` entry point instead of awaiting `ainvoke(...)` — "
+            "the enclosing coroutine then never yields, and the invoking "
+            "loop is pinned for the whole of the round-trip"
+        )
 
     async def ainvoke(self, input_: Any, *args: Any, **kwargs: Any) -> dict[str, Any]:
         self.received.append(input_)
@@ -187,14 +197,22 @@ class _ScriptedWireChatModel(BaseChatModel):
 
 
 @pytest.fixture(scope="module")
-def wire_schema() -> Any:
+async def wire_schema() -> Any:
     model = _ScriptedWireChatModel(None)
     graph = advisor_graph.build_graph(model)
     if not model.schemas:
         try:
-            advisor_graph.propose(
+            await advisor_graph.propose(
                 product_name=PRODUCT_NAME, marketplace=MARKETPLACE, graph=graph
             )
+        except AssertionError:
+            # Never swallowed. An `AssertionError` out of `propose()` here
+            # came from this file's own fakes, so it reports that the
+            # advisor reached the model by a path this file forbids. The
+            # schema is recorded before the model is called, so the
+            # `schemas`-empty condition below never held for one of these
+            # and swallowed every guard.
+            raise
         except Exception as failure:
             if not model.schemas:
                 raise AssertionError(
@@ -218,7 +236,7 @@ def _wire(
         )
 
 
-def _propose(
+async def _propose(
     schema: Any,
     *,
     ok: bool,
@@ -230,7 +248,7 @@ def _propose(
         _wire(schema, ok=ok, value=value, error=error, comment=comment)
     )
     graph = advisor_graph.build_graph(model)
-    proposal = advisor_graph.propose(
+    proposal = await advisor_graph.propose(
         product_name=PRODUCT_NAME, marketplace=MARKETPLACE, graph=graph
     )
     return proposal, model
@@ -264,7 +282,8 @@ def _finding_of(proposal: Any) -> Any:
 # ---------------------------------------------------------------------------
 
 
-def test_a_recommendation_names_node_demands_and_alternative(
+@pytest.mark.anyio
+async def test_a_recommendation_names_node_demands_and_alternative(
     wire_schema: Any,
 ) -> None:
     """WHEN the advisor is given a product name and a marketplace
@@ -279,7 +298,7 @@ def test_a_recommendation_names_node_demands_and_alternative(
     all three parts, and that a supported response's rendered text carries
     the node and the comment whole.
     """
-    proposal, model = _propose(wire_schema, ok=True, value=NODE, error=None)
+    proposal, model = await _propose(wire_schema, ok=True, value=NODE, error=None)
 
     # SPECIFIED: both inputs reach the model.
     assert model.prompt, "the advisor invoked no model"
@@ -305,11 +324,12 @@ def test_a_recommendation_names_node_demands_and_alternative(
 # ---------------------------------------------------------------------------
 
 
-def test_a_recommendation_is_readable_as_it_stands(wire_schema: Any) -> None:
+@pytest.mark.anyio
+async def test_a_recommendation_is_readable_as_it_stands(wire_schema: Any) -> None:
     """WHEN a recommendation is returned THEN the rendered text is
     readable by a person without further processing.
     """
-    proposal, _ = _propose(wire_schema, ok=True, value=NODE, error=None)
+    proposal, _ = await _propose(wire_schema, ok=True, value=NODE, error=None)
 
     text = _text_of(proposal)
     assert isinstance(text, str)
@@ -329,7 +349,8 @@ def test_a_recommendation_is_readable_as_it_stands(wire_schema: Any) -> None:
 @pytest.mark.parametrize(
     "comment", [pytest.param("", id="empty-string"), pytest.param(None, id="none")]
 )
-def test_a_supported_comment_cannot_be_empty(
+@pytest.mark.anyio
+async def test_a_supported_comment_cannot_be_empty(
     wire_schema: Any, comment: str | None
 ) -> None:
     """WHEN the advisor's structured response is established as supported
@@ -343,7 +364,7 @@ def test_a_supported_comment_cannot_be_empty(
     route — a different scenario, covered in
     `test_subcategory_advisor_wire_conversion.py`.
     """
-    proposal, _ = _propose(
+    proposal, _ = await _propose(
         wire_schema, ok=True, value=NODE, error=None, comment=comment
     )
 
@@ -361,7 +382,8 @@ def test_a_supported_comment_cannot_be_empty(
 # ---------------------------------------------------------------------------
 
 
-def test_a_comments_content_is_never_checked_by_code(wire_schema: Any) -> None:
+@pytest.mark.anyio
+async def test_a_comments_content_is_never_checked_by_code(wire_schema: Any) -> None:
     """WHEN the advisor's structured response is established as supported
     with a non-empty comment THEN the advisor proposes the satisfying
     outcome whatever the comment's content is — including a comment that
@@ -369,7 +391,7 @@ def test_a_comments_content_is_never_checked_by_code(wire_schema: Any) -> None:
     asked for.
     """
     bare_comment = "ok, ship it"
-    proposal, _ = _propose(
+    proposal, _ = await _propose(
         wire_schema, ok=True, value=NODE, error=None, comment=bare_comment
     )
 

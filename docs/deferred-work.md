@@ -286,10 +286,59 @@ recommendation, and that `Satisfied` is proposed with a pending result
 delivered to Slack. All three are asserted in
 `tests/agents/step_handlers/listing/`, against stubs.
 
+**A fourth, added by `await-the-subcategory-advisors-graph` (2026-09-02):
+the async transport.** The advisor now reaches the model through
+`ainvoke` rather than `invoke`, and no live run has yet exercised that
+path either — the deployment holds no classifiable product, so the first
+real invocation exercises the supported branch *and* the awaited
+round-trip together, neither previously observed in production. The
+stubs answer `ainvoke` faithfully, but a stub is not an HTTP client:
+what is unobserved is the real `httpx` async path under `ChatOpenAI`,
+including how a timeout or a retry surfaces through it.
+
 **Trigger to close.** The first product registered with a name a model can
 classify — a real listing rather than a placeholder. Read the pass's result
 then: a pending result carrying a node path, its demands and a rejected
-alternative closes it.
+alternative closes it. Check the worker's own progress across that run
+too, not only the result: the point of the async conversion is that the
+pass's other work continued while the model was answering, and a run that
+produced a good recommendation while stalling everything else would look
+identical in the result alone.
+
+### No test can catch a blocking call added inside the advisor's async node
+
+`await-the-subcategory-advisors-graph` left the advisor with three guards
+against the loop-pinning defect it repaired, and established by mutation —
+each revert applied to the shipped code, the suite re-run — that a fourth
+shape defeats all three.
+
+| Reverted to | Caught by | Result |
+| --- | --- | --- |
+| `propose()` → `running.invoke(...)` | the graph's own `TypeError` | caught |
+| `recommend` body → `structured.invoke(...)` | the stubs' raising `invoke` | 106 failed |
+| `recommend` made synchronous | the refusal test, and the stubs' raising `invoke` | 3 failed |
+| a blocking call added *inside* an otherwise-correct async `recommend` | **nothing** | **117 passed** |
+
+The fourth passes because every guard's premise still holds: LangGraph has
+already yielded by the time the node body runs, so "other work progressed"
+is satisfied; the node is still a coroutine, so nothing raises; the
+dependency is still awaited on the invoking thread, so thread identity is
+satisfied. The mutated suite ran in 4.0s against 0.9s and nothing asserted
+on that, because a wall-clock assertion is what `AGENTS.md`'s determinism
+rule forbids this tier to carry.
+
+This is a limit of what a deterministic test can establish about a
+coroutine, not a gap a cleverer assertion closes — which is why
+`launch-step-automation`'s *A handler's waiting does not stop the process*
+places "which entry point a handler reached" at review rather than at
+runtime. Recorded so the next author reads the boundary rather than
+inferring from three green guards that there is none.
+
+**Trigger to close.** A mechanism that makes loop-blocking observable
+without wall-clock timing — `asyncio`'s debug mode and its slow-callback
+logging are the obvious candidate, and it would apply to every handler
+rather than to this one. Not attempted here: it is a test-harness
+capability, not a change to the advisor.
 
 ### The integration tier's local setup is per-clone, and fails open
 
@@ -584,6 +633,41 @@ without it not even the warning appears.
 **Trigger to close.** Someone asking why a task's dependencies are visible in
 this system and not in ClickUp; or the first launch where an author uses
 `after_steps` in earnest and wants the ordering where the work is done.
+
+### `omni_agent`'s graph node is synchronous, and reaches the model blockingly
+
+`omni_agent/application/graph.py`'s `call_model` node is a plain `def`
+calling `model.invoke(state["messages"])` — the shape the sub-category
+advisor was copied from, and the one
+`await-the-subcategory-advisors-graph` removed there in 2026-09.
+
+**It is not the same defect, and the difference is why this is an entry
+rather than a change.** Its caller already awaits: `use_cases.py:34` runs
+`await graph.ainvoke(...)`, and LangGraph hands a synchronous node to a
+worker thread when reached that way (measured, `langgraph` 1.2.11 — the
+node body observes a different `threading.get_ident()`). So the event
+loop is not pinned, which the advisor's was. What remains is a blocking
+client inside a graph whose library offers a native async path, costing a
+thread per invocation for work that is only waiting, and depending on an
+accommodation the framework makes rather than on the code asking for the
+right thing.
+
+`launch-step-automation`'s *A handler's waiting does not stop the process*
+does not reach it: `omni_agent` is not a step handler, and that
+requirement governs handlers. Its own capability, `omni-agent`, says
+nothing about transport. So nothing in the repository currently obliges
+this to change — which is the actual finding.
+
+The fix is the same two lines the advisor took: `call_model` becomes
+`async def`, `model.invoke` becomes `await model.ainvoke`. What makes it a
+change rather than a chore is that it makes that graph async-only too, so
+every caller and every test of it moves with it, and the question of
+whether the obligation should be stated somewhere `omni_agent` reads
+belongs with it.
+
+**Trigger to close.** Whenever `omni_agent` is next worked on for its own
+reasons, or when a second handler-like graph appears and the obligation
+needs a home broader than `launch-step-automation`.
 
 ### The step set's provenance is split across two files, one of which is stale
 

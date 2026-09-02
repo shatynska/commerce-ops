@@ -110,6 +110,11 @@ CREDENTIAL_VARIABLES: Final = (
 )
 
 
+@pytest.fixture(scope="module")
+def anyio_backend() -> str:
+    return "asyncio"
+
+
 # ---------------------------------------------------------------------------
 # A chat model that records the schema its structured-output seam is given
 # ---------------------------------------------------------------------------
@@ -135,8 +140,18 @@ class _CapturingRunnable:
         }
 
     def invoke(self, input_: Any, *args: Any, **kwargs: Any) -> dict[str, Any]:
-        self.received.append(input_)
-        return self._answer()
+        # `tasks.md` 2.5 / `design.md` Decision 2's model-level guard.
+        # Both entry points are real on a structured-output runnable, so a
+        # `recommend` body reverted to `structured.invoke(...)` inside an
+        # `async def` would work, pin the invoking loop for the whole
+        # round-trip, and pass every assertion in this file about what the
+        # advisor produces. It fails here instead, naming the mistake.
+        raise AssertionError(
+            "the advisor reached the model through the model's synchronous "
+            "`invoke(...)` entry point instead of awaiting `ainvoke(...)` — "
+            "the enclosing coroutine then never yields, and the invoking "
+            "loop is pinned for the whole of the round-trip"
+        )
 
     async def ainvoke(self, input_: Any, *args: Any, **kwargs: Any) -> dict[str, Any]:
         self.received.append(input_)
@@ -189,7 +204,7 @@ class _CapturingChatModel(BaseChatModel):
 # ---------------------------------------------------------------------------
 
 
-def _schemas_the_call_site_passed() -> list[Any]:
+async def _schemas_the_call_site_passed() -> list[Any]:
     """Every schema the advisor's own call site handed the model.
 
     Obtained from the call site — never by importing a module-level
@@ -202,9 +217,26 @@ def _schemas_the_call_site_passed() -> list[Any]:
     graph = advisor_graph.build_graph(model)
     if not model.schemas:
         try:
-            advisor_graph.propose(
+            await advisor_graph.propose(
                 product_name=PRODUCT_NAME, marketplace=MARKETPLACE, graph=graph
             )
+        except AssertionError:
+            # Never swallowed, whether or not a schema was captured. An
+            # `AssertionError` out of `propose()` here can only have come
+            # from this file's own fakes — `_generate`, `bind_tools` and
+            # the runnable's synchronous `invoke` are the three that raise
+            # one — so it reports that the advisor reached the model by a
+            # path this file exists to forbid.
+            #
+            # The distinction is load-bearing and was not obvious: the
+            # schema is recorded by `with_structured_output(...)`, which
+            # runs *before* the model is called, so `model.schemas` is
+            # already populated by the time any of those fire. Tolerating
+            # the exception on a non-empty `schemas` therefore swallowed
+            # every one of them, and the sync-`invoke` guard this change
+            # added was inert in this file while its own comment claimed
+            # it was not.
+            raise
         except Exception as failure:
             if not model.schemas:
                 raise AssertionError(
@@ -214,8 +246,8 @@ def _schemas_the_call_site_passed() -> list[Any]:
     return list(model.schemas)
 
 
-def _the_schema_the_call_site_passes() -> Any:
-    captured = _schemas_the_call_site_passed()
+async def _the_schema_the_call_site_passes() -> Any:
+    captured = await _schemas_the_call_site_passed()
     assert captured, (
         "the advisor never called `with_structured_output(...)`, so there "
         "is no schema to convert"
@@ -263,7 +295,8 @@ def _no_credential(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.mark.usefixtures("_no_network", "_no_credential")
-def test_the_schema_is_accepted_by_the_providers_own_conversion() -> None:
+@pytest.mark.anyio
+async def test_the_schema_is_accepted_by_the_providers_own_conversion() -> None:
     """Scenario: The schema is accepted by the provider's own conversion.
 
     WHEN the schema the advisor passes at its structured-output call site
@@ -281,14 +314,15 @@ def test_the_schema_is_accepted_by_the_providers_own_conversion() -> None:
     `socket.connect` raises, and every credential variable is removed from
     the environment for the duration of this test.
     """
-    schema = _the_schema_the_call_site_passes()
+    schema = await _the_schema_the_call_site_passes()
 
     _convert_to_openai_response_format(schema, strict=None)
     convert_to_openai_tool(schema)
 
 
 @pytest.mark.usefixtures("_no_network", "_no_credential")
-def test_the_schema_is_not_the_union_the_adapter_rejects() -> None:
+@pytest.mark.anyio
+async def test_the_schema_is_not_the_union_the_adapter_rejects() -> None:
     """The same scenario, asserted in the direction the defect ran.
 
     SPECIFIED by the requirement's own rationale: "today's adapter rejects
@@ -297,7 +331,7 @@ def test_the_schema_is_not_the_union_the_adapter_rejects() -> None:
     test so that a regression to a union is legible by name rather than as
     a bare `ValueError` from the test above.
     """
-    schema = _the_schema_the_call_site_passes()
+    schema = await _the_schema_the_call_site_passes()
 
     assert not isinstance(schema, UnionType), (
         "the advisor still passes a top-level union at its "
@@ -315,7 +349,8 @@ def test_the_schema_is_not_the_union_the_adapter_rejects() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_the_guard_obtains_its_schema_from_the_call_site() -> None:
+@pytest.mark.anyio
+async def test_the_guard_obtains_its_schema_from_the_call_site() -> None:
     """Scenario: The converted schema is the one the call site passes.
 
     WHEN the advisor's structured-output call site passes a schema other
@@ -330,7 +365,7 @@ def test_the_guard_obtains_its_schema_from_the_call_site() -> None:
     only as the *rejected* shape the probe below drives through the same
     mechanism.
     """
-    captured = _schemas_the_call_site_passed()
+    captured = await _schemas_the_call_site_passed()
 
     assert captured, (
         "nothing was captured at the call site, so this guard would be "
@@ -372,7 +407,8 @@ def test_a_diverging_call_site_is_detected_by_the_same_mechanism() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_wire_fields_state_when_they_are_to_be_populated() -> None:
+@pytest.mark.anyio
+async def test_wire_fields_state_when_they_are_to_be_populated() -> None:
     """Scenario: Wire fields state when they are to be populated.
 
     WHEN the wire schema expresses the reported variants' fields as
@@ -391,7 +427,7 @@ def test_wire_fields_state_when_they_are_to_be_populated() -> None:
     is never checked by code* forbids this capability from doing one field
     over.
     """
-    schema = _the_schema_the_call_site_passes()
+    schema = await _the_schema_the_call_site_passes()
 
     converted = _convert_the_way_the_adapter_does(schema)
     properties = converted["function"]["parameters"]["properties"]
@@ -408,7 +444,8 @@ def test_wire_fields_state_when_they_are_to_be_populated() -> None:
         )
 
 
-def test_the_converted_schema_emits_no_oneof() -> None:
+@pytest.mark.anyio
+async def test_the_converted_schema_emits_no_oneof() -> None:
     """DERIVED — traced to `design.md`, not to a delta scenario.
 
     `design.md`'s first decision rejects the discriminated-union envelope
@@ -420,7 +457,7 @@ def test_the_converted_schema_emits_no_oneof() -> None:
     it. Recorded as derived so it is visible as a design-level constraint
     rather than a requirement the delta states.
     """
-    schema = _the_schema_the_call_site_passes()
+    schema = await _the_schema_the_call_site_passes()
 
     converted = _convert_the_way_the_adapter_does(schema)
 

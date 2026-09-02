@@ -144,8 +144,18 @@ class _ScriptedWireRunnable:
         }
 
     def invoke(self, input_: Any, *args: Any, **kwargs: Any) -> dict[str, Any]:
-        self.received.append(input_)
-        return self._answer()
+        # `tasks.md` 2.5 / `design.md` Decision 2's model-level guard.
+        # Both entry points are real on a structured-output runnable, so a
+        # `recommend` body reverted to `structured.invoke(...)` inside an
+        # `async def` would work, pin the invoking loop for the whole
+        # round-trip, and pass every assertion in this file about what the
+        # advisor produces. It fails here instead, naming the mistake.
+        raise AssertionError(
+            "the advisor reached the model through the model's synchronous "
+            "`invoke(...)` entry point instead of awaiting `ainvoke(...)` — "
+            "the enclosing coroutine then never yields, and the invoking "
+            "loop is pinned for the whole of the round-trip"
+        )
 
     async def ainvoke(self, input_: Any, *args: Any, **kwargs: Any) -> dict[str, Any]:
         self.received.append(input_)
@@ -197,14 +207,22 @@ class _ScriptedWireChatModel(BaseChatModel):
 
 
 @pytest.fixture(scope="module")
-def wire_schema() -> Any:
+async def wire_schema() -> Any:
     model = _ScriptedWireChatModel(None)
     graph = advisor_graph.build_graph(model)
     if not model.schemas:
         try:
-            advisor_graph.propose(
+            await advisor_graph.propose(
                 product_name=PRODUCT_NAME, marketplace=MARKETPLACE, graph=graph
             )
+        except AssertionError:
+            # Never swallowed. An `AssertionError` out of `propose()` here
+            # came from this file's own fakes, so it reports that the
+            # advisor reached the model by a path this file forbids. The
+            # schema is recorded before the model is called, so the
+            # `schemas`-empty condition below never held for one of these
+            # and swallowed every guard.
+            raise
         except Exception as failure:
             if not model.schemas:
                 raise AssertionError(
@@ -228,16 +246,16 @@ def _wire(
         )
 
 
-def _propose_response(outcome: Any) -> Any:
+async def _propose_response(outcome: Any) -> Any:
     """`propose()` over a scripted response, wire or otherwise."""
     model = _ScriptedWireChatModel(outcome)
     graph = advisor_graph.build_graph(model)
-    return advisor_graph.propose(
+    return await advisor_graph.propose(
         product_name=PRODUCT_NAME, marketplace=MARKETPLACE, graph=graph
     )
 
 
-def _propose(
+async def _propose(
     schema: Any,
     *,
     ok: bool,
@@ -245,7 +263,7 @@ def _propose(
     error: str | None,
     comment: str | None = COMMENT,
 ) -> Any:
-    return _propose_response(
+    return await _propose_response(
         _wire(schema, ok=ok, value=value, error=error, comment=comment)
     )
 
@@ -299,7 +317,8 @@ def _reason_of(proposal: Any) -> str:
 # ---------------------------------------------------------------------------
 
 
-def test_a_refusal_is_recognised_however_it_is_worded(wire_schema: Any) -> None:
+@pytest.mark.anyio
+async def test_a_refusal_is_recognised_however_it_is_worded(wire_schema: Any) -> None:
     """WHEN the advisor reports two unsupported responses whose error text
     shares no wording THEN both propose a non-terminal outcome, since
     support is read from the discriminant together with its variant's
@@ -309,8 +328,8 @@ def test_a_refusal_is_recognised_however_it_is_worded(wire_schema: Any) -> None:
     with its field*. Both responses carry `ok: false` and an error, and
     their error texts share no words.
     """
-    a = _propose(wire_schema, ok=False, value=None, error=REFUSAL_ERROR_A)
-    b = _propose(wire_schema, ok=False, value=None, error=REFUSAL_ERROR_B)
+    a = await _propose(wire_schema, ok=False, value=None, error=REFUSAL_ERROR_A)
+    b = await _propose(wire_schema, ok=False, value=None, error=REFUSAL_ERROR_B)
 
     _assert_withheld(a)
     _assert_withheld(b)
@@ -323,7 +342,8 @@ def test_a_refusal_is_recognised_however_it_is_worded(wire_schema: Any) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_the_recommendations_wording_does_not_establish_the_outcome(
+@pytest.mark.anyio
+async def test_the_recommendations_wording_does_not_establish_the_outcome(
     wire_schema: Any,
 ) -> None:
     """WHEN the advisor's structured response is established as supported
@@ -334,7 +354,7 @@ def test_the_recommendations_wording_does_not_establish_the_outcome(
     "Established as supported" is the revised phrasing: `ok: true`, a
     non-blank value, and a blank error together.
     """
-    proposal = _propose(
+    proposal = await _propose(
         wire_schema,
         ok=True,
         value=NODE,
@@ -354,7 +374,8 @@ def test_the_recommendations_wording_does_not_establish_the_outcome(
 # ---------------------------------------------------------------------------
 
 
-def test_a_verdict_contradicting_its_own_prose_withholds_satisfaction(
+@pytest.mark.anyio
+async def test_a_verdict_contradicting_its_own_prose_withholds_satisfaction(
     wire_schema: Any,
 ) -> None:
     """WHEN the advisor's structured response is established as supported
@@ -365,7 +386,7 @@ def test_a_verdict_contradicting_its_own_prose_withholds_satisfaction(
     The error is pinned blank, so this is the comment veto and not the
     error-based contradiction direction — the two are disjoint here.
     """
-    proposal = _propose(
+    proposal = await _propose(
         wire_schema, ok=True, value=NODE, error=None, comment=REFUSAL_IN_COMMENT
     )
 
@@ -378,7 +399,8 @@ def test_a_verdict_contradicting_its_own_prose_withholds_satisfaction(
 # ---------------------------------------------------------------------------
 
 
-def test_a_vetoed_verdict_names_the_contradiction(wire_schema: Any) -> None:
+@pytest.mark.anyio
+async def test_a_vetoed_verdict_names_the_contradiction(wire_schema: Any) -> None:
     """WHEN the advisor proposes a non-terminal outcome because a
     supporting response's own error or comment contradicted it THEN the
     reason names that contradiction, and does not assert that the advisor
@@ -390,12 +412,12 @@ def test_a_vetoed_verdict_names_the_contradiction(wire_schema: Any) -> None:
     served wording reused verbatim.
     """
     by_comment = _reason_of(
-        _propose(
+        await _propose(
             wire_schema, ok=True, value=NODE, error=None, comment=REFUSAL_IN_COMMENT
         )
     )
     by_error = _reason_of(
-        _propose(
+        await _propose(
             wire_schema,
             ok=True,
             value=NODE,
@@ -431,19 +453,21 @@ def test_a_vetoed_verdict_names_the_contradiction(wire_schema: Any) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_a_missing_verdict_is_unsupported_not_supported() -> None:
+@pytest.mark.anyio
+async def test_a_missing_verdict_is_unsupported_not_supported() -> None:
     """WHEN the advisor's structured call completes but produces content
     the advisor's conversion maps to neither a supported nor an
     unsupported result THEN it proposes a non-terminal outcome and does
     not propose a satisfying outcome.
     """
-    proposal = _propose_response(None)
+    proposal = await _propose_response(None)
 
     _assert_withheld(proposal)
     assert _finding_of(proposal) is None
 
 
-def test_an_unreadable_verdict_is_unsupported_not_supported() -> None:
+@pytest.mark.anyio
+async def test_an_unreadable_verdict_is_unsupported_not_supported() -> None:
     """WHEN the advisor's structured call completes and the response fails
     validation against the wire schema entirely THEN it proposes a
     non-terminal outcome, exactly as a verdict that maps to neither result
@@ -452,20 +476,21 @@ def test_an_unreadable_verdict_is_unsupported_not_supported() -> None:
     The delta states these as the same condition, so they are driven the
     same way and asserted to agree.
     """
-    unreadable = _propose_response(None)
-    maps_to_neither = _propose_response(None)
+    unreadable = await _propose_response(None)
+    maps_to_neither = await _propose_response(None)
 
     _assert_withheld(unreadable)
     assert _reason_of(unreadable) == _reason_of(maps_to_neither)
 
 
-def test_a_fail_safe_reason_names_what_was_wrong() -> None:
+@pytest.mark.anyio
+async def test_a_fail_safe_reason_names_what_was_wrong() -> None:
     """WHEN the advisor proposes a non-terminal outcome because no verdict
     could be read THEN the reason states that no verdict could be read,
     and does not assert that a node choice could not be supported for the
     product.
     """
-    reason = _reason_of(_propose_response(None)).lower()
+    reason = _reason_of(await _propose_response(None)).lower()
 
     assert "verdict" in reason, (
         f"the reason does not name the missing verdict: {reason!r}"
@@ -477,14 +502,15 @@ def test_a_fail_safe_reason_names_what_was_wrong() -> None:
     assert "cannot support" not in reason
 
 
-def test_an_unrecognised_verdict_reads_the_same_as_a_missing_one() -> None:
+@pytest.mark.anyio
+async def test_an_unrecognised_verdict_reads_the_same_as_a_missing_one() -> None:
     """WHEN the advisor's structured call completes but the response fails
     validation against the wire schema THEN the reason names that the
     response could not be read as a verdict — the same single reason a
     verdict mapping to neither result produces.
     """
-    unrecognised = _reason_of(_propose_response(None))
-    missing = _reason_of(_propose_response(None))
+    unrecognised = _reason_of(await _propose_response(None))
+    missing = _reason_of(await _propose_response(None))
 
     assert unrecognised == missing, (
         "structured output should no longer distinguish 'nothing reported' "
@@ -493,7 +519,8 @@ def test_an_unrecognised_verdict_reads_the_same_as_a_missing_one() -> None:
     )
 
 
-def test_a_response_that_is_not_text_still_fails_visibly() -> None:
+@pytest.mark.anyio
+async def test_a_response_that_is_not_text_still_fails_visibly() -> None:
     """WHEN the model answers with content that is not plain text at all
     THEN the failure is surfaced as a model failure, and no outcome is
     proposed for the step.
@@ -505,7 +532,7 @@ def test_a_response_that_is_not_text_still_fails_visibly() -> None:
     fault = RuntimeError("simulated non-text model response")
 
     with pytest.raises(Exception) as failure:
-        _propose_response(fault)
+        await _propose_response(fault)
 
     assert not isinstance(failure.value, AssertionError), (
         "the graph shape, not the advisor, is what failed here"
