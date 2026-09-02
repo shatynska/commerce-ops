@@ -25,13 +25,13 @@ Fixed by the artifacts: the use-case names `create_step`, `update_step`,
 (unchanged by this change); that a status change "routes through the
 same validation as any other write" (`tasks.md` 2.1); that a handler
 registry is added and checked at activation only (`tasks.md` 2.3–2.4);
-that a roster reader is a use-case collaborator supplied by the
+that a members reader is a use-case collaborator supplied by the
 composition root (`tasks.md` 2.6).
 
 INVENTED, each recorded in `test-manifest.md` as an unresolved project
 question with its correction point:
 
-- The two new collaborators are passed as `roster=` and `handlers=`
+- The two new collaborators are passed as `members=` and `handlers=`
   keyword arguments, mirroring `steps=`/`principal=`. Correction point:
   `_update`/`_create` below.
 - `handlers=` is satisfied by a plain container of registered names.
@@ -39,11 +39,11 @@ question with its correction point:
   second idiom, so the real collaborator may be a registry object; the
   fake below is both — a set-like object answering `__contains__` and
   `names()`. Correction point: `_FakeHandlerRegistry`.
-- The roster reader answers people as rows carrying an identifier, a
+- The members reader answers members as rows carrying an identifier, a
   display name, a ClickUp user id and an active flag — the shape
   `move-principals-to-roster` records
-  (`tests/unit/access/application/test_roster_writes.py`). Correction
-  point: `_FakeRoster`.
+  (`tests/unit/access/application/test_members_writes.py`). Correction
+  point: `_FakeMembers`.
 - The startup report's exported name. `_startup_report()` probes the
   public surface for it and fails loudly rather than defaulting.
 - A status change is expressed as `update_step(status=...)`, since the
@@ -106,8 +106,8 @@ A_DISCIPLINE: Final = next(iter(Discipline))
 REGISTERED_HANDLER: Final = "price.buy_box_check"
 UNREGISTERED_HANDLER: Final = "price.a_handler_no_deploy_answers_for"
 
-PERSON_ACTIVE: Final = "prs_01HQ8Z6M4A"
-PERSON_DEACTIVATED: Final = "prs_01HQ8Z6M4B"
+MEMBER_ACTIVE: Final = "prs_01HQ8Z6M4A"
+MEMBER_DEACTIVATED: Final = "prs_01HQ8Z6M4B"
 
 # INVENTED refusal surface: the delta fixes the outcome ("the write is
 # refused naming the step and what it lacks"), not the exception type.
@@ -139,7 +139,7 @@ def _step(**overrides: Any) -> StepDefinition:
         "kind": StepKind.HUMAN,
         "status": StepStatus.ACTIVE,
         "hazard": Hazard.NONE,
-        "assignees": (PERSON_ACTIVE,),
+        "assignees": (MEMBER_ACTIVE,),
         "handler": None,
         "provenance": None,
     }
@@ -156,7 +156,7 @@ def _holding_step(gate: str) -> StepDefinition:
         gate=gate,
         blocking=True,
         status=StepStatus.ACTIVE,
-        assignees=(PERSON_ACTIVE,),
+        assignees=(MEMBER_ACTIVE,),
     )
 
 
@@ -199,35 +199,35 @@ class _FakeStepStore:
         self.version += 1
 
 
-class _Person:
-    def __init__(self, person_id: str, display_name: str, *, active: bool) -> None:
-        self.id = person_id
+class _Member:
+    def __init__(self, member_id: str, display_name: str, *, active: bool) -> None:
+        self.id = member_id
         self.display_name = display_name
         self.clickup_user_id: str | None = "clickup-1"
         self.active = active
 
 
-class _FakeRoster:
-    """Stands in for the roster reader `launch` takes from `access`'s
+class _FakeMembers:
+    """Stands in for the members reader `launch` takes from `access`'s
     public application surface (`tasks.md` 2.6).
 
     Offers several plausible call shapes so a correction to the seam is a
     one-line change here rather than a rewrite: it is callable, and it
-    answers `list_people()` and `people()` alike.
+    answers `list_members()` and `members()` alike.
     """
 
-    def __init__(self, people: tuple[_Person, ...]) -> None:
-        self._people = people
+    def __init__(self, members: tuple[_Member, ...]) -> None:
+        self._members = members
         self.calls = 0
 
-    async def list_people(self) -> tuple[_Person, ...]:
+    async def list_members(self) -> tuple[_Member, ...]:
         self.calls += 1
-        return self._people
+        return self._members
 
-    people = list_people
+    members = list_members
 
-    async def __call__(self) -> tuple[_Person, ...]:
-        return await self.list_people()
+    async def __call__(self) -> tuple[_Member, ...]:
+        return await self.list_members()
 
 
 class _FakeHandlerRegistry:
@@ -246,11 +246,11 @@ class _FakeHandlerRegistry:
         return self._names
 
 
-def _roster(*, deactivated: bool = False) -> _FakeRoster:
-    return _FakeRoster(
+def _members(*, deactivated: bool = False) -> _FakeMembers:
+    return _FakeMembers(
         (
-            _Person(PERSON_ACTIVE, "Alice Admin", active=True),
-            _Person(PERSON_DEACTIVATED, "Bohdan Former", active=not deactivated),
+            _Member(MEMBER_ACTIVE, "Alice Admin", active=True),
+            _Member(MEMBER_DEACTIVATED, "Bohdan Former", active=not deactivated),
         )
     )
 
@@ -299,7 +299,7 @@ _CREATE_DEFAULTS: Final = {
 async def _create(
     store: _FakeStepStore,
     *,
-    roster: _FakeRoster | None = None,
+    members: _FakeMembers | None = None,
     handlers: _FakeHandlerRegistry | None = None,
     **overrides: Any,
 ) -> Any:
@@ -307,7 +307,7 @@ async def _create(
     return await create_step(
         steps=store,
         principal=PRINCIPAL,
-        roster=roster or _roster(),
+        members=members or _members(),
         handlers=handlers or _registry(),
         **fields,
     )
@@ -317,7 +317,7 @@ async def _update(
     store: _FakeStepStore,
     step_id: str,
     *,
-    roster: _FakeRoster | None = None,
+    members: _FakeMembers | None = None,
     handlers: _FakeHandlerRegistry | None = None,
     **fields: Any,
 ) -> Any:
@@ -325,7 +325,7 @@ async def _update(
         steps=store,
         principal=PRINCIPAL,
         step_id=step_id,
-        roster=roster or _roster(),
+        members=members or _members(),
         handlers=handlers or _registry(),
         **fields,
     )
@@ -339,7 +339,7 @@ async def _set_status(
     step_id: str,
     status: StepStatus,
     *,
-    roster: _FakeRoster | None = None,
+    members: _FakeMembers | None = None,
     handlers: _FakeHandlerRegistry | None = None,
 ) -> Any:
     """Move a step to `status`, through whichever surface the
@@ -357,11 +357,11 @@ async def _set_status(
                 principal=PRINCIPAL,
                 step_id=step_id,
                 status=status,
-                roster=roster or _roster(),
+                members=members or _members(),
                 handlers=handlers or _registry(),
             )
     return await _update(
-        store, step_id, status=status, roster=roster, handlers=handlers
+        store, step_id, status=status, members=members, handlers=handlers
     )
 
 

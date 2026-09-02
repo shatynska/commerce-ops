@@ -404,6 +404,6 @@ def test_the_members_of_the_network_postgres_is_on_are_this_applications_own(
             if name in _service_networks(service)
         }
         assert attached == {"app", "postgres", "worker"}, (
-            f"the members of {name!r} are {sorted(attached)}, not exactly "
+            f"the membership of {name!r} are {sorted(attached)}, not exactly "
             "the application, its database and its worker"
         )

@@ -18,8 +18,8 @@ from datetime import date
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from commerce_ops.access.application import Person, list_people
-from commerce_ops.access.infrastructure.driven.roster_repository import PostgresRoster
+from commerce_ops.access.application import Member, list_members
+from commerce_ops.access.infrastructure.driven.members_repository import PostgresMembers
 from commerce_ops.catalog.domain.product import Product
 from commerce_ops.launch.application import LaunchReport
 from commerce_ops.shared.domain.access_scope import AccessScope
@@ -80,11 +80,11 @@ overdue_check.notifier = slack_notifier
 # by importing the module that owns it.
 clickup_sync_job.notifier = slack_notifier
 # The stuck-step report, for the same reason again: a step whose handler
-# has stopped making progress needs a person, and this is how `launch`
+# has stopped making progress needs a member, and this is how `launch`
 # reaches the team's channel without importing the module that owns it.
 automation_pass.notifier = slack_notifier
 
-# Scheduled work is not a person: the daily briefing addresses the whole
+# Scheduled work is not a member: the daily briefing addresses the whole
 # team and the ClickUp sync names a list for every launch, so neither
 # impersonates an asker whose visibility could be narrower. Named once here,
 # at the composition root, so that every internal read says which scope it
@@ -152,8 +152,8 @@ gate_confirmation.read_product = _read_catalog_product
 gate_progression_job.read_product = _read_catalog_product
 
 
-class _RosterReader:
-    """Reads the roster for the ClickUp pass, on its own session.
+class _MembersReader:
+    """Reads the membership for the ClickUp pass, on its own session.
 
     Injected here for the same reason the catalog reader is: `launch` may
     only reach `access` through its public application surface, and only
@@ -162,23 +162,23 @@ class _RosterReader:
     what needs resolving.
     """
 
-    async def list_people(self) -> tuple[Person, ...]:
-        # `PostgresRoster` opens its own session per operation, so this
+    async def list_members(self) -> tuple[Member, ...]:
+        # `PostgresMembers` opens its own session per operation, so this
         # read is not part of any launch's transaction.
-        return await list_people(roster=PostgresRoster())
+        return await list_members(members=PostgresMembers())
 
 
-clickup_sync_job.read_people = _RosterReader()
+clickup_sync_job.read_members = _MembersReader()
 # Same reason and same route as `read_product` above: reused rather than a
 # second instance, since both readers are stateless.
-gate_progression_job.read_people = clickup_sync_job.read_people
+gate_progression_job.read_members = clickup_sync_job.read_members
 
 # The pending-result ask and the stuck-step report both tag a step's named
-# confirmer, which is stored as the roster's own identifier and has to be
+# confirmer, which is stored as the membership's own identifier and has to be
 # translated to a Slack identity before it can be mentioned. Both are posted
 # by this process's automation pass, so the same stateless reader is reused
 # once more.
-launch_thread_delivery.read_people = clickup_sync_job.read_people
+launch_thread_delivery.read_members = clickup_sync_job.read_members
 
 
 async def _read_product_on(
@@ -195,7 +195,7 @@ async def _read_product_on(
     connection alongside the first for a catalog round-trip.
 
     Same scope as its sibling, and for the same reason: scheduled work is not
-    a person, so this says which scope it runs under rather than defaulting
+    a member, so this says which scope it runs under rather than defaulting
     into one.
     """
     return await get_product_by_id(
@@ -223,7 +223,7 @@ async def _read_launch_reports(*, as_of: date) -> tuple[LaunchReport, ...]:
             # exactly that reason. This module sits outside every
             # `.importlinter` container, which is what lets it hold both
             # sides, and it already does the same for the product and
-            # roster readers.
+            # members readers.
             raise LaunchReportsUnavailableError(
                 identifiers=unready.unheld_gates
             ) from unready

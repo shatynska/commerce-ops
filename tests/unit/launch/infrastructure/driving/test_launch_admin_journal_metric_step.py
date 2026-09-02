@@ -26,7 +26,7 @@ subject is the exception this delta deletes — is recorded in
 ## Level
 
 The launch router mounted alone over fakes for the launch/playbook/
-catalog/roster ports and the `read_journal` seam — the composition
+catalog/members ports and the `read_journal` seam — the composition
 `test_launch_admin_journal_table.py` records, pared to what a journal-only
 page needs. The scenario is about what a rendered row's columns carry, so
 the route is the smallest unit that observes it.
@@ -80,7 +80,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from commerce_ops.access.application import create_person
+from commerce_ops.access.application import create_member
 from commerce_ops.catalog.domain.product import Product
 from commerce_ops.launch.domain.launch_playbook import (
     Gate,
@@ -219,7 +219,7 @@ class _FakePlaybooks:
         return PLAYBOOK
 
 
-class _FakeRosterStore:
+class _FakeMembersStore:
     def __init__(self, rows: tuple[Any, ...] = (), version: int = 13) -> None:
         self.rows = tuple(rows)
         self.version = version
@@ -232,10 +232,10 @@ class _FakeRosterStore:
         self.version += 1
 
 
-async def _build_roster() -> _FakeRosterStore:
-    store = _FakeRosterStore()
-    await create_person(
-        roster=store,
+async def _build_members() -> _FakeMembersStore:
+    store = _FakeMembersStore()
+    await create_member(
+        members=store,
         principal="the-seeding-admin",
         display_name="Alice Admin",
         slack_identity=PRINCIPAL,
@@ -245,8 +245,8 @@ async def _build_roster() -> _FakeRosterStore:
     return store
 
 
-def _roster_store() -> _FakeRosterStore:
-    return asyncio.run(_build_roster())
+def _members_store() -> _FakeMembersStore:
+    return asyncio.run(_build_members())
 
 
 class _Catalog:
@@ -273,7 +273,7 @@ _SEAMS: Final[dict[str, tuple[str, ...]]] = {
     "verify": ("verify_admin_session",),
     "launches": ("launches", "launch_store", "launch_positions", "store"),
     "playbooks": ("playbooks", "playbook_store", "playbook_repository", "playbook"),
-    "roster": ("roster", "people", "roster_store", "read_roster"),
+    "members": ("members", "members_store", "read_members"),
     "list_products": ("list_products", "products", "catalog_products"),
     "get_product_by_id": ("get_product_by_id", "product_by_id", "get_product"),
 }
@@ -337,7 +337,7 @@ def _surface(
     _install(monkeypatch, module, "verify", _fake_verify)
     _install(monkeypatch, module, "launches", launches)
     _install(monkeypatch, module, "playbooks", _FakePlaybooks())
-    _install(monkeypatch, module, "roster", _roster_store())
+    _install(monkeypatch, module, "members", _members_store())
     _install(monkeypatch, module, "list_products", catalog.list_products)
     _install(monkeypatch, module, "get_product_by_id", catalog.get_product_by_id)
 
@@ -579,7 +579,7 @@ def test_a_metric_step_reads_as_a_step(monkeypatch: pytest.MonkeyPatch) -> None:
         category="progression",
         subject=METRIC_STEP_NAME,
         source="clickup",
-        actor="an-actor-not-on-the-roster",
+        actor="an-actor-who-is-not-a-member",
         outcome="Satisfied",
         evidence="72 fulfillable units confirmed in Seller Central",
     )

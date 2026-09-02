@@ -16,7 +16,7 @@ itself, independent of which of the four call sites reaches it:
 - *The eager run and the pass do not duplicate each other's work* — the
   structural half: the lock is acquired around the call, and
   `converge_launch`'s own collaborators (`mapping`, `clickup`,
-  `read_product`, `roster`) are never rebound to the lock's own
+  `read_product`, `members`) are never rebound to the lock's own
   transaction (`tasks.md` 1.1; `design.md` — "The lock acquisition and
   `converge_launch`'s own writes deliberately do not share a
   transaction"). The concurrent-race half — that two lock-holding callers
@@ -75,7 +75,7 @@ Fixed by this change's artifacts (`tasks.md` 1.1, `design.md`):
 - It catches and logs any exception `converge_launch` raises, internally,
   without re-raising.
 - `converge_launch`'s own fixed keyword collaborators — `launch`,
-  `playbook`, `clickup`, `mapping`, `read_product`, `roster`, `folder_id`
+  `playbook`, `clickup`, `mapping`, `read_product`, `members`, `folder_id`
   — transcribed from `test_clickup_sync_projection.py` and
   `test_clickup_projection_step_fields.py`, which record them as INVENTED
   there; not re-invented here.
@@ -280,7 +280,7 @@ class _RecordingConverge:
 
     Records the whole call, so a test can assert not only *that* it ran
     but *what it was handed* — in particular, whether `mapping`, `clickup`,
-    `read_product` and `roster` arrived as the very objects the test
+    `read_product` and `members` arrived as the very objects the test
     supplied, which is the "never rebound" guarantee's own observable.
     """
 
@@ -635,7 +635,7 @@ async def test_the_lock_is_acquired_around_the_convergence_call(
         clickup=object(),
         mapping=object(),
         read_product=_FakeCatalog(),
-        roster=None,
+        members=None,
         folder_id=FOLDER_ID,
     )
 
@@ -661,7 +661,7 @@ async def test_converge_launchs_collaborators_are_not_rebound_to_the_lock_transa
 ) -> None:
     """SPECIFIED-BY-DESIGN (`design.md` — "The lock acquisition and
     `converge_launch`'s own writes deliberately do not share a
-    transaction"): `mapping`, `clickup`, `read_product` and `roster` reach
+    transaction"): `mapping`, `clickup`, `read_product` and `members` reach
     `converge_launch` as the very objects the caller already had, never
     rebuilt against the lock-holding session.
 
@@ -676,7 +676,7 @@ async def test_converge_launchs_collaborators_are_not_rebound_to_the_lock_transa
     sentinel_clickup = object()
     sentinel_mapping = object()
     sentinel_catalog = _FakeCatalog()
-    sentinel_roster = object()
+    sentinel_members = object()
 
     await _invoke(
         harness,
@@ -685,7 +685,7 @@ async def test_converge_launchs_collaborators_are_not_rebound_to_the_lock_transa
         clickup=sentinel_clickup,
         mapping=sentinel_mapping,
         read_product=sentinel_catalog,
-        roster=sentinel_roster,
+        members=sentinel_members,
         folder_id=FOLDER_ID,
     )
 
@@ -708,8 +708,8 @@ async def test_converge_launchs_collaborators_are_not_rebound_to_the_lock_transa
         )
     if "read_product" in received:
         assert received["read_product"] is sentinel_catalog
-    if "roster" in received:
-        assert received["roster"] is sentinel_roster
+    if "members" in received:
+        assert received["members"] is sentinel_members
     assert received, (
         "no collaborator arrived at convergence under any of its known "
         "keyword names; correct this file's reading of the call shape"
@@ -746,7 +746,7 @@ async def test_the_helper_delegates_to_the_real_converge_launch_not_a_copy(
         clickup=object(),
         mapping=object(),
         read_product=_FakeCatalog(),
-        roster=None,
+        members=None,
         folder_id=FOLDER_ID,
     )
 
@@ -790,7 +790,7 @@ async def test_the_eager_run_reaches_no_completion_recording_collaborator(
         clickup=object(),
         mapping=object(),
         read_product=_FakeCatalog(),
-        roster=None,
+        members=None,
         folder_id=FOLDER_ID,
     )
 
@@ -832,7 +832,7 @@ async def test_a_failing_convergence_is_logged_not_raised(
             clickup=object(),
             mapping=object(),
             read_product=_FakeCatalog(),
-            roster=None,
+            members=None,
             folder_id=FOLDER_ID,
         )
 
@@ -889,7 +889,7 @@ async def test_a_failure_partway_through_convergence_leaves_prior_writes_standin
         clickup=clickup,
         mapping=mapping,
         read_product=catalog,
-        roster=None,
+        members=None,
         folder_id=FOLDER_ID,
     )
 
@@ -920,7 +920,7 @@ async def test_a_failure_partway_through_convergence_leaves_prior_writes_standin
         clickup=clickup,
         mapping=mapping,
         read_product=catalog,
-        roster=None,
+        members=None,
         folder_id=FOLDER_ID,
     )
 

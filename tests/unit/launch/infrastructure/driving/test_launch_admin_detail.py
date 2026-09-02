@@ -107,8 +107,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from commerce_ops.access.application import create_person
-from commerce_ops.access.infrastructure.driving import roster_admin as roster_module
+from commerce_ops.access.application import create_member
+from commerce_ops.access.infrastructure.driving import members_admin as members_module
 from commerce_ops.catalog.domain.product import Product
 from commerce_ops.launch.domain.launch_playbook import (
     Gate,
@@ -267,7 +267,7 @@ _WORDS: Final[dict[str, tuple[str, ...]]] = {
     ),
     "launch_words": ("launch", "launches", "product"),
     "playbook_words": ("playbook", "step", "steps"),
-    "roster_words": ("roster", "people", "person"),
+    "members_words": ("members", "members", "member"),
 }
 
 _CURRENT_ATTRIBUTES: Final = ("aria-current", "data-current")
@@ -511,7 +511,7 @@ class _FakePlaybooks:
         return self._playbook
 
 
-class _FakeRosterStore:
+class _FakeMembersStore:
     def __init__(self, rows: tuple[Any, ...] = (), version: int = 13) -> None:
         self.rows = tuple(rows)
         self.version = version
@@ -527,10 +527,10 @@ class _FakeRosterStore:
         self.version += 1
 
 
-async def _build_roster() -> _FakeRosterStore:
-    store = _FakeRosterStore()
-    await create_person(
-        roster=store,
+async def _build_members() -> _FakeMembersStore:
+    store = _FakeMembersStore()
+    await create_member(
+        members=store,
         principal="the-seeding-admin",
         display_name="Alice Admin",
         slack_identity=PRINCIPAL,
@@ -540,8 +540,8 @@ async def _build_roster() -> _FakeRosterStore:
     return store
 
 
-def _roster_store() -> _FakeRosterStore:
-    return asyncio.run(_build_roster())
+def _members_store() -> _FakeMembersStore:
+    return asyncio.run(_build_members())
 
 
 class _Catalog:
@@ -581,22 +581,22 @@ class _FakeStepStore:
         self.version += 1
 
 
-class _Person:
-    def __init__(self, person_id: str, display_name: str) -> None:
-        self.id = person_id
+class _Member:
+    def __init__(self, member_id: str, display_name: str) -> None:
+        self.id = member_id
         self.display_name = display_name
         self.clickup_user_id: str | None = "clickup-1"
         self.active = True
 
 
-class _FakeRoster:
-    async def list_people(self) -> tuple[_Person, ...]:
-        return (_Person("prs_01HQ8Z6M4A", "Alice Admin"),)
+class _FakeMembers:
+    async def list_members(self) -> tuple[_Member, ...]:
+        return (_Member("prs_01HQ8Z6M4A", "Alice Admin"),)
 
-    people = list_people
+    members = list_members
 
-    async def __call__(self) -> tuple[_Person, ...]:
-        return await self.list_people()
+    async def __call__(self) -> tuple[_Member, ...]:
+        return await self.list_members()
 
 
 # ---------------------------------------------------------------------------
@@ -607,12 +607,17 @@ _SEAMS: Final[dict[str, tuple[str, ...]]] = {
     "verify": ("verify_admin_session",),
     "launches": ("launches", "launch_store", "launch_positions", "store"),
     "playbooks": ("playbooks", "playbook_store", "playbook_repository", "playbook"),
-    "roster": ("roster", "people", "roster_store", "read_roster"),
+    "members": ("members", "members_store", "read_members"),
     "resolve_scope": ("resolve_scope",),
     "list_products": ("list_products", "products", "catalog_products"),
     "get_product_by_id": ("get_product_by_id", "product_by_id", "get_product"),
 }
-_PLAYBOOK_ROSTER_SEAMS: Final = ("roster", "read_roster", "people", "roster_reader")
+_PLAYBOOK_MEMBERS_SEAMS: Final = (
+    "members",
+    "read_members",
+    "members",
+    "members_reader",
+)
 
 
 def _install(
@@ -683,7 +688,7 @@ def _surface(
     _install(monkeypatch, module, "verify", _fake_verify)
     _install(monkeypatch, module, "launches", launches)
     _install(monkeypatch, module, "playbooks", _FakePlaybooks(playbook))
-    _install(monkeypatch, module, "roster", _roster_store())
+    _install(monkeypatch, module, "members", _members_store())
     _install(monkeypatch, module, "list_products", catalog.list_products)
     _install(monkeypatch, module, "get_product_by_id", catalog.get_product_by_id)
 
@@ -708,16 +713,16 @@ def _surface(
     if with_neighbours:
         monkeypatch.setattr(playbook_module, "steps", _FakeStepStore())
         monkeypatch.setattr(playbook_module, "verify_admin_session", _fake_verify)
-        for name in _PLAYBOOK_ROSTER_SEAMS:
+        for name in _PLAYBOOK_MEMBERS_SEAMS:
             if hasattr(playbook_module, name):
-                monkeypatch.setattr(playbook_module, name, _FakeRoster())
+                monkeypatch.setattr(playbook_module, name, _FakeMembers())
                 break
-        monkeypatch.setattr(roster_module, "roster", _roster_store())
-        monkeypatch.setattr(roster_module, "verify_admin_session", _fake_verify)
+        monkeypatch.setattr(members_module, "members", _members_store())
+        monkeypatch.setattr(members_module, "verify_admin_session", _fake_verify)
         assets = _assets_module()
         monkeypatch.setattr(assets, "verify", _fake_verify)
         app.include_router(playbook_module.router)
-        app.include_router(roster_module.router)
+        app.include_router(members_module.router)
         app.include_router(assets.router)
     client = TestClient(app)
     if signed_in:
@@ -1945,7 +1950,7 @@ def test_the_header_names_the_other_surfaces(
         with_neighbours=True,
     )
     playbook_path = _shortest_get_route(playbook_module.router)
-    roster_path = _shortest_get_route(roster_module.router)
+    members_path = _shortest_get_route(members_module.router)
 
     listed = surface.client.get(_list_path(surface.module))
     assert listed.status_code == 200, listed.text
@@ -1953,11 +1958,11 @@ def test_the_header_names_the_other_surfaces(
 
     for html, page in ((listed.text, "list"), (detail, "detail")):
         header = _header_of(
-            _tree(html), other_path=roster_path, current_key="launch_words"
+            _tree(html), other_path=members_path, current_key="launch_words"
         )
         # SPECIFIED: the other admin surfaces are offered in one action,
         # without scripting — both of them, not one.
-        for path, what in ((roster_path, "roster"), (playbook_path, "playbook")):
+        for path, what in ((members_path, "members"), (playbook_path, "playbook")):
             assert _offers_in_one_action(header, path), (
                 f"the {page} page's header offers no live link to the {what} "
                 f"surface at {path!r}"
@@ -1969,7 +1974,7 @@ def test_the_header_names_the_other_surfaces(
             f"links: {_flat(_all_text(header))[:300]!r}"
         )
         # SPECIFIED: and travelling there really serves that surface.
-        link = _links_to(header, roster_path)[0]
+        link = _links_to(header, members_path)[0]
         served = surface.client.get(link.attrs["href"])
         assert served.status_code == 200, served.text
 
@@ -2058,7 +2063,7 @@ def test_the_stylesheet_is_not_reached_through_another_surfaces_route(
     )
     owned = {
         route.path.split("{")[0]
-        for module in (playbook_module, roster_module, surface.module)
+        for module in (playbook_module, members_module, surface.module)
         for route in module.router.routes
         if getattr(route, "path", None)
     }

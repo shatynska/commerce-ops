@@ -91,12 +91,12 @@ class Scope(Enum):
 
 
 class StepKind(Enum):
-    """Who does a step's work: a person, or code.
+    """Who does a step's work: a member, or code.
 
     Deliberately not a record of *how* the code works. Whether the
     resolving code calls a language model is an implementation detail of
     that code and no rule in this system reacts to it; what the launch
-    reacts to is whether a person must accept the result, which
+    reacts to is whether a member must accept the result, which
     `StepDefinition.confirmer` carries as a separate fact.
     """
 
@@ -317,14 +317,14 @@ class StepDefinition:
     """A single unit of launch work, resolved before a gate opens.
 
     `name` and `description` answer to two audiences and are two fields
-    for that reason: the name is what a person scans in a list of work
+    for that reason: the name is what a member scans in a list of work
     and is composed into a task's name, so it is required and occupies a
     single line; the description is what they read once they have
     decided to do it, so it is optional and may span lines.
 
-    `assignees` and `confirmer` reference roster people by the roster's
+    `assignees` and `confirmer` reference members by the membership's
     own generated identifier, never by name or Slack identity, so that
-    correcting a person's details never rewrites the steps pointing at
+    correcting a member's details never rewrites the steps pointing at
     them. That an assignee or a confirmer exists and is active is a
     *write-time* precondition and never a load-time rule — see
     `assignee_faults` and `confirmer_faults`. Naming a confirmer is what
@@ -724,7 +724,7 @@ def _confirmer_shape_fault(step: StepDefinition) -> str | None:
     """Whether this step's `confirmer` is also its only assignee.
 
     A pure function of the step's own `assignees` and `confirmer`
-    fields, kind-independent — see `confirmer_faults` for the roster-
+    fields, kind-independent — see `confirmer_faults` for the membership-
     dependent known/active preconditions this is deliberately not part
     of. A single actor confirming their own work is not a second
     opinion, and the shape can never produce one no matter how many
@@ -907,7 +907,7 @@ def dependency_faults(
     Kept out of `LaunchPlaybook`'s construction and stated here beside
     `assignee_faults` — but **not for the reason that one carries**, and
     the difference matters enough to state. An assignee is a fact about
-    the *roster*, which changes without the step set changing, so a load
+    the *members*, which changes without the step set changing, so a load
     rule would let a write in another module break this capability. A
     dependency is a fact about the step set itself, which is the very
     category every load rule belongs to.
@@ -964,13 +964,13 @@ def assignee_faults(
     Kept out of `LaunchPlaybook`'s construction deliberately. Every
     load-time coherence rule is a function of the step set alone, which
     is what lets one predicate guard a load and a write alike; whether an
-    assignee exists and is active is a function of the *roster*, which
+    assignee exists and is active is a function of the *members*, which
     changes without the step set changing. Were these load-time rules,
-    deactivating a person would retroactively make a stored playbook
+    deactivating a member would retroactively make a stored playbook
     unloadable — a write in another module breaking a capability that
     accepted no write.
 
-    The domain cannot read the roster, so the caller supplies the two
+    The domain cannot read the membership, so the caller supplies the two
     identifier sets and the application layer is what fetches them.
     """
     faults: list[str] = []
@@ -981,7 +981,7 @@ def assignee_faults(
             if identifier not in known_ids:
                 faults.append(
                     f"step '{step.identifier}' names assignee '{identifier}', "
-                    f"whom the roster does not carry"
+                    f"whom the membership does not carry"
                 )
         if (
             step.kind is StepKind.HUMAN
@@ -990,7 +990,7 @@ def assignee_faults(
         ):
             faults.append(
                 f"step '{step.identifier}' is an active human step and names "
-                f"no assignee who is active on the roster — human work "
+                f"no assignee who is active on the membership — human work "
                 f"nobody is responsible for is work that will not happen"
             )
     return tuple(faults)
@@ -1005,14 +1005,14 @@ def confirmer_faults(
     """The two confirmer rules, over the steps a write touches.
 
     `assignee_faults`' sibling and reasoning exactly: a confirmer's
-    existence and active status are functions of the *roster*, not of
+    existence and active status are functions of the *members*, not of
     the step set, so this is a write-time precondition and never a
     load-time coherence rule — a step whose confirmer has since been
     deactivated continues to load and be served (see `deactivated
     confirmer` in `launch-step-automation`'s decision-authority rule).
 
     The single-assignee-equals-confirmer shape is deliberately not here:
-    it is a pure function of the step set alone, needing no roster, and
+    it is a pure function of the step set alone, needing no members, and
     is checked at load time by `_confirmer_shape_fault` instead.
     """
     faults: list[str] = []
@@ -1024,7 +1024,7 @@ def confirmer_faults(
         if step.confirmer not in known_ids:
             faults.append(
                 f"step '{step.identifier}' names confirmer '{step.confirmer}', "
-                f"whom the roster does not carry"
+                f"whom the membership does not carry"
             )
         elif (
             step.kind is StepKind.AUTOMATED
@@ -1034,6 +1034,6 @@ def confirmer_faults(
             faults.append(
                 f"step '{step.identifier}' is an active automated step and "
                 f"names confirmer '{step.confirmer}', who is not active on "
-                f"the roster"
+                f"the membership"
             )
     return tuple(faults)

@@ -1,5 +1,5 @@
-"""The roster page's share of the admin presentation vocabulary
-(`roster-admin`).
+"""The Team page's share of the admin presentation vocabulary
+(`members-admin`).
 
 Derived strictly from the delta spec
 `openspec/changes/admin-presentation-vocabulary/specs/roster-admin/spec.md`
@@ -17,9 +17,9 @@ The manifest at
 every scenario, every assertion's classification, and the project
 questions this file answered by assumption.
 
-**Level.** The roster page's routes over a roster-store double, driven
+**Level.** The Team page's routes over a membership-store double, driven
 the way a browser drives them — the harness
-`test_roster_admin_page.py` established for this page, repeated here
+`test_members_admin_page.py` established for this page, repeated here
 rather than imported because this directory carries no `__init__.py` and
 this project keeps its test files self-contained. Two tests reach past
 that: the stylesheet the page links is fetched against the *shared*
@@ -35,7 +35,7 @@ Fixed by the artifacts:
   `Deactivate` is this page's destructive action while reactivating is
   not (delta).
 - That the create control is included in the vocabulary deliberately —
-  "the one action not on a person's row" (delta).
+  "the one action not on a member's row" (delta).
 - That the page carries no page-local style block, and loads the same
   stylesheet the playbook surfaces load, from a shared guarded route
   (delta; `design.md` — *The shared asset route lives in `shared`, with
@@ -52,17 +52,17 @@ INVENTED, each recorded in the manifest with its correction point:
   another (the enclosing form's action and hidden fields, plus the
   control's own href, name, value and text). Correction points:
   `_is_action_control`, `_control_haystack`.
-- How a person's row is located: the smallest element naming that person
+- How a member's row is located: the smallest element naming that member
   and no other, holding at least one action control. Correction point:
-  `_person_row`.
+  `_member_row`.
 - How the header is located and how "identifies the surface currently
   viewed" is read — the same reading as
   `tests/unit/launch/infrastructure/driving/
   test_admin_surface_navigation_and_assets.py`, and the two files
   correct together. Correction points: `_header_of`,
-  `_identifies_current`, `_PLAYBOOK_WORDS`, `_ROSTER_WORDS`.
-- The page module's seams and the roster-store double, taken from
-  `test_roster_admin_page.py`. Correction point: `_app`.
+  `_identifies_current`, `_PLAYBOOK_WORDS`, `_MEMBERS_WORDS`.
+- The page module's seams and the membership-store double, taken from
+  `test_members_admin_page.py`. Correction point: `_app`.
 
 ## What this file deliberately does NOT cover
 
@@ -76,7 +76,7 @@ INVENTED, each recorded in the manifest with its correction point:
 
 ## Expected first-run state
 
-The roster page carries an inline `<style>` block, no header and no
+The Team page carries an inline `<style>` block, no header and no
 markers today, and the shared asset route does not exist. So the marker,
 header and no-style tests are expected to fail on a wrong value — the
 page renders, what is asserted of it is not there — while the two tests
@@ -104,8 +104,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from commerce_ops.access.application import create_person, deactivate_person
-from commerce_ops.access.infrastructure.driving import roster_admin as page_module
+from commerce_ops.access.application import create_member, deactivate_member
+from commerce_ops.access.infrastructure.driving import members_admin as page_module
 from commerce_ops.launch.infrastructure.driving import (
     playbook_admin as other_surface_module,
 )
@@ -170,9 +170,15 @@ _REACTIVATE_HINTS: Final = ("reactivat", "restore", "reinstate")
 #: a header may identify the current one. Kept identical to the launch
 #: side's file, which this one corrects together with.
 _PLAYBOOK_WORDS: Final = ("playbook", "step", "steps")
-# "user"/"users" since the header calls this surface Users; the page
-# itself still says Roster, and both readings must locate it.
-_ROSTER_WORDS: Final = ("roster", "people", "person", "user", "users")
+# A LOCATOR, not a prohibition: these are the words by which the header's
+# entry for this surface is found, and it can still fail -- so it is renamed,
+# not left. The header now labels this surface `Team`
+# (`rename-the-roster-to-members`), so "team" is what locates it and must be
+# here or the assertion has no subject. "members"/"member" stay because the
+# page itself still says them. "user"/"users" are gone: the surface no longer
+# uses that word anywhere, so accepting it would let this pass on a header
+# that never names this surface.
+_MEMBERS_WORDS: Final = ("team", "members", "member")
 _CURRENT_ATTRIBUTES: Final = ("aria-current", "data-current")
 _CURRENT_CLASSES: Final = ("current", "active", "here", "is-current", "is-active")
 
@@ -205,11 +211,11 @@ _VOID_TAGS: Final = (
 
 
 # ---------------------------------------------------------------------------
-# The roster store double (see test_roster_admin_page.py)
+# The members store double (see test_members_admin_page.py)
 # ---------------------------------------------------------------------------
 
 
-class _FakeRosterStore:
+class _FakeMembersStore:
     def __init__(self, rows: tuple[Any, ...] = (), version: int = 13) -> None:
         self.rows = tuple(rows)
         self.version = version
@@ -225,13 +231,13 @@ class _FakeRosterStore:
         self.version += 1
 
 
-_ID_NAMES: Final = ("id", "person_id", "identifier")
+_ID_NAMES: Final = ("id", "member_id", "identifier")
 _SLACK_NAMES: Final = ("slack_identity", "slack_user_id", "slack_id")
 
 
 def _targets(row: Any) -> tuple[Any, ...]:
     found = [row]
-    for attribute in ("person", "entry", "definition", "record"):
+    for attribute in ("member", "entry", "definition", "record"):
         nested = getattr(row, attribute, None)
         if nested is not None:
             found.append(nested)
@@ -244,7 +250,7 @@ def _field(row: Any, names: tuple[str, ...], what: str) -> Any:
             if hasattr(target, name):
                 return getattr(target, name)
     pytest.fail(
-        f"a stored roster row exposes no {what} under any of {names} — "
+        f"a stored membership row exposes no {what} under any of {names} — "
         "correct this file's accessor names to the implemented row"
     )
 
@@ -253,7 +259,7 @@ def _slack(row: Any) -> str:
     return str(_field(row, _SLACK_NAMES, "Slack identity"))
 
 
-def _id_of(store: _FakeRosterStore, identity: str) -> Any:
+def _id_of(store: _FakeMembersStore, identity: str) -> Any:
     for row in store.rows:
         if _slack(row) == identity:
             return _field(row, _ID_NAMES, "generated identifier")
@@ -261,14 +267,14 @@ def _id_of(store: _FakeRosterStore, identity: str) -> Any:
 
 
 async def _create(
-    store: _FakeRosterStore,
+    store: _FakeMembersStore,
     *,
     display_name: str,
     slack_identity: str,
     admin: bool = False,
 ) -> Any:
-    return await create_person(
-        roster=store,
+    return await create_member(
+        members=store,
         principal=THE_CREATING_ADMIN,
         display_name=display_name,
         slack_identity=slack_identity,
@@ -277,11 +283,11 @@ async def _create(
     )
 
 
-async def _build_seeded_store() -> _FakeRosterStore:
-    """Two active admins, one active member, one deactivated person —
+async def _build_seeded_store() -> _FakeMembersStore:
+    """Two active admins, one active member, one deactivated member —
     built through the write path, so every row is one a real write
     produced."""
-    store = _FakeRosterStore()
+    store = _FakeMembersStore()
     await _create(
         store, display_name=ADMIN_NAME, slack_identity=ADMIN_IDENTITY, admin=True
     )
@@ -293,15 +299,15 @@ async def _build_seeded_store() -> _FakeRosterStore:
     )
     await _create(store, display_name=MEMBER_NAME, slack_identity=MEMBER_IDENTITY)
     await _create(store, display_name=RETIRED_NAME, slack_identity=RETIRED_IDENTITY)
-    await deactivate_person(
-        roster=store,
+    await deactivate_member(
+        members=store,
         principal=THE_EDITING_ADMIN,
-        person_id=_id_of(store, RETIRED_IDENTITY),
+        member_id=_id_of(store, RETIRED_IDENTITY),
     )
     return store
 
 
-def _seeded_store() -> _FakeRosterStore:
+def _seeded_store() -> _FakeMembersStore:
     """The seeded store, built off the event loop — the tests themselves
     are synchronous and drive the ASGI app from `TestClient`'s portal."""
     return asyncio.run(_build_seeded_store())
@@ -387,8 +393,8 @@ def _all_text(node: _Node) -> str:
 
 
 def _attribute_text(node: _Node) -> str:
-    """Everything a person's row may carry them by, values included —
-    a hidden `person_id` or a per-person URL is how a row names its
+    """Everything a member's row may carry them by, values included —
+    a hidden `member_id` or a per-member URL is how a row names its
     subject when the identity itself is not printed."""
     parts = [_all_text(node)]
     for element in [node, *_elements(node)]:
@@ -517,13 +523,13 @@ def _one_action(
     return found[0]
 
 
-def _person_row(root: _Node, identity: str) -> _Node:
-    """The one person's own region of the page.
+def _member_row(root: _Node, identity: str) -> _Node:
+    """The one member's own region of the page.
 
-    INVENTED: the smallest element that names this person, offers at
-    least one action control, and names no other person on the roster.
+    INVENTED: the smallest element that names this member, offers at
+    least one action control, and names no other member on the membership.
     Markup-agnostic, so a table row, a list item or a card all read the
-    same. Correction point for a page that groups people differently.
+    same. Correction point for a page that groups membership differently.
     """
     wanted = identity.lower()
     others = [other.lower() for other in _EVERY_IDENTITY if other != identity]
@@ -537,8 +543,8 @@ def _person_row(root: _Node, identity: str) -> _Node:
     if not candidates:
         pytest.fail(
             f"no element of the page names {identity!r}, offers an action and "
-            "names nobody else, so that person's row cannot be isolated — "
-            "correct `_person_row` to the implemented page"
+            "names nobody else, so that member's row cannot be isolated — "
+            "correct `_member_row` to the implemented page"
         )
     return min(candidates, key=_size)
 
@@ -592,7 +598,7 @@ def _header_of(
             f"the link to {other_path!r} sits in no element that also names "
             f"this surface (looked for {current_words}) without enclosing the "
             "page's own tables or forms — correct `_header_of` or "
-            "`_PLAYBOOK_WORDS`/`_ROSTER_WORDS` to the implemented header"
+            "`_PLAYBOOK_WORDS`/`_MEMBERS_WORDS` to the implemented header"
         )
     return min(candidates, key=_size)
 
@@ -659,8 +665,8 @@ async def _fake_verify(*args: Any, **kwargs: Any) -> str | None:
     return PRINCIPAL if _SESSION_VALUE in haystack else None
 
 
-def _app(monkeypatch: pytest.MonkeyPatch, store: _FakeRosterStore) -> TestClient:
-    monkeypatch.setattr(page_module, "roster", store)
+def _app(monkeypatch: pytest.MonkeyPatch, store: _FakeMembersStore) -> TestClient:
+    monkeypatch.setattr(page_module, "members", store)
     monkeypatch.setattr(page_module, "verify_admin_session", _fake_verify)
     app = FastAPI()
     app.include_router(page_module.router)
@@ -668,7 +674,7 @@ def _app(monkeypatch: pytest.MonkeyPatch, store: _FakeRosterStore) -> TestClient
 
 
 def _signed_client(
-    monkeypatch: pytest.MonkeyPatch, store: _FakeRosterStore
+    monkeypatch: pytest.MonkeyPatch, store: _FakeMembersStore
 ) -> TestClient:
     client = _app(monkeypatch, store)
     client.cookies.set(_SESSION_COOKIE, _SESSION_VALUE)
@@ -742,9 +748,9 @@ def _shape(response: Any) -> tuple[int, bytes, str | None]:
 
 
 def _reachable_html(client: TestClient, html: str, needle: str) -> str:
-    """The page in which `needle` is reachable — the roster page itself,
+    """The page in which `needle` is reachable — the Team page itself,
     or a view one control away, since the served spec requires
-    deactivated people be *reachable* rather than listed."""
+    deactivated members be *reachable* rather than listed."""
     if needle in html:
         return html
     for word in ("deactivat", "inactive", "former", "archived"):
@@ -755,13 +761,13 @@ def _reachable_html(client: TestClient, html: str, needle: str) -> str:
             if response.status_code == 200 and needle in response.text:
                 return str(response.text)
     pytest.fail(
-        f"{needle!r} was not reachable from the roster page — neither listed "
+        f"{needle!r} was not reachable from the Team page — neither listed "
         "on it nor behind any discovered control"
     )
 
 
 def _create_form(root: _Node) -> _Node:
-    """The add-a-person form: the one offering both a display-name field
+    """The add-a-member form: the one offering both a display-name field
     and a Slack-identity field."""
     for element in _elements(root):
         if element.tag != "form":
@@ -774,7 +780,7 @@ def _create_form(root: _Node) -> _Node:
         if "name" in names and "slack" in names:
             return element
     pytest.fail(
-        "no add-a-person form was discoverable on the roster page — correct "
+        "no add-a-member form was discoverable on the Team page — correct "
         "`_create_form` to the implemented page"
     )
 
@@ -785,14 +791,14 @@ def _create_form(root: _Node) -> _Node:
 # ---------------------------------------------------------------------------
 
 
-def test_the_playbook_page_is_reachable_from_the_roster(
+def test_the_playbook_page_is_reachable_from_the_members(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Scenario: The playbook page is reachable from the roster.
+    """Scenario: The playbook page is reachable from the membership.
 
-    WHEN the roster page is rendered
+    WHEN the Team page is rendered
     THEN its header offers the playbook page in one action
-    AND identifies the roster as the surface currently viewed.
+    AND identifies the membership as the surface currently viewed.
 
     The page carries no `href` of any kind today, so there is no way back
     to the playbook page without typing a URL.
@@ -802,48 +808,48 @@ def test_the_playbook_page_is_reachable_from_the_roster(
     header = _header_of(
         _tree(_get_page(client)),
         other_path=_playbook_path(),
-        current_words=_ROSTER_WORDS,
+        current_words=_MEMBERS_WORDS,
     )
 
     # SPECIFIED: the playbook page is offered in one action, and without
     # scripting — a plain anchor.
     assert _offers_in_one_action(header, _playbook_path()), (
         f"the header renders no live link to {_playbook_path()!r}, so an "
-        "admin who reaches the roster cannot get back"
+        "admin who reaches the membership cannot get back"
     )
-    # SPECIFIED: and identifies the roster as current.
-    assert _identifies_current(header, words=_ROSTER_WORDS), (
-        "the header does not identify the roster as the surface being "
+    # SPECIFIED: and identifies the membership as current.
+    assert _identifies_current(header, words=_MEMBERS_WORDS), (
+        "the header does not identify the membership as the surface being "
         "viewed, so it reads as an undifferentiated pair of links rather "
         f"than as a position (header: {_flat(_all_text(header))[:300]!r})"
     )
 
 
-def test_the_header_is_rendered_on_a_roster_holding_nobody(
+def test_the_header_is_rendered_on_a_members_holding_nobody(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Scenario: The header is rendered on a roster holding nobody.
+    """Scenario: The header is rendered on a membership holding nobody.
 
-    WHEN the roster page is rendered holding no people at all
+    WHEN the Team page is rendered holding no members at all
     THEN the header is still rendered and still offers the playbook page.
     """
-    client = _signed_client(monkeypatch, _FakeRosterStore())
+    client = _signed_client(monkeypatch, _FakeMembersStore())
 
     html = _get_page(client)
 
-    # DERIVED guard: the roster really holds nobody, so the header below
+    # DERIVED guard: the membership really holds nobody, so the header below
     # is read off an empty page.
     for identity in _EVERY_IDENTITY:
         assert identity not in html
 
     header = _header_of(
-        _tree(html), other_path=_playbook_path(), current_words=_ROSTER_WORDS
+        _tree(html), other_path=_playbook_path(), current_words=_MEMBERS_WORDS
     )
     # SPECIFIED: the header is still rendered and still offers the
     # playbook page.
     assert _offers_in_one_action(header, _playbook_path()), (
-        "the header stops offering the playbook page once the roster holds "
-        "nobody, so reachability depends on the people the page lists"
+        "the header stops offering the playbook page once the membership holds "
+        "nobody, so reachability depends on the membership the page lists"
     )
 
 
@@ -858,7 +864,7 @@ def test_the_page_carries_no_styling_of_its_own(
 ) -> None:
     """Scenario: The page carries no styling of its own.
 
-    WHEN the roster page is rendered
+    WHEN the Team page is rendered
     THEN it loads the shared admin stylesheet
     AND carries no page-local style block.
 
@@ -879,13 +885,13 @@ def test_the_page_carries_no_styling_of_its_own(
     hrefs = _stylesheet_hrefs(root)
     # SPECIFIED: it loads a stylesheet at all …
     assert hrefs, (
-        "the roster page links no stylesheet, so its presentation comes from "
+        "the Team page links no stylesheet, so its presentation comes from "
         "nowhere shared"
     )
     # SPECIFIED: … and carries no page-local style block.
     blocks = _style_blocks(root)
     assert blocks == [], (
-        f"the roster page still carries {len(blocks)} inline <style> block(s), "
+        f"the Team page still carries {len(blocks)} inline <style> block(s), "
         "so a presentation fix applied to the playbook page silently does not "
         "apply here"
     )
@@ -896,12 +902,12 @@ def test_the_page_carries_no_styling_of_its_own(
     elsewhere = _other_module_client(monkeypatch)
     for href in hrefs:
         assert not href.startswith(("http://", "https://", "//")), (
-            f"the roster page loads {href!r} from off the machine, so what is "
+            f"the Team page loads {href!r} from off the machine, so what is "
             "served is not what the repository committed"
         )
         served = shared.get(_resolve(href))
         assert served.status_code == 200, (
-            f"the roster page links {href!r}, which the shared asset route "
+            f"the Team page links {href!r}, which the shared asset route "
             f"answers {served.status_code} for — the page's presentation does "
             "not come from the shared vocabulary"
         )
@@ -921,18 +927,18 @@ def test_the_stylesheet_is_refused_without_an_admin_session(
 ) -> None:
     """Scenario: The stylesheet is refused without an admin session.
 
-    WHEN the stylesheet is requested from the roster surface with no
+    WHEN the stylesheet is requested from the membership surface with no
     admin session cookie
     THEN the response is the same 404 an unregistered route returns
     AND carries no stylesheet content.
 
-    The href is taken from what the roster page itself renders, so this
+    The href is taken from what the Team page itself renders, so this
     is the asset *this surface* reaches for rather than one this file
     named.
     """
     signed_page = _signed_client(monkeypatch, _seeded_store())
     hrefs = _stylesheet_hrefs(_tree(_get_page(signed_page)))
-    assert hrefs, "the roster page links no stylesheet to request"
+    assert hrefs, "the Team page links no stylesheet to request"
 
     signed = _assets_client(monkeypatch, signed=True)
     anonymous = _assets_client(monkeypatch, signed=False)
@@ -963,13 +969,13 @@ def test_the_destructive_action_is_distinguished_not_amplified(
 ) -> None:
     """Scenario: The destructive action is distinguished, not amplified.
 
-    WHEN an active person's row is rendered
+    WHEN an active member's row is rendered
     THEN its deactivate control carries `danger`
     AND no other action control on that row carries it.
     """
     client = _signed_client(monkeypatch, _seeded_store())
 
-    row = _person_row(_tree(_get_page(client)), MEMBER_IDENTITY)
+    row = _member_row(_tree(_get_page(client)), MEMBER_IDENTITY)
     deactivate = _one_action(
         row, hints=_DEACTIVATE_HINTS, excluding=_REACTIVATE_HINTS, what="deactivate"
     )
@@ -998,19 +1004,19 @@ def test_the_destructive_action_is_distinguished_not_amplified(
     )
 
 
-def test_a_deactivated_persons_action_is_not_destructive(
+def test_a_deactivated_members_action_is_not_destructive(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Scenario: A deactivated person's action is not destructive.
+    """Scenario: A deactivated member's action is not destructive.
 
-    WHEN a deactivated person's row is rendered
+    WHEN a deactivated member's row is rendered
     THEN its reactivate control carries `row-action`
     AND does not carry `danger`.
     """
     client = _signed_client(monkeypatch, _seeded_store())
     reachable = _reachable_html(client, _get_page(client), RETIRED_IDENTITY)
 
-    row = _person_row(_tree(reachable), RETIRED_IDENTITY)
+    row = _member_row(_tree(reachable), RETIRED_IDENTITY)
     reactivate = _one_action(
         row, hints=_REACTIVATE_HINTS, excluding=(), what="reactivate"
     )
@@ -1019,7 +1025,7 @@ def test_a_deactivated_persons_action_is_not_destructive(
     assert _carries(reactivate, ROW_ACTION), (
         "the reactivate control carries no "
         f"{ROW_ACTION!r} marker (classes: {sorted(_classes(reactivate))}), so "
-        "a deactivated person's row speaks a vocabulary of its own"
+        "a deactivated member's row speaks a vocabulary of its own"
     )
     # SPECIFIED: and does not carry `danger` — restoring somebody
     # destroys nothing.
@@ -1034,12 +1040,12 @@ def test_the_create_control_speaks_the_same_vocabulary(
 ) -> None:
     """Scenario: The create control speaks the same vocabulary.
 
-    WHEN the page's add-a-person form is rendered
+    WHEN the page's add-a-member form is rendered
     THEN its submit control carries `row-action`
     AND does not carry `danger`.
 
     The delta includes the create control deliberately: it is the one
-    action not on a person's row, and a create submit left at the default
+    action not on a member's row, and a create submit left at the default
     weight while every neighbour is restyled is exactly the mismatch the
     requirement exists to end.
     """
@@ -1059,18 +1065,18 @@ def test_the_create_control_speaks_the_same_vocabulary(
         )
     ]
     assert submits, (
-        "the add-a-person form renders no submit control, so there is no "
+        "the add-a-member form renders no submit control, so there is no "
         "create action to read a vocabulary off"
     )
     for submit in submits:
         # SPECIFIED: its submit control carries `row-action`.
         assert _carries(submit, ROW_ACTION), (
-            "the add-a-person form's submit carries no "
+            "the add-a-member form's submit carries no "
             f"{ROW_ACTION!r} marker (classes: {sorted(_classes(submit))}) — "
-            "the one action not on a person's row was missed"
+            "the one action not on a member's row was missed"
         )
         # SPECIFIED: and does not carry `danger`. Creating destroys
         # nothing.
         assert not _carries(submit, DANGER), (
-            f"the add-a-person form's submit carries {DANGER!r}"
+            f"the add-a-member form's submit carries {DANGER!r}"
         )

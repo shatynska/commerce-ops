@@ -1,12 +1,12 @@
-"""Resolving a Slack user identity against the roster (`access-scope`).
+"""Resolving a Slack user identity against the membership (`access-scope`).
 
 Derived strictly from the delta spec:
 `openspec/changes/move-principals-to-roster/specs/access-scope/spec.md`
 
-- ADDED *An active roster member resolves to the unrestricted scope*
+- ADDED *An active member resolves to the unrestricted scope*
   (all three scenarios)
 - MODIFIED *An unknown asker resolves to the empty scope* (its one
-  scenario, re-stated against the roster)
+  scenario, re-stated against the membership)
 
 This file replaces nothing: `tests/unit/access/application/
 test_resolve_scope.py` still stands, and this pass never edits it. The
@@ -16,14 +16,14 @@ its assertions are built on is REMOVED by this change.
 ## Why the application level
 
 Each scenario is stated about what *resolution* answers, and resolution
-is `resolve_scope` over one collaborator — the roster store. The store
+is `resolve_scope` over one collaborator — the members store. The store
 is a double here, so this is the project's fast mocked unit tier.
 
-## Rosters are built through the write use cases, deliberately
+## Members are built through the write use cases, deliberately
 
-The same reasoning `test_roster_writes.py` records: the only shape any
+The same reasoning `test_members_writes.py` records: the only shape any
 artifact fixes for a stored row is what a validated write produces. The
-first write against an empty roster must create an admin, because the
+first write against an empty membership must create an admin, because the
 last-admin floor rejects any outcome without one.
 
 ## The interface under test does not exist yet
@@ -35,15 +35,15 @@ Fixed by the artifacts, not invented: `resolve_scope` collapses to
 error toward the asker").
 
 INVENTED, recorded in the manifest: the call shape
-`resolve_scope(roster, identity=...)` — one collaborator now, the
+`resolve_scope(members, identity=...)` — one collaborator now, the
 resolver argument gone. Correction point: `_resolve`. The store double
-and row accessors are the ones `test_roster_writes.py` records; the
+and row accessors are the ones `test_members_writes.py` records; the
 files correct together. They are repeated rather than shared because
 this pass may write only files matching `tests/**/test_*.py`.
 
 ## Expected first-run state
 
-The roster use cases do not exist, so every test here is expected to
+The membership use cases do not exist, so every test here is expected to
 fail on an absent target (`ImportError`) — which establishes only
 absence.
 
@@ -60,8 +60,8 @@ from typing import Any, Final
 import pytest
 
 from commerce_ops.access.application import (
-    create_person,
-    deactivate_person,
+    create_member,
+    deactivate_member,
     resolve_scope,
 )
 from commerce_ops.shared.domain.identity import ProductId
@@ -82,11 +82,11 @@ def anyio_backend() -> str:
 
 
 # ---------------------------------------------------------------------------
-# Store doubles and row accessors (see test_roster_writes.py)
+# Store doubles and row accessors (see test_members_writes.py)
 # ---------------------------------------------------------------------------
 
 
-class _FakeRosterStore:
+class _FakeMembersStore:
     def __init__(self, rows: tuple[Any, ...] = (), version: int = 3) -> None:
         self.rows = tuple(rows)
         self.version = version
@@ -103,20 +103,20 @@ class _FakeRosterStore:
         self.version += 1
 
 
-class _UnreadableRosterStore(_FakeRosterStore):
+class _UnreadableMembersStore(_FakeMembersStore):
     """A store the resolution cannot read."""
 
     async def load(self) -> tuple[tuple[Any, ...], int]:
-        raise ConnectionError("could not connect to the roster store")
+        raise ConnectionError("could not connect to the members store")
 
 
-_ID_NAMES: Final = ("id", "person_id", "identifier")
+_ID_NAMES: Final = ("id", "member_id", "identifier")
 _SLACK_NAMES: Final = ("slack_identity", "slack_user_id", "slack_id")
 
 
 def _targets(row: Any) -> tuple[Any, ...]:
     found = [row]
-    for attribute in ("person", "entry", "definition", "record"):
+    for attribute in ("member", "entry", "definition", "record"):
         nested = getattr(row, attribute, None)
         if nested is not None:
             found.append(nested)
@@ -129,12 +129,12 @@ def _field(row: Any, names: tuple[str, ...], what: str) -> Any:
             if hasattr(target, name):
                 return getattr(target, name)
     pytest.fail(
-        f"a stored roster row exposes no {what} under any of {names} — "
+        f"a stored membership row exposes no {what} under any of {names} — "
         "correct this file's accessor names to the implemented row"
     )
 
 
-def _id_of(store: _FakeRosterStore, identity: str) -> Any:
+def _id_of(store: _FakeMembersStore, identity: str) -> Any:
     for row in store.rows:
         if str(_field(row, _SLACK_NAMES, "Slack identity")) == identity:
             return _field(row, _ID_NAMES, "generated identifier")
@@ -147,14 +147,14 @@ def _id_of(store: _FakeRosterStore, identity: str) -> Any:
 
 
 async def _create(
-    store: _FakeRosterStore,
+    store: _FakeMembersStore,
     *,
     display_name: str,
     slack_identity: str,
     admin: bool = False,
 ) -> Any:
-    return await create_person(
-        roster=store,
+    return await create_member(
+        members=store,
         principal=PRINCIPAL,
         display_name=display_name,
         slack_identity=slack_identity,
@@ -182,10 +182,10 @@ def _new_product_id() -> ProductId:
     return ProductId(str(uuid.uuid4()))
 
 
-async def _roster_with_a_member() -> _FakeRosterStore:
+async def _members_with_a_member() -> _FakeMembersStore:
     """One active admin (forced by the last-admin floor) plus one
     ordinary active member."""
-    store = _FakeRosterStore()
+    store = _FakeMembersStore()
     await _create(
         store,
         display_name="Alice Admin",
@@ -197,7 +197,7 @@ async def _roster_with_a_member() -> _FakeRosterStore:
 
 
 # ---------------------------------------------------------------------------
-# Requirement: An active roster member resolves to the unrestricted scope
+# Requirement: An active member resolves to the unrestricted scope
 # ---------------------------------------------------------------------------
 
 
@@ -205,18 +205,18 @@ async def test_an_active_member_sees_every_product() -> None:
     """Scenario: An active member sees every product.
 
     WHEN the scope is resolved for a Slack user identity an active
-    roster entry carries
+    members entry carries
     THEN the resolved scope permits every product identifier.
 
     "Every" is exercised with three identifiers, none of which the
-    roster has ever heard of — the delta's "including ones registered
+    members has ever heard of — the delta's "including ones registered
     after the resolution". An implementation enumerating a catalog to
     build the scope would permit none of them.
 
     The member is an ordinary non-admin entry: membership alone is what
     the delta says confers the unrestricted scope.
     """
-    store = await _roster_with_a_member()
+    store = await _members_with_a_member()
 
     scope = await _resolve(store, MEMBER_IDENTITY)
 
@@ -230,21 +230,21 @@ async def test_a_deactivated_member_sees_nothing() -> None:
     """Scenario: A deactivated member sees nothing.
 
     WHEN the scope is resolved for a Slack user identity carried only by
-    a deactivated roster entry
+    a deactivated membership entry
     THEN the resolved scope permits no product identifier, and the
     resolution succeeds.
 
     The same identity resolved to everything one write earlier, so the
     empty scope here is the deactivation at work rather than a constant
     answer — and the still-active admin makes it a per-entry decision
-    rather than an empty-roster artifact.
+    rather than an empty-members artifact.
     """
-    store = await _roster_with_a_member()
+    store = await _members_with_a_member()
     product = _new_product_id()
     assert _permits(await _resolve(store, MEMBER_IDENTITY), product) is True
 
-    await deactivate_person(
-        roster=store, principal=PRINCIPAL, person_id=_id_of(store, MEMBER_IDENTITY)
+    await deactivate_member(
+        members=store, principal=PRINCIPAL, member_id=_id_of(store, MEMBER_IDENTITY)
     )
 
     scope = await _resolve(store, MEMBER_IDENTITY)
@@ -260,7 +260,7 @@ async def test_a_deactivated_member_sees_nothing() -> None:
 async def test_an_unreachable_store_fails_closed() -> None:
     """Scenario: An unreachable store fails closed.
 
-    WHEN the scope is resolved while the roster store cannot be read
+    WHEN the scope is resolved while the members store cannot be read
     THEN the resolved scope permits no product identifier, and the
     resolution succeeds without surfacing an error to the asker.
 
@@ -270,7 +270,7 @@ async def test_an_unreachable_store_fails_closed() -> None:
     `None`, so a resolution that quietly answered "nothing at all"
     cannot pass as "the scope permitting nothing".
     """
-    store = _UnreadableRosterStore()
+    store = _UnreadableMembersStore()
 
     scope = await _resolve(store, ADMIN_IDENTITY)
 
@@ -287,18 +287,18 @@ async def test_an_unreachable_store_fails_closed() -> None:
 async def test_a_stranger_sees_nothing() -> None:
     """Scenario: A stranger sees nothing.
 
-    WHEN the scope is resolved for a Slack user identity with no roster
+    WHEN the scope is resolved for a Slack user identity with no members
     entry
     THEN the resolved scope permits no product identifier, and the
     resolution succeeds.
 
-    The roster is not empty — it holds an admin and a member — so the
+    The membership is not empty — it holds an admin and a member — so the
     stranger's empty scope is the fail-closed rule at work and not the
-    only answer an empty roster could give. "Never a distinct 'unknown'
+    only answer an empty membership could give. "Never a distinct 'unknown'
     result" is asserted by the answer being a scope that answers
     `permits`, not `None`.
     """
-    store = await _roster_with_a_member()
+    store = await _members_with_a_member()
 
     scope = await _resolve(store, STRANGER_IDENTITY)
 

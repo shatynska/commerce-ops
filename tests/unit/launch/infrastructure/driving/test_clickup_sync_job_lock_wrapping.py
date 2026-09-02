@@ -498,7 +498,7 @@ async def test_converge_launchs_collaborators_are_reused_across_launches_not_reb
     exactly as today" — never rebound to the lock-only transaction).
 
     Observed here as object identity across the walk's two launches: the
-    pass constructs `mapping`, `clickup`, `read_product` and `roster` once
+    pass constructs `mapping`, `clickup`, `read_product` and `members` once
     per **run**, not once per **launch**, so the same objects reach
     `converge_launch` for every launch the lock now wraps. A restructuring
     that rebuilt any of them inside the new per-launch lock block would
@@ -509,7 +509,7 @@ async def test_converge_launchs_collaborators_are_reused_across_launches_not_reb
     assert len(converge.calls) == len(WALK), (
         f"convergence did not run once per launch: {converge.calls!r}"
     )
-    for name in ("mapping", "clickup", "read_product", "roster"):
+    for name in ("mapping", "clickup", "read_product", "members"):
         seen = [call[name] for call in converge.calls if name in call]
         if not seen:
             continue

@@ -771,7 +771,7 @@ def test_a_coherent_playbook_loads() -> None:
 #   lookup API is invented here; if the implementation adds one, that is a
 #   free choice, not a constraint from this spec.
 # - The member sets of `Scope`, `StepKind` and `Cadence`
-#   beyond the members these tests use. Only `Hazard`'s set (three) is
+#   beyond the membership these tests use. Only `Hazard`'s set (three) is
 #   closed by this spec and asserted here; the discipline set (twelve) is
 #   closed by `shared-vocabulary` and asserted in
 #   `tests/unit/shared/domain/test_discipline.py`.

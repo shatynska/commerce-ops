@@ -26,7 +26,7 @@ implementation that kept the rule, or by one that dropped it.
 
 The unchanged scenarios — *A rejected write reports all faults and persists
 nothing*, *An untouched unowned step does not block an unrelated write*,
-*Editing an unowned step requires giving it an owner*, *A roster change does
+*Editing an unowned step requires giving it an owner*, *A membership change does
 not break an accepted set*, *What a write cannot persist, a load cannot
 see*, *An activation that satisfies its kind's rules lands*, *A refused
 activation explains itself and persists nothing*, *Registering a handler
@@ -111,7 +111,7 @@ SPECIFIED_GATE_ORDER: Final = (
 
 PRINCIPAL: Final = "helen"
 A_DISCIPLINE: Final = next(iter(Discipline))
-PERSON_ACTIVE: Final = "prs_01HQ8Z6M4A"
+MEMBER_ACTIVE: Final = "prs_01HQ8Z6M4A"
 
 # SPECIFIED by `tasks.md` 2.1: the fault's wording is kept, because
 # `playbook_admin._CROSSINGS` (`playbook_admin.py:593`) matches this
@@ -146,7 +146,7 @@ def _step(**overrides: Any) -> StepDefinition:
         "kind": StepKind.HUMAN,
         "status": StepStatus.ACTIVE,
         "hazard": Hazard.NONE,
-        "assignees": (PERSON_ACTIVE,),
+        "assignees": (MEMBER_ACTIVE,),
         "handler": None,
         "provenance": None,
     }
@@ -163,7 +163,7 @@ def _holding_step(gate: str, **overrides: Any) -> StepDefinition:
         "gate": gate,
         "blocking": True,
         "status": StepStatus.ACTIVE,
-        "assignees": (PERSON_ACTIVE,),
+        "assignees": (MEMBER_ACTIVE,),
     }
     attributes.update(overrides)
     return _step(**attributes)
@@ -208,25 +208,25 @@ class _FakeStepStore:
         self.version += 1
 
 
-class _Person:
-    def __init__(self, person_id: str, display_name: str, *, active: bool) -> None:
-        self.id = person_id
+class _Member:
+    def __init__(self, member_id: str, display_name: str, *, active: bool) -> None:
+        self.id = member_id
         self.display_name = display_name
         self.clickup_user_id: str | None = "clickup-1"
         self.active = active
 
 
-class _FakeRoster:
-    def __init__(self, people: tuple[_Person, ...]) -> None:
-        self._people = people
+class _FakeMembers:
+    def __init__(self, members: tuple[_Member, ...]) -> None:
+        self._members = members
 
-    async def list_people(self) -> tuple[_Person, ...]:
-        return self._people
+    async def list_members(self) -> tuple[_Member, ...]:
+        return self._members
 
-    people = list_people
+    members = list_members
 
-    async def __call__(self) -> tuple[_Person, ...]:
-        return await self.list_people()
+    async def __call__(self) -> tuple[_Member, ...]:
+        return await self.list_members()
 
 
 class _FakeHandlerRegistry:
@@ -243,8 +243,8 @@ class _FakeHandlerRegistry:
         return self._names
 
 
-def _roster() -> _FakeRoster:
-    return _FakeRoster((_Person(PERSON_ACTIVE, "Alice Admin", active=True),))
+def _members() -> _FakeMembers:
+    return _FakeMembers((_Member(MEMBER_ACTIVE, "Alice Admin", active=True),))
 
 
 def _registry() -> _FakeHandlerRegistry:
@@ -318,7 +318,7 @@ async def _set_status(store: _FakeStepStore, step_id: str, status: StepStatus) -
                 principal=PRINCIPAL,
                 step_id=step_id,
                 status=status,
-                roster=_roster(),
+                members=_members(),
                 handlers=_registry(),
             )
     return await update_step(
@@ -326,7 +326,7 @@ async def _set_status(store: _FakeStepStore, step_id: str, status: StepStatus) -
         principal=PRINCIPAL,
         step_id=step_id,
         status=status,
-        roster=_roster(),
+        members=_members(),
         handlers=_registry(),
     )
 
@@ -336,7 +336,7 @@ async def _retire(store: _FakeStepStore, step_id: str) -> Any:
         steps=store,
         principal=PRINCIPAL,
         step_id=step_id,
-        roster=_roster(),
+        members=_members(),
         handlers=_registry(),
     )
 

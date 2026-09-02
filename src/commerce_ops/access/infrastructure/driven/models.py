@@ -22,8 +22,8 @@ from sqlalchemy.orm import Mapped, mapped_column
 from commerce_ops.shared.infrastructure.driven.orm import Base
 
 
-class RosterPerson(Base):
-    """One person on the roster: identity data plus the attribution trail.
+class MemberRow(Base):
+    """One member on the membership: identity data plus the attribution trail.
 
     Replaces the repo-owned `principals.yaml` (`move-principals-to-roster`).
     Rows are never deleted — deactivation is a flag, so the history of who
@@ -34,7 +34,7 @@ class RosterPerson(Base):
     identifier must never be re-pointed at a different one.
     """
 
-    __tablename__ = "roster_people"
+    __tablename__ = "members"
 
     identifier: Mapped[str] = mapped_column(String, primary_key=True)
     display_name: Mapped[str] = mapped_column(String, nullable=False)
@@ -61,12 +61,12 @@ class RosterPerson(Base):
     )
     # Who conferred the admin flag, kept apart from `updated_by` so a
     # later edit that confers nothing cannot erase the startup seed's
-    # signal (see `access.application.roster.PersonRecord`).
+    # signal (see `access.application.members.MemberRecord`).
     admin_conferred_by: Mapped[str | None] = mapped_column(String, nullable=True)
 
 
-class RosterSet(Base):
-    """The single optimistic set-version serializing every roster write.
+class MembersSet(Base):
+    """The single optimistic set-version serializing every membership write.
 
     One row, ever — the shape `playbook_step_set` established: each
     accepted write persists conditionally on the version it loaded and
@@ -74,8 +74,8 @@ class RosterSet(Base):
     last active admin.
     """
 
-    __tablename__ = "roster_set"
-    __table_args__ = (CheckConstraint("id = 1", name="ck_roster_set_singleton"),)
+    __tablename__ = "members_set"
+    __table_args__ = (CheckConstraint("id = 1", name="ck_members_set_singleton"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

@@ -24,7 +24,7 @@ carrying the **same** narrowing the admin left the table under.
 
 ## Level
 
-The playbook router alone, over a step-store double and a roster double
+The playbook router alone, over a step-store double and a membership double
 — the harness `test_playbook_admin_page.py` and
 `test_playbook_admin_create_page.py` established, reproduced here (this
 project shares no test-helper module between test files).
@@ -81,7 +81,7 @@ INVENTED, each with its correction point named in the code:
   guard, that following it actually re-renders the table under that
   narrowing (present/absent steps, not only the query string).
   Correction point: `_same_narrowing`.
-- Every module seam, the step-store double and the roster double — taken
+- Every module seam, the step-store double and the membership double — taken
   unchanged from `test_playbook_admin_page.py` and
   `test_playbook_admin_create_page.py`.
 
@@ -250,17 +250,17 @@ def _seeded_store() -> _FakeStepStore:
     return _FakeStepStore(records)
 
 
-class _FakePerson:
-    def __init__(self, person_id: str, display_name: str) -> None:
-        self.id = person_id
+class _FakeMember:
+    def __init__(self, member_id: str, display_name: str) -> None:
+        self.id = member_id
         self.display_name = display_name
         self.clickup_user_id: str | None = "clickup-1"
         self.active = True
 
 
-class _FakeRoster:
-    async def list_people(self) -> tuple[_FakePerson, ...]:
-        return (_FakePerson(ASSIGNEE, ASSIGNEE_NAME),)
+class _FakeMembers:
+    async def list_members(self) -> tuple[_FakeMember, ...]:
+        return (_FakeMember(ASSIGNEE, ASSIGNEE_NAME),)
 
 
 # ---------------------------------------------------------------------------
@@ -393,7 +393,7 @@ def _signed_client(
 ) -> TestClient:
     monkeypatch.setattr(page_module, "steps", store)
     monkeypatch.setattr(page_module, "verify_admin_session", _fake_verify)
-    monkeypatch.setattr(page_module, "roster", _FakeRoster())
+    monkeypatch.setattr(page_module, "members", _FakeMembers())
     app = FastAPI()
     app.include_router(page_module.router)
     client = TestClient(app)

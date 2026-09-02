@@ -1,4 +1,4 @@
-"""The admin-session use cases resolving against the roster
+"""The admin-session use cases resolving against the membership
 (`admin-session`, both MODIFIED requirements).
 
 Derived strictly from the delta spec:
@@ -6,13 +6,13 @@ Derived strictly from the delta spec:
 
 - *An admin-capable principal can request an admin link from Slack* —
   its three scenarios' use-case halves.
-- *Admin access fails closed and absence-shaped* — the two roster-side
+- *Admin access fails closed and absence-shaped* — the two membership-side
   revocation scenarios (*Removal from the directory revokes access on
   the next request*, *Withdrawing the admin declaration revokes access
   likewise*). Its first scenario (*No session means no surface*) is a
   response-shape claim about an admin route, and is covered over the
-  roster page in `tests/unit/access/infrastructure/driving/
-  test_roster_admin_page.py`.
+  Team page in `tests/unit/access/infrastructure/driving/
+  test_members_admin_page.py`.
 
 The ephemeral-delivery halves ("visible only to them", "does not confirm
 that an admin surface exists") are the Slack handler's, and no adapter
@@ -27,31 +27,31 @@ directory-built halves as obsolete-test candidates.
 ## What is fixed, and what is INVENTED
 
 Fixed by the artifacts: `resolve_admin_capability` becomes async against
-the roster and its callers are updated (`tasks.md` 2.3); minting
-verifies admin capability before it mints; deactivation is the roster's
+the membership and its callers are updated (`tasks.md` 2.3); minting
+verifies admin capability before it mints; deactivation is the membership's
 form of removal; a token binds the verified principal and expires no
 more than ten minutes after minting (delta text).
 
 INVENTED, recorded in the manifest:
 
-- That `mint_admin_link` and `verify_admin_session` take the roster
+- That `mint_admin_link` and `verify_admin_session` take the members
   store where they took the loaded directory, in the same first
   position. Correction points: `_mint`, `_verify`.
 - The token/session store protocols, carried over verbatim from
   `test_admin_session_use_cases.py` (`_FakeLinkTokens`,
   `_FakeAdminSessions`) — this change touches neither.
-- The store double and write call shapes, as `test_roster_writes.py`
+- The store double and write call shapes, as `test_members_writes.py`
   records; the files correct together. Repeated rather than shared
   because this pass may write only files matching `tests/**/test_*.py`.
 
 Deliberately *not* pinned: whether the principal a token binds is the
-Slack identity or the generated person id. The delta fixes only that it
+Slack identity or the generated member id. The delta fixes only that it
 is "the verified principal", so every assertion here round-trips
 mint → exchange → verify rather than comparing against a literal.
 
 ## Expected first-run state
 
-The roster use cases do not exist, so every test here is expected to
+The membership use cases do not exist, so every test here is expected to
 fail on an absent target (`ImportError`) — which establishes only
 absence.
 
@@ -68,11 +68,11 @@ from typing import Any, Final
 import pytest
 
 from commerce_ops.access.application import (
-    create_person,
-    deactivate_person,
+    create_member,
+    deactivate_member,
     exchange_link_token,
     mint_admin_link,
-    update_person,
+    update_member,
     verify_admin_session,
 )
 
@@ -98,12 +98,12 @@ def anyio_backend() -> str:
 
 
 # ---------------------------------------------------------------------------
-# Store doubles (roster: see test_roster_writes.py; tokens and sessions:
+# Store doubles (members: see test_members_writes.py; tokens and sessions:
 # carried over from test_admin_session_use_cases.py unchanged)
 # ---------------------------------------------------------------------------
 
 
-class _FakeRosterStore:
+class _FakeMembersStore:
     def __init__(self, rows: tuple[Any, ...] = (), version: int = 11) -> None:
         self.rows = tuple(rows)
         self.version = version
@@ -159,13 +159,13 @@ class _FakeAdminSessions:
         return principal
 
 
-_ID_NAMES: Final = ("id", "person_id", "identifier")
+_ID_NAMES: Final = ("id", "member_id", "identifier")
 _SLACK_NAMES: Final = ("slack_identity", "slack_user_id", "slack_id")
 
 
 def _targets(row: Any) -> tuple[Any, ...]:
     found = [row]
-    for attribute in ("person", "entry", "definition", "record"):
+    for attribute in ("member", "entry", "definition", "record"):
         nested = getattr(row, attribute, None)
         if nested is not None:
             found.append(nested)
@@ -178,12 +178,12 @@ def _field(row: Any, names: tuple[str, ...], what: str) -> Any:
             if hasattr(target, name):
                 return getattr(target, name)
     pytest.fail(
-        f"a stored roster row exposes no {what} under any of {names} — "
+        f"a stored membership row exposes no {what} under any of {names} — "
         "correct this file's accessor names to the implemented row"
     )
 
 
-def _id_of(store: _FakeRosterStore, identity: str) -> Any:
+def _id_of(store: _FakeMembersStore, identity: str) -> Any:
     for row in store.rows:
         if str(_field(row, _SLACK_NAMES, "Slack identity")) == identity:
             return _field(row, _ID_NAMES, "generated identifier")
@@ -196,14 +196,14 @@ def _id_of(store: _FakeRosterStore, identity: str) -> Any:
 
 
 async def _create(
-    store: _FakeRosterStore,
+    store: _FakeMembersStore,
     *,
     display_name: str,
     slack_identity: str,
     admin: bool = False,
 ) -> Any:
-    return await create_person(
-        roster=store,
+    return await create_member(
+        members=store,
         principal=PRINCIPAL,
         display_name=display_name,
         slack_identity=slack_identity,
@@ -213,14 +213,14 @@ async def _create(
 
 
 async def _mint(
-    roster: Any,
+    members: Any,
     tokens: _FakeLinkTokens,
     identity: str,
     *,
     now: datetime = T0,
 ) -> str | None:
     return await mint_admin_link(
-        roster, tokens, identity=identity, base_url=BASE_URL, now=now
+        members, tokens, identity=identity, base_url=BASE_URL, now=now
     )
 
 
@@ -235,13 +235,13 @@ async def _exchange(
 
 
 async def _verify(
-    roster: Any,
+    members: Any,
     sessions: _FakeAdminSessions,
     session_id: str,
     *,
     now: datetime,
 ) -> str | None:
-    return await verify_admin_session(roster, sessions, session_id=session_id, now=now)
+    return await verify_admin_session(members, sessions, session_id=session_id, now=now)
 
 
 def _token_of(link: str) -> str:
@@ -252,11 +252,11 @@ def _token_of(link: str) -> str:
     return tail
 
 
-async def _roster() -> _FakeRosterStore:
+async def _members() -> _FakeMembersStore:
     """Two active admins — the second keeps the last-admin floor from
     blocking a deactivation — plus one active member with no admin
     declaration."""
-    store = _FakeRosterStore()
+    store = _FakeMembersStore()
     await _create(
         store,
         display_name="Alice Admin",
@@ -274,7 +274,7 @@ async def _roster() -> _FakeRosterStore:
 
 
 async def _session_for(
-    store: _FakeRosterStore,
+    store: _FakeMembersStore,
     identity: str,
 ) -> tuple[_FakeAdminSessions, str]:
     """A live admin session, established the way a real one is: mint,
@@ -297,7 +297,7 @@ async def test_an_admin_capable_principal_receives_a_link() -> None:
     """Scenario: An admin-capable principal receives a link — the
     minting half.
 
-    WHEN a Slack user who resolves admin-capable against the roster
+    WHEN a Slack user who resolves admin-capable against the membership
     invokes the command
     THEN they receive a reply carrying a link with a token bound to
     their principal identity.
@@ -306,7 +306,7 @@ async def test_an_admin_capable_principal_receives_a_link() -> None:
     literal: the minted token exchanges into a session that verifies,
     which is what "bound to the verified principal" buys the caller.
     Whether that principal is spelled as the Slack identity or the
-    generated person id is deliberately not pinned.
+    generated member id is deliberately not pinned.
 
     The requirement's expiry clause is asserted alongside, since the
     delta re-states it and no scenario of its own carries it.
@@ -314,7 +314,7 @@ async def test_an_admin_capable_principal_receives_a_link() -> None:
     The "visible only to them" half is the Slack handler's, recorded as
     uncovered in the manifest.
     """
-    store = await _roster()
+    store = await _members()
     tokens = _FakeLinkTokens()
 
     link = await _mint(store, tokens, ADMIN_IDENTITY)
@@ -342,8 +342,8 @@ async def test_a_visibility_only_principal_is_refused_like_an_unknown_one() -> N
     one / An unknown caller's refusal confirms nothing — the minting
     halves.
 
-    WHEN an active roster member without the admin declaration invokes
-    the command, and when a Slack user the roster does not know invokes
+    WHEN an active member without the admin declaration invokes
+    the command, and when a Slack user the membership does not know invokes
     it
     THEN both receive one and the same refusal, carrying no admin URL.
 
@@ -354,13 +354,13 @@ async def test_a_visibility_only_principal_is_refused_like_an_unknown_one() -> N
     exists". The message-wording half is the handler's, recorded as
     uncovered in the manifest.
     """
-    store = await _roster()
+    store = await _members()
     tokens = _FakeLinkTokens()
 
     member = await _mint(store, tokens, MEMBER_IDENTITY)
     unknown = await _mint(store, tokens, STRANGER_IDENTITY)
 
-    # SPECIFIED: active roster membership alone does not suffice, and
+    # SPECIFIED: active membership alone does not suffice, and
     # both refusals are one and the same outcome.
     assert member is None
     assert unknown is None
@@ -375,16 +375,16 @@ async def test_a_visibility_only_principal_is_refused_like_an_unknown_one() -> N
 async def test_a_deactivated_admin_is_refused_a_link() -> None:
     """DERIVED, from the requirement's re-stated refusal clause: "A
     caller who does not resolve admin-capable — whether unknown to the
-    roster, deactivated, or an active member without the admin
+    members, deactivated, or an active member without the admin
     declaration — SHALL receive one and the same ephemeral refusal".
 
     The deactivated case has no scenario of its own; it is new in this
     delta (the YAML directory had no deactivation), so it is asserted
     here against the same refusal value the other two produce.
     """
-    store = await _roster()
-    await deactivate_person(
-        roster=store, principal=PRINCIPAL, person_id=_id_of(store, ADMIN_IDENTITY)
+    store = await _members()
+    await deactivate_member(
+        members=store, principal=PRINCIPAL, member_id=_id_of(store, ADMIN_IDENTITY)
     )
     tokens = _FakeLinkTokens()
 
@@ -406,22 +406,22 @@ async def test_deactivation_revokes_access_on_the_next_request() -> None:
     """Scenario: Removal from the directory revokes access on the next
     request — the verification half.
 
-    WHEN a principal's roster entry is deactivated while their session
+    WHEN a principal's members entry is deactivated while their session
     is still unexpired, and they then request an admin route
     THEN the request is refused.
 
     The session verifies immediately before the deactivation, so the
-    refusal afterwards is the roster read at work and not an expiry, a
+    refusal afterwards is the membership read at work and not an expiry, a
     bad session id, or a store that never verified anything. The
     absence-*shape* of the response is the route's half, asserted in
-    `test_roster_admin_page.py`.
+    `test_members_admin_page.py`.
     """
-    store = await _roster()
+    store = await _members()
     sessions, session_id = await _session_for(store, ADMIN_IDENTITY)
     assert await _verify(store, sessions, session_id, now=T0 + A_TICK)
 
-    await deactivate_person(
-        roster=store, principal=PRINCIPAL, person_id=_id_of(store, ADMIN_IDENTITY)
+    await deactivate_member(
+        members=store, principal=PRINCIPAL, member_id=_id_of(store, ADMIN_IDENTITY)
     )
 
     # SPECIFIED: the still-unexpired session no longer verifies.
@@ -432,7 +432,7 @@ async def test_withdrawing_the_admin_declaration_revokes_likewise() -> None:
     """Scenario: Withdrawing the admin declaration revokes access
     likewise — the verification half.
 
-    WHEN a principal's roster entry loses its admin declaration while
+    WHEN a principal's members entry loses its admin declaration while
     their session is still unexpired, and they then request an admin
     route
     THEN the request is refused.
@@ -441,14 +441,14 @@ async def test_withdrawing_the_admin_declaration_revokes_likewise() -> None:
     distinct from the deactivation scenario above. A second admin
     remains, so the withdrawal is permitted by the last-admin floor.
     """
-    store = await _roster()
+    store = await _members()
     sessions, session_id = await _session_for(store, ADMIN_IDENTITY)
     assert await _verify(store, sessions, session_id, now=T0 + A_TICK)
 
-    await update_person(
-        roster=store,
+    await update_member(
+        members=store,
         principal=PRINCIPAL,
-        person_id=_id_of(store, ADMIN_IDENTITY),
+        member_id=_id_of(store, ADMIN_IDENTITY),
         admin=False,
     )
 

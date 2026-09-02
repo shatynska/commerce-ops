@@ -452,7 +452,7 @@ async def test_kinds_and_the_compliance_hazard_are_represented() -> None:
     that the migration's one `ai-assisted` row and one `automated` row
     land on different confirmation states — is retired by
     `add-step-confirmer`: `confirmer` replaces the boolean flag with a
-    named roster person, which no migration can invent for a row it
+    named member, which no migration can invent for a row it
     never asked anyone to name, so both migration-era automated rows
     carry no confirmer post-migration. That consequence is asserted on
     its own below, in `test_no_migration_era_automated_step_names_a_confirmer`.
@@ -470,7 +470,7 @@ async def test_no_migration_era_automated_step_names_a_confirmer() -> None:
     """`add-step-confirmer`'s no-backfill decision, made checkable: the
     `needs_confirmation` column `redesign-step-fields`'s backfill once
     set `true` on the `ai-assisted` row is dropped without carrying a
-    confirmer across, since no migration may invent who that person is.
+    confirmer across, since no migration may invent who that member is.
 
     A regression here means a later migration accidentally backfilled a
     confirmer nobody authored, or the drop migration silently kept the
@@ -553,14 +553,14 @@ async def test_no_seeded_human_step_carries_a_handler() -> None:
 async def test_migrated_steps_are_unowned_and_carry_no_description() -> None:
     """Migration Plan step 2: "`description` ← null" and "`assignees` ←
     empty. The 95 migrated human steps are active and unowned, and the
-    readiness report says so. Backfilling an owner — the roster's only
-    person — would make the report claim the work is owned when nobody
+    readiness report says so. Backfilling an owner — the membership's only
+    member — would make the report claim the work is owned when nobody
     has accepted it, which is the honest signal this change exists to
     produce."
 
     A backfill that copied the row text into both `name` and
     `description` would double every ClickUp task's body, and one that
-    assigned the roster's only person would silence the report this
+    assigned the membership's only member would silence the report this
     change exists to produce. Neither is a load-time fault, so nothing
     else in this suite would notice.
     """
@@ -585,30 +585,30 @@ _REPORT_NAMES: Final = (
 )
 
 
-class _Person:
-    """A roster row for the report's collaborator.
+class _Member:
+    """A membership row for the report's collaborator.
 
-    The report is a function of the step set, the roster and the handler
+    The report is a function of the step set, the membership and the handler
     registry; the *seeded set* is what this file has under test, so the
-    other two are doubles here rather than live reads — a live roster
+    other two are doubles here rather than live reads — a live membership
     would make the assertion depend on who happens to be on it.
     """
 
-    def __init__(self, person_id: str, display_name: str) -> None:
-        self.id = person_id
+    def __init__(self, member_id: str, display_name: str) -> None:
+        self.id = member_id
         self.display_name = display_name
         self.clickup_user_id: str | None = "clickup-1"
         self.active = True
 
 
-class _FakeRoster:
-    async def list_people(self) -> tuple[_Person, ...]:
+class _FakeMembers:
+    async def list_members(self) -> tuple[_Member, ...]:
         return ()
 
-    people = list_people
+    members = list_members
 
-    async def __call__(self) -> tuple[_Person, ...]:
-        return await self.list_people()
+    async def __call__(self) -> tuple[_Member, ...]:
+        return await self.list_members()
 
 
 class _EmptyRegistry:
@@ -653,7 +653,7 @@ async def test_outstanding_readiness_decisions_stay_visible() -> None:
     steps = _seeded(await _authored_steps())
     rows = list(
         await _resolve(
-            report(steps=steps, roster=_FakeRoster(), handlers=_EmptyRegistry())
+            report(steps=steps, members=_FakeMembers(), handlers=_EmptyRegistry())
         )
     )
     reported = {getattr(row, "identifier", None) for row in rows}

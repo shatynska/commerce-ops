@@ -1,15 +1,15 @@
-"""The roster collaborator a decision is actually wired to, and what a
+"""The members collaborator a decision is actually wired to, and what a
 mis-wiring says to the decider.
 
 Derived strictly from the delta spec
 `openspec/changes/restore-automated-decisions/specs/launch-step-automation/spec.md`
-(MODIFIED requirement *Only a known, active person may decide a pending
+(MODIFIED requirement *Only a known, active member may decide a pending
 result*).
 
 This file carries the halves of that requirement's added scenarios that
 cannot be observed at the use-case level:
 
-- *A person the roster carries can decide through the wiring production
+- *A member the membership carries can decide through the wiring production
   supplies* — whole. `design.md` — Decision 6 makes the object under
   test the one `commerce_ops.main` injects, so no other tier can carry
   it.
@@ -22,7 +22,7 @@ cannot be observed at the use-case level:
 
 The use-case halves of those two, and the requirement's other four
 scenarios, are
-`tests/unit/launch/application/test_automated_decision_roster_shape.py`.
+`tests/unit/launch/application/test_automated_decision_members_shape.py`.
 See `test-manifest.md` at the change root for the full accounting.
 
 ## Level
@@ -32,12 +32,12 @@ and no higher.
 
 The wiring scenario needs the *identity* of an object, not its shape, so
 the smallest unit that can observe it is the composition root's own
-attribute — `automation_confirmation.read_people` as `commerce_ops.main`
+attribute — `automation_confirmation.read_members` as `commerce_ops.main`
 left it. A test that rebuilt a reader "the way `main.py` builds it" would
 be a second object of the same shape and would go on passing at the
 moment `main.py` regressed, which is precisely how this fault shipped
 past a suite covering every rule it breaks (`design.md` — Decision 6,
-citing `tests/integration/launch/test_playbook_authoring_roster_live.py`:
+citing `tests/integration/launch/test_playbook_authoring_members_live.py`:
 "A double can be shaped wrongly and pass; the real adapter cannot").
 
 `tests/unit/launch/infrastructure/driving/test_main_monitoring_wiring.py`
@@ -46,20 +46,20 @@ database and no production secrets, so this needs no new tier and no new
 fixture. What is under test is the object at the assignment, not
 Postgres.
 
-The substitution goes at the **store** — `commerce_ops.main.roster` —
+The substitution goes at the **store** — `commerce_ops.main.members` —
 and nowhere lower, per `design.md` — Decision 6 and `tasks.md` 4.5.
-Substituting `commerce_ops.main.list_people` would replace the reader's
+Substituting `commerce_ops.main.list_members` would replace the reader's
 entire body, so a reader closed over the wrong store, or over nothing,
 would still pass: the same escape this file exists to close, one level
-down. Leaving the reader's call into `access`'s real `list_people`
+down. Leaving the reader's call into `access`'s real `list_members`
 intact is what makes the assertion about the wiring rather than about a
-stub — and `_FakeRosterStore.loads` below is what proves the
+stub — and `_FakeMembersStore.loads` below is what proves the
 substitution was reached at all.
 
-The roster rows are built by driving `access`'s own `create_person`
+The membership rows are built by driving `access`'s own `create_member`
 rather than by inventing a row class, so the reader adapts the real rows
 production would hand it. That is the arrangement
-`test_playbook_admin_writes_reach_the_roster.py` records for the sibling
+`test_playbook_admin_writes_reach_the_members.py` records for the sibling
 seam.
 
 ## What is fixed, and what is INVENTED
@@ -67,23 +67,23 @@ seam.
 Fixed by this change's artifacts:
 
 - That `main.py` injects a **reader** at the site currently assigning the
-  store, and that the reader resolves the module-level `roster` global
-  inside `list_people()` rather than capturing it at construction
+  store, and that the reader resolves the module-level `members` global
+  inside `list_members()` rather than capturing it at construction
   (`tasks.md` 2.3, 2.4).
-- That the absent-collaborator fault raises `UnreadableRosterError`
+- That the absent-collaborator fault raises `UnreadableMembersError`
   rather than `RuntimeError`, so one catch covers both wiring faults
   (`tasks.md` 2.2; `design.md` — Decision 4).
 - That `_handle_decision` catches that error by its own type, logs it at
   `exception` level, and answers the decider with a sentence carrying no
-  clause about their identity, roster entry or authority (`tasks.md`
+  clause about their identity, members entry or authority (`tasks.md`
   3.1, 3.2).
 
 INVENTED, recorded in `test-manifest.md` as unresolved project questions
 with their correction points:
 
-- The names of the adapter's roster resolver and its decision entry
+- The names of the adapter's members resolver and its decision entry
   point. Both are named in this change's own artifacts
-  (`_roster_or_fail`, `_handle_decision`), but neither is a spec term, so
+  (`_members_or_fail`, `_handle_decision`), but neither is a spec term, so
   each is probed over alternatives and fails loudly rather than
   defaulting. Correction points: `_RESOLVER_NAMES`, `_ENTRY_NAMES`.
 - The decision entry point's **call shape**. `_drive_decision` supplies a
@@ -95,9 +95,9 @@ with their correction points:
   `test_clickup_webhook.py` records), and every module-level class named
   for persistence by this repository's own suffixes. Correction points:
   `_SESSION_SEAM_NAMES`, `_PERSISTENCE_SUFFIXES`. Both were confirmed to
-  drive the entry point as far as the roster resolution before these
+  drive the entry point as far as the membership resolution before these
   tests were reported: the fault they observe is the real
-  `read_people`-is-absent fault escaping the listener, not an unmet
+  `read_members`-is-absent fault escaping the listener, not an unmet
   collaborator of this file's own. Should a later change break that,
   correct the arrangement — never the assertions.
 - The wording by which a reply blames the decider. Correction point:
@@ -121,9 +121,9 @@ one type (asserted in the application file) and that one catch handles it
 Every test in this file is expected to **FAIL**, and each on a different
 part of the missing mechanism:
 
-- the wiring test, because `read_people` is the `PostgresRoster` store
-  today, so `_person_for` finds none of its spellings and the decision is
-  refused as though the roster did not carry Alice — with the substituted
+- the wiring test, because `read_members` is the `PostgresMembers` store
+  today, so `_member_for` finds none of its spellings and the decision is
+  refused as though the membership did not carry Alice — with the substituted
   store never read at all;
 - the resolver test, because the pre-injection window raises a bare
   `RuntimeError` (`tasks.md` 2.2);
@@ -157,7 +157,7 @@ import pytest
 
 import commerce_ops.launch.application as launch_application
 import commerce_ops.main as composition_root
-from commerce_ops.access.application import create_person
+from commerce_ops.access.application import create_member
 from commerce_ops.launch.domain.launch_playbook import (
     Gate,
     GateOpening,
@@ -215,11 +215,11 @@ RECOMMENDATION: Final = (
 _BLAMES_THE_IDENTITY: Final = (
     "does not know",
     "doesn't know",
-    "not on the roster",
+    "not on the membership",
     "unknown identity",
     "unrecognised",
     "unrecognized",
-    "no such person",
+    "no such member",
     "not known",
 )
 
@@ -267,7 +267,7 @@ _SESSION_SEAM_NAMES: Final = ("session", "transaction")
 #: decision refused at the wiring never reaches a query. Named by
 #: convention rather than by a list of specific classes, so a repository
 #: this adapter gains later is covered without editing this file.
-_PERSISTENCE_SUFFIXES: Final = ("Repository", "Repositories", "Store", "Roster")
+_PERSISTENCE_SUFFIXES: Final = ("Repository", "Repositories", "Store", "Members")
 
 
 class _AnswersNothing:
@@ -447,14 +447,14 @@ class _RecordingOutcomes:
 
 
 # ---------------------------------------------------------------------------
-# The roster store `commerce_ops.main` holds, and the rows it carries
+# The members store `commerce_ops.main` holds, and the rows it carries
 # ---------------------------------------------------------------------------
 
 
-class _FakeRosterStore:
-    """In-memory whole-set roster store, shaped as
-    `tests/unit/access/application/test_roster_writes.py` records
-    `RosterStore` — which is `PostgresRoster`'s shape, and so the shape
+class _FakeMembersStore:
+    """In-memory whole-set members store, shaped as
+    `tests/unit/access/application/test_members_writes.py` records
+    `MembersStore` — which is `PostgresMembers`'s shape, and so the shape
     `main.py`'s reader must be able to read through."""
 
     def __init__(self, rows: tuple[Any, ...] = (), version: int = 7) -> None:
@@ -474,21 +474,21 @@ class _FakeRosterStore:
         self.version += 1
 
 
-async def _roster_carrying_alice() -> tuple[_FakeRosterStore, str]:
-    """A roster the administration surface holds as active, built by
-    driving `access`'s own `create_person` so the rows are the real ones
-    the reader adapts. Returns the store and Alice's generated roster
+async def _members_carrying_alice() -> tuple[_FakeMembersStore, str]:
+    """A membership the administration surface holds as active, built by
+    driving `access`'s own `create_member` so the rows are the real ones
+    the reader adapts. Returns the store and Alice's generated members
     identifier, which only exists once she has been created."""
-    store = _FakeRosterStore()
-    record = await create_person(
-        roster=store,
+    store = _FakeMembersStore()
+    record = await create_member(
+        members=store,
         principal=BOOTSTRAP_PRINCIPAL,
         display_name=ALICE_NAME,
         slack_identity=ALICE_SLACK,
         clickup_user_id=None,
         admin=True,
     )
-    alice_id = record.person.identifier
+    alice_id = record.member.identifier
     store.loads = 0  # only reads made by the decision under test count
     return store, alice_id
 
@@ -526,12 +526,12 @@ def _collaborators(confirmer: str | None = None) -> _Collaborators:
     )
 
 
-async def _accept(collaborators: _Collaborators, roster: Any) -> Any:
+async def _accept(collaborators: _Collaborators, members: Any) -> Any:
     """INVENTED call shape — kept identical to the application file's, so
     the two correct together."""
     supplied: dict[str, Any] = {
         "results": collaborators.results,
-        "roster": roster,
+        "members": members,
         "launches": collaborators.launches,
         "playbook": collaborators.playbook,
         "record_outcome": collaborators.recorder,
@@ -584,77 +584,77 @@ def _blames_the_identity(text: str) -> bool:
 
 
 def _wiring_error_type() -> type[BaseException]:
-    found = getattr(launch_application, "UnreadableRosterError", None)
+    found = getattr(launch_application, "UnreadableMembersError", None)
     if isinstance(found, type) and issubclass(found, BaseException):
         return found
     pytest.fail(
-        "`commerce_ops.launch.application` exports no `UnreadableRosterError` "
+        "`commerce_ops.launch.application` exports no `UnreadableMembersError` "
         "— `tasks.md` 1.6 requires it on the module's public surface, "
         "because `automation_confirmation` may reach it no other way"
     )
 
 
 # ---------------------------------------------------------------------------
-# Scenario: A person the roster carries can decide through the wiring
+# Scenario: A member the membership carries can decide through the wiring
 # production supplies
 # ---------------------------------------------------------------------------
 
 
-async def test_a_roster_person_can_decide_through_the_injected_collaborator(
+async def test_a_members_member_can_decide_through_the_injected_collaborator(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Scenario: The named confirmer can decide, through the wiring
     production supplies.
 
     WHEN a decision arrives from the Slack identity belonging to the
-    step's named confirmer, whom the roster-administration surface holds
-    as active, judged against the roster collaborator the running system
+    step's named confirmer, whom the membership-administration surface holds
+    as active, judged against the members collaborator the running system
     supplies
-    THEN that person is resolved and the decision is judged on its merits
+    THEN that member is resolved and the decision is judged on its merits
     rather than refused as unknown.
 
-    The collaborator under test is `automation_confirmation.read_people`
+    The collaborator under test is `automation_confirmation.read_members`
     **as `commerce_ops.main` left it** — read, never rebuilt. Rebuilding
     it would test a second object of the same shape and would keep
     passing at the moment `main.py` regressed (`design.md` — Decision 6).
 
-    The substitution is at `commerce_ops.main.roster`, the store, and
+    The substitution is at `commerce_ops.main.members`, the store, and
     nowhere lower (`tasks.md` 4.5). `store.loads` is asserted for that
     reason: a reader that captured a different store at construction, or
-    closed over nothing, would answer an empty roster and refuse Alice
+    closed over nothing, would answer an empty membership and refuse Alice
     while never touching the store this test substituted — so the read
     count is what distinguishes "the wiring works" from "something
     answered".
 
-    Expected to FAIL on its first run: `read_people` is the
-    `PostgresRoster` store today, `_person_for` finds none of its
+    Expected to FAIL on its first run: `read_members` is the
+    `PostgresMembers` store today, `_member_for` finds none of its
     spellings on it, and Alice is refused as unknown with the
     substituted store never read (`proposal.md` — *Why*).
     """
-    store, alice_id = await _roster_carrying_alice()
-    monkeypatch.setattr(composition_root, "roster", store)
+    store, alice_id = await _members_carrying_alice()
+    monkeypatch.setattr(composition_root, "members", store)
 
-    injected = automation_confirmation.read_people
+    injected = automation_confirmation.read_members
     assert injected is not None, (
-        "`commerce_ops.main` injected no roster collaborator into "
-        "`automation_confirmation.read_people` at all, so no decision this "
+        "`commerce_ops.main` injected no members collaborator into "
+        "`automation_confirmation.read_members` at all, so no decision this "
         "deployment receives can be judged"
     )
 
     collaborators = _collaborators(confirmer=alice_id)
     returned = await _accept(collaborators, injected)
 
-    # SPECIFIED: the roster production supplies was actually read …
+    # SPECIFIED: the membership production supplies was actually read …
     assert store.loads >= 1, (
-        "the decision resolved without ever reading the roster store "
+        "the decision resolved without ever reading the members store "
         "`commerce_ops.main` holds. The injected collaborator is not reading "
         "through that store — it either captured a different one at "
         "construction (`tasks.md` 2.4) or is not a reader at all"
     )
-    # SPECIFIED: … the person was resolved, and not refused as unknown …
+    # SPECIFIED: … the member was resolved, and not refused as unknown …
     assert not _blames_the_identity(_reason(returned)), (
-        "an identity the roster carries as active was refused as one the "
-        f"roster does not know: {_reason(returned)!r}"
+        "an identity the membership carries as active was refused as one the "
+        f"members does not know: {_reason(returned)!r}"
     )
     assert getattr(returned, "refused", False) is not True, (
         f"the decision was refused: {_reason(returned)!r}"
@@ -673,14 +673,14 @@ async def test_a_roster_person_can_decide_through_the_injected_collaborator(
 # ---------------------------------------------------------------------------
 
 _RESOLVER_NAMES: Final = (
-    "_roster_or_fail",
-    "roster_or_fail",
-    "_require_roster",
-    "_read_people_or_fail",
+    "_members_or_fail",
+    "members_or_fail",
+    "_require_members",
+    "_read_members_or_fail",
 )
 
 
-def _roster_resolver() -> Any:
+def _members_resolver() -> Any:
     """The adapter's narrowing of the injected collaborator (`tasks.md`
     2.2). Probed rather than assumed — the name is fixed by this change's
     artifacts, not by the spec."""
@@ -689,7 +689,7 @@ def _roster_resolver() -> Any:
         if callable(found):
             return found
     pytest.fail(
-        "the confirmation adapter exposes no roster resolver under any of "
+        "the confirmation adapter exposes no members resolver under any of "
         f"{_RESOLVER_NAMES} — correct this file's probe to the implemented "
         "name rather than letting the pre-injection window go unasserted"
     )
@@ -701,7 +701,7 @@ async def test_an_absent_collaborator_raises_the_named_wiring_error(
     """Scenario: An absent collaborator is refused the same way, not
     silently — the "same named wiring error" half.
 
-    WHEN a decision arrives at a deployment where no roster collaborator
+    WHEN a decision arrives at a deployment where no members collaborator
     was supplied at all
     THEN it is refused with the same named wiring error […].
 
@@ -714,9 +714,9 @@ async def test_an_absent_collaborator_raises_the_named_wiring_error(
     Expected to FAIL on its first run: the pre-injection window raises a
     bare `RuntimeError` today (`tasks.md` 2.2).
     """
-    monkeypatch.setattr(automation_confirmation, "read_people", None)
+    monkeypatch.setattr(automation_confirmation, "read_members", None)
 
-    resolver = _roster_resolver()
+    resolver = _members_resolver()
     parameters = inspect.signature(resolver).parameters
     required = [
         name
@@ -730,8 +730,8 @@ async def test_an_absent_collaborator_raises_the_named_wiring_error(
         )
     ]
     assert not required, (
-        f"the roster resolver takes required arguments {required}; correct "
-        "`_roster_resolver`'s call below to the implemented signature"
+        f"the membership resolver takes required arguments {required}; correct "
+        "`_members_resolver`'s call below to the implemented signature"
     )
 
     # The catch cannot be narrowed: the raised type is exactly what this
@@ -746,15 +746,15 @@ async def test_an_absent_collaborator_raises_the_named_wiring_error(
     # name, so today's failure reads as what was actually raised rather
     # than as a missing export.
     assert type(caught.value) is not RuntimeError, (
-        "a deployment with no roster collaborator raised a bare "
+        "a deployment with no members collaborator raised a bare "
         f"RuntimeError({str(caught.value)!r}). `tasks.md` 2.2 preserves that "
         "message and changes the type, because a `RuntimeError` here is "
         "caught by nothing and escapes the Bolt listener after `ack()`"
     )
     assert type(caught.value) is _wiring_error_type(), (
-        "a deployment with no roster collaborator refused the decision as "
+        "a deployment with no members collaborator refused the decision as "
         f"{type(caught.value).__name__}. `tasks.md` 2.2 requires the same "
-        "`UnreadableRosterError` the mis-shaped collaborator raises, so that "
+        "`UnreadableMembersError` the mis-shaped collaborator raises, so that "
         "one catch in `_handle_decision` covers both"
     )
     # SPECIFIED (`tasks.md` 2.2): its message is preserved — only its
@@ -911,7 +911,7 @@ async def test_a_wiring_fault_answers_the_decider_rather_than_falling_silent(
     """Scenario: An absent collaborator is refused the same way, not
     silently — its "the decider is told" half.
 
-    WHEN a decision arrives at a deployment where no roster collaborator
+    WHEN a decision arrives at a deployment where no members collaborator
     was supplied at all
     THEN […] the decider is told their decision was not processed, and
     the decision does not fail without an answer.
@@ -925,7 +925,7 @@ async def test_a_wiring_fault_answers_the_decider_rather_than_falling_silent(
     Expected to FAIL on its first run: nothing catches the fault today,
     so it escapes and the decider is answered with silence.
     """
-    monkeypatch.setattr(automation_confirmation, "read_people", None)
+    monkeypatch.setattr(automation_confirmation, "read_members", None)
 
     answer = await _drive_decision()
 
@@ -954,14 +954,14 @@ async def test_a_wiring_fault_blames_no_decider_and_is_reported_to_operators(
     """Scenario: A mis-wiring is never reported as an unknown identity —
     its adapter half.
 
-    WHEN a decision is judged against a roster collaborator that cannot
-    answer who the roster carries
-    THEN the decider is not told that the roster does not know their
+    WHEN a decision is judged against a members collaborator that cannot
+    answer who the membership carries
+    THEN the decider is not told that the membership does not know their
     Slack identity, and the mis-wiring is reported where operators see
     faults.
 
     Two assertions, one per clause. The reply carries "no clause about
-    the decider's identity, their roster entry, or their authority"
+    the decider's identity, their members entry, or their authority"
     (`tasks.md` 3.2), and the fault is logged at `exception` level, which
     `design.md` — Decision 4 names as the "reported where operators see
     faults" half of the requirement.
@@ -971,12 +971,12 @@ async def test_a_wiring_fault_blames_no_decider_and_is_reported_to_operators(
     — Decision 4), and the absent case is refused by the adapter before
     the decision reaches the pending-result store this tier does not
     have. The mis-shaped collaborator's own refusal is asserted in
-    `tests/unit/launch/application/test_automated_decision_roster_shape.py`.
+    `tests/unit/launch/application/test_automated_decision_members_shape.py`.
 
     Expected to FAIL on its first run: nothing catches the fault, so
     there is no reply to inspect and nothing is logged.
     """
-    monkeypatch.setattr(automation_confirmation, "read_people", None)
+    monkeypatch.setattr(automation_confirmation, "read_members", None)
 
     with caplog.at_level(logging.DEBUG):
         answer = await _drive_decision()
@@ -990,7 +990,7 @@ async def test_a_wiring_fault_blames_no_decider_and_is_reported_to_operators(
         "the assertions below would pass for the wrong reason"
     )
 
-    # SPECIFIED: the decider is not told the roster does not know them.
+    # SPECIFIED: the decider is not told the membership does not know them.
     assert not _blames_the_identity(answer.text), (
         "a mis-wired deployment told the decider something about their own "
         f"identity: {answer.text!r}"
@@ -1021,7 +1021,7 @@ async def test_a_wiring_fault_blames_no_decider_and_is_reported_to_operators(
 #   this app's listeners by
 #   `test_slack_entry_ack_and_failure_visibility.py`; asserting it here
 #   would pin the entry point's shape further than any scenario states.
-# - That `read_people`'s declared type turns a store-shaped injection
+# - That `read_members`'s declared type turns a store-shaped injection
 #   into a `mypy` error at the assigning line (`design.md` — Decision 3,
 #   `tasks.md` 2.5). A static guarantee; no runtime assertion observes
 #   it, and a test pretending to would pass for the wrong reason.

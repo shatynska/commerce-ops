@@ -136,7 +136,7 @@ APPROVED_AT: Final = datetime(2027, 1, 6, 9, 30, tzinfo=UTC)
 CLICKUP_SOURCE: Final = "clickup"
 ACTOR_USERNAME: Final = "helen.shatynska"
 #: The delivery's `user.id` — preferred over `username`/`email` since
-#: it's the field a roster person's `clickup_user_id` can resolve
+#: it's the field a member's `clickup_user_id` can resolve
 #: against (`raw-out-the-journal-columns`'s ClickUp actor fix).
 ACTOR_ID: Final = "183"
 
@@ -737,7 +737,7 @@ def test_a_closed_task_records_satisfied(
     # SPECIFIED: the ClickUp actor, where the delivery identifies one.
     # DERIVED: `user.id` specifically, not `username` -- the spec's own
     # text ("the ClickUp actor where the delivery identifies one") does
-    # not fix a field, but `id` is what a roster person's
+    # not fix a field, but `id` is what a member's
     # `clickup_user_id` can resolve against later, which `username`
     # cannot.
     assert ACTOR_ID in str(provenance.who), (

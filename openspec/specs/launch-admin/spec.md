@@ -3,7 +3,7 @@
 ## Purpose
 The launch-tracking surface: lets a signed-in admin see every product in
 launch at once — where each stands in the gate sequence, whether its date
-is at risk and whether it waits on a person — and open one launch to read
+is at risk and whether it waits on a member — and open one launch to read
 its steps, their recorded outcomes and its journal. It reports what the
 launch context already holds and changes none of it.
 
@@ -126,7 +126,7 @@ error is worse than one that answers it with identifiers.
 - **THEN** exactly the permitted products' launches are rendered
 
 *(No principal resolves to such a scope today — `access-scope` resolves
-every active roster member unrestricted — so this scenario is exercised
+every active member unrestricted — so this scenario is exercised
 with the **scope resolver alone** stubbed to return a restricted scope,
 the real enumeration behind it, asserting the rows actually rendered.
 Stubbing further and asserting only that the surface passed the scope on
@@ -526,7 +526,7 @@ stylesheet the other admin surfaces load, rather than from styling
 carried in the pages themselves, so that a change to the vocabulary
 reaches every admin surface rather than some of them.
 
-`roster-admin` already requires this of itself, and records why: a page
+`members-admin` already requires this of itself, and records why: a page
 carrying its own styling is why two surfaces an admin moves between look
 like two products, and — more to the point — why a presentation fix
 applied to one silently does not apply to the other, a divergence nothing
@@ -757,7 +757,7 @@ that defines `--tokens` and sets no rendered property changes nothing on a
 surface that never reads them, and the theme blocks every token in this
 vocabulary is declared in are exactly that. The obligation is about what a
 rule *renders*, not about what it matches —
-which today is the step list, the roster page, the product index and the product
+which today is the step list, the Team page, the product index and the product
 dossier, and tomorrow is whatever is added next.
 
 What can be read from a response is that the regions are marked, that no fact
@@ -790,7 +790,7 @@ SHALL be confirmed by direct inspection of the rendered page.
 #### Scenario: No selector this change adds reaches another surface
 
 - **WHEN** the served stylesheet is read
-- **THEN** no selector this change adds matches an element rendered by the step list, the roster page, the product index or the product dossier
+- **THEN** no selector this change adds matches an element rendered by the step list, the Team page, the product index or the product dossier
 
 #### Scenario: A reused class name is never selected unqualified
 
@@ -1135,9 +1135,9 @@ at all. A metric obligation reaches this page as an ordinary step, its
 threshold being the step's own description, and needs no exception to
 the columns' meaning.
 
-Where an entry's `actor` matches a person the roster carries — by that
-person's roster identifier or by their ClickUp user id — the page
-SHALL render the person's name rather than the raw identifier; where
+Where an entry's `actor` matches a member the membership carries — by that
+member's member identifier or by their ClickUp user id — the page
+SHALL render the member's name rather than the raw identifier; where
 it matches neither, the page SHALL render the raw value rather than
 omitting it or failing.
 
@@ -1214,19 +1214,19 @@ regardless of whether anything is recorded.
 - **WHEN** a launch's journal holds an entry carrying no source
 - **THEN** its row's source column reads `system`, whether or not that entry names an actor
 
-#### Scenario: A known actor resolves to their name by roster identifier
+#### Scenario: A known actor resolves to their name by member identifier
 
-- **WHEN** an entry's `actor` is the roster identifier of a person the roster carries
-- **THEN** the row shows that person's name rather than the raw identifier
+- **WHEN** an entry's `actor` is the member identifier of a member the membership carries
+- **THEN** the row shows that member's name rather than the raw identifier
 
 #### Scenario: A known actor resolves to their name by ClickUp user id
 
-- **WHEN** an entry's `actor` is the ClickUp user id of a person the roster carries
-- **THEN** the row shows that person's name rather than the raw identifier
+- **WHEN** an entry's `actor` is the ClickUp user id of a member the membership carries
+- **THEN** the row shows that member's name rather than the raw identifier
 
 #### Scenario: An unresolvable actor renders as its raw value
 
-- **WHEN** an entry's `actor` does not match any person the roster carries, by either identifier
+- **WHEN** an entry's `actor` does not match any member the membership carries, by either identifier
 - **THEN** the row shows the raw actor value rather than omitting it
 
 #### Scenario: An entry's row shows its label as a coloured kind tag and carries its category marker

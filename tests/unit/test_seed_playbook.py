@@ -8,7 +8,7 @@ set, because a stored row that differs from its vendored counterpart is
 indistinguishable from a row an author edited — the difference is the edit.
 
 That makes it idempotent, which is why nothing arms it: its condition is
-readable from the stored set, the way the roster seeder's is from the roster.
+readable from the stored set, the way the membership seeder's is from the membership.
 """
 
 from __future__ import annotations
@@ -79,7 +79,7 @@ def test_an_edited_step_is_left_exactly_as_it_stands(
             by_identifier["lp.rank.001"],
             name="a name an author chose",
             status=StepStatus.ACTIVE,
-            assignees=("a-roster-identifier",),
+            assignees=("a-member-identifier",),
         ),
         updated_by="helen",
         updated_on=now,
@@ -92,7 +92,7 @@ def test_an_edited_step_is_left_exactly_as_it_stands(
     )
     assert kept.definition.name == "a name an author chose"
     assert kept.definition.status is StepStatus.ACTIVE
-    assert kept.definition.assignees == ("a-roster-identifier",)
+    assert kept.definition.assignees == ("a-member-identifier",)
     assert kept.updated_by == "helen"
     assert kept.updated_on == now
     # Everything else the vendored set carries is still added.
@@ -198,7 +198,7 @@ def test_nothing_stored_is_ever_absent_from_the_candidate(
 
 
 def test_the_start_chain_runs_the_step_in_its_specified_position() -> None:
-    """3.19 — SPECIFIED (`deploy-pipeline`): after the roster seed, and before
+    """3.19 — SPECIFIED (`deploy-pipeline`): after the members seed, and before
     the handler-registration report, so that report describes the set the
     deployment is about to serve.
 

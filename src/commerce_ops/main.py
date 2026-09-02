@@ -8,13 +8,13 @@ from typing import Any
 from fastapi import FastAPI
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from commerce_ops.access.application import Person, list_people, verify_admin_session
-from commerce_ops.access.infrastructure.driven.roster_repository import (
-    PostgresRoster,
+from commerce_ops.access.application import Member, list_members, verify_admin_session
+from commerce_ops.access.infrastructure.driven.members_repository import (
+    PostgresMembers,
 )
 from commerce_ops.access.infrastructure.driving import admin_link as access_admin_link
 from commerce_ops.access.infrastructure.driving import (
-    roster_admin as access_roster_admin,
+    members_admin as access_members_admin,
 )
 from commerce_ops.catalog.application import register_product
 from commerce_ops.catalog.domain.product import Product
@@ -87,13 +87,13 @@ async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
 # only report on what it knows about (tasks.md 1.3).
 register_all()
 
-# The roster replaced the repo-owned principals file
+# The membership replaced the repo-owned principals file
 # (`move-principals-to-roster`), so there is no longer a document to
-# validate at import: the store only ever holds what the roster's own
+# validate at import: the store only ever holds what the membership's own
 # validated writes produced. Constructing the collaborator touches no
 # database — the connection is opened per operation, no earlier than the
 # first one — so importing this module still requires no configuration.
-roster = PostgresRoster()
+members = PostgresMembers()
 
 app = FastAPI(lifespan=_lifespan)
 app.include_router(health.router)
@@ -105,7 +105,7 @@ app.include_router(launch_clickup_webhook.router)
 app.include_router(launch_slack_entry.router)
 app.include_router(access_admin_link.router)
 app.include_router(launch_playbook_admin.router)
-app.include_router(access_roster_admin.router)
+app.include_router(access_members_admin.router)
 app.include_router(launch_tracking_admin.router)
 app.include_router(launch_product_dossier.router)
 app.include_router(shared_admin_assets.router)
@@ -150,13 +150,13 @@ launch_slack_entry.register_catalog_product = _register_catalog_product
 # module may not import the access module's infrastructure, so the
 # composition root hands it the startup-validated directory and the same
 # session store the exchange route writes into.
-launch_playbook_admin.roster = roster
+launch_playbook_admin.members = members
 launch_playbook_admin.admin_sessions = access_admin_link.admin_sessions
-access_roster_admin.roster = roster
-access_roster_admin.admin_sessions = access_admin_link.admin_sessions
-launch_tracking_admin.roster = roster
+access_members_admin.members = members
+access_members_admin.admin_sessions = access_admin_link.admin_sessions
+launch_tracking_admin.members = members
 launch_tracking_admin.admin_sessions = access_admin_link.admin_sessions
-launch_product_dossier.roster = roster
+launch_product_dossier.members = members
 launch_product_dossier.admin_sessions = access_admin_link.admin_sessions
 
 
@@ -209,23 +209,23 @@ launch_tracking_admin.catalog = _RequestScopedCatalog()
 launch_product_dossier.catalog = _RequestScopedCatalog()
 
 
-class _RosterReader:
-    """Reads the roster for the automated-result decision controls.
+class _MembersReader:
+    """Reads the membership for the automated-result decision controls.
 
     A **reader**, not the store the admin pages get. Those hold one
     collaborator serving two contracts -- `verify_admin_session` is typed
-    `RosterStore` and genuinely needs one -- so they take the store and
+    `MembersStore` and genuinely needs one -- so they take the store and
     adapt it internally. This adapter has no second contract: resolving
-    the deciding Slack identity is the only thing it wants a roster for,
+    the deciding Slack identity is the only thing it wants a membership for,
     so it takes the reader and nothing else.
 
-    The store was handed over here unadapted once. `PostgresRoster`
-    answers `load()`/`save()`, the decision path reads `list_people()`,
-    and the probe that missed resolved it to "no such person" -- so every
+    The store was handed over here unadapted once. `PostgresMembers`
+    answers `load()`/`save()`, the decision path reads `list_members()`,
+    and the probe that missed resolved it to "no such member" -- so every
     accept and reject, by every identity, was refused as though the
-    roster did not carry the decider.
+    members did not carry the decider.
 
-    Near-identical to `worker.py._RosterReader`, deliberately: the two
+    Near-identical to `worker.py._MembersReader`, deliberately: the two
     composition roots are separate processes, neither may import the
     other, and each is the only place in its own process permitted to
     construct `access`'s store. A shared helper would need to live
@@ -233,25 +233,25 @@ class _RosterReader:
     root *is*.
     """
 
-    async def list_people(self) -> tuple[Person, ...]:
-        # `roster` is resolved here, per call, rather than captured at
+    async def list_members(self) -> tuple[Member, ...]:
+        # `members` is resolved here, per call, rather than captured at
         # construction. Binding it in `__init__` would seal the store in
         # before any test could reach it, and the one test that proves
         # this wiring works substitutes exactly there -- see
         # `tests/unit/launch/infrastructure/driving/test_automated_decision_wiring.py`.
         # (`worker.py`'s reader differs: it constructs a fresh
-        # `PostgresRoster()` per call and so has no global to resolve.)
-        return await list_people(roster=roster)
+        # `PostgresMembers()` per call and so has no global to resolve.)
+        return await list_members(members=members)
 
 
 # The accept/reject controls on an automated result resolve the deciding
-# Slack identity through the roster. `launch` may not construct access's
+# Slack identity through the membership. `launch` may not construct access's
 # store, so the root supplies the reader over it.
-launch_automation_confirmation.read_people = _RosterReader()
+launch_automation_confirmation.read_members = _MembersReader()
 
 # The approve/reject controls on a launch gate resolve the deciding Slack
 # identity the same way. Its listeners are registered by importing it.
-launch_gate_confirmation.read_people = _RosterReader()
+launch_gate_confirmation.read_members = _MembersReader()
 # `trigger-clickup-projection-on-launch-events`'s eager convergence, which
 # `handle_gate_decision` triggers after an approval crosses a gate, needs
 # the same catalog reader `converge_launch` requires everywhere else — this
@@ -260,10 +260,10 @@ launch_gate_confirmation.read_people = _RosterReader()
 launch_gate_confirmation.read_product = _RequestScopedCatalog().get_by_id
 
 # `gate_progression_job.converge_launch_eagerly` (`trigger-clickup-
-# projection-on-launch-events`) needs a catalog reader and a roster reader
+# projection-on-launch-events`) needs a catalog reader and a members reader
 # too, unlike `gate_confirmation`'s own decision path above: `converge_launch`
 # requires `read_product`, with no default, to name a launch's ClickUp list,
-# and its `roster` resolves task assignees. `gate_progression_job` is a
+# and its `members` resolves task assignees. `gate_progression_job` is a
 # single module loaded independently by each process, so this process's own
 # request-scoped readers are wired here, exactly as `worker.py` wires its
 # own (differently shaped) readers onto the same module's globals for the
@@ -272,26 +272,26 @@ launch_gate_confirmation.read_product = _RequestScopedCatalog().get_by_id
 # `gate_confirmation`'s own decision path; it stopped being the whole
 # picture once this process also runs the eager-convergence helper.)
 launch_gate_progression_job.read_product = _RequestScopedCatalog().get_by_id
-launch_gate_progression_job.read_people = _RosterReader()
+launch_gate_progression_job.read_members = _MembersReader()
 
 # `slack_entry.py`'s own eager-convergence trigger, right after a launch
 # starts, needs the same two readers for the same reason.
 launch_slack_entry.read_product = _RequestScopedCatalog().get_by_id
-launch_slack_entry.read_people = _RosterReader()
+launch_slack_entry.read_members = _MembersReader()
 
 # `clickup_webhook.py`'s own eager-convergence dispatch, alongside
 # `advance_and_ask` when its cascade crosses a gate, needs the same two
 # readers for the same reason.
 launch_clickup_webhook.read_product = _RequestScopedCatalog().get_by_id
-launch_clickup_webhook.read_people = _RosterReader()
+launch_clickup_webhook.read_members = _MembersReader()
 
-# Every threaded launch message resolves who to tag through the roster: a
-# step's confirmer is stored as the roster's own identifier, which Slack
+# Every threaded launch message resolves who to tag through the membership: a
+# step's confirmer is stored as the membership's own identifier, which Slack
 # cannot resolve. `launch` may not construct access's store, so the root
 # supplies the reader here too. Needed in this process for the launch
 # confirmation and the gate ask; `worker.py` wires the same seam for the
 # automation pass's own two messages.
-launch_thread_delivery.read_people = _RosterReader()
+launch_thread_delivery.read_members = _MembersReader()
 
 
 async def _read_product_on(db_session: AsyncSession, product_id: ProductId) -> Any:
@@ -321,7 +321,7 @@ async def _verify_admin_session(*, session_id: str) -> str | None:
     callable that either answers a principal or answers nothing, and knows
     nothing else about what an admin is."""
     return await verify_admin_session(
-        roster,
+        members,
         access_admin_link.admin_sessions,
         session_id=session_id,
         now=datetime.now(UTC),

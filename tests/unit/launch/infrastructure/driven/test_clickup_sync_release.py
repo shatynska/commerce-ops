@@ -35,7 +35,7 @@ sits at and the smallest that can observe which ClickUp writes happen.
 Inherited from `test_clickup_projection_step_fields.py` and
 `test_clickup_non_active_steps_leave_loop.py`, whose docstrings record
 them: both call shapes, the ClickUp port's four operations, the mapping
-store's methods, `read_product`, `roster=` and `record_outcome=`.
+store's methods, `read_product`, `members=` and `record_outcome=`.
 Correction points: `_converge`, `_reconcile`.
 
 Added by this file: `starts_at_gate` / `after_steps` as constructor
@@ -251,31 +251,31 @@ class _FakeCatalog:
         return self._product
 
 
-class _Person:
-    def __init__(self, person_id: str, display_name: str) -> None:
-        self.id = person_id
+class _Member:
+    def __init__(self, member_id: str, display_name: str) -> None:
+        self.id = member_id
         self.display_name = display_name
         self.clickup_user_id: str | None = "clickup-1"
         self.active = True
 
 
-class _FakeRoster:
+class _FakeMembers:
     def __init__(self) -> None:
-        self._people = (_Person("prs_01HQ8Z6M4A", "Alice Admin"),)
+        self._members = (_Member("prs_01HQ8Z6M4A", "Alice Admin"),)
 
-    async def list_people(self) -> tuple[_Person, ...]:
-        return self._people
+    async def list_members(self) -> tuple[_Member, ...]:
+        return self._members
 
-    people = list_people
+    members = list_members
 
-    async def person(self, person_id: str) -> _Person | None:
-        for person in self._people:
-            if person.id == person_id:
-                return person
+    async def member(self, member_id: str) -> _Member | None:
+        for member in self._members:
+            if member.id == member_id:
+                return member
         return None
 
-    async def __call__(self) -> tuple[_Person, ...]:
-        return await self.list_people()
+    async def __call__(self) -> tuple[_Member, ...]:
+        return await self.list_members()
 
 
 @dataclass
@@ -497,7 +497,7 @@ class _Collaborators:
             _CatalogProduct(name=PRODUCT_NAME, sku=PRODUCT_SKU)
         )
     )
-    roster: _FakeRoster = field(default_factory=_FakeRoster)
+    members: _FakeMembers = field(default_factory=_FakeMembers)
     recorder: _FakeRecorder = field(default_factory=_FakeRecorder)
 
 
@@ -511,7 +511,7 @@ async def _converge(
         clickup=collaborators.clickup,
         mapping=collaborators.mapping,
         read_product=collaborators.catalog,
-        roster=collaborators.roster,
+        members=collaborators.members,
         folder_id=FOLDER_ID,
     )
 

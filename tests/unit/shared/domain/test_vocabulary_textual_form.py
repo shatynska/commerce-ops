@@ -256,7 +256,7 @@ def _composite() -> tuple[tuple[str, Any], ...]:
 def test_a_value_with_no_single_value_keeps_naming_its_type(subject: Any) -> None:
     """Scenario: A value with no single value is not rendered as an object.
 
-    WHEN a lifecycle stage or an access scope is named to a person
+    WHEN a lifecycle stage or an access scope is named to a member
     THEN it is named by its parts, and no rendering of the object is
     composed into the text.
 
@@ -329,7 +329,7 @@ def test_a_debugging_representation_names_the_type_and_the_value(
     """Scenario: A debugging representation is still available.
 
     WHEN a value object is inspected for a diagnostic rather than rendered
-    into text a person reads or a machine parses
+    into text a member reads or a machine parses
     THEN a representation naming the type and its value is still
     available, and remains distinct from the textual form.
 

@@ -76,14 +76,14 @@ STEP_ID: Final = "listing.sub-category"
 STEP_NAME: Final = "Choose the sub-category node"
 HANDLER_NAME: Final = "listing.subcategory_advisor"
 
-#: What a step's `confirmer` actually holds: the roster's own generated
+#: What a step's `confirmer` actually holds: the membership's own generated
 #: identifier (`str(uuid.uuid4())`), which Slack cannot resolve. This file
 #: used to spell it `CONFIRMER_ID = "U0CONFIRMER"` and assert that value
-#: appeared in the message -- an assertion satisfied by carrying the roster
+#: appeared in the message -- an assertion satisfied by carrying the membership
 #: identifier straight into `<@…>`, which is exactly what shipped and
 #: notified nobody. The Slack-shaped constant is what disguised it.
-CONFIRMER_ROSTER_ID: Final = "3f7c1a92-6b0e-4c7a-9d51-1e8a4b2c9f30"
-#: What the roster resolves that identifier to, and the only form a mention
+CONFIRMER_MEMBER_ID: Final = "3f7c1a92-6b0e-4c7a-9d51-1e8a4b2c9f30"
+#: What the membership resolves that identifier to, and the only form a mention
 #: may carry.
 CONFIRMER_SLACK: Final = "U0CONFIRMER"
 SUBMITTER_ID: Final = "U0SUBMITTER"
@@ -132,7 +132,7 @@ class _StepWithConfirmer:
     id: str = STEP_ID
     identifier: str = STEP_ID
     name: str = STEP_NAME
-    confirmer: str | None = CONFIRMER_ROSTER_ID
+    confirmer: str | None = CONFIRMER_MEMBER_ID
 
 
 @dataclass
@@ -210,7 +210,7 @@ def _install_thread_establishment(
         calls.append(kwargs)
         step = kwargs.get("step")
         # Stands in for the real collaborator, which resolves a step's
-        # confirmer *through the roster* to that person's Slack identity.
+        # confirmer *through the membership* to that member's Slack identity.
         # This used to return `step.confirmer` unchanged -- reproducing the
         # defect inside the double, so the assertion downstream could never
         # catch it.
@@ -288,12 +288,12 @@ async def test_pending_result_tags_confirmer(monkeypatch: pytest.MonkeyPatch) ->
     assert f"<@{CONFIRMER_SLACK}>" in poster.rendered, (
         f"the pending result did not tag the step's confirmer: {poster.rendered!r}"
     )
-    # The half this file previously could not state: the roster's own
+    # The half this file previously could not state: the membership's own
     # identifier must appear nowhere. Slack renders it as inert literal text,
     # so a message carrying it satisfies "tags the confirmer" while notifying
     # nobody -- which is precisely what shipped.
-    assert CONFIRMER_ROSTER_ID not in poster.rendered, (
-        f"the roster identifier reached the message: {poster.rendered!r}"
+    assert CONFIRMER_MEMBER_ID not in poster.rendered, (
+        f"the member identifier reached the message: {poster.rendered!r}"
     )
 
 

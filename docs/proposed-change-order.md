@@ -83,6 +83,15 @@ carries `getattr` tolerances for doubles that model less than their subject.
 anything else in flight. Its precondition — `restore-the-skipped-unit-tests`
 landed, so no file being migrated is one nobody has seen run — is now met.
 
+**Rebase it onto `rename-the-roster-to-members`, not the reverse.** That
+change renames the people directory to members across 219 files, 126 of them
+under `tests/`, and thirteen test files change name with their subject. Once
+it merges, rebase onto it; this entry is already *last*, so the ordering
+costs nothing — but
+it is recorded here because this file is the one place cross-change ordering
+lives, and a dependency that exists only in a merged change's `proposal.md`
+is one nobody reads at the moment it matters.
+
 ---
 
 ## Not on this list

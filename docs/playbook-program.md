@@ -143,9 +143,9 @@ below is a first cut, not a settled answer:
 | `assignees` | `starts_at_stage`, `timing_anchor` | |
 | `provenance`, `metric_id` | | |
 
-`assignees` sits with the step because roles make it person-independent (see
+`assignees` sits with the step because roles make it member-independent (see
 below): a step assigned to `controller` carries no one's identity into the
-three playbooks that place it. Were assignment still by person, this row would
+three playbooks that place it. Were assignment still by member, this row would
 be the table's hardest question.
 
 **The people directory is `members`, not `roster`.** The word is already what
@@ -155,27 +155,27 @@ nothing"*, *"membership says what a person may see"* — so the rename promotes
 existing vocabulary rather than inventing any, and lets that prose drop a
 redundant qualifier. `employee` was rejected because the company head confirms
 steps and is not one; `collaborator` because 26 uses across four specs already
-mean a supplied port, not a person. The admin page is titled **Team**, which
+mean a supplied port, not a member. The admin page is titled **Team**, which
 supplies the container that makes "members" read naturally.
 
-**A step is assigned to a role, not to a person — but may name a person.** A
-role reference always means *that role's default holder*, exactly one person,
+**A step is assigned to a role, not to a member — but may name a member.** A
+role reference always means *that role's default holder*, exactly one member,
 so `confirmer` resolves cleanly and there is no "all holders" mode. Non-default
 holders exist to be picked by hand for a particular step. The field is
-therefore a union of a role reference and a person reference, stored in the
+therefore a union of a role reference and a member reference, stored in the
 `JSONB` column `assignees` already is:
 
 ```
 assignees: [ {role: "controller"} ]     ← the usual case, follows whoever holds it
-assignees: [ {person: "<uuid>"} ]       ← the override, always this person
+assignees: [ {member: "<uuid>"} ]       ← the override, always this member
 ```
 
-This is what makes the step library person-independent, and it is why changing
+This is what makes the step library member-independent, and it is why changing
 who holds a role reassigns their open ClickUp tasks on the next pass —
 `clickup_sync._assignee_change` already reconciles assignment continuously
 rather than setting it once. That retroactive reassignment is **deliberate**,
 and deliberately unlike the task-*name* rule, which is set at creation and
-never rewritten because a person may legitimately have edited it.
+never rewritten because a member may legitimately have edited it.
 
 **A draft holds a slot.** `playbook-authoring:246` currently holds that "slots
 belong to the served order", so a `draft` step has none and a step entering
@@ -200,7 +200,7 @@ set*, seeded because step seeding needs roles to reference, not a closed list.
 **A role's identifier is a slug, chosen once and never changed; its title is
 editable.** This differs deliberately from a member, whose identifier is a
 generated `uuid4` precisely so it can never be re-pointed at a different human.
-A role is vocabulary rather than a person: the slug is what steps store and what
+A role is vocabulary rather than a member: the slug is what steps store and what
 the vendored file names, so it must be stable *and* nameable in advance — a
 `uuid4` generated at seed time is neither. Steps carry meaningful string
 identifiers (`lp.strategy.001`) for the same reason. Renaming *Financial
@@ -208,8 +208,8 @@ Controller* to *Head of Finance* is therefore free and rewrites nothing.
 
 **A role is retired, never deleted, and cannot be left without a default.**
 Both mirror rules the member directory already carries. Deleting a role that
-steps reference would strand them, exactly as deleting a person would — so
-`roster`'s *deactivated, never deleted* applies unchanged. And an active role
+steps reference would strand them, exactly as deleting a member would — so
+`members`'s *deactivated, never deleted* applies unchanged. And an active role
 whose default holder is removed resolves to nobody, which silently breaks every
 step assigned to it; removing the last holder of an active role is refused the
 way the last active admin already is. A retired role takes no new assignments,
@@ -240,7 +240,7 @@ the 358 steps is covered and none is counted twice:
 | `operations` | Operations Manager | — | maps to no discipline; the cross-cutting **confirmer** role |
 
 Two naming choices worth keeping. **Brand Manager**, not Category Manager: both
-are real titles, but in a private-label marketplace business the person clearing
+are real titles, but in a private-label marketplace business the member clearing
 the demand and revenue gates owns a brand's P&L, which is what a brand manager
 does. **Financial Controller**, giving the identifier `controller` — a
 distinct word for free, where `finance` would read ambiguously against the
@@ -307,15 +307,15 @@ deliberately a write-time precondition — but that is a loophole, not a
 licence: 355 of the 358 steps project as ClickUp tasks, and the result would
 be a set the authoring surface itself could never have created.
 
-*Why a role and not a person.* Member identifiers are `uuid4` generated at
-insert, so a vendored file cannot name a person at all — but it does not want
-to. Writing one person's identifier into 358 rows is exactly what roles exist
+*Why a role and not a member.* Member identifiers are `uuid4` generated at
+insert, so a vendored file cannot name a member at all — but it does not want
+to. Writing one member's identifier into 358 rows is exactly what roles exist
 to prevent, and every one of those rows would be rewritten the first time
 someone changed job. A role reference is stable, and every role's default
 holder starts as the bootstrap admin — created by `seed_admin`, which the
 container's start chain already runs before `seed_playbook` — so a fresh
-deployment is coherent from the first boot and real people are named later, one
-roster row at a time.
+deployment is coherent from the first boot and real members are named later, one
+members row at a time.
 
 *Which role each step gets.* Roles are their own vocabulary, not disciplines —
 a `founder` role need map to no discipline at all. But the 358 steps already
@@ -329,7 +329,7 @@ default `0` and the seed does not set it. Left alone, all 358 share a slot and
 the served order falls back to identifier — `lp.<discipline>.<nnn>`, which
 groups by discipline rather than by the document's own sequence. Computing the
 slot from the file's row order makes the file's order the authored order,
-which is what a person reading it already assumes.
+which is what a member reading it already assumes.
 
 Because `seed_playbook` adds only what is missing and never touches a stored
 row, none of this reaches the existing database without emptying the table
@@ -372,21 +372,26 @@ if the three above prove insufficient.
 
 ### 1. `rebuild-the-member-directory`
 
-The people directory, done properly — one module (`access`), one concept, four
-commits.
+The member directory, done properly — one module (`access`), one concept.
+Four commits when proposed; the rename has since landed as its own change,
+leaving three.
 
-- **Rename** `roster` to `members` throughout: the `roster` and `roster-admin`
-  specs, the `roster_people` and `roster_set` tables, "roster identifier" →
-  "member identifier", and the references `launch` makes to them. This also
-  settles a live inconsistency — the page's own `<h1>` already reads *Users*
-  while every spec says *roster*.
+- **Rename** — split out as its own change, `rename-the-roster-to-members`,
+  which is implemented and awaiting merge (this bullet becomes "done" when it
+  lands, not before). Split rather than landing as this change's first
+  commit: measured, the rename reaches 13 capabilities and 219 files, while
+  the rest of this change reaches two capabilities, so bundling them would
+  have put ~90% of the diff and none of the risk in front of one reviewer. It
+  renamed the two specs, the two tables and every reference `launch` makes to
+  them, moved the page to `/admin/team`, and settled the live inconsistency
+  where the page's `<h1>` read *Users* while every spec said otherwise.
 - **Roles**, as `move-principals-to-roster` predicted: it put "roles /
   information-kind access" out of scope explicitly, to be added by "a later
   change **when there is behavior to hang on it**". Steps assigned by role is
   that behaviour. A role carries an immutable slug, an editable title and its
   holders, exactly one of them the default; the `admin` boolean stays exactly
   where it is, because permission and work-ownership are different axes and
-  `roster`'s last-active-admin invariant is built on the boolean.
+  `members`'s last-active-admin invariant is built on the boolean.
 - **Managing roles**, since the nine seeded are a starting guess rather than a
   known answer: create, rename and retire them from the admin, with holders
   added and the default moved. Carries three rules that mirror ones the member
@@ -395,7 +400,7 @@ commits.
   naming it are reported rather than failing a load.
 - **The admin page**, rebuilt to the pattern `move-step-actions-into-step-pages`
   already shipped and specified for steps. Today the page opens with a
-  full-width *Add a person* form, and its `actions` column holds two `<form>`s
+  full-width *Add a member* form, and its `actions` column holds two `<form>`s
   containing three unlabelled `<input>`s — an edit-in-place crammed into a table
   cell, with a `td.actions form { display: contents }` CSS hack working around
   it. Target: a **Team** page that is a read-only list whose name column links
@@ -406,14 +411,14 @@ commits.
   exists to undo.
 
 *First*, because it depends on nothing, and Changes 2 and 3 both need roles to
-exist. It is the largest of the three preceding changes and the one whose scope
-is most worth watching: rename, roles, role management and a page rebuild are
-four commits, and if it stops being reviewable in one sitting the role-management
-half is what splits out.
+exist. It was the largest of the three preceding changes; the rename has since
+been split out and landed on its own (`rename-the-roster-to-members`), leaving
+roles, role management and the page rebuild. If what remains stops being
+reviewable in one sitting, the role-management half is what splits out next.
 
 ### 2. `assign-steps-by-role`
 
-`assignees` and `confirmer` accept a role reference or a person reference, per
+`assignees` and `confirmer` accept a role reference or a member reference, per
 the union above. Resolution at projection and display; the step picker renders
 the two groups described below.
 
@@ -421,9 +426,9 @@ the two groups described below.
 assignee is also its confirmer — "a single actor confirming their own work is
 not a second opinion" — and it is a **load-time** rule today precisely because
 it is a pure function of the step set. Roles break that purity: `controller`
-and `operations` are plainly different references, yet resolve to the same person
+and `operations` are plainly different references, yet resolve to the same member
 if one member holds both. The check splits — references differing stays
-load-time and pure; resolved people colliding becomes a roster-dependent fault,
+load-time and pure; resolved members colliding becomes a membership-dependent fault,
 reported the way a deactivated confirmer already is (`launch-playbook:509`),
 not a load failure.
 
@@ -436,7 +441,7 @@ flag would not:
      default Operations Manager (Helen)
      default Financial Controller (Sven)
 
-  ── By person ──  always this person
+  ── By member ──  always this member
      Helen (Operations Manager)
      Marko (Operations Manager)
      Sven (Financial Controller)
@@ -560,7 +565,7 @@ is. Those below survive.
 | H4 | **Prompt fatigue.** The first clone makes every subsequent edit to any shared step prompt. Mitigated by defaulting the prompt to *change everywhere* as a single click, not a modal requiring thought. | 7 |
 | H5 | **Is `status` per step or per placement?** See the field table above. `assignees` is settled by roles. | 5 |
 | H6 | **The served set must stay distinguishable** now that a draft holds a slot and the listing interleaves them. Today the admin separates served from not-served into two tables, which no longer expresses one order. | 3 |
-| H7 | **May one member hold several roles?** Likely yes for a small team — and if the same member is the default for both a step's assignee role and its confirmer role, that step resolves to one person confirming their own work, reported as a resolution fault rather than a load failure. | 2 |
+| H7 | **May one member hold several roles?** Likely yes for a small team — and if the same member is the default for both a step's assignee role and its confirmer role, that step resolves to one member confirming their own work, reported as a resolution fault rather than a load failure. | 2 |
 
 ## Conflicts with the working queue
 

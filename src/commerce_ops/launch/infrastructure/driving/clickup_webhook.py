@@ -81,7 +81,7 @@ __all__ = [
     "advance_and_ask",
     "clickup",
     "converge_launch_eagerly",
-    "read_people",
+    "read_members",
     "read_product",
     "record_step_outcome",
     "router",
@@ -107,9 +107,9 @@ _GRADUATED_GATE: Final = "graduated"
 # eager-convergence call `_trigger_advance_and_ask` makes below
 # (`trigger-clickup-projection-on-launch-events`) — `converge_launch`
 # requires `read_product`, with no default, to name the launch's ClickUp
-# list; `roster` is optional.
+# list; `members` is optional.
 read_product: Any = None
-read_people: Any = None
+read_members: Any = None
 
 
 def _launch_folder_id() -> str | None:
@@ -197,7 +197,7 @@ async def _trigger_advance_and_ask(product_id: Any) -> None:
                 clickup=clickup,
                 mapping=ClickUpMappingRepository(db_session),
                 read_product=_read_product_or_fail,
-                roster=read_people,
+                members=read_members,
                 folder_id=_launch_folder_id(),
             )
     except Exception:
@@ -233,12 +233,12 @@ def _status_change(payload: Any) -> tuple[bool, str | None] | None:
             continue
         after = item.get("after") or {}
         user = item.get("user") or {}
-        # `id` first, not `username`/`email`: a roster person's
+        # `id` first, not `username`/`email`: a member's
         # `clickup_user_id` stores exactly this field (the identifier we
-        # use to assign that person tasks in ClickUp), so recording it
+        # use to assign that member tasks in ClickUp), so recording it
         # here is what lets a journal reader's `Who` column resolve a
         # ClickUp-sourced actor to a name, the same way it already
-        # resolves a Slack-sourced one against `Person.identifier`.
+        # resolves a Slack-sourced one against `Member.identifier`.
         # ClickUp always supplies `id`; the other two are the fallback
         # for a payload shape that somehow doesn't.
         actor = user.get("id") or user.get("username") or user.get("email")

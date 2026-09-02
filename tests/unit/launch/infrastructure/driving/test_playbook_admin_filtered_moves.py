@@ -653,7 +653,7 @@ def _renaming_the_subject(control: _Control, old: str, new: str) -> _Control:
 # ---------------------------------------------------------------------------
 
 
-# `redesign-step-fields`: the page reads the roster to offer assignees and
+# `redesign-step-fields`: the page reads the membership to offer assignees and
 # to validate them, so the fixture supplies one. `ASSIGNEE` is named on
 # every step below because an `active` `human` step the write touches must
 # name someone active — which is the rule, not a fixture convenience.
@@ -661,17 +661,17 @@ ASSIGNEE = "prs_01HQ8Z6M4A"
 ASSIGNEE_NAME = "Alice Admin"
 
 
-class _FakePerson:
-    def __init__(self, person_id: str, display_name: str) -> None:
-        self.id = person_id
+class _FakeMember:
+    def __init__(self, member_id: str, display_name: str) -> None:
+        self.id = member_id
         self.display_name = display_name
         self.clickup_user_id: str | None = "clickup-1"
         self.active = True
 
 
-class _FakeRoster:
-    async def list_people(self) -> tuple[_FakePerson, ...]:
-        return (_FakePerson(ASSIGNEE, ASSIGNEE_NAME),)
+class _FakeMembers:
+    async def list_members(self) -> tuple[_FakeMember, ...]:
+        return (_FakeMember(ASSIGNEE, ASSIGNEE_NAME),)
 
 
 async def _fake_verify(*args: Any, **kwargs: Any) -> str | None:
@@ -684,7 +684,7 @@ def _signed_client(
 ) -> TestClient:
     monkeypatch.setattr(page_module, "steps", store)
     monkeypatch.setattr(page_module, "verify_admin_session", _fake_verify)
-    monkeypatch.setattr(page_module, "roster", _FakeRoster())
+    monkeypatch.setattr(page_module, "members", _FakeMembers())
     app = FastAPI()
     app.include_router(page_module.router)
     client = TestClient(app)

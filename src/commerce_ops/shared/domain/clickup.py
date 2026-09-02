@@ -104,7 +104,7 @@ class ClickUpTaskState:
     conditional wording-healing compares what a task currently carries
     against the composition the system last wrote, so a read must expose
     both fields. `assignees` joined with `redesign-step-fields` for the
-    same reason — a person's own assignment change is respected the way
+    same reason — a member's own assignment change is respected the way
     an edited name or body is, which the loop can only tell by reading
     what the task currently carries. They default to empty/absent so
     earlier constructions stay valid.
@@ -113,7 +113,7 @@ class ClickUpTaskState:
     different reason than the fields above: the projection adds an owned
     tag a task lacks and never removes one, so what it needs from a read
     is only whether the tag is already there. Tag *names* alone, because
-    nothing judges a tag's colour — ClickUp assigns one and a person may
+    nothing judges a tag's colour — ClickUp assigns one and a member may
     change it.
     `custom_field_values` joined with `record-gate-and-discipline-as-fields`,
     keyed by the field's identifier. A value drawn from a field's option set

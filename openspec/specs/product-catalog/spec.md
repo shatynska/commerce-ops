@@ -56,7 +56,7 @@ A successful stage change SHALL yield a stage-changed notification object carryi
 
 #### Scenario: A legal transition is applied and attributed
 
-- **WHEN** a product in `Development` is moved to `Launching` phase 1 with a confirming person named
+- **WHEN** a product in `Development` is moved to `Launching` phase 1 with a confirming member named
 - **THEN** the product's stage is reported as `Launching` phase 1
 - **AND** the change records the confirmer and the time of the change
 
@@ -92,7 +92,7 @@ A successful stage change SHALL yield a stage-changed notification object carryi
 
 #### Scenario: An unconfirmed change is rejected
 
-- **WHEN** a stage change is requested without a confirming person
+- **WHEN** a stage change is requested without a confirming member
 - **THEN** the change is rejected and the stored stage is unchanged
 
 ### Requirement: A product reports when its current stage was entered

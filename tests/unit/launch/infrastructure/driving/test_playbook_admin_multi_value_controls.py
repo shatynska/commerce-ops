@@ -44,7 +44,7 @@ toward the toggle trap (`tasks.md` 7.3).
 
 ## Level
 
-The playbook-admin router over a step-store double and a roster double,
+The playbook-admin router over a step-store double and a membership double,
 mounted beside the shared asset router because one obligation is stated
 about the **served stylesheet**. The harness is the one
 `test_playbook_admin_page.py` established and the sibling admin tests
@@ -93,7 +93,7 @@ test files self-contained.
   marking attribute on one of them — the reading
   `test_playbook_admin_start_fields.py` records in full. Correction
   point: `_fault_texts`.
-- The page seams (`steps`, the roster, `verify_admin_session`), the
+- The page seams (`steps`, the membership, `verify_admin_session`), the
   session cookie and the edit/create control vocabulary, inherited from
   the sibling admin-page tests.
 
@@ -109,7 +109,7 @@ failure states and it establishes that these assertions discriminate.
 Two exceptions, recorded so a pass is not misread as coverage:
 
 - `test_the_dependency_control_is_grouped_and_self_excluding` and
-  `test_assignees_are_chosen_from_the_rosters_active_people` assert what
+  `test_assignees_are_chosen_from_the_members_active_members` assert what
   is offered, not how it is drawn. They still fail today, because they
   locate the offered set through the per-value inputs this change
   introduces — which is the relocation `tasks.md` 7.1 and 7.2 ask for.
@@ -197,7 +197,7 @@ BOHDAN: Final = "prs_01HQ8Z6M4B"
 BOHDAN_NAME: Final = "Bohdan Builder"
 CHRIS: Final = "prs_01HQ8Z6M4C"
 CHRIS_NAME: Final = "Chris Departed"
-NOT_ON_THE_ROSTER: Final = "prs_01HQ8Z6NOPE"
+NOT_A_MEMBER: Final = "prs_01HQ8Z6NOPE"
 
 EDITED: Final = "listing.the-step-being-edited"
 EDITED_NAME: Final = "Work the author is editing"
@@ -319,26 +319,26 @@ class _FakeStepStore:
         self.version += 1
 
 
-class _Person:
-    def __init__(self, person_id: str, display_name: str, active: bool = True) -> None:
-        self.id = person_id
+class _Member:
+    def __init__(self, member_id: str, display_name: str, active: bool = True) -> None:
+        self.id = member_id
         self.display_name = display_name
         self.clickup_user_id: str | None = "clickup-1"
         self.active = active
 
 
-class _FakeRoster:
-    async def list_people(self) -> tuple[_Person, ...]:
+class _FakeMembers:
+    async def list_members(self) -> tuple[_Member, ...]:
         return (
-            _Person(ALICE, ALICE_NAME),
-            _Person(BOHDAN, BOHDAN_NAME),
-            _Person(CHRIS, CHRIS_NAME, active=False),
+            _Member(ALICE, ALICE_NAME),
+            _Member(BOHDAN, BOHDAN_NAME),
+            _Member(CHRIS, CHRIS_NAME, active=False),
         )
 
-    people = list_people
+    members = list_members
 
-    async def __call__(self) -> tuple[_Person, ...]:
-        return await self.list_people()
+    async def __call__(self) -> tuple[_Member, ...]:
+        return await self.list_members()
 
 
 def _seeded_store() -> _FakeStepStore:
@@ -818,17 +818,17 @@ async def _fake_verify(*args: Any, **kwargs: Any) -> str | None:
     return PRINCIPAL if _SESSION_VALUE in haystack else None
 
 
-_ROSTER_ATTRIBUTES: Final = ("roster", "read_roster", "people", "roster_reader")
+_MEMBERS_ATTRIBUTES: Final = ("members", "read_members", "members_reader")
 
 
-def _install_roster(monkeypatch: pytest.MonkeyPatch) -> None:
-    roster = _FakeRoster()
-    for name in _ROSTER_ATTRIBUTES:
+def _install_members(monkeypatch: pytest.MonkeyPatch) -> None:
+    members = _FakeMembers()
+    for name in _MEMBERS_ATTRIBUTES:
         if hasattr(page_module, name):
-            monkeypatch.setattr(page_module, name, roster)
+            monkeypatch.setattr(page_module, name, members)
             return
     pytest.fail(
-        f"the page module exposes no roster seam under any of {_ROSTER_ATTRIBUTES}"
+        f"the page module exposes no members seam under any of {_MEMBERS_ATTRIBUTES}"
     )
 
 
@@ -844,7 +844,7 @@ def _signed_client(
 ) -> TestClient:
     monkeypatch.setattr(page_module, "steps", store)
     monkeypatch.setattr(page_module, "verify_admin_session", _fake_verify)
-    _install_roster(monkeypatch)
+    _install_members(monkeypatch)
     app = FastAPI()
     app.include_router(page_module.router)
     assets = _assets_module()
@@ -1354,7 +1354,7 @@ def test_a_non_empty_choice_still_parses_and_echoes_no_empty_value(
 @pytest.mark.parametrize(
     ("field_name", "fault"),
     (
-        (ASSIGNEES, (ASSIGNEES, NOT_ON_THE_ROSTER)),
+        (ASSIGNEES, (ASSIGNEES, NOT_A_MEMBER)),
         (AFTER_STEPS, (AFTER_STEPS, DRAFTED)),
     ),
     ids=(ASSIGNEES, AFTER_STEPS),
@@ -1375,9 +1375,9 @@ def test_a_fault_mark_renders_outside_what_the_options_are_scrolled_within(
 
     The two provocations are rules the served spec already carries: a
     dependency naming a step that is not `active`, and an assignee the
-    roster does not carry. Both are proven to reject by
+    members does not carry. Both are proven to reject by
     `test_playbook_admin_start_fields.py` and
-    `test_playbook_admin_writes_reach_the_roster.py`.
+    `test_playbook_admin_writes_reach_the_members.py`.
     """
     store = _seeded_store()
     client = _signed_client(monkeypatch, store)
@@ -1513,13 +1513,13 @@ def _gate_group_of(form: _Form, row: _Node) -> str | None:
     return None
 
 
-def test_assignees_are_chosen_from_the_rosters_active_people(
+def test_assignees_are_chosen_from_the_members_active_members(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Scenario: Assignees are chosen from the roster.
+    """Scenario: Assignees are chosen from the membership.
 
     WHEN the assignee control is opened
-    THEN it offers the roster's active people by display name, and does
+    THEN it offers the membership's active members by display name, and does
     not accept a free-typed identifier.
 
     Reproduced from the served spec unchanged in *what* it asserts, and
@@ -1532,9 +1532,9 @@ def test_assignees_are_chosen_from_the_rosters_active_people(
     offered = _offered_values(form, ASSIGNEES)
     rows = _option_rows(form, ASSIGNEES)
 
-    # SPECIFIED: chosen, not typed — a control per person, and no free
+    # SPECIFIED: chosen, not typed — a control per member, and no free
     # text input carrying the field.
-    assert offered, "the assignee control offers no person to choose"
+    assert offered, "the assignee control offers no member to choose"
     typed = [
         element
         for element in _elements(form.node)
@@ -1544,12 +1544,12 @@ def test_assignees_are_chosen_from_the_rosters_active_people(
     ]
     assert not typed, (
         "the assignee control accepts a free-typed identifier, which is how an "
-        "author names a person who does not exist"
+        "author names a member who does not exist"
     )
-    # SPECIFIED: the roster's *active* people.
+    # SPECIFIED: the membership's *active* members.
     assert set(offered) == {ALICE, BOHDAN}, (
-        f"the assignee control offers {sorted(offered)}; the roster's active "
-        f"people are {sorted({ALICE, BOHDAN})} and {CHRIS_NAME} is not active"
+        f"the assignee control offers {sorted(offered)}; the membership's active "
+        f"members are {sorted({ALICE, BOHDAN})} and {CHRIS_NAME} is not active"
     )
     # SPECIFIED: identified by display name.
     said = " ".join(f"{_attribute_text(row)} {_flat(row)}" for row in rows.values())

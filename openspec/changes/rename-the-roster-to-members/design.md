@@ -91,7 +91,16 @@ stopping at whatever subtrees a task list happened to name. The exclusions:
 |---|---|
 | `openspec/changes/**` | The archives are history (§7). **This change's own directory is inside it** — its artifacts quote the pre-rename vocabulary as the evidence for renaming it, and a directory named `rename-the-roster-to-members` cannot survive its own substitution. |
 | `alembic/versions/**` | Applied revisions; their identifiers are what deployed databases hold (§4). |
+| `docs/reference/**` | **Source material, not vocabulary this project owns.** The seeded step content is transcribed from it and step identifiers carry a provenance trace to its row IDs, so rewriting it changes seeded step *content* — a behaviour change, in the change whose whole warrant is that it has none. Both stems mean something else there: *EU Responsible **Person*** is a legal term under GPSR, "line **people** up to purchase" is customers, "the agent **roster**" is a list of AI agents. Found by `test_seeded_step_fields.py`, which re-derives each step's name from its reference row. |
+| `alembic/data/**` | The same content one step on: the vendored step set transcribed *from* `docs/reference/`, plus the modules that generate and name it. It carries **no** occurrence of `roster` at all, so excluding it whole loses nothing and stops the map editing seeded data. Found by `test_playbook_reference_set.py`. |
+| `docs/domain-map.md` | Excluded so §7's record of leaving its stale `Principal` vocabulary is *true* — the map was otherwise editing it in seven other places. Its access slice is about identity in general (`Principal`: "Slack user / **API caller**"), and an API caller is not a directory member. |
 | `.git/`, `.venv/`, `uv.lock` | Not source. |
+
+Three of those five were added **during implementation**, each because a test
+caught the map doing something the plan had not imagined. That is the
+generate-and-diff approach working: the exclusion list is the one place scope
+is decided, so every discovery lands in one table rather than as a hand edit
+somewhere in 200 files.
 
 **Alternative considered — hand-edit and review the diff.** Rejected on
 arithmetic. A reviewer confirming 4,800 hand edits is confirming a negative,
@@ -262,9 +271,33 @@ The same files also contain ordinary `roster` uses
 normally, which is why the preservation is token-level: a file-level
 exclusion would get those wrong in the other direction.
 
-The `preserve` rows are also what keeps `tasks.md` §1.6's injectivity
-assertion meaningful: a preserved token is never a substitution target, so it
-cannot collide with one.
+**The map is deliberately non-injective, and `tasks.md` §1.6 asserts
+determinism instead.** `roster`, `rosters`, `roster_people`, `people` and
+`persons` all target `members`, because those *are* all members now —
+collapsing them is the rename, not a collision to remove. Injectivity was
+load-bearing only for this change's first draft, where verification was a
+*reverse*-substitution proof, which needs an invertible map. The forward
+generate-and-diff check (§1, §8) replaced that proof and needs only that
+every position have one unambiguous parse, which one alternation,
+longest-match-first, in a single pass gives by construction. Recorded because
+an injectivity assertion survived into the task list after the proof it
+served had been abandoned, and could not have passed.
+
+Two further properties the implementation showed were needed, both found by
+running the map rather than reading it:
+
+- **A multi-word `preserve` row must match across a line break.** The
+  quotations sit inside a paragraph, so `"An active roster member resolves…"`
+  is stored as `"An active\nroster member resolves…"`; a literal match found
+  nothing, the row silently did not fire, the quotation was rewritten — and
+  the completeness gate *passed*, because the word was gone.
+- **A lowercase stem must not match inside a word.** `impersonates` contains
+  `person` and became `immemberates`. Title-case and UPPER stay unguarded,
+  because CamelCase and SCREAMING_CASE are exactly where a stem legitimately
+  abuts a letter.
+
+The `preserve` rows contribute to determinism: a preserved string is matched
+ahead of every substitution, so nothing can rewrite inside one.
 
 ### 3. `principals.py` and `roster.py` are renamed too
 
@@ -298,6 +331,18 @@ One revision on `c04d95ba6e31`, the current single head. The 28 existing
 revisions are applied history and keep their names —
 `a3d7e9f2c481_add_roster_tables.py` still describes what it did.
 
+**It renames the constraints and the sequence too, which this section
+originally did not say.** Postgres renames neither when a table is renamed,
+so the schema would have kept `roster_people_pkey`,
+`roster_people_slack_identity_key`, `roster_set_pkey` and the sequence
+`roster_set_id_seq` — on tables called `members` and `members_set`. That is
+the same vocabulary mismatch as the `<h1>Users</h1>` over a `roster` spec,
+one layer down. Nothing in the application names any of them (SQLAlchemy
+declares only the check constraint), so the four extra renames are free, and
+the downgrade inverts all seven. Verified by upgrading and downgrading a
+clone of the seeded test database: no `roster`-named object survives the
+upgrade, and none survives in reverse.
+
 ### 5. Prose is corrected by hand, and the correction is bounded and listed
 
 The mechanical pass produces *"an active members member"* from *"an active
@@ -322,6 +367,14 @@ not part of the machine-checked half. They are:
 - **Reviewed as a diff.** The specs' own diff shows exactly the words that
   changed, which is what `proposal.md` — *Capabilities* argues is a better
   artifact than 40 restated requirement blocks.
+
+**The prose pass is guarded against touching an identifier**, because one of
+its rules did: a bare-word rule matching `members` before a singular verb
+rewrote `if members is None:` in Python and renamed the variable. Every prose
+rule now carries a determiner or a second word, and the pass re-parses each
+Python file and refuses if the set of identifiers changed. A rule that reaches
+code is a defect in the rule, not a change to accept — which is what this
+section claims, now enforced rather than asserted.
 
 The user-visible message strings are the ones to read closely, since several
 are asserted in tests: `use_cases.py`'s *"the roster could not be read…"*,
@@ -408,6 +461,17 @@ changes.
    section 1's input set: the whole tree minus the declared exclusions, so it
    covers the `launch` seams, the ten driving adapters and the two
    composition roots, not only the subtrees a task happens to name.
+
+   **One class of identifier line is hand-patched, and it is not a map
+   defect.** Where two distinct locals in one scope collapse onto the same
+   word — `roster` (a reader) and `people` (its result) both correctly
+   becoming `members` — no row can fix it, because both source words map to
+   the right target. The collision is in the code, and so is the fix: rename
+   the result. Five sites, all in `launch`, all renamed to `entries` or
+   `by_identifier`. mypy catches two of them, where the types differ; the
+   other three were found by an AST scan for a parameter reassigned in its
+   own body. A faithfulness check reported clean without naming them would
+   claim more than it checked.
 2. **Completeness** — a case-insensitive search for `roster` returns nothing
    outside `openspec/changes/**` and `alembic/versions/**` **other than the
    `preserve` tokens enumerated in section 2**, and no `Person`,

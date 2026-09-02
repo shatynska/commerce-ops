@@ -310,8 +310,8 @@ async def test_a_recommendation_is_readable_as_it_stands() -> None:
     """Scenario: A recommendation is readable as it stands.
 
     WHEN a recommendation is returned
-    THEN the rendered text is readable by a person without further
-    processing, since it is delivered to a person for a decision and
+    THEN the rendered text is readable by a member without further
+    processing, since it is delivered to a member for a decision and
     stored as the evidence of what was decided.
     """
     proposal, _ = await _propose(AdvisorResponse(ok=True, value=NODE, comment=COMMENT))

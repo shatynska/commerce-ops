@@ -37,7 +37,7 @@ need migrating to the new field set, per `tasks.md` 6.3).
 The harness follows `test_clickup_sync_retired_steps.py` in this
 directory: `converge_launch(...)` and `reconcile_launch(...)` over
 in-memory fakes, with the outcome recorder injected as `record_outcome=`.
-This change adds the `roster=` collaborator to the convergence pass;
+This change adds the `members=` collaborator to the convergence pass;
 `_converge` is the single correction point.
 
 ## Expected first-run state
@@ -207,25 +207,25 @@ class _FakeCatalog:
         return self._product
 
 
-class _Person:
-    def __init__(self, person_id: str, display_name: str) -> None:
-        self.id = person_id
+class _Member:
+    def __init__(self, member_id: str, display_name: str) -> None:
+        self.id = member_id
         self.display_name = display_name
         self.clickup_user_id: str | None = ALICE_CLICKUP
         self.active = True
 
 
-class _FakeRoster:
-    async def list_people(self) -> tuple[_Person, ...]:
-        return (_Person(ALICE, "Alice Admin"),)
+class _FakeMembers:
+    async def list_members(self) -> tuple[_Member, ...]:
+        return (_Member(ALICE, "Alice Admin"),)
 
-    people = list_people
+    members = list_members
 
-    async def person(self, person_id: str) -> _Person | None:
-        return _Person(ALICE, "Alice Admin") if person_id == ALICE else None
+    async def member(self, member_id: str) -> _Member | None:
+        return _Member(ALICE, "Alice Admin") if member_id == ALICE else None
 
-    async def __call__(self) -> tuple[_Person, ...]:
-        return await self.list_people()
+    async def __call__(self) -> tuple[_Member, ...]:
+        return await self.list_members()
 
 
 @dataclass
@@ -471,7 +471,7 @@ class _Collaborators:
             _CatalogProduct(name=PRODUCT_NAME, sku=PRODUCT_SKU)
         )
     )
-    roster: _FakeRoster = field(default_factory=_FakeRoster)
+    members: _FakeMembers = field(default_factory=_FakeMembers)
     recorder: _FakeRecorder = field(default_factory=_FakeRecorder)
 
 
@@ -485,7 +485,7 @@ async def _converge(
         clickup=collaborators.clickup,
         mapping=collaborators.mapping,
         read_product=collaborators.catalog,
-        roster=collaborators.roster,
+        members=collaborators.members,
         folder_id=FOLDER_ID,
     )
 

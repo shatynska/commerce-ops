@@ -28,7 +28,7 @@ running*:
   three scenarios.
 - *A result needing no confirmation is recorded at once* — its one
   scenario.
-- *A result needing confirmation is held until a person decides* — *A
+- *A result needing confirmation is held until a member decides* — *A
   confirmable terminal result is held rather than recorded* and *A
   pending result suppresses re-invocation*. Its third scenario (two
   overlapping passes) is a concurrency guarantee of the store's partial
@@ -911,7 +911,7 @@ async def test_a_produced_outcome_is_attributed_to_the_handler() -> None:
     result as its evidence.
 
     Recorded here through the no-confirmation branch, which is the one
-    that records without a person; the accepted-result branch names the
+    that records without a member; the accepted-result branch names the
     accepter instead and is asserted in
     `tests/unit/launch/application/test_automated_result_decisions.py`.
     """
@@ -955,7 +955,7 @@ async def test_a_smuggled_provenance_does_not_displace_the_constructed_one() -> 
         result = RECOMMENDATION
         provenance = Provenance(
             source="clickup",
-            who="a person who never saw this",
+            who="a member who never saw this",
             when=APPROVED_AT,
             evidence="signed off by hand",
         )
@@ -1388,7 +1388,7 @@ async def test_an_unconfirmed_result_is_recorded_directly() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Requirement: A result needing confirmation is held until a person decides
+# Requirement: A result needing confirmation is held until a member decides
 # ---------------------------------------------------------------------------
 
 

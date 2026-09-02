@@ -9,10 +9,10 @@ reading the implementation. Scenarios covered here:
   / Scenario: A handled event type still reaches its handler
 - ADDED "Bot-Authored Events Do Not Trigger A Reply"
   / Scenario: A bot-authored mention receives no reply
-  / Scenario: A person's mention is unaffected by the bot-authorship check
+  / Scenario: A member's mention is unaffected by the bot-authorship check
 - MODIFIED "Slack App Mention Triggers Omni"
   / Scenario: Mention receives an answer in the same channel (narrowed to a
-    person-authored mention)
+    member-authored mention)
 - MODIFIED "No Sender Identity Restriction (Deferred)"
   / Scenario: Any member in the channel can trigger Omni
   / Scenario: No member is privileged over another
@@ -506,14 +506,14 @@ def test_bot_authored_mention_is_acknowledged_and_receives_no_reply(
     assert slack_api.posts == []
 
 
-def test_person_authored_mention_is_unaffected_by_the_bot_authorship_check(
+def test_member_authored_mention_is_unaffected_by_the_bot_authorship_check(
     client: TestClient,
     slack_api: _RecordingSlackApi,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Scenario: A person's mention is unaffected by the bot-authorship check.
+    """Scenario: A member's mention is unaffected by the bot-authorship check.
 
-    WHEN an authentic `app_mention` authored by a person, carrying no `bot_id`
+    WHEN an authentic `app_mention` authored by a member, carrying no `bot_id`
     and no bot-authored `subtype`, is delivered
     THEN the system SHALL process it normally and post omni-agent's answer to
     the originating channel.
@@ -537,16 +537,16 @@ def test_person_authored_mention_is_unaffected_by_the_bot_authorship_check(
             event_id="Ev0BOTAUTHORED",
         ),
     )
-    person = _post(client, _app_mention_payload(text=f"<@{BOT_ID}> {question}"))
+    member = _post(client, _app_mention_payload(text=f"<@{BOT_ID}> {question}"))
 
     assert 200 <= suppressed.status_code < 300
-    assert 200 <= person.status_code < 300
+    assert 200 <= member.status_code < 300
 
-    # Specified: the person's mention is processed normally.
+    # Specified: the member's mention is processed normally.
     assert len(fake.calls) == 1, (
-        "expected exactly one invocation -- the person's. More than one means "
+        "expected exactly one invocation -- the member's. More than one means "
         "the bot-authored mention was answered too; none means the guard is "
-        f"over-broad and suppressed a person's mention (observed: {fake.calls})"
+        f"over-broad and suppressed a member's mention (observed: {fake.calls})"
     )
     assert fake.calls[0].strip() == question
 
@@ -565,18 +565,18 @@ def test_person_authored_mention_is_unaffected_by_the_bot_authorship_check(
 # --------------------------------------------------------------------------
 
 
-def test_person_mention_receives_an_answer_in_the_same_channel(
+def test_member_mention_receives_an_answer_in_the_same_channel(
     client: TestClient,
     slack_api: _RecordingSlackApi,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Scenario: Mention receives an answer in the same channel.
 
-    WHEN a person `@mentions` the bot in a Slack channel with a question
+    WHEN a member `@mentions` the bot in a Slack channel with a question
     THEN the system SHALL post omni-agent's generated answer as a message in
     that same channel.
 
-    The requirement is narrowed by this change to person-authored mentions, so
+    The requirement is narrowed by this change to member-authored mentions, so
     the payload carries neither `bot_id` nor a bot-authored `subtype`. This
     asserts the same postconditions as the pre-existing endpoint test of the
     unnarrowed requirement, at the seam Bolt actually uses to post

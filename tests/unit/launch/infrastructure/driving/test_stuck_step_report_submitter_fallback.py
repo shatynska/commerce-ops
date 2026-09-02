@@ -11,7 +11,7 @@ Covers:
 - *A stuck step naming no confirmer tags the submitter*
 - *A stuck step whose confirmer cannot be resolved tags the submitter and
   names the gap*
-- *A stuck step is reported to the submitter when the roster cannot be
+- *A stuck step is reported to the submitter when the membership cannot be
   read*
 - *A report naming a product by identifier names it by value*
 
@@ -23,7 +23,7 @@ same failure**, and the requirement says why in its own words:
     **This report falls back to the submitter where the pending-result ask
     does not, and the difference is deliberate.** No authorization rule
     governs who may act on a stuck step: the report exists so that *a
-    person* can supply what the handler is missing, so reaching somebody is
+    member* can supply what the handler is missing, so reaching somebody is
     the whole of its purpose, and an untagged report reaching nobody would
     defeat it.
 
@@ -37,7 +37,7 @@ smoothing it out fail loudly.
 ## The discriminator this file is really about
 
 Three states have to stay distinguishable in the channel, and two of them
-tag the same person:
+tag the same member:
 
 1. the step names no confirmer            → tags the submitter, no gap named
 2. the step's confirmer cannot be reached → tags the submitter, gap named
@@ -122,9 +122,9 @@ PRODUCT_SKU: Final = Sku("BCB-2027-01")
 STEP_ID: Final = "listing.sub-category"
 STEP_NAME: Final = "Choose the sub-category node"
 
-#: A roster identifier, as a step's `confirmer` field actually holds one —
+#: A member identifier, as a step's `confirmer` field actually holds one —
 #: deliberately not Slack-shaped, so a report carrying it is visibly wrong.
-CONFIRMER_ROSTER_ID: Final = "3f7c1a92-6b0e-4c7a-9d51-1e8a4b2c9f30"
+CONFIRMER_MEMBER_ID: Final = "3f7c1a92-6b0e-4c7a-9d51-1e8a4b2c9f30"
 CONFIRMER_SLACK: Final = "U01ALICE"
 SUBMITTER_SLACK: Final = "U0SUBMITTER"
 
@@ -146,8 +146,8 @@ _NAMES_AN_UNRESOLVED_CONFIRMER: Final = (
     "unresolvable confirmer",
     "unresolved confirmer",
     "cannot be resolved",
-    "no longer on the roster",
-    "not on the roster",
+    "no longer on the membership",
+    "not on the membership",
     "deactivated",
 )
 
@@ -174,7 +174,7 @@ class _CatalogProduct:
 class _Step:
     identifier: str = STEP_ID
     name: str = STEP_NAME
-    confirmer: str | None = CONFIRMER_ROSTER_ID
+    confirmer: str | None = CONFIRMER_MEMBER_ID
 
 
 class _InertBackoff:
@@ -268,15 +268,15 @@ def _names_a_gap(text: str) -> bool:
 # ---------------------------------------------------------------------------
 
 
-async def test_a_stuck_step_tags_the_confirmers_slack_identity_not_the_roster_identifier(
+async def test_a_stuck_step_tags_the_confirmers_slack_identity_not_the_member_identifier(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Scenario: A stuck step naming a confirmer tags that confirmer.
 
     WHEN a report is delivered for a stuck step naming a confirmer the
-    roster carries, active and with a Slack identity
-    THEN the message mentions that person by their Slack identity, and the
-    roster's own identifier for them appears nowhere in it.
+    members carries, active and with a Slack identity
+    THEN the message mentions that member by their Slack identity, and the
+    membership's own identifier for them appears nowhere in it.
 
     SPECIFIED, both halves. The shipped test for this scenario passed a
     Slack-looking constant as `step.confirmer` and asserted it appeared,
@@ -292,9 +292,9 @@ async def test_a_stuck_step_tags_the_confirmers_slack_identity_not_the_roster_id
     assert f"<@{CONFIRMER_SLACK}>" in notifier.rendered, (
         f"the report did not tag the confirmer's Slack identity: {notifier.rendered!r}"
     )
-    # SPECIFIED: the roster's own identifier appears nowhere in it.
-    assert CONFIRMER_ROSTER_ID not in notifier.rendered, (
-        "the roster's own identifier for the confirmer reached the report; "
+    # SPECIFIED: the membership's own identifier appears nowhere in it.
+    assert CONFIRMER_MEMBER_ID not in notifier.rendered, (
+        "the membership's own identifier for the confirmer reached the report; "
         f"Slack renders it as inert literal text: {notifier.rendered!r}"
     )
     # SPECIFIED, by the same scenario: a resolvable confirmer is tagged
@@ -363,10 +363,16 @@ async def test_a_stuck_step_naming_no_confirmer_tags_the_submitter_and_names_no_
 @pytest.mark.parametrize(
     "why",
     [
-        pytest.param("the roster does not carry them", id="unknown-confirmer"),
-        pytest.param("the roster carries them deactivated", id="deactivated-confirmer"),
-        pytest.param("the roster carries no Slack identity", id="no-slack-identity"),
-        pytest.param("the roster could not be read at all", id="unreadable-roster"),
+        pytest.param("the membership does not carry them", id="unknown-confirmer"),
+        pytest.param(
+            "the membership carries them deactivated", id="deactivated-confirmer"
+        ),
+        pytest.param(
+            "the membership carries no Slack identity", id="no-slack-identity"
+        ),
+        pytest.param(
+            "the membership could not be read at all", id="unreadable-members"
+        ),
     ],
 )
 async def test_an_unresolvable_confirmer_tags_the_submitter_and_names_the_gap(
@@ -374,7 +380,7 @@ async def test_an_unresolvable_confirmer_tags_the_submitter_and_names_the_gap(
 ) -> None:
     """Scenarios: *A stuck step whose confirmer cannot be resolved tags the
     submitter and names the gap* and *A stuck step is reported to the
-    submitter when the roster cannot be read*.
+    submitter when the membership cannot be read*.
 
     THEN the report is delivered tagging the launch's submitter, its text
     names that the step's confirmer could not be resolved, and the gap is
@@ -412,8 +418,8 @@ async def test_an_unresolvable_confirmer_tags_the_submitter_and_names_the_gap(
         f"confirmer could not be resolved ({why}), so a reader cannot tell it "
         f"from a step that names no confirmer at all: {notifier.text!r}"
     )
-    # SPECIFIED: and the roster identifier is not what got tagged instead.
-    assert f"<@{CONFIRMER_ROSTER_ID}>" not in notifier.rendered
+    # SPECIFIED: and the member identifier is not what got tagged instead.
+    assert f"<@{CONFIRMER_MEMBER_ID}>" not in notifier.rendered
 
 
 # ---------------------------------------------------------------------------
@@ -491,7 +497,7 @@ async def test_the_report_threads_the_step_through_to_mention_resolution(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Requirement statement: the step's confirmer "SHALL be resolved
-    through the roster to that person's Slack identity".
+    through the membership to that member's Slack identity".
 
     SPECIFIED, in the half this caller owns: it must hand the real step to
     resolution, since resolution given no step cannot reach the confirmer

@@ -7,12 +7,12 @@ The slack-trigger capability lets the ops team invoke Omni directly from a Slack
 ## Requirements
 
 ### Requirement: Slack App Mention Triggers Omni
-When the bot is mentioned by a person in a Slack channel it has been invited to, the system SHALL invoke omni-agent with the text of the mention as the question, and SHALL post the resulting answer back to that same channel.
+When the bot is mentioned by a member in a Slack channel it has been invited to, the system SHALL invoke omni-agent with the text of the mention as the question, and SHALL post the resulting answer back to that same channel.
 
-A mention authored by a bot rather than a person is outside this requirement and is governed by "Bot-Authored Events Do Not Trigger A Reply".
+A mention authored by a bot rather than a member is outside this requirement and is governed by "Bot-Authored Events Do Not Trigger A Reply".
 
 #### Scenario: Mention receives an answer in the same channel
-- **WHEN** a person `@mentions` the bot in a Slack channel with a question
+- **WHEN** a member `@mentions` the bot in a Slack channel with a question
 - **THEN** the system SHALL post omni-agent's generated answer as a message in that same channel
 
 ### Requirement: Slack Request Authenticity Is Verified
@@ -46,7 +46,7 @@ If invoking omni-agent fails while processing a mention, the system SHALL post a
 ### Requirement: No Sender Identity Restriction (Deferred)
 The system SHALL respond to any `app_mention` from any human workspace member in a channel the bot is present in; the system SHALL NOT restrict which workspace members can trigger omni-agent via Slack in this capability.
 
-Suppressing bot-authored events, as "Bot-Authored Events Do Not Trigger A Reply" requires, is not a sender-identity restriction and is not deferred by this requirement: it distinguishes a message authored by a program from one authored by a person, and never distinguishes one person from another.
+Suppressing bot-authored events, as "Bot-Authored Events Do Not Trigger A Reply" requires, is not a sender-identity restriction and is not deferred by this requirement: it distinguishes a message authored by a program from one authored by a member, and never distinguishes one member from another.
 
 #### Scenario: Any member in the channel can trigger Omni
 - **WHEN** any human member of the Slack workspace mentions the bot in a channel it is in
@@ -87,9 +87,9 @@ This constrains identity and credential-verification calls only. It does not res
 - **THEN** the system SHALL still verify, accept and acknowledge that request, and SHALL fail only at the point of delivering an outbound message
 
 ### Requirement: Bot-Authored Events Do Not Trigger A Reply
-The system SHALL NOT invoke omni-agent, and SHALL NOT post a reply, for an `app_mention` that was authored by a bot rather than by a person — identified by the event carrying a `bot_id`, or a `subtype` marking it as bot-authored. Such an event SHALL still be acknowledged with a success status, so Slack does not retry it.
+The system SHALL NOT invoke omni-agent, and SHALL NOT post a reply, for an `app_mention` that was authored by a bot rather than by a member — identified by the event carrying a `bot_id`, or a `subtype` marking it as bot-authored. Such an event SHALL still be acknowledged with a success status, so Slack does not retry it.
 
-This exists to prevent the system answering its own posts, or entering a reply loop with another bot. It is loop prevention, not authorization: it keys on how the message was authored, never on which person authored it.
+This exists to prevent the system answering its own posts, or entering a reply loop with another bot. It is loop prevention, not authorization: it keys on how the message was authored, never on which member authored it.
 
 #### Scenario: A bot-authored mention receives no reply
 - **WHEN** an authentic `app_mention` carrying a `bot_id`, or a bot-authored `subtype`, is delivered
@@ -97,8 +97,8 @@ This exists to prevent the system answering its own posts, or entering a reply l
 - **AND** SHALL NOT invoke omni-agent
 - **AND** SHALL NOT post any message to the originating channel
 
-#### Scenario: A person's mention is unaffected by the bot-authorship check
-- **WHEN** an authentic `app_mention` authored by a person, carrying no `bot_id` and no bot-authored `subtype`, is delivered
+#### Scenario: A member's mention is unaffected by the bot-authorship check
+- **WHEN** an authentic `app_mention` authored by a member, carrying no `bot_id` and no bot-authored `subtype`, is delivered
 - **THEN** the system SHALL process it normally and post omni-agent's answer to the originating channel
 
 ### Requirement: A Request That Cannot Be Handled With Available Credentials Is Rejected
@@ -114,7 +114,7 @@ This requirement covers absence and emptiness — conditions observable from the
 - **AND** SHALL NOT invoke omni-agent
 
 #### Scenario: The credential needed to reply is absent or empty
-- **WHEN** an authentic person-authored `app_mention` arrives and the token needed to post a reply is absent, or present but empty
+- **WHEN** an authentic member-authored `app_mention` arrives and the token needed to post a reply is absent, or present but empty
 - **THEN** the system SHALL respond as unauthorized rather than acknowledging an event it cannot answer
 
 #### Scenario: A request needing no reply credential is unaffected

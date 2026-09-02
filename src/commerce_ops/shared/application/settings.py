@@ -146,7 +146,7 @@ class Settings(BaseSettings):
     # already recorded in `openspec/specs/`.
     # Added by move-principals-to-roster (tasks 3.4): the Slack identity
     # the startup seed makes the first admin. Optional because it confers
-    # nothing once the roster holds an admin of its own -- only a roster
+    # nothing once the membership holds an admin of its own -- only a membership
     # that is readable, admin-less and unseeded needs it, and that is the
     # one case where its absence refuses startup.
     bootstrap_admin_identity: NonEmpty | None = None

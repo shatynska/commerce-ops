@@ -25,7 +25,7 @@ change root):
   existing construction rules", which the requirement statement points at
   by name.
 - The wire values `monitor` / `diagnose` / `critical` -- the spec names
-  the tiers in lower case prose and `tasks.md` 1.1 names the members in
+  the tiers in lower case prose and `tasks.md` 1.1 names the membership in
   upper case; `Discipline`'s precedent is a lower-case value per member.
 
 Correcting the import path or the construction call is a fixture

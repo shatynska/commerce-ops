@@ -1,7 +1,7 @@
 {#
-  The roster page. Active people first, deactivated people in their own
+  The Team page. Active members first, deactivated members in their own
   region below — set apart rather than interleaved, which is what the
-  `roster-admin` delta forbids.
+  `members-admin` delta forbids.
 
   Every write is a plain form post, so the page works without scripting.
 #}
@@ -10,7 +10,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Users</title>
+  <title>Team</title>
   {# The same two files the playbook surfaces load, from the same shared
      guarded route — so a presentation fix reaches both admin surfaces
      rather than one. The page carries no styling of its own. #}
@@ -18,12 +18,12 @@
   <link rel="stylesheet" href="/admin/assets/vocabulary.css">
 </head>
 <body>
-{% with current = "roster" %}{% include "_admin_header.html" %}{% endwith %}
+{% with current = "team" %}{% include "_admin_header.html" %}{% endwith %}
 <main class="container">
   {# `.page-head` — the same title container every other admin page uses,
      so the space below a title is one rule shared everywhere. #}
   <div class="page-head">
-    <h1>Users</h1>
+    <h1>Team</h1>
   </div>
 
 {% if faults %}
@@ -37,8 +37,8 @@
   <article class="notice"><p>{{ notice }}</p></article>
 {% endif %}
 
-<h2>Add a person</h2>
-<form method="post" action="{{ page_path }}/people">
+<h2>Add a member</h2>
+<form method="post" action="{{ page_path }}/members">
   <label>Display name
     <input name="display_name" value="{{ submitted.get('display_name', '') }}">
   </label>
@@ -52,9 +52,9 @@
     <input type="checkbox" name="admin" value="true"
            {% if submitted.get('admin') %}checked{% endif %}>
   </label>
-  {# The one action not on a person's row, and the easiest to leave at the
+  {# The one action not on a member's row, and the easiest to leave at the
      default weight while every neighbour is restyled. #}
-  <button type="submit" class="row-action">Add person</button>
+  <button type="submit" class="row-action">Add member</button>
 </form>
 
 <h2>Active users</h2>
@@ -65,10 +65,10 @@
   </tr>
   {% for record in active %}
     <tr>
-      <td>{{ record.person.display_name }}</td>
-      <td>{{ record.person.slack_identity }}</td>
-      <td>{{ record.person.clickup_user_id or '—' }}</td>
-      <td>{{ 'admin' if record.person.admin else 'member' }}</td>
+      <td>{{ record.member.display_name }}</td>
+      <td>{{ record.member.slack_identity }}</td>
+      <td>{{ record.member.clickup_user_id or '—' }}</td>
+      <td>{{ 'admin' if record.member.admin else 'member' }}</td>
       <td class="attribution">
         {% if record.created_by %}
           Created by {{ record.created_by }}
@@ -91,18 +91,18 @@
            forms are; both its submit and the deactivate button speak the
            same action vocabulary either way. #}
         <form method="post"
-              action="{{ page_path }}/{{ record.person.identifier }}/edit">
-          <input name="display_name" value="{{ record.person.display_name }}">
+              action="{{ page_path }}/{{ record.member.identifier }}/edit">
+          <input name="display_name" value="{{ record.member.display_name }}">
           <input name="clickup_user_id"
-                 value="{{ record.person.clickup_user_id or '' }}">
+                 value="{{ record.member.clickup_user_id or '' }}">
           <label>Admin
             <input type="checkbox" name="admin" value="true"
-                   {% if record.person.admin %}checked{% endif %}>
+                   {% if record.member.admin %}checked{% endif %}>
           </label>
           <button type="submit" class="row-action">Save edit</button>
         </form>
         <form method="post"
-              action="{{ page_path }}/{{ record.person.identifier }}/deactivate">
+              action="{{ page_path }}/{{ record.member.identifier }}/deactivate">
           <button type="submit" class="row-action danger">Deactivate</button>
         </form>
       </td>
@@ -118,8 +118,8 @@
     </tr>
     {% for record in deactivated %}
       <tr>
-        <td>{{ record.person.display_name }}</td>
-        <td>{{ record.person.slack_identity }}</td>
+        <td>{{ record.member.display_name }}</td>
+        <td>{{ record.member.slack_identity }}</td>
         <td class="attribution">
           {% if record.created_by %}
             Created by {{ record.created_by }}
@@ -134,7 +134,7 @@
           {# Restoring somebody destroys nothing, so it carries the action
              vocabulary without the destructive treatment. #}
           <form method="post"
-                action="{{ page_path }}/{{ record.person.identifier }}/reactivate">
+                action="{{ page_path }}/{{ record.member.identifier }}/reactivate">
             <button type="submit" class="row-action">Reactivate</button>
           </form>
         </td>

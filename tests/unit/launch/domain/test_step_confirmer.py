@@ -17,17 +17,17 @@ Covers:
   test_steps_can_be_selected_by_gate_and_by_scope` — recorded as such in
   `test-manifest.md` rather than duplicated here.
 - MODIFIED requirement *A step names who does the work and whether a
-  person accepts it* — all four scenarios: *An automated step declares
+  member accepts it* — all four scenarios: *An automated step declares
   whether its result is accepted*, *The playbook records no automation
   detail beyond the kind*, *Kind and confirmation are independent*, and
   *A human step's confirmer is accepted, not rejected*.
 - ADDED requirement *A step names who confirms an automated result* — the
-  read-back half observable with no roster in reach: *An automated step
-  names its confirmer*. The roster-dependent scenarios (unknown/deactivated
-  confirmer, the sole-assignee case, correcting a person) are write-time
+  read-back half observable with no members in reach: *An automated step
+  names its confirmer*. The membership-dependent scenarios (unknown/deactivated
+  confirmer, the sole-assignee case, correcting a member) are write-time
   preconditions and are covered in
   `tests/unit/launch/application/test_step_confirmer_preconditions.py`.
-- MODIFIED requirement *A step names the people responsible for it* — the
+- MODIFIED requirement *A step names the membership responsible for it* — the
   one substantive change to this requirement's own text: "An `automated`
   step MAY name assignees or none; naming them no longer says who is
   asked to confirm a result — that is the confirmer's question alone."
@@ -39,7 +39,7 @@ Covers:
   automated step's assignees and its confirmer are independent, and an
   assignee is never implicitly the confirmer just by being named.
 
-**Level.** `StepDefinition`/`LaunchPlaybook` construction — no roster in
+**Level.** `StepDefinition`/`LaunchPlaybook` construction — no members in
 reach, matching the placement `test_step_kind_and_confirmation.py` and
 `test_step_assignees_are_not_a_load_rule.py` already use for the same
 kind of rule.
@@ -236,7 +236,7 @@ def test_a_step_definition_is_read_back_with_every_declared_attribute() -> None:
 
 # ---------------------------------------------------------------------------
 # Requirement (MODIFIED): A step names who does the work and whether a
-# person accepts it
+# member accepts it
 # ---------------------------------------------------------------------------
 
 
@@ -347,7 +347,7 @@ def test_a_human_steps_confirmer_is_accepted_not_rejected() -> None:
     WHEN a `human` step is written naming a confirmer
     THEN the write is accepted, and the step's kind is unaffected.
 
-    SPECIFIED reason: "the person doing the work is the person attesting
+    SPECIFIED reason: "the member doing the work is the member attesting
     it ... so that flipping a step's kind does not require clearing an
     unrelated field" — the same treatment `needs_confirmation` received on
     a `human` step, now carried by `confirmer`.
@@ -369,13 +369,13 @@ def test_a_human_steps_confirmer_is_accepted_not_rejected() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Requirement (MODIFIED): A step names the people responsible for it —
+# Requirement (MODIFIED): A step names the membership responsible for it —
 # the one substantive change to its own text
 # ---------------------------------------------------------------------------
 
 
 def test_an_automated_steps_assignees_no_longer_imply_who_confirms() -> None:
-    """Requirement statement (*A step names the people responsible for
+    """Requirement statement (*A step names the membership responsible for
     it*): "An `automated` step MAY name assignees or none; naming them no
     longer says who is asked to confirm a result — that is the
     confirmer's question alone."

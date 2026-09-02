@@ -1,9 +1,9 @@
 ## 1. The substitution map
 
-- [ ] 1.1 Write `rename.py` in this change directory: the substitution table
+- [x] 1.1 Write `rename.py` in this change directory: the substitution table
       from `design.md` §2, applied longest-match-first over a file tree, with
       a `--check` mode that reports differences rather than writing.
-- [ ] 1.2 Give the table **three row kinds**, not two: `preserve` (matched
+- [x] 1.2 Give the table **three row kinds**, not two: `preserve` (matched
       first, never rewritten), then the substitutions, longest-first.
       **Derive the path-shaped preserve rows** from `design.md` §2's rule
       rather than transcribing a list, evaluating its **two columns
@@ -29,21 +29,26 @@
       would then be rewritten at all 20 of its sites, so its permission row
       produces no hit, which 8.2's symmetric half rejects. Recorded because
       the coupling is six sections away and invisible from either end.
-- [ ] 1.3 Add the two **enumerated** preserve rows the rule cannot derive,
+- [x] 1.3 Add the two **enumerated** preserve rows the rule cannot derive,
       both prose quoting a prior state: the quoted pre-rename spec fragments
       at `docs/playbook-program.md:153` and the decision sentence at line
       151. Match every row **by its text, never by line number** — task 7.5
       edits that file and shifts the lines below its edit before the map
       runs.
-- [ ] 1.4 Declare the input set as **the whole tree minus the exclusions**
+- [x] 1.4 Declare the input set as **the whole tree minus the exclusions**
       (`design.md` §1): `openspec/changes/**` — this change's own directory
       included, since it is named for the old vocabulary and quotes it as
-      evidence — plus `alembic/versions/**`, `.git/`, `.venv/` and
-      `uv.lock`. The exclusion list is the only place the scope is decided.
+      evidence — plus `alembic/versions/**`; **`docs/reference/**`,
+      `alembic/data/**` and `docs/domain-map.md`** (source material and a doc
+      this change deliberately leaves, where both stems mean something else);
+      and `.git/`, `.venv/`, `uv.lock`. The exclusion list is the only place
+      the scope is decided, and **8.2's gate must search the same set** — a
+      gate searching wider than the map wrote reports permitted text as a
+      defect.
       When measuring against it, **check the exclusion actually excludes**:
       the counts in `design.md` §2 were wrong twice because a path filter
       silently matched nothing.
-- [ ] 1.5 Enumerate every `roster`- and `person`-bearing token in the input
+- [x] 1.5 Enumerate every `roster`- and `person`-bearing token in the input
       set and confirm each is covered by a row. Two stems suffice: every
       substitution row carries one, the three admin-surface rows included
       (`/admin/roster`, `roster.html`, and the header tuple matched whole).
@@ -52,24 +57,38 @@
       under §5 instead. A token the table does not cover is a row to add — a
       substitution row, or a `preserve` row where the token names the old
       vocabulary rather than using it.
-- [ ] 1.6 Assert the table is injective over its substitution rows: no two
-      sources map to the same target. `roster_people → members` and
-      `roster → members` would collide, which is why the first is applied
-      first and the second never sees it. A `preserve` token is never a
-      target, so it cannot collide.
+- [x] 1.6 Assert the table is **deterministic**: every position has exactly
+      one parse. One alternation, longest-match-first, one pass, so no output
+      is fed back through the table — `roster_people` is consumed before
+      `roster` sees it, and a `preserve` string is matched before any
+      substitution reaches inside it.
+
+      **Do not assert injectivity.** The map is deliberately non-injective —
+      `roster`, `rosters`, `roster_people`, `people` and `persons` all target
+      `members`, because those *are* all members now. Injectivity was
+      load-bearing only for the first draft's reverse-substitution proof,
+      which the forward generate-and-diff check replaced; a collapsing map is
+      correct for a forward check (`design.md` §2).
+
+      Assert two further properties the implementation showed were needed: a
+      multi-word `preserve` row must match **across a line break** (the
+      quotations wrap inside a paragraph, so a literal match found nothing,
+      the quotation was rewritten, and the gate *passed* because the word was
+      gone); and a lowercase stem must not match **inside a word**
+      (`impersonates` contains `person` and became `immemberates`).
 
 ## 2. Domain and application
 
-- [ ] 2.1 `git mv src/commerce_ops/access/domain/principals.py`
+- [x] 2.1 `git mv src/commerce_ops/access/domain/principals.py`
       `src/commerce_ops/access/domain/members.py` (design §3).
-- [ ] 2.2 `git mv src/commerce_ops/access/application/roster.py`
+- [x] 2.2 `git mv src/commerce_ops/access/application/roster.py`
       `src/commerce_ops/access/application/members.py`.
-- [ ] 2.3 The map produces `access/`'s contents: `Person → Member`,
+- [x] 2.3 The map produces `access/`'s contents: `Person → Member`,
       `Roster → Members`, the collection's field `people → members`,
       `InvalidRosterError → InvalidMembersError`, `RosterStore →
       MembersStore`, `StaleRosterError → StaleMembersError`, `PersonRecord →
       MemberRecord`, and the four write use cases.
-- [ ] 2.4 Confirm `access/application/__init__.py`'s imports and `__all__`
+- [x] 2.4 Confirm `access/application/__init__.py`'s imports and `__all__`
       came through the map correctly — the module's only public surface,
       which `import-linter` enforces.
 
@@ -80,23 +99,23 @@ file-level half the map does not perform, and the two display strings in
 3.4, which are hand-edited under `design.md` §5 because no `Users → Team`
 row exists.
 
-- [ ] 3.1 `access/infrastructure/driven/models.py`: `RosterPerson →
+- [x] 3.1 `access/infrastructure/driven/models.py`: `RosterPerson →
       MemberRow`, `RosterSet → MembersSet`, `__tablename__`s
       `roster_people → members` and `roster_set → members_set`, constraint
       `ck_roster_set_singleton → ck_members_set_singleton`.
-- [ ] 3.2 `git mv .../driven/roster_repository.py` to `members_repository.py`;
+- [x] 3.2 `git mv .../driven/roster_repository.py` to `members_repository.py`;
       `PostgresRoster → PostgresMembers`, `RosterRepository →
       MembersRepository`.
-- [ ] 3.3 `git mv .../driving/roster_admin.py` to `members_admin.py`;
+- [x] 3.3 `git mv .../driving/roster_admin.py` to `members_admin.py`;
       `PAGE_PATH` from `/admin/roster` to `/admin/team` and the five routes
       that hang off it.
-- [ ] 3.4 `git mv .../driving/templates/roster.html` to `team.html`; its
+- [x] 3.4 `git mv .../driving/templates/roster.html` to `team.html`; its
       `<title>` and `<h1>` from *Users* to *Team*, **by hand** — those two
       display strings are `design.md` §5's enumerated exception, not map
       output. **Nothing else in this template changes** — the add-a-person
       form, the `actions` column and the `display: contents` hack all stay,
       per design's Non-Goals.
-- [ ] 3.5 `shared/.../templates/_admin_header.html`: the surface row
+- [x] 3.5 `shared/.../templates/_admin_header.html`: the surface row
       `("roster", "/admin/roster", "Users")` becomes
       `("team", "/admin/team", "Team")` — matched whole, so the key, path and
       label cannot half-apply. Two comments in the same file follow it by
@@ -109,29 +128,29 @@ row exists.
 Map output, listed so the faithfulness check has a named subject — not a
 hand pass.
 
-- [ ] 4.1 `launch/application/playbook_authoring.py`: `UnreadableRosterError
+- [x] 4.1 `launch/application/playbook_authoring.py`: `UnreadableRosterError
       → UnreadableMembersError`, and `launch/application/__init__.py`'s
       import and `__all__` with it.
-- [ ] 4.2 The `roster` / `roster_reader` seam attributes and their `__all__`
+- [x] 4.2 The `roster` / `roster_reader` seam attributes and their `__all__`
       entries across `activation_readiness`, `automated_decisions`,
       `gate_decisions`, `retained_results`, `thread_establishment`,
       `launch_playbook` and `clickup_sync`.
-- [ ] 4.3 The driving adapters that wire them: `automation_confirmation`,
+- [x] 4.3 The driving adapters that wire them: `automation_confirmation`,
       `automation_pass`, `clickup_sync_job`, `clickup_webhook`,
       `gate_confirmation`, `gate_progression_job`, `launch_admin`,
       `playbook_admin`, `product_dossier`, `slack_entry`.
-- [ ] 4.4 `main.py` and `worker.py`: the two near-identical private
+- [x] 4.4 `main.py` and `worker.py`: the two near-identical private
       `_RosterReader` adapters; `seed_admin.py`; `check_step_handlers.py`.
-- [ ] 4.5 Confirm `import-linter` is clean — a missed public-surface site
+- [x] 4.5 Confirm `import-linter` is clean — a missed public-surface site
       fails here rather than silently importing a private path.
 
 ## 5. The database
 
-- [ ] 5.1 Write one Alembic revision on `c04d95ba6e31` (the current single
+- [x] 5.1 Write one Alembic revision on `c04d95ba6e31` (the current single
       head) renaming both tables and the constraint, with a downgrade that
       inverts all three. No row is read, written or moved (design §4).
-- [ ] 5.2 Confirm `alembic heads` still reports a single head afterwards.
-- [ ] 5.3 Leave the 28 existing revisions untouched,
+- [x] 5.2 Confirm `alembic heads` still reports a single head afterwards.
+- [x] 5.3 Leave the 28 existing revisions untouched,
       `a3d7e9f2c481_add_roster_tables.py` included — applied history, per
       design §7. It is **not** a preserve row and must not be made one: it
       occurs only under `alembic/versions/**`, so the exclusion already
@@ -140,12 +159,12 @@ hand pass.
 
 ## 6. Tests
 
-- [ ] 6.1 Map output over `tests/`. Renames only: fixture and helper
+- [x] 6.1 Map output over `tests/`. Renames only: fixture and helper
       identifiers, test function names, module paths under test, and the
       expected strings that changed with their source.
-- [ ] 6.2 `git mv` the thirteen test files whose names carry the old
+- [x] 6.2 `git mv` the thirteen test files whose names carry the old
       vocabulary, so a file's name still says what it tests.
-- [ ] 6.3 Two comments the map cannot reach, at
+- [x] 6.3 Two comments the map cannot reach, at
       `test_roster_header_names_every_surface.py:124` and
       `test_roster_admin_presentation_vocabulary.py:173`: both read *"since
       the header calls this surface Users"* and explain an assertion keyed on
@@ -193,7 +212,7 @@ hand pass.
       vacuous is one that did *not* change, and shows in the diff as an
       unchanged line beside a changed comment. `/code-review` at 8.5 reads
       that adjacency; the rule above is what makes it not need to.
-- [ ] 6.4 Read the test diff for the one thing a rename can hide: **no test
+- [x] 6.4 Read the test diff for the one thing a rename can hide: **no test
       added, deleted, skipped or weakened, and no assertion changed other
       than renamed identifiers and renamed expected strings.** This is design
       §8's check 3, stated whole — the carve-out matters here because 6.3's
@@ -202,22 +221,22 @@ hand pass.
 
 ## 7. Specs and docs
 
-- [ ] 7.1 `git mv openspec/specs/roster` to `openspec/specs/members` and
+- [x] 7.1 `git mv openspec/specs/roster` to `openspec/specs/members` and
       `openspec/specs/roster-admin` to `openspec/specs/members-admin`,
       including each file's `# <name> Specification` heading.
-- [ ] 7.2 Map output over all thirteen spec files, then correct the prose by
+- [x] 7.2 Map output over all thirteen spec files, then correct the prose by
       hand where the mechanical output reads wrongly — *"an active roster
       member"* collapses to *"an active member"*, not to *"an active members
       member"* (design §5).
-- [ ] 7.3 In that hand pass, apply design §5's noun rule — the surface is
+- [x] 7.3 In that hand pass, apply design §5's noun rule — the surface is
       **the Team page**, the capability stays `members-admin` — and design's
       Non-Goals rule on the `member` collision: keep a qualifier wherever the
       sense is ambiguous against set, enum, network or Slack-workspace
       membership, rather than dropping every qualifier.
-- [ ] 7.4 Leave prose that says "a person" about a human in general —
+- [x] 7.4 Leave prose that says "a person" about a human in general —
       `admin-session`'s *"the person who minted the link"* — alone. That is
       not this directory's entity (design's Non-Goals).
-- [ ] 7.5 `docs/playbook-program.md`: rewrite *### 1.
+- [x] 7.5 `docs/playbook-program.md`: rewrite *### 1.
       `rebuild-the-member-directory`*'s rename bullet (lines 378–382) and the
       "four commits" framing at 408–412 to record that the rename landed as
       its own change. **Naming this change is required** — a pointer that does
@@ -225,11 +244,11 @@ hand pass.
       name is a `preserve` row, so the map leaves it and 8.2 permits it.
       Lines 151, 153 and 383 are likewise preserved and stay exactly as they
       are; lines 212, 318, 389 and 426 are ordinary uses and are map output.
-- [ ] 7.6 `docs/proposed-change-order.md`: record that
+- [x] 7.6 `docs/proposed-change-order.md`: record that
       `share-the-unit-test-harness` rebases onto this change, by name. That
       file states cross-change ordering "lives nowhere else", so leaving the
       dependency only in `proposal.md` would make it untrue.
-- [ ] 7.7 `docs/deferred-work.md`: add an entry for `docs/domain-map.md`
+- [x] 7.7 `docs/deferred-work.md`: add an entry for `docs/domain-map.md`
       lines 191 and 198, which still name `Principal` as the `access` root
       model and describe a repo-owned principals file granting access by SKU.
       **Do not correct them here** — they were made false by
@@ -237,19 +256,42 @@ hand pass.
       check reaches them, and a correct fix is a judgement about the domain
       map's accuracy rather than a substitution. The exclusion and its
       reasoning are recorded in `design.md` §7.
-- [ ] 7.8 `docs/reference/README.md`,
-      `docs/reference/agent-orchestration.md`, `README.md`, `AGENTS.md`, and
-      `docs/deferred-work.md`'s own ordinary uses.
+- [x] 7.8 `README.md`, `AGENTS.md` and `docs/deferred-work.md`'s own
+      ordinary uses. In `AGENTS.md`, **stop at the tool-managed block**
+      (lines 1–180, between the `ai-toolkit:development-workflow` markers):
+      its one stem is "the next person", meaning the next human to read the
+      repository, and an edit there is silently reverted by the next sync.
+
+      **`docs/reference/` and `alembic/data/` are excluded whole, and this
+      task previously named two files inside the first in error.** They are
+      source material: the seeded step content and the document it is
+      transcribed from, with step identifiers carrying a provenance trace to
+      its row IDs. Both stems mean something else there — *EU Responsible
+      **Person*** is a legal term under GPSR, "line **people** up to
+      purchase" is customers, "the agent **roster**" is a list of AI agents.
+      Rewriting them changed seeded step *content*, caught by
+      `test_seeded_step_fields.py` and `test_playbook_reference_set.py`
+      re-deriving each step's name from its reference row.
 
 ## 8. Verification
 
-- [ ] 8.1 **Faithfulness** — run `rename.py --check` against the commit over
+- [x] 8.1 **Faithfulness** — run `rename.py --check` against the commit over
       §1.4's full input set; the difference must touch no line carrying an
       identifier. A difference on such a line means the map is wrong: fix the
       map and re-run, do not hand-patch the file (design §8, check 1).
-- [ ] 8.2 **Completeness** — a case-insensitive search for `roster` returns
+
+      **One exception, and it is not a map defect.** Where two distinct
+      locals in one scope collapse onto the same word — `roster` (a reader)
+      and `people` (its result) both correctly become `members` — no map row
+      can fix it, because both source words map to the right target. The
+      collision is in the code, so the fix is in the code: rename the result
+      (`entries`, `by_identifier`). Five sites, listed at 4.2. They are the
+      only hand-patched identifier lines, and a faithfulness check reported
+      as clean without naming them would be claiming more than it checked.
+- [x] 8.2 **Completeness** — a case-insensitive search for `roster` returns
       nothing outside `openspec/changes/**` and `alembic/versions/**` other
-      than the **five** permitted `preserve` tokens (three derived at §1.2,
+      than the permitted `preserve` rows (the change names derived at §1.2,
+      any path under `openspec/changes/**` cited from a test docstring,
       two enumerated at §1.3), this change's own name among them — note that
       only two of the three derived tokens carry a *map-protection* row,
       which is deliberate and is `design.md` §2's two-column split; no
@@ -274,15 +316,26 @@ hand pass.
       actually excludes**: two counts in `design.md` §2 were wrong because a
       path filter matched nothing and the hits were counted anyway, and a
       completeness gate that greps wrongly reports success.
-- [ ] 8.3 **No behaviour changed** — `uv run pytest` green across
-      `tests/unit`, `tests/agents` and `tests/integration`; `ruff check`,
+- [x] 8.3 **No behaviour changed** — `uv run pytest` green across
+      `tests/unit`, `tests/agents` and `tests/integration`.
+
+      **The integration tier needs a database named to it, and a bare run in
+      this worktree skips all 135 tests.** A skipped tier is the one green
+      that establishes nothing here, because the migration is the single
+      artifact in this change no unit test can reach. It was run as:
+      `DATABASE_URL=…/commerce_ops_rename_check COMMERCE_OPS_REQUIRE_DATABASE=1
+      uv run pytest tests/integration` against a clone of the seeded test
+      database migrated to head — 132 passed, 6 skipped — with the migration
+      additionally upgraded, inspected, downgraded and re-inspected on that
+      clone. Record the command with the claim; the claim alone is not
+      checkable. `ruff check`,
       `ruff format --check`, `mypy` and `import-linter` clean; **and the test
       diff contains no changed assertion, only renamed identifiers and
       renamed expected strings** (check 3, whole).
-- [ ] 8.4 Open the `/admin/team` page against a live server and confirm it
+- [x] 8.4 Open the `/admin/team` page against a live server and confirm it
       renders, its header marks *Team* as current, and every other admin
       surface reaches it in one action.
-- [ ] 8.5 Run `/code-review` over the diff before calling the change
+- [x] 8.5 Run `/code-review` over the diff before calling the change
       complete, per `AGENTS.md` — the reviewer's question here is check 3's
       last clause, not the substitution.
 

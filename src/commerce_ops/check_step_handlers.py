@@ -1,7 +1,7 @@
 """Reports `active` steps this deployment cannot resolve (`launch-playbook`).
 
 Runs as its own process in the container's start chain, after
-`alembic upgrade head` and beside the roster seed:
+`alembic upgrade head` and beside the members seed:
 
     preflight && alembic upgrade head && seed-admin && check-step-handlers
         && exec uvicorn
@@ -17,7 +17,7 @@ launch down to report a deployment fault.
 This step is where that report belongs. It is **advisory**: it logs and
 exits zero. Refusing to start would turn one unresolvable step into a
 full outage, which is the trade `runtime-configuration` already settles
-the same way — and unlike an unadministrable roster, an unresolved
+the same way — and unlike an unadministrable membership, an unresolved
 automated step leaves everything else in the launch working.
 
 Lives beside `main.py`, outside the containers `.importlinter` layers, so

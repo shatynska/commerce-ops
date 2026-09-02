@@ -331,29 +331,29 @@ async def test_a_named_confirmer_is_never_handed_back_as_the_mention() -> None:
 
     which is satisfied by returning `step.confirmer` unchanged -- and that is
     precisely what the implementation did. A step's confirmer holds the
-    roster's *own generated identifier*, not a Slack identity, so the shipped
+    membership's *own generated identifier*, not a Slack identity, so the shipped
     behaviour rendered `<@3f7c1a92-…>`, which Slack leaves as inert literal
     text. Naming the constant `U0CONFIRMER` is what disguised it: a
     Slack-shaped value in a field that never holds one.
 
     The full matrix -- resolvable, unknown, deactivated, no Slack identity,
-    and the three unreadable-roster cases -- lives in
+    and the three unreadable-members cases -- lives in
     `tests/unit/launch/application/test_mention_resolution_namespace.py`,
-    where the roster identifier and the Slack identity are deliberately
+    where the member identifier and the Slack identity are deliberately
     different strings. What remains here is the one property this file is
     placed to guard: no arrangement hands the identifier back.
     """
-    roster_identifier = "3f7c1a92-6b0e-4c7a-9d51-1e8a4b2c9f30"
-    step = _StepWithConfirmer(confirmer=roster_identifier)
+    member_identifier = "3f7c1a92-6b0e-4c7a-9d51-1e8a4b2c9f30"
+    step = _StepWithConfirmer(confirmer=member_identifier)
     launch = _launch()  # submitter="U0SUBMITTER" -- must not win here either
 
     mention = await resolve_mention_target(launch, step=step)  # type: ignore[arg-type]
 
-    assert mention != roster_identifier, (
-        "the confirmer was handed back unchanged; that is a roster identifier, "
+    assert mention != member_identifier, (
+        "the confirmer was handed back unchanged; that is a member identifier, "
         "which Slack renders as inert literal text and notifies nobody"
     )
-    # With no roster supplied there is nothing to translate it, so nothing
+    # With no members supplied there is nothing to translate it, so nothing
     # resolves -- and specifically not the submitter, which would make a data
     # gap read exactly like a step naming no confirmer.
     assert mention is None

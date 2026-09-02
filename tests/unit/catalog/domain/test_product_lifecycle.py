@@ -158,7 +158,7 @@ def test_a_legal_transition_is_applied_and_attributed() -> None:
     """Scenario: A legal transition is applied and attributed.
 
     WHEN a product in `Development` is moved to `Launching` phase 1 with a
-    confirming person named
+    confirming member named
     THEN the product's stage is reported as `Launching` phase 1
     AND the change records the confirmer and the time of the change.
     """
@@ -417,10 +417,10 @@ def test_a_retired_product_cannot_change_stage(target: LifecycleStage) -> None:
 def test_an_unconfirmed_change_is_rejected(confirmer: str | None) -> None:
     """Scenario: An unconfirmed change is rejected.
 
-    WHEN a stage change is requested without a confirming person
+    WHEN a stage change is requested without a confirming member
     THEN the change is rejected and the stored stage is unchanged.
 
-    DERIVED mechanism: "without a confirming person" is exercised as a
+    DERIVED mechanism: "without a confirming member" is exercised as a
     `None` and an empty-string confirmer; the accepted rejection signals
     include `TypeError`/`ValueError` alongside `StageTransitionError`
     because an implementation may enforce the confirmer at the signature

@@ -452,9 +452,9 @@ def _task_state(raw: Mapping[str, object]) -> ClickUpTaskState:
         # ClickUp reports an assignee as an object carrying the user's
         # own id; the loop compares ids, never display names.
         assignees=tuple(
-            str(person["id"])
-            for person in assignees
-            if isinstance(person, Mapping) and "id" in person
+            str(member["id"])
+            for member in assignees
+            if isinstance(member, Mapping) and "id" in member
         ),
         # ClickUp reports a tag as an object carrying its name and its
         # colours; only the name is judged, so a tag object without one

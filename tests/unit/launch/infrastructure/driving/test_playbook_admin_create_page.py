@@ -53,12 +53,12 @@ Fixed by the artifacts:
 INVENTED, each recorded in the manifest as an unresolved project
 question with its correction point named:
 
-- The page module, the `steps` and roster seams substituted with
+- The page module, the `steps` and members seams substituted with
   `monkeypatch.setattr`, the guard seam, the session cookie and the
   narrowing query-parameter names — all inherited from
   `test_playbook_admin_page.py` and `test_playbook_admin_step_fields.py`,
   which the implementation already satisfies. Correction points:
-  `_FILTER_PARAMS`, `_RETIRED_PARAM`, `_install_roster`.
+  `_FILTER_PARAMS`, `_RETIRED_PARAM`, `_install_members`.
 - How the create control is recognised on the list: a live GET control
   whose URL mentions `new`, `create` or `add`, which answers a page
   carrying a form with both a name and an editable discipline field —
@@ -239,29 +239,29 @@ class _StaleStepStore(_FakeStepStore):
         raise StaleStepSetError("the step set changed underneath this write")
 
 
-class _Person:
-    def __init__(self, person_id: str, display_name: str, *, active: bool) -> None:
-        self.id = person_id
+class _Member:
+    def __init__(self, member_id: str, display_name: str, *, active: bool) -> None:
+        self.id = member_id
         self.display_name = display_name
         self.clickup_user_id: str | None = "clickup-1"
         self.active = active
 
 
-class _FakeRoster:
+class _FakeMembers:
     def __init__(self) -> None:
-        self.people_rows = (
-            _Person(ALICE, ALICE_NAME, active=True),
-            _Person(BOHDAN, BOHDAN_NAME, active=True),
-            _Person(CHRIS_DEPARTED, CHRIS_NAME, active=False),
+        self.members_rows = (
+            _Member(ALICE, ALICE_NAME, active=True),
+            _Member(BOHDAN, BOHDAN_NAME, active=True),
+            _Member(CHRIS_DEPARTED, CHRIS_NAME, active=False),
         )
 
-    async def list_people(self) -> tuple[_Person, ...]:
-        return self.people_rows
+    async def list_members(self) -> tuple[_Member, ...]:
+        return self.members_rows
 
-    people = list_people
+    members = list_members
 
-    async def __call__(self) -> tuple[_Person, ...]:
-        return await self.list_people()
+    async def __call__(self) -> tuple[_Member, ...]:
+        return await self.list_members()
 
 
 def _seeded_store(
@@ -644,17 +644,17 @@ async def _fake_verify(*args: Any, **kwargs: Any) -> str | None:
     return PRINCIPAL if _SESSION_VALUE in haystack else None
 
 
-_ROSTER_ATTRIBUTES: Final = ("roster", "read_roster", "people", "roster_reader")
+_MEMBERS_ATTRIBUTES: Final = ("members", "read_members", "members_reader")
 
 
-def _install_roster(monkeypatch: pytest.MonkeyPatch, roster: _FakeRoster) -> None:
-    for name in _ROSTER_ATTRIBUTES:
+def _install_members(monkeypatch: pytest.MonkeyPatch, members: _FakeMembers) -> None:
+    for name in _MEMBERS_ATTRIBUTES:
         if hasattr(page_module, name):
-            monkeypatch.setattr(page_module, name, roster)
+            monkeypatch.setattr(page_module, name, members)
             return
     pytest.fail(
-        "the page module exposes no roster seam under any of "
-        f"{_ROSTER_ATTRIBUTES} — correct this file's probe to the "
+        "the page module exposes no members seam under any of "
+        f"{_MEMBERS_ATTRIBUTES} — correct this file's probe to the "
         "implemented name"
     )
 
@@ -664,7 +664,7 @@ def _signed_client(
 ) -> TestClient:
     monkeypatch.setattr(page_module, "steps", store)
     monkeypatch.setattr(page_module, "verify_admin_session", _fake_verify)
-    _install_roster(monkeypatch, _FakeRoster())
+    _install_members(monkeypatch, _FakeMembers())
     app = FastAPI()
     app.include_router(page_module.router)
     client = TestClient(app)
@@ -1446,7 +1446,7 @@ def test_a_rejected_create_keeps_every_submitted_value(
     # SPECIFIED: every fault the write reported. DERIVED wording markers.
     lowered = body.lower()
     assert "handler" in lowered, "the handler fault is not reported"
-    assert "assignee" in lowered or "person" in lowered, (
+    assert "assignee" in lowered or "member" in lowered, (
         "the missing-assignee fault is not reported"
     )
     # SPECIFIED: every submitted value, the timing anchor's included, is
@@ -1514,8 +1514,8 @@ def test_a_rejected_create_keeps_every_assignee_that_was_named(
     # replaced by the other.
     selected = rerendered.selected_of(assignee_field)
     assert set(selected) == {ALICE, BOHDAN}, (
-        f"the re-rendered create surface names {selected} where two people "
-        "were submitted — a set of named people is exactly what a rejection "
+        f"the re-rendered create surface names {selected} where two members "
+        "were submitted — a set of named members is exactly what a rejection "
         "must not lose"
     )
     assert store.saves == []

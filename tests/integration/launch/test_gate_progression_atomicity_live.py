@@ -77,8 +77,8 @@ INVENTED, each with a correction point:
   `progress_launch.__module__` — the same seam
   `tests/unit/launch/application/test_progress_launch.py` uses and
   documents.
-- Which roster person decides. The roster is written through the real
-  `access` use cases, so the decision resolves a person that really is on
+- Which member decides. The membership is written through the real
+  `access` use cases, so the decision resolves a member that really is on
   it.
 
 ## Expected first-run state
@@ -432,36 +432,36 @@ def _slack_body(
     }
 
 
-class _RealRosterReader:
-    """The roster reader the composition root normally injects.
+class _RealMembersReader:
+    """The members reader the composition root normally injects.
 
     CORRECTED probe: the adapter takes its reader from the root rather than
     constructing one -- `main.py` does exactly this, and
     `automation_confirmation.py` sets the precedent -- so a test importing
     the module directly must supply it. It reads through the real `access`
     use case, which keeps this file's claim true: the decision resolves a
-    person who really is on the roster.
+    member who really is on the membership.
 
-    Over **this tier's engine**, never `PostgresRoster()`. That adapter
+    Over **this tier's engine**, never `PostgresMembers()`. That adapter
     opens its own pool and binds it to whichever event loop first touches
     it, which outlives the module and breaks a later test in this tier --
-    the trap `test_playbook_authoring_roster_live.py` already records
+    the trap `test_playbook_authoring_members_live.py` already records
     having fallen into.
     """
 
     def __init__(self, engine: Any) -> None:
         self._engine = engine
 
-    async def list_people(self) -> Any:
+    async def list_members(self) -> Any:
         from sqlalchemy.ext.asyncio import AsyncSession
 
-        from commerce_ops.access.application import list_people
-        from commerce_ops.access.infrastructure.driven.roster_repository import (
-            RosterRepository,
+        from commerce_ops.access.application import list_members
+        from commerce_ops.access.infrastructure.driven.members_repository import (
+            MembersRepository,
         )
 
         async with AsyncSession(self._engine) as db_session:
-            return await list_people(roster=RosterRepository(db_session))
+            return await list_members(members=MembersRepository(db_session))
 
 
 _MISSING: Any = object()
@@ -471,7 +471,7 @@ _MISSING: Any = object()
 def _restore_confirmation_module() -> Any:
     """Undo every substitution this module makes on the adapter.
 
-    `_wire_roster` and `_bind_session_providers` set module attributes
+    `_wire_members` and `_bind_session_providers` set module attributes
     outright rather than through `monkeypatch`, because they are reached
     from `_press` rather than from a test body. Left in place they outlive
     this file: `gate_confirmation.session` would keep pointing at an engine
@@ -479,7 +479,7 @@ def _restore_confirmation_module() -> Any:
     "attached to a different loop" — which is exactly how this file broke
     `test_slack_entry_start.py` before this fixture existed.
     """
-    names = ("session", "transaction", "read_people", "roster", "roster_reader")
+    names = ("session", "transaction", "read_members", "members", "members_reader")
     modules = [
         importlib.import_module(path)
         for path in (CONFIRMATION_MODULE_PATH, JOB_MODULE_PATH)
@@ -504,34 +504,34 @@ def _restore_confirmation_module() -> Any:
 
 
 async def _seed_decider(engine: Any) -> None:
-    """Put the deciding person on the roster, through `access`'s own use case.
+    """Put the deciding member on the membership, through `access`'s own use case.
 
-    ADDED: this file's INVENTED note says the roster "is written through the
-    real `access` use cases, so the decision resolves a person that really is
+    ADDED: this file's INVENTED note says the membership "is written through the
+    real `access` use cases, so the decision resolves a member that really is
     on it", and nothing was doing it -- against a freshly migrated database
-    the roster is empty, so every decision here was refused as an unknown
+    the membership is empty, so every decision here was refused as an unknown
     identity before reaching the behaviour under test.
 
-    Created as an admin because the roster refuses to hold anyone without an
+    Created as an admin because the membership refuses to hold anyone without an
     active admin. Gate approval does not *require* admin -- delta R6 says so
     explicitly, and the unit tier asserts it -- so nothing here turns on it.
     """
     from sqlalchemy.ext.asyncio import AsyncSession
 
-    from commerce_ops.access.application import create_person, list_people
-    from commerce_ops.access.infrastructure.driven.roster_repository import (
-        RosterRepository,
+    from commerce_ops.access.application import create_member, list_members
+    from commerce_ops.access.infrastructure.driven.members_repository import (
+        MembersRepository,
     )
 
     async with AsyncSession(engine) as db_session:
-        roster = RosterRepository(db_session)
+        members = MembersRepository(db_session)
         if any(
-            getattr(person, "slack_identity", None) == ALICE_SLACK
-            for person in await list_people(roster=roster)
+            getattr(member, "slack_identity", None) == ALICE_SLACK
+            for member in await list_members(members=members)
         ):
             return
-        await create_person(
-            roster=roster,
+        await create_member(
+            members=members,
             principal="integration-tier",
             display_name="Alice",
             slack_identity=ALICE_SLACK,
@@ -581,13 +581,13 @@ def _bind_session_providers(module: ModuleType, engine: Any) -> None:
             setattr(module, name, provider)
 
 
-def _wire_roster(module: ModuleType, engine: Any) -> None:
-    for name in ("read_people", "roster", "roster_reader"):
+def _wire_members(module: ModuleType, engine: Any) -> None:
+    for name in ("read_members", "members", "members_reader"):
         if getattr(module, name, _MISSING) is not _MISSING:
-            setattr(module, name, _RealRosterReader(engine))
+            setattr(module, name, _RealMembersReader(engine))
             return
     raise AssertionError(
-        "the gate confirmation adapter exposes no roster collaborator to "
+        "the gate confirmation adapter exposes no members collaborator to "
         "inject; correct this file's probe to the implemented name"
     )
 
@@ -601,7 +601,7 @@ async def _press(
     engine: Any,
 ) -> Any:
     await _seed_decider(engine)
-    _wire_roster(module, engine)
+    _wire_members(module, engine)
     _bind_session_providers(module, engine)
     entry = _entry(module, _DECISION_ENTRY_NAMES)
     body = _slack_body(approve=approve, product_id=product_id, gate_id=gate_id)
@@ -670,7 +670,7 @@ async def test_a_cascade_failing_part_way_leaves_the_launch_where_it_started(
     playbook = await _served(engine)
     # `listable` opens automatically, and so does the gate after it, so a
     # two-gate cascade needs no approval — which keeps this test about the
-    # transaction rather than about the roster.
+    # transaction rather than about the membership.
     product_id = await _launch_standing_at(engine, "listable", satisfy_next=True)
     started_at = await _current_gate(engine, product_id)
     assert started_at == "listable"
@@ -717,7 +717,7 @@ async def test_a_rejection_and_its_cool_off_refresh_land_together_or_not_at_all(
     decider is told the decision was not recorded.
 
     "Unlike a delivery, where a lost write costs one duplicate message, a
-    lost refresh here re-proposes a gate a person has just declined."
+    lost refresh here re-proposes a gate a member has just declined."
 
     The approval is checked through a fresh session, so an adapter that
     committed it outside the transaction carrying the refresh is caught —
@@ -766,7 +766,7 @@ async def test_a_rejection_and_its_cool_off_refresh_land_together_or_not_at_all(
         approval = launch.approval_for("commit")
     assert approval is None, (
         "the rejecting approval stands in Postgres although its cool-off "
-        "refresh failed, so a gate the person just declined is re-proposed "
+        "refresh failed, so a gate the member just declined is re-proposed "
         "tomorrow with no record of the decision that declined it"
     )
     # ...nor the refresh stands — the store raised, so it wrote nothing.

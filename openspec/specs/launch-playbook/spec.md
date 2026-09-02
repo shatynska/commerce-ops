@@ -98,21 +98,21 @@ Each step definition SHALL declare all of:
 and SHALL be able to declare, optionally:
 
 - a description: the work in full, which MAY span lines and MAY be absent when the name says everything
-- its assignees: the people responsible for it
+- its assignees: the membership responsible for it
 - the gate it starts at: absent means it may start from the launch's first gate
 - the steps it waits on: empty means it waits on none
 - a handler, where its kind is `automated`
-- a confirmer: the one person who must accept an automated result before the step counts as resolved
+- a confirmer: the one member who must accept an automated result before the step counts as resolved
 - a provenance reference into the source material it derives from
 - a metric identifier, drawn from the shared vocabulary, naming the metric the step establishes
 
 The name is required and SHALL NOT be empty, and a name consisting only of whitespace SHALL be treated as empty. A step whose work cannot be read from the step itself is indistinguishable, to whoever is asked to do it, from a step that was never written down; the identifier names the step and the provenance says where it came from, but neither states the work. The coherence rules below reject a playbook that declares a step with an empty, whitespace-only, or absent name; that rejection is stated once, with the other load-time rules, rather than twice.
 
-The name and the description are two fields because they answer to two audiences: the name is what a person scans in a list of work, and the description is what they read once they have decided to do it. Carrying one field for both forces every description to be short enough to be a name, which is why the single-line rule belongs to the name and not to the description.
+The name and the description are two fields because they answer to two audiences: the name is what a member scans in a list of work, and the description is what they read once they have decided to do it. Carrying one field for both forces every description to be short enough to be a name, which is why the single-line rule belongs to the name and not to the description.
 
 A declared metric identifier is a reference and nothing more. No metric registry exists, so nothing SHALL validate that the metric it names is defined, and the identifier SHALL NOT change how the step is resolved: a step naming a metric is resolved by its recorded outcome exactly as any other step is. It records that this step is where a named metric is established for a launch, so that an observation of the same metric can later be related to it. Almost every step declares none.
 
-The threshold a metric step establishes SHALL live in the step's own description, as the work it asks for, rather than in a field of its own. A threshold stated as the work is what the person doing the work reads, and is editable by whoever may edit the step; a threshold carried separately would be a second place to state the same obligation.
+The threshold a metric step establishes SHALL live in the step's own description, as the work it asks for, rather than in a field of its own. A threshold stated as the work is what the member doing the work reads, and is editable by whoever may edit the step; a threshold carried separately would be a second place to state the same obligation.
 
 #### Scenario: A step definition is read back with every declared attribute
 
@@ -375,13 +375,13 @@ Any status MAY move to any other, and every move SHALL be a write validated by t
 - **WHEN** a step's status becomes `retired`
 - **THEN** it is no longer served, and it remains readable to authors with its history intact
 
-### Requirement: A step names who does the work and whether a person accepts it
+### Requirement: A step names who does the work and whether a member accepts it
 
-Each step definition SHALL declare a kind — `human`, meaning a person does the work, or `automated`, meaning code does — and, separately, MAY name a confirmer: the one person who must accept an automated result before the step counts as resolved.
+Each step definition SHALL declare a kind — `human`, meaning a member does the work, or `automated`, meaning code does — and, separately, MAY name a confirmer: the one member who must accept an automated result before the step counts as resolved.
 
-These are two independent facts and SHALL NOT be collapsed into one. Whether the code that resolves a step calls a language model is an implementation detail of that code, and the playbook SHALL NOT record it: the thing the launch reacts to is whether a named person must accept what came back.
+These are two independent facts and SHALL NOT be collapsed into one. Whether the code that resolves a step calls a language model is an implementation detail of that code, and the playbook SHALL NOT record it: the thing the launch reacts to is whether a named member must accept what came back.
 
-A `human` step's confirmer SHALL carry no meaning — the person doing the work is the person attesting it — and SHALL be accepted rather than rejected, so that flipping a step's kind does not require clearing an unrelated field.
+A `human` step's confirmer SHALL carry no meaning — the member doing the work is the member attesting it — and SHALL be accepted rather than rejected, so that flipping a step's kind does not require clearing an unrelated field.
 
 #### Scenario: An automated step declares whether its result is accepted
 
@@ -405,19 +405,19 @@ A `human` step's confirmer SHALL carry no meaning — the person doing the work 
 
 ### Requirement: A step names who confirms an automated result
 
-Each step definition MAY name a confirmer: a single person, referenced by the roster's own generated identifier (`roster`), trusted to accept or reject an automated step's proposed result. A confirmer reference SHALL be to a person the roster carries; a reference to an identifier no roster entry has SHALL be rejected, naming the step and the unknown identifier.
+Each step definition MAY name a confirmer: a single member, referenced by the membership's own generated identifier (`members`), trusted to accept or reject an automated step's proposed result. A confirmer reference SHALL be to a member the membership carries; a reference to an identifier no membership entry has SHALL be rejected, naming the step and the unknown identifier.
 
 Naming a confirmer is what makes a step's result require confirmation — there is no separate flag. A step naming no confirmer needs none; its result is recorded as soon as a handler produces a terminal outcome. This is the whole of the former `needs_confirmation` flag's meaning, carried by one field instead of two.
 
-An `active` `automated` step naming a confirmer SHALL name one who is active on the roster; a confirmer whose roster entry is deactivated stops satisfying the requirement exactly as an assignee's deactivation does, for the same reason: whether a person is active is a fact about the roster, not about the step set, so this is a **write-time precondition, not a load-time coherence rule**. A load SHALL NOT re-check it: a step whose confirmer has since been deactivated SHALL continue to load and be served, and its automated results SHALL continue to be held pending until an author names someone else.
+An `active` `automated` step naming a confirmer SHALL name one who is active on the membership; a confirmer whose membership entry is deactivated stops satisfying the requirement exactly as an assignee's deactivation does, for the same reason: whether a member is active is a fact about the membership, not about the step set, so this is a **write-time precondition, not a load-time coherence rule**. A load SHALL NOT re-check it: a step whose confirmer has since been deactivated SHALL continue to load and be served, and its automated results SHALL continue to be held pending until an author names someone else.
 
-A step whose `assignees` names exactly one person, where that person is also the confirmer, SHALL be rejected: a single actor confirming their own work is not a second opinion, and the shape can never produce one no matter how many times it is pressed. Two or more assignees naming the confirmer among them, or no assignees at all, are both unaffected by this rule — only the case where the confirmer is the step's *only* named assignee is incoherent.
+A step whose `assignees` names exactly one member, where that member is also the confirmer, SHALL be rejected: a single actor confirming their own work is not a second opinion, and the shape can never produce one no matter how many times it is pressed. Two or more assignees naming the confirmer among them, or no assignees at all, are both unaffected by this rule — only the case where the confirmer is the step's *only* named assignee is incoherent.
 
-This holds regardless of `kind`, including on a `human` step, where a named confirmer otherwise carries no meaning today (*A step names who does the work and whether a person accepts it*). It is authored-shape hygiene rather than a live behavioral concern for a `human` step in this deployment: nothing reads a `human` step's confirmer yet, but the identical shape is exactly what a later human-step confirmation flow — a person's own ClickUp completion checked by a second person before it counts as done — would need to reject for the same reason it is rejected for an `automated` step's Slack accept/reject today. Catching it once, at the field's own coherence rule, means that flow inherits a correct step set rather than needing to re-derive this rule itself.
+This holds regardless of `kind`, including on a `human` step, where a named confirmer otherwise carries no meaning today (*A step names who does the work and whether a member accepts it*). It is authored-shape hygiene rather than a live behavioral concern for a `human` step in this deployment: nothing reads a `human` step's confirmer yet, but the identical shape is exactly what a later human-step confirmation flow — a member's own ClickUp completion checked by a second member before it counts as done — would need to reject for the same reason it is rejected for an `automated` step's Slack accept/reject today. Catching it once, at the field's own coherence rule, means that flow inherits a correct step set rather than needing to re-derive this rule itself.
 
-Unlike the two preconditions above, this is a **load-time coherence rule**: it is a pure function of the step set's own `assignees` and `confirmer` fields, needs no roster to evaluate, and is therefore enumerated alongside the other load-time rules in *An incoherent playbook is rejected against its steps' status and shape* — a playbook already carrying this shape SHALL fail to load, not merely fail its next write.
+Unlike the two preconditions above, this is a **load-time coherence rule**: it is a pure function of the step set's own `assignees` and `confirmer` fields, needs no members to evaluate, and is therefore enumerated alongside the other load-time rules in *An incoherent playbook is rejected against its steps' status and shape* — a playbook already carrying this shape SHALL fail to load, not merely fail its next write.
 
-Confirmers SHALL be referenced by identifier rather than by name or Slack identity, so that correcting a person's details never rewrites the steps that point at them — the same guarantee `assignees` already carries.
+Confirmers SHALL be referenced by identifier rather than by name or Slack identity, so that correcting a member's details never rewrites the steps that point at them — the same guarantee `assignees` already carries.
 
 #### Scenario: An automated step names its confirmer
 
@@ -426,17 +426,17 @@ Confirmers SHALL be referenced by identifier rather than by name or Slack identi
 
 #### Scenario: An unknown confirmer is rejected
 
-- **WHEN** a step names a confirmer identifier the roster does not carry
+- **WHEN** a step names a confirmer identifier the membership does not carry
 - **THEN** the write is rejected with a fault naming the step and that identifier
 
 #### Scenario: A deactivated confirmer does not satisfy the requirement
 
-- **WHEN** an `active` `automated` step is written naming a confirmer whose roster entry is deactivated
+- **WHEN** an `active` `automated` step is written naming a confirmer whose membership entry is deactivated
 - **THEN** the write is rejected, exactly as if it named nobody
 
 #### Scenario: A sole assignee cannot also be the confirmer
 
-- **WHEN** a step names exactly one assignee, and names that same person as its confirmer
+- **WHEN** a step names exactly one assignee, and names that same member as its confirmer
 - **THEN** the write is rejected with a fault naming the step
 
 #### Scenario: A confirmer among several assignees is not rejected
@@ -444,9 +444,9 @@ Confirmers SHALL be referenced by identifier rather than by name or Slack identi
 - **WHEN** a step names two or more assignees, one of whom is also its confirmer
 - **THEN** the write is accepted
 
-#### Scenario: Correcting a person does not touch the steps that confirm through them
+#### Scenario: Correcting a member does not touch the steps that confirm through them
 
-- **WHEN** a person's display name is corrected on the roster
+- **WHEN** a member's display name is corrected on the membership
 - **THEN** every step naming them as confirmer still names them, unchanged
 
 ### Requirement: A step carries the handler its automation needs
@@ -496,34 +496,34 @@ A `human` step SHALL carry no handler, and declaring one SHALL be rejected.
 - **WHEN** a `human` step is written with a handler
 - **THEN** the write is rejected with a fault naming the step
 
-### Requirement: A step names the people responsible for it
+### Requirement: A step names the membership responsible for it
 
-Each step definition SHALL be able to name zero or more assignees, each referencing a person by the roster's own generated identifier (`roster`). An assignee reference SHALL be to a person the roster carries; a reference to an identifier no roster entry has SHALL be rejected, naming the step and the unknown identifier.
+Each step definition SHALL be able to name zero or more assignees, each referencing a member by the membership's own generated identifier (`members`). An assignee reference SHALL be to a member the membership carries; a reference to an identifier no membership entry has SHALL be rejected, naming the step and the unknown identifier.
 
-An `active` `human` step SHALL name at least one assignee who is active on the roster: human work nobody is responsible for is work that will not happen, and a projected task nobody is assigned is the shape that failure takes today. An `automated` step MAY name assignees or none; naming them no longer says who is asked to confirm a result — that is the confirmer's question alone (*A step names who confirms an automated result*).
+An `active` `human` step SHALL name at least one assignee who is active on the membership: human work nobody is responsible for is work that will not happen, and a projected task nobody is assigned is the shape that failure takes today. An `automated` step MAY name assignees or none; naming them no longer says who is asked to confirm a result — that is the confirmer's question alone (*A step names who confirms an automated result*).
 
-Assignees SHALL be referenced by identifier rather than by name or Slack identity, so that correcting a person's details never rewrites the steps that point at them.
+Assignees SHALL be referenced by identifier rather than by name or Slack identity, so that correcting a member's details never rewrites the steps that point at them.
 
-Both rules above are **write-time preconditions, not load-time coherence rules**, and this is deliberate. Every load-time rule is a function of the step set alone, which is what lets one predicate guard a load and a write alike; whether an assignee exists and is active is a function of the roster, which changes without the step set changing. Were these load-time rules, deactivating a person would retroactively make a stored playbook unloadable — a write in another module breaking a capability that accepted no write. A load SHALL NOT re-check assignees: a step whose assignee has since been deactivated SHALL continue to load and be served, and SHALL appear in the report of what a step still needs.
+Both rules above are **write-time preconditions, not load-time coherence rules**, and this is deliberate. Every load-time rule is a function of the step set alone, which is what lets one predicate guard a load and a write alike; whether an assignee exists and is active is a function of the membership, which changes without the step set changing. Were these load-time rules, deactivating a member would retroactively make a stored playbook unloadable — a write in another module breaking a capability that accepted no write. A load SHALL NOT re-check assignees: a step whose assignee has since been deactivated SHALL continue to load and be served, and SHALL appear in the report of what a step still needs.
 
 #### Scenario: An active human step needs someone responsible
 
 - **WHEN** a `human` step naming no assignee is made `active`
 - **THEN** the write is rejected with a fault naming the step
 
-#### Scenario: An unknown person is rejected
+#### Scenario: An unknown member is rejected
 
-- **WHEN** a step names an assignee identifier the roster does not carry
+- **WHEN** a step names an assignee identifier the membership does not carry
 - **THEN** the write is rejected with a fault naming the step and that identifier
 
-#### Scenario: A deactivated person does not satisfy the requirement
+#### Scenario: A deactivated member does not satisfy the requirement
 
-- **WHEN** a `human` step is made `active` naming only assignees whose roster entries are deactivated
+- **WHEN** a `human` step is made `active` naming only assignees whose members entries are deactivated
 - **THEN** the write is rejected, exactly as if it named nobody
 
-#### Scenario: Correcting a person does not touch the steps
+#### Scenario: Correcting a member does not touch the steps
 
-- **WHEN** a person's display name is corrected on the roster
+- **WHEN** a member's display name is corrected on the membership
 - **THEN** every step naming them still names them, unchanged
 
 ### Requirement: What blocks a step from being activated is reported
@@ -595,7 +595,7 @@ The step SHALL insert every vendored step no stored step names, and SHALL leave 
 
 Identity is the only question the step is entitled to ask of the stored set. Whether a stored row *differs* from its vendored counterpart is not a question it may act on, because a row that differs is indistinguishable from one an author edited — the difference is the edit. So the rule is drawn on the identifier, which `playbook-authoring` requires to be unique and never updatable, and which is therefore a key that cannot move underneath the comparison.
 
-This is what makes the step safe to run on every container start, and why nothing arms it. Running it twice in succession SHALL change nothing the first run did not, so its condition is readable from the data in the way `roster`'s admin-seeding condition is — and a step whose condition is readable needs no signal delivered alongside it. A signal *would* have been needed for a step that replaces, because runtime configuration reaches a host only when a deployment is made, so a signal withdrawn after an armed deploy would go on arming every restart until the next one.
+This is what makes the step safe to run on every container start, and why nothing arms it. Running it twice in succession SHALL change nothing the first run did not, so its condition is readable from the data in the way `members`'s admin-seeding condition is — and a step whose condition is readable needs no signal delivered alongside it. A signal *would* have been needed for a step that replaces, because runtime configuration reaches a host only when a deployment is made, so a signal withdrawn after an armed deploy would go on arming every restart until the next one.
 
 It follows that a **corrected** vendored definition SHALL NOT reach a step that already exists. Correcting a stored step is an authoring act, performed through the surface `playbook-authoring` governs, by someone who can see what they are changing and whose change is attributed. A wholesale refresh requires emptying the step set first, which is a deliberate destructive act and SHALL look like one.
 
@@ -655,9 +655,9 @@ Release SHALL consult no clock and perform no I/O. Its inputs are the launch's g
 
 Whether the step named in `after_steps` is resolved SHALL be judged as the step's own hazard permits — the same reading of "resolved" every other consumer uses. A step classified `prohibited-tactic` SHALL NOT be depended upon at all. Its only permitted terminal outcome is `Refused` — the record that the system declined to do the thing — and sequencing other work behind a refusal is the wrong shape for a dependency, whatever a handler could in principle record. That is refused when it is authored (`playbook-authoring`, where the reasoning is stated in full), and where a step is re-classified afterwards it is satisfied vacuously on the same footing as one that is no longer `active`.
 
-Both fields SHALL be authored facts carried on the step definition, and SHALL be read by every consumer that decides whether to **ask for** a step's work — the projection into a task tracker and the invocation of an automated step's handler — so that what the system asks of a person and what it asks of a handler cannot drift apart.
+Both fields SHALL be authored facts carried on the step definition, and SHALL be read by every consumer that decides whether to **ask for** a step's work — the projection into a task tracker and the invocation of an automated step's handler — so that what the system asks of a member and what it asks of a handler cannot drift apart.
 
-Release SHALL NOT govern what the system **accepts or evaluates**. Recording an outcome is outside it: work a person completed is work done, whenever they did it. Gate evaluation is outside it too, and this matters more: a gate's conditions are satisfied by recorded outcomes, and gating a blocking condition on release would open a gate over work that had merely not been asked for yet.
+Release SHALL NOT govern what the system **accepts or evaluates**. Recording an outcome is outside it: work a member completed is work done, whenever they did it. Gate evaluation is outside it too, and this matters more: a gate's conditions are satisfied by recorded outcomes, and gating a blocking condition on release would open a gate over work that had merely not been asked for yet.
 
 #### Scenario: A step naming neither field starts immediately
 
@@ -856,7 +856,7 @@ Each such step SHALL declare its own gate as its start gate, subject to two exce
   The default SHALL be the **nearest** gate satisfying the margin, and not the earliest. Widening further is not free: releasing a step earlier than it needs to be projects it earlier, which is the whole harm this capability's release rule exists to remove. The margin buys reliability for the handful of steps whose own gate cannot serve them, and is not licence to start the plan early.
 - **A step whose timing anchor falls before its own gate can be reached SHALL declare the earlier gate its anchor implies.** These SHALL be individually justified by the anchor that produces them rather than applied as a rule, since the disagreement between the calendar and the gate sequence is a property of the authored playbook and not a formula.
 
-The second exception SHALL be applied only to steps whose anchors have actually been reviewed against their gates — today, the steps that are `active`. A step that is not yet served has never been so reviewed, and choosing a start gate for it is an authoring judgement made once, by a person, on a step somebody is about to put into play, rather than one made in bulk for hundreds of steps that may never be activated in their current form. Such a step SHALL take the default, which withholds nothing today's behaviour grants and leaves the judgement to whoever activates it. Where the same steps are delivered by a vendored file in which every step is `draft`, so that status cannot select them, the exception SHALL be applied to those same reviewed steps by identifier, so the two routes cannot disagree about which steps carry one.
+The second exception SHALL be applied only to steps whose anchors have actually been reviewed against their gates — today, the steps that are `active`. A step that is not yet served has never been so reviewed, and choosing a start gate for it is an authoring judgement made once, by a member, on a step somebody is about to put into play, rather than one made in bulk for hundreds of steps that may never be activated in their current form. Such a step SHALL take the default, which withholds nothing today's behaviour grants and leaves the judgement to whoever activates it. Where the same steps are delivered by a vendored file in which every step is `draft`, so that status cannot select them, the exception SHALL be applied to those same reviewed steps by identifier, so the two routes cannot disagree about which steps carry one.
 
 The two-gate rule is a **default and not a refusal**, and the difference is deliberate. A start gate naming the final gate is *always* wrong — nothing ever acts there — so it is refused. A one-gate window is only *probably* wrong: whether a launch crosses it between two passes depends on schedules and on what its gate is waiting for, and there are step sets in which one gate is plenty. Refusing it would forbid a configuration that can be correct; so the rule binds what the system chooses on an author's behalf, and an author who names a one-gate window is taken to have meant it. An author creating a final-gate step is expected to reach at least as far back as the default does unless they have a reason not to.
 
@@ -1097,7 +1097,7 @@ A playbook SHALL be rejected when any of the following holds:
 
 #### Scenario: A sole assignee who is also the confirmer fails to load
 
-- **WHEN** a playbook contains a step naming exactly one assignee and naming that same person as its confirmer
+- **WHEN** a playbook contains a step naming exactly one assignee and naming that same member as its confirmer
 - **THEN** loading fails with an error naming that step
 
 #### Scenario: A prohibited tactic cannot block a gate

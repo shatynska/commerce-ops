@@ -41,7 +41,7 @@ requirements' now-three-page reach.
 ## Level
 
 The launch router mounted alone for the journal-specific requirements,
-and beside the playbook, roster and shared-asset routers (via
+and beside the playbook, members and shared-asset routers (via
 `with_neighbours=True`) for the two requirements whose THEN reaches
 another module's surface or asset route — the same composition
 `test_launch_admin_detail.py` uses, for the same reason.
@@ -119,8 +119,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from commerce_ops.access.application import create_person
-from commerce_ops.access.infrastructure.driving import roster_admin as roster_module
+from commerce_ops.access.application import create_member
+from commerce_ops.access.infrastructure.driving import members_admin as members_module
 from commerce_ops.catalog.domain.product import Product
 from commerce_ops.launch.domain.launch_playbook import (
     Gate,
@@ -186,7 +186,7 @@ LAUNCH_DATE: Final = date(2027, 12, 1)
 
 PRODUCT_NAME: Final = "Alpha widget"
 
-_HEADER_WORDS: Final = ("playbook", "roster", "people", "users")
+_HEADER_WORDS: Final = ("playbook", "team", "members", "member")
 _LAUNCH_WORDS: Final = ("launch", "launches", "product")
 
 _HX_VERBS: Final = ("hx-get", "hx-post", "hx-put", "hx-patch", "hx-delete")
@@ -313,7 +313,7 @@ class _FakePlaybooks:
         return PLAYBOOK
 
 
-class _FakeRosterStore:
+class _FakeMembersStore:
     def __init__(self, rows: tuple[Any, ...] = (), version: int = 13) -> None:
         self.rows = tuple(rows)
         self.version = version
@@ -326,10 +326,10 @@ class _FakeRosterStore:
         self.version += 1
 
 
-async def _build_roster() -> _FakeRosterStore:
-    store = _FakeRosterStore()
-    await create_person(
-        roster=store,
+async def _build_members() -> _FakeMembersStore:
+    store = _FakeMembersStore()
+    await create_member(
+        members=store,
         principal="the-seeding-admin",
         display_name="Alice Admin",
         slack_identity=PRINCIPAL,
@@ -339,8 +339,8 @@ async def _build_roster() -> _FakeRosterStore:
     return store
 
 
-def _roster_store() -> _FakeRosterStore:
-    return asyncio.run(_build_roster())
+def _members_store() -> _FakeMembersStore:
+    return asyncio.run(_build_members())
 
 
 class _Catalog:
@@ -380,19 +380,19 @@ class _FakeStepStore:
         self.version += 1
 
 
-class _FakePerson:
-    def __init__(self, person_id: str, display_name: str) -> None:
-        self.id = person_id
+class _FakeMember:
+    def __init__(self, member_id: str, display_name: str) -> None:
+        self.id = member_id
         self.display_name = display_name
         self.clickup_user_id: str | None = "clickup-1"
         self.active = True
 
 
-class _FakeRoster:
-    async def list_people(self) -> tuple[_FakePerson, ...]:
-        return (_FakePerson("prs_01HQ8Z6M4A", "Alice Admin"),)
+class _FakeMembers:
+    async def list_members(self) -> tuple[_FakeMember, ...]:
+        return (_FakeMember("prs_01HQ8Z6M4A", "Alice Admin"),)
 
-    people = list_people
+    members = list_members
 
 
 # ---------------------------------------------------------------------------
@@ -403,7 +403,7 @@ _SEAMS: Final[dict[str, tuple[str, ...]]] = {
     "verify": ("verify_admin_session",),
     "launches": ("launches", "launch_store", "launch_positions", "store"),
     "playbooks": ("playbooks", "playbook_store", "playbook_repository", "playbook"),
-    "roster": ("roster", "people", "roster_store", "read_roster"),
+    "members": ("members", "members_store", "read_members"),
     "resolve_scope": ("resolve_scope",),
     "list_products": ("list_products", "products", "catalog_products"),
     "get_product_by_id": ("get_product_by_id", "product_by_id", "get_product"),
@@ -414,7 +414,12 @@ _JOURNAL_SEAM_NAMES: Final = (
     "read_launch_journal",
     "journal_entries",
 )
-_PLAYBOOK_ROSTER_SEAMS: Final = ("roster", "read_roster", "people", "roster_reader")
+_PLAYBOOK_MEMBERS_SEAMS: Final = (
+    "members",
+    "read_members",
+    "members",
+    "members_reader",
+)
 
 
 def _install(
@@ -505,7 +510,7 @@ def _surface(
     _install(monkeypatch, module, "verify", _fake_verify)
     _install(monkeypatch, module, "launches", launches)
     _install(monkeypatch, module, "playbooks", _FakePlaybooks())
-    _install(monkeypatch, module, "roster", _roster_store())
+    _install(monkeypatch, module, "members", _members_store())
     _install(monkeypatch, module, "list_products", catalog.list_products)
     _install(monkeypatch, module, "get_product_by_id", catalog.get_product_by_id)
     _install_journal(
@@ -524,16 +529,16 @@ def _surface(
     if with_neighbours:
         monkeypatch.setattr(playbook_module, "steps", _FakeStepStore())
         monkeypatch.setattr(playbook_module, "verify_admin_session", _fake_verify)
-        for name in _PLAYBOOK_ROSTER_SEAMS:
+        for name in _PLAYBOOK_MEMBERS_SEAMS:
             if hasattr(playbook_module, name):
-                monkeypatch.setattr(playbook_module, name, _FakeRoster())
+                monkeypatch.setattr(playbook_module, name, _FakeMembers())
                 break
-        monkeypatch.setattr(roster_module, "roster", _roster_store())
-        monkeypatch.setattr(roster_module, "verify_admin_session", _fake_verify)
+        monkeypatch.setattr(members_module, "members", _members_store())
+        monkeypatch.setattr(members_module, "verify_admin_session", _fake_verify)
         assets = _assets_module()
         monkeypatch.setattr(assets, "verify", _fake_verify)
         app.include_router(playbook_module.router)
-        app.include_router(roster_module.router)
+        app.include_router(members_module.router)
         app.include_router(assets.router)
 
     client = TestClient(app)
@@ -1073,7 +1078,7 @@ def test_a_journal_entry_names_what_occurred_when_and_what_caused_it(
     subject = "commit"
     when = datetime(2027, 3, 2, 10, 30, tzinfo=UTC)
     source = "slack"
-    actor = "an-actor-not-on-the-roster"
+    actor = "an-actor-who-is-not-a-member"
 
     async def _one_entry(*_a: Any, **_k: Any) -> tuple[Any, ...]:
         return (
@@ -1451,7 +1456,7 @@ def test_the_header_names_the_other_surfaces(monkeypatch: pytest.MonkeyPatch) ->
         with_neighbours=True,
     )
     playbook_path = _shortest_get_route(playbook_module.router)
-    roster_path = _shortest_get_route(roster_module.router)
+    members_path = _shortest_get_route(members_module.router)
 
     pages = {
         "list": _list_html(surface),
@@ -1459,8 +1464,8 @@ def test_the_header_names_the_other_surfaces(monkeypatch: pytest.MonkeyPatch) ->
         "journal": _journal_html(surface),
     }
     for page, html in pages.items():
-        header = _header_of(_tree(html), other_path=roster_path)
-        for path, what in ((roster_path, "roster"), (playbook_path, "playbook")):
+        header = _header_of(_tree(html), other_path=members_path)
+        for path, what in ((members_path, "members"), (playbook_path, "playbook")):
             assert _offers_in_one_action(header, path), (
                 f"the {page} page's header offers no live link to the {what} "
                 f"surface at {path!r}"
@@ -1549,7 +1554,7 @@ def test_the_stylesheet_is_not_reached_through_another_surfaces_route(
     )
     owned = {
         route.path.split("{")[0]
-        for module in (playbook_module, roster_module, surface.module)
+        for module in (playbook_module, members_module, surface.module)
         for route in module.router.routes
         if getattr(route, "path", None)
     }

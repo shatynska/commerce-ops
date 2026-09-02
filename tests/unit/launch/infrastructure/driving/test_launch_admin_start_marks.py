@@ -72,7 +72,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from commerce_ops.access.application import create_person
+from commerce_ops.access.application import create_member
 from commerce_ops.catalog.domain.product import Product
 from commerce_ops.launch.domain.launch_playbook import (
     Gate,
@@ -311,7 +311,7 @@ class _FakePlaybooks:
         return self._playbook
 
 
-class _FakeRosterStore:
+class _FakeMembersStore:
     def __init__(self, rows: tuple[Any, ...] = (), version: int = 13) -> None:
         self.rows = tuple(rows)
         self.version = version
@@ -324,10 +324,10 @@ class _FakeRosterStore:
         self.version += 1
 
 
-async def _build_roster() -> _FakeRosterStore:
-    store = _FakeRosterStore()
-    await create_person(
-        roster=store,
+async def _build_members() -> _FakeMembersStore:
+    store = _FakeMembersStore()
+    await create_member(
+        members=store,
         principal="the-seeding-admin",
         display_name="Alice Admin",
         slack_identity=PRINCIPAL,
@@ -361,7 +361,7 @@ _SEAMS: Final[dict[str, tuple[str, ...]]] = {
     "verify": ("verify_admin_session",),
     "launches": ("launches", "launch_store", "launch_positions", "store"),
     "playbooks": ("playbooks", "playbook_store", "playbook_repository", "playbook"),
-    "roster": ("roster", "people", "roster_store", "read_roster"),
+    "members": ("members", "members_store", "read_members"),
     "list_products": ("list_products", "products", "catalog_products"),
     "get_product_by_id": ("get_product_by_id", "product_by_id", "get_product"),
 }
@@ -433,7 +433,7 @@ def _surface(
     _install(monkeypatch, module, "verify", _fake_verify)
     _install(monkeypatch, module, "launches", _FakeLaunchStore(launch))
     _install(monkeypatch, module, "playbooks", _FakePlaybooks(playbook))
-    _install(monkeypatch, module, "roster", asyncio.run(_build_roster()))
+    _install(monkeypatch, module, "members", asyncio.run(_build_members()))
     _install(monkeypatch, module, "list_products", catalog.list_products)
     _install(monkeypatch, module, "get_product_by_id", catalog.get_product_by_id)
 

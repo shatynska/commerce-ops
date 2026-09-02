@@ -580,7 +580,7 @@ async def test_an_unconfigured_product_reader_refuses_establishment() -> None:
     degrading policy, post blank anchors forever. Under this one it posts
     none.
 
-    It is deliberately the *opposite* disposition from an absent roster
+    It is deliberately the *opposite* disposition from an absent members
     reader, which still delivers the message untagged
     (`tests/unit/launch/application/test_mention_resolution_namespace.py`).
     The two globals live four lines apart in `launch_thread_delivery`, so the

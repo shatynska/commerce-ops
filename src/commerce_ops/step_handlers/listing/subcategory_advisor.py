@@ -14,7 +14,7 @@ live model calls" requires.
 
 **The advisor proposes; it never decides.** Where it can support a node
 choice it proposes the step's satisfying outcome together with the
-recommendation, which a person then accepts or rejects. Where it cannot,
+recommendation, which a member then accepts or rejects. Where it cannot,
 it proposes a **non-terminal** outcome carrying that as its reason — never
 a satisfying one with a disclaimer buried in the text. The difference is
 load-bearing: under `launch-step-automation` a terminal proposal is held
@@ -35,7 +35,7 @@ actually *contains* the compliance demands and rejected alternative it was
 prompted for is never checked — only that it is non-empty. A model or
 transport failure, and a response that fails schema validation against
 both variants, both surface rather than being masked: a masked failure
-here would not merely return a poor answer — it would reach a person as a
+here would not merely return a poor answer — it would reach a member as a
 recommendation to accept and become the evidence for a
 compliance-relevant decision.
 
@@ -384,7 +384,7 @@ class AdvisorState(TypedDict, total=False):
     #: that withholds it — and it must not be forced into either of them:
     #: `None` records the wrong reason, `Unsupported` asserts a decline
     #: that never happened, and folding the error into `comment` reaches
-    #: `Satisfied`, since `_advisor_refuses` needs a first-person subject
+    #: `Satisfied`, since `_advisor_refuses` needs a first-member subject
     #: a model-authored error will not have.
     parsed: Supported | Unsupported | Contradiction | None
 
@@ -497,7 +497,7 @@ async def propose(
     """Run the advisor and say what it proposes for the step.
 
     The recommendation reaches the reader whole — never summarised,
-    truncated or re-encoded — because it is both what a person decides on
+    truncated or re-encoded — because it is both what a member decides on
     and what the recording keeps as evidence.
 
     Awaited, because the graph it runs is async-only: `ainvoke` is the
@@ -541,7 +541,7 @@ async def propose(
         # why it could not support a choice. Neither a node choice to
         # weigh nor a classification considered and declined -- and the
         # error is carried into the rendered text, not left only in the
-        # reason, so the person reading the recommendation sees the
+        # reason, so the member reading the recommendation sees the
         # refusal rather than a node path that looks accepted.
         reason = _contradiction_reason(product_name, marketplace, withheld_by="error")
         return Proposal(

@@ -377,7 +377,7 @@ def _forms(page: str) -> list[_Node]:
 
 
 def _is_control(node: _Node) -> bool:
-    """An affordance a person clicks — the reading
+    """An affordance a member clicks — the reading
     `test_playbook_admin_presentation_vocabulary.py` records."""
     if node.attrs.get("role", "").lower() == "button":
         return True
@@ -641,10 +641,10 @@ _STEPS_NAMES: Final = (
     "served_playbook",
 )
 #: Optional: the requirement is that the decider is *not* re-resolved, so
-#: a page with no roster seam satisfies it structurally. Where one
-#: exists, a contradicting roster is installed so "as recorded" is a
+#: a page with no members seam satisfies it structurally. Where one
+#: exists, a contradicting membership is installed so "as recorded" is a
 #: comparison rather than an absence.
-_ROSTER_NAMES: Final = ("roster", "read_roster", "people", "roster_reader")
+_MEMBERS_NAMES: Final = ("members", "read_members", "members_reader")
 
 
 def _install(
@@ -732,7 +732,7 @@ class _FakeRetainedRead:
         return self.records
 
 
-class _Person:
+class _Member:
     def __init__(self, display_name: str, *, active: bool = True) -> None:
         self.id = "prs_01HQ8Z6M4A"
         self.display_name = display_name
@@ -740,12 +740,12 @@ class _Person:
         self.active = active
 
 
-class _FakeRoster:
-    def __init__(self, *people: _Person) -> None:
-        self._people = people
+class _FakeMembers:
+    def __init__(self, *members: _Member) -> None:
+        self._members = members
 
-    async def list_people(self) -> tuple[_Person, ...]:
-        return self._people
+    async def list_members(self) -> tuple[_Member, ...]:
+        return self._members
 
 
 # ---------------------------------------------------------------------------
@@ -793,7 +793,7 @@ def _fully_populated() -> Product:
     product = _product()
     product.change_stage(Launching(phase=1), confirmed_by=CONFIRMER, at=T_MOVED)
     store = _AsinStore(product)
-    # `_AsinStore` carries only the two members `record_asin` reaches
+    # `_AsinStore` carries only the two membership `record_asin` reaches
     # for; the cast keeps the rest of `CatalogStore` out of a fixture
     # that never uses it, rather than stubbing a port this file does
     # not test.
@@ -818,7 +818,7 @@ class _Surface:
     catalog: _FakeCatalog
     retained: _FakeRetainedRead
     product: Product
-    roster_installed: bool
+    members_installed: bool
 
 
 def _app(
@@ -829,7 +829,7 @@ def _app(
     results: tuple[_RetainedResult, ...] = (),
     steps: _FakeSteps | None = None,
     scope: AccessScope | None = None,
-    roster: _FakeRoster | None = None,
+    members: _FakeMembers | None = None,
     signed_in: bool = True,
 ) -> _Surface:
     subject = _fully_populated() if product is None else product
@@ -850,16 +850,16 @@ def _app(
         _served_steps() if steps is None else steps,
         "served-playbook",
     )
-    roster_installed = False
-    if roster is not None:
-        roster_installed = _install_if_present(monkeypatch, _ROSTER_NAMES, roster)
+    members_installed = False
+    if members is not None:
+        members_installed = _install_if_present(monkeypatch, _MEMBERS_NAMES, members)
 
     app = FastAPI()
     app.include_router(page_module.router)
     client = TestClient(app)
     if signed_in:
         client.cookies.set(_SESSION_COOKIE, _SESSION_VALUE)
-    return _Surface(client, catalog, retained, subject, roster_installed)
+    return _Surface(client, catalog, retained, subject, members_installed)
 
 
 def _index_path() -> str:
@@ -1236,7 +1236,7 @@ def test_a_voided_result_is_withdrawn_not_rejected(
     and presents no decider.
 
     This is the one rendering rule on the page where a wrong label
-    misattributes a decision to a person, which is why the delta fixes
+    misattributes a decision to a member, which is why the delta fixes
     the literal form — and why `result-withdrawn` deliberately does not
     match the stored state spelling `voided`.
     """
@@ -1254,7 +1254,7 @@ def test_a_voided_result_is_withdrawn_not_rejected(
     # SPECIFIED: and does not carry `result-rejected`.
     assert not _carries(entry, RESULT_REJECTED), (
         "the voided entry is labelled as a rejection, attributing to the "
-        "person who tried to decide a judgement they never made"
+        "member who tried to decide a judgement they never made"
     )
     # SPECIFIED: and presents no decider. Bohdan decided the *rejected*
     # entry on the same page, so this is a per-entry claim rather than a
@@ -1268,7 +1268,7 @@ def test_a_pending_result_is_shown_as_awaiting_a_decision(
 ) -> None:
     """Scenario: A pending result is shown as awaiting a decision.
 
-    WHEN an entry for a result no person has decided is rendered
+    WHEN an entry for a result no member has decided is rendered
     THEN it carries `result-pending` and presents no decider.
     """
     surface = _app(monkeypatch, results=(_pending(), _accepted()))
@@ -1327,20 +1327,20 @@ def test_a_renamed_decider_keeps_the_recorded_name(
 ) -> None:
     """Scenario: A renamed decider keeps the recorded name.
 
-    WHEN the dossier renders an entry decided by a person whose roster
+    WHEN the dossier renders an entry decided by a member whose membership
     display name has since changed
     THEN the entry presents the name recorded with the decision, not the
-    roster's current one.
+    membership's current one.
 
-    A roster carrying the *new* name is installed where the page has a
-    roster seam at all, so "as recorded" is a comparison rather than an
+    A membership carrying the *new* name is installed where the page has a
+    members seam at all, so "as recorded" is a comparison rather than an
     absence; where it has none, the requirement holds structurally and
     the recorded name is still asserted.
     """
     surface = _app(
         monkeypatch,
         results=(_accepted(),),
-        roster=_FakeRoster(_Person(ALICE_RENAMED)),
+        members=_FakeMembers(_Member(ALICE_RENAMED)),
     )
 
     page = _get_dossier(surface)
@@ -1348,9 +1348,9 @@ def test_a_renamed_decider_keeps_the_recorded_name(
 
     # SPECIFIED: the name recorded with the decision.
     assert ALICE in _all_text(entry)
-    # SPECIFIED: not the roster's current one.
+    # SPECIFIED: not the membership's current one.
     assert ALICE_RENAMED not in page, (
-        "the dossier renders the decider's *current* roster name, so a "
+        "the dossier renders the decider's *current* members name, so a "
         "record of past decisions re-renders itself as its subjects change"
     )
 
@@ -1360,7 +1360,7 @@ def test_a_deactivated_decider_still_appears(
 ) -> None:
     """Scenario: A deactivated decider still appears.
 
-    WHEN the dossier renders an entry decided by a person whose roster
+    WHEN the dossier renders an entry decided by a member whose membership
     entry has since been deactivated
     THEN the entry still presents that decider and the moment of the
     decision.
@@ -1368,7 +1368,7 @@ def test_a_deactivated_decider_still_appears(
     surface = _app(
         monkeypatch,
         results=(_accepted(),),
-        roster=_FakeRoster(_Person(ALICE, active=False)),
+        members=_FakeMembers(_Member(ALICE, active=False)),
     )
 
     page = _get_dossier(surface)
@@ -1648,7 +1648,7 @@ def test_a_pending_entry_offers_no_decision(
     contains no form.
 
     Accepting and rejecting keep their Slack path: the decision flow's
-    once-only settlement, roster checks and refusals are all specified
+    once-only settlement, members checks and refusals are all specified
     against it, and a second door would put them behind something
     nothing has specified.
     """

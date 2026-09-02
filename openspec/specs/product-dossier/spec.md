@@ -9,7 +9,7 @@ The admin surface addressed by product rather than by launch: an index of every 
 
 The admin surface SHALL serve a product index listing every product the caller's access scope permits, one row each, carrying that product's SKU, its name and its current lifecycle stage. A scope permitting nothing, and a catalog holding no products, SHALL each render the page with no rows rather than a failure.
 
-Rows SHALL be ordered by SKU ascending **within each group**, so that the same catalog renders in the same order on every request and an admin can find a product by scanning. The qualification is load-bearing: a single ascending sort across the whole page and the set-apart rule below cannot both hold once a retired product's SKU sorts before an active one's, and a test derived from an unqualified sort would fail a correct implementation. Products in the `Retired` stage SHALL be presented distinctly from the rest and SHALL NOT be interleaved with them — the shape `roster-admin` established for deactivated people, and for the same reason: a discontinued product is still worth reaching and is never what an admin is looking for first.
+Rows SHALL be ordered by SKU ascending **within each group**, so that the same catalog renders in the same order on every request and an admin can find a product by scanning. The qualification is load-bearing: a single ascending sort across the whole page and the set-apart rule below cannot both hold once a retired product's SKU sorts before an active one's, and a test derived from an unqualified sort would fail a correct implementation. Products in the `Retired` stage SHALL be presented distinctly from the rest and SHALL NOT be interleaved with them — the shape `members-admin` established for deactivated members, and for the same reason: a discontinued product is still worth reaching and is never what an admin is looking for first.
 
 A retired product's row SHALL carry the literal marker `product-retired`; no other row SHALL carry it; and every row carrying it SHALL follow every row that does not. Where nothing is listed, the page SHALL carry the literal marker `nothing-to-show`. The literal forms are given because they are what a test is derived from, and "presented distinctly" is not assertable — the discipline `playbook-admin` already settled for `row-action` and `just-created`.
 
@@ -113,11 +113,11 @@ The page's own guarantee is that it renders entries in the order the read answer
 
 ### Requirement: A result's fate is rendered, and a voided result is never shown as rejected
 
-Each entry SHALL render which of the four states the result reached — awaiting a decision, accepted, rejected, or voided — and, where a person decided it, who decided and when.
+Each entry SHALL render which of the four states the result reached — awaiting a decision, accepted, rejected, or voided — and, where a member decided it, who decided and when.
 
-Each entry SHALL carry exactly one of the literal markers `result-pending`, `result-accepted`, `result-rejected` and `result-withdrawn`, according to the state the result reached. The literal forms are given for the reason `playbook-admin` gives for `just-created` and `write-failure-notice`: they are what a test is derived from, and this is the one rendering rule on the page where a wrong label misattributes a decision to a person. `result-withdrawn` rather than `result-voided` because it names what the page says; the stored state is `voided`.
+Each entry SHALL carry exactly one of the literal markers `result-pending`, `result-accepted`, `result-rejected` and `result-withdrawn`, according to the state the result reached. The literal forms are given for the reason `playbook-admin` gives for `just-created` and `write-failure-notice`: they are what a test is derived from, and this is the one rendering rule on the page where a wrong label misattributes a decision to a member. `result-withdrawn` rather than `result-voided` because it names what the page says; the stored state is `voided`.
 
-A `voided` result SHALL be labelled as withdrawn and SHALL NOT be presented as a rejection. A result is voided when a decision arrived for a step the served playbook no longer defines: the decision was refused and the proposal withdrawn, and nobody rejected anything. Presenting it as a rejection would attribute to the person who tried to decide a judgement they never made, and the two states are distinct in storage for exactly that reason.
+A `voided` result SHALL be labelled as withdrawn and SHALL NOT be presented as a rejection. A result is voided when a decision arrived for a step the served playbook no longer defines: the decision was refused and the proposal withdrawn, and nobody rejected anything. Presenting it as a rejection would attribute to the member who tried to decide a judgement they never made, and the two states are distinct in storage for exactly that reason.
 
 A voided entry SHALL NOT present a decider, because none is recorded for it.
 
@@ -140,7 +140,7 @@ An entry still awaiting a decision SHALL be rendered as awaiting one, and SHALL 
 
 #### Scenario: A pending result is shown as awaiting a decision
 
-- **WHEN** an entry for a result no person has decided is rendered
+- **WHEN** an entry for a result no member has decided is rendered
 - **THEN** it carries `result-pending` and presents no decider
 
 #### Scenario: An entry carries one state and no other
@@ -150,18 +150,18 @@ An entry still awaiting a decision SHALL be rendered as awaiting one, and SHALL 
 
 ### Requirement: A decider is rendered as recorded, not resolved afresh
 
-The decider a settled entry names SHALL be the one recorded with the decision at the moment it was made, and SHALL NOT be re-resolved against the roster when the page is rendered. A person whose roster entry has since been renamed, deactivated or otherwise changed SHALL still appear on a past decision under the name recorded at the time.
+The decider a settled entry names SHALL be the one recorded with the decision at the moment it was made, and SHALL NOT be re-resolved against the membership when the page is rendered. A member whose membership entry has since been renamed, deactivated or otherwise changed SHALL still appear on a past decision under the name recorded at the time.
 
-The dossier is a record of decisions taken, and a record that silently re-renders itself as its subjects change is not a record. This is also what the store actually holds: the decision is settled with a name, not with a reference the roster can later reinterpret.
+The dossier is a record of decisions taken, and a record that silently re-renders itself as its subjects change is not a record. This is also what the store actually holds: the decision is settled with a name, not with a reference the membership can later reinterpret.
 
 #### Scenario: A renamed decider keeps the recorded name
 
-- **WHEN** the dossier renders an entry decided by a person whose roster display name has since changed
-- **THEN** the entry presents the name recorded with the decision, not the roster's current one
+- **WHEN** the dossier renders an entry decided by a member whose membership display name has since changed
+- **THEN** the entry presents the name recorded with the decision, not the membership's current one
 
 #### Scenario: A deactivated decider still appears
 
-- **WHEN** the dossier renders an entry decided by a person whose roster entry has since been deactivated
+- **WHEN** the dossier renders an entry decided by a member whose membership entry has since been deactivated
 - **THEN** the entry still presents that decider and the moment of the decision
 
 ### Requirement: An entry names its step where the playbook can name it, and never hides which step it was
@@ -232,9 +232,9 @@ Rendering turns on the product because the record belongs to the product. A laun
 
 Neither the index nor the dossier SHALL offer any action that changes stored state. Accepting and rejecting a pending result SHALL remain reachable only by the Slack path `launch-step-automation` specifies, and the dossier SHALL NOT offer a decision on a pending entry it renders.
 
-Assertably: neither page's rendered response SHALL contain a form, and no element on either SHALL carry `row-action` — the marker `playbook-admin` and `roster-admin` both require of every action control on an admin page. A page with no action controls is the one page on which that marker's absence is the whole claim.
+Assertably: neither page's rendered response SHALL contain a form, and no element on either SHALL carry `row-action` — the marker `playbook-admin` and `members-admin` both require of every action control on an admin page. A page with no action controls is the one page on which that marker's absence is the whole claim.
 
-The decision flow's refusals, its once-only settlement and its roster checks are all specified against a Slack decision. Offering a second path to the same decision would put those guarantees behind two doors, one of which nothing has specified.
+The decision flow's refusals, its once-only settlement and its members checks are all specified against a Slack decision. Offering a second path to the same decision would put those guarantees behind two doors, one of which nothing has specified.
 
 #### Scenario: A pending entry offers no decision
 
@@ -272,7 +272,7 @@ Both pages' presentation SHALL come from the same shared admin stylesheet the ot
 
 #### Scenario: A revoked admin resolves to the same absence
 
-- **WHEN** either page is requested with an unexpired session whose principal's roster entry has since lost the admin declaration
+- **WHEN** either page is requested with an unexpired session whose principal's members entry has since lost the admin declaration
 - **THEN** the request is refused with the absence-shaped response
 
 #### Scenario: The index is reachable from another admin surface

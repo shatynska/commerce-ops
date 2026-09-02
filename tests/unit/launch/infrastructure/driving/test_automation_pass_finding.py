@@ -770,7 +770,7 @@ async def test_a_supported_finding_is_recorded_immediately() -> None:
     # SPECIFIED: the finding's value is recorded.
     assert recorder.calls == [(PRODUCT_ID, SUB_CATEGORY_NODE)]
     # SPECIFIED (this requirement's own text): "whether or not it is held
-    # for a person's confirmation" — here it is held, not recorded.
+    # for a member's confirmation" — here it is held, not recorded.
     assert collaborators.recorder.calls == []
     assert len(collaborators.results.pending_rows) == 1
 

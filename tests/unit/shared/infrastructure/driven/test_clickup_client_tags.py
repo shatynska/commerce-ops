@@ -475,7 +475,7 @@ async def test_tasks_are_returned_with_their_tag_names(
     The tagged task below carries a **foreign** tag alongside the two owned
     ones, because the projection's rule turns on telling them apart: a read
     that reported only recognised names would leave the projection unable
-    to see that a person's tag is there, and its "never touched" rule
+    to see that a member's tag is there, and its "never touched" rule
     unverifiable.
     """
     response = httpx.Response(
@@ -620,7 +620,7 @@ async def test_add_task_tag_when_clickup_is_unreachable_raises(
 #   that the tag is added; the failure scenario says "no result", which
 #   constrains the failing path and not the succeeding one.
 # - The tag's colour or ordering. `design.md` puts both out of scope
-#   ("ClickUp assigns colours, a person may change them, and the system
+#   ("ClickUp assigns colours, a member may change them, and the system
 #   leaves them alone"), and no scenario states either.
 # - "Authentication is configured independently of any one caller" over
 #   `add_task_tag`. That requirement is unmodified by this delta and its

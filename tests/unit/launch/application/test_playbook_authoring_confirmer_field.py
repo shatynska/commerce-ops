@@ -132,22 +132,22 @@ class _FakeStepStore:
         self.version += 1
 
 
-class _Person:
-    def __init__(self, person_id: str, display_name: str) -> None:
-        self.id = person_id
+class _Member:
+    def __init__(self, member_id: str, display_name: str) -> None:
+        self.id = member_id
         self.display_name = display_name
         self.clickup_user_id: str | None = "clickup-1"
         self.active = True
 
 
-class _FakeRoster:
-    async def list_people(self) -> tuple[_Person, ...]:
-        return (_Person(ALICE, "Alice Admin"),)
+class _FakeMembers:
+    async def list_members(self) -> tuple[_Member, ...]:
+        return (_Member(ALICE, "Alice Admin"),)
 
-    people = list_people
+    members = list_members
 
-    async def __call__(self) -> tuple[_Person, ...]:
-        return await self.list_people()
+    async def __call__(self) -> tuple[_Member, ...]:
+        return await self.list_members()
 
 
 class _FakeHandlerRegistry:
@@ -206,7 +206,7 @@ async def _create(store: _FakeStepStore, **overrides: Any) -> Any:
     return await create_step(
         steps=store,
         principal=PRINCIPAL,
-        roster=_FakeRoster(),
+        members=_FakeMembers(),
         handlers=_FakeHandlerRegistry(),
         **fields,
     )

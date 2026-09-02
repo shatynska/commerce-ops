@@ -4,7 +4,7 @@ Derived strictly from the delta spec:
 `openspec/changes/introduce-automation-runtime/specs/launch-step-automation/spec.md`
 
 Covers, from the ADDED requirement *A result needing confirmation is held
-until a person decides*, the one scenario that no in-memory fake can
+until a member decides*, the one scenario that no in-memory fake can
 observe:
 
     #### Scenario: Two overlapping passes cannot both produce a pending
@@ -324,7 +324,7 @@ def launched_product_id(engine: AsyncEngine) -> Callable[[], Awaitable[ProductId
 
 
 # ---------------------------------------------------------------------------
-# Requirement: A result needing confirmation is held until a person decides
+# Requirement: A result needing confirmation is held until a member decides
 # ---------------------------------------------------------------------------
 
 

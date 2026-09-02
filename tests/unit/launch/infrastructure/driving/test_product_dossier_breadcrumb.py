@@ -53,7 +53,7 @@ INVENTED, each with its correction point named in the code:
   requirement's own further clause, and doubles as what discriminates a
   genuine breadcrumb from an index link the header already carries lower
   on the page. Correction points: `_before_title`, `_unlinked_mentions`.
-- Every module seam, the served-playbook shape and the catalog/roster
+- Every module seam, the served-playbook shape and the catalog/members
   doubles — taken unchanged from `test_product_dossier_page.py`.
 
 Correcting a locator is a fixture correction (failure state 3 in
