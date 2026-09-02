@@ -96,7 +96,7 @@ Both install commands are required — the first covers commit-time checks, the 
 
 ## Local Postgres
 
-`tests/integration/products/` (and any future integration test touching Postgres) needs a real database. Bring up the same `postgres` service `docker-compose.yml` deploys, standalone:
+`tests/integration/` needs a real database. Bring up the same `postgres` service `docker-compose.yml` deploys, standalone:
 
 ```
 POSTGRES_PASSWORD=local-dev docker compose up postgres -d
@@ -115,10 +115,24 @@ It looks in three places, in order: the `DATABASE_URL` environment variable, the
 
 ```
 createdb commerce_ops_test          # once
-DATABASE_URL=postgresql+asyncpg://commerce_ops:local-dev@localhost:5432/commerce_ops_test \
-  uv run alembic upgrade head       # once
-echo 'DATABASE_URL=postgresql+asyncpg://commerce_ops:local-dev@localhost:5432/commerce_ops_test' > .env.test
+export DATABASE_URL=postgresql+asyncpg://commerce_ops:local-dev@localhost:5432/commerce_ops_test
+uv run alembic upgrade head                      # once — the schema
+uv run python -m commerce_ops.seed_playbook      # once — and the seed
+echo "DATABASE_URL=$DATABASE_URL" > .env.test
 ```
+
+**Both commands, not just the first.** The migration writes the rows it always
+did; the rest of the step set comes from `seed_playbook`, which every container
+runs on start (see the `Dockerfile`'s CMD chain) and which no migration performs.
+A database carrying only the schema fails four tests, and they say so in their own
+assertion messages.
+
+**The name's `_test` must come last.** Two modules rewrite the stored step set and
+refuse any database whose name does not end `_test`, so `commerce_ops_x_test` runs
+them and `commerce_ops_test_x` does not. It is a suffix check, not the literal name
+`commerce_ops_test` — and a worktree wanting its own database should use the suffix
+rather than share this one, since the tier writes freely and two sessions against
+one database produce failures that read as defects.
 
 `.gitignore` already covers `.env.*`. Only `DATABASE_URL` is read from either file — never the Slack, OpenAI or ClickUp values beside it, because every test that needs one sets its own, and inheriting an ambient credential would let a test that forgot pass anyway.
 

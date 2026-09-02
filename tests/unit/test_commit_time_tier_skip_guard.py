@@ -106,7 +106,13 @@ SPECIFIED by `tasks.md` section 4 and `design.md` Decision 3:
 - that each skipped test and its reason is named (4.1);
 - that the guard fails the session cleanly rather than letting an
   exception escape the hook (4.2a — see the correction below);
-- that `tests/integration` may still skip (4.3, 4.7);
+- that `tests/integration` may still skip **where the run does not declare
+  the tier required** (4.3, 4.7). That clause was unqualified until
+  `restore-the-skipped-integration-tests` armed the guard over that tier
+  under `COMMERCE_OPS_REQUIRE_DATABASE`; the armed half is covered by
+  `tests/unit/test_integration_tier_skip_guard.py`, a sibling of this file
+  rather than an addition to it, because the tests for it were derived
+  before this file could be edited;
 - that an `xfail` is not treated as a skip (4.4);
 - that `uv run pytest tests/agents` on its own is guarded, which is the
   single property the `tests/conftest.py` placement exists to buy over
@@ -520,18 +526,31 @@ def test_the_guard_reaches_a_hand_run(tmp_path: Path, target: str) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_the_integration_tier_may_still_skip(tmp_path: Path) -> None:
+def test_the_integration_tier_may_still_skip_without_the_marker(
+    tmp_path: Path,
+) -> None:
     """tasks.md 4.3 and 4.7 — the false positive must be absent.
 
-    SPECIFIED. `tests/integration` skips legitimately and by specification
-    when no database resolves (`AGENTS.md`), and failing those would break a
-    tier this change does not touch. 4.7 notes that on a machine where a
-    database *does* resolve the real check is vacuous and asks that the case
-    be forced; the synthetic tree forces it — the skip is unconditional and
-    always present.
+    SPECIFIED. `tests/integration` skips legitimately when no database
+    resolves, and failing those would break a tier this change does not
+    touch. 4.7 notes that on a machine where a database *does* resolve the
+    real check is vacuous and asks that the case be forced; the synthetic
+    tree forces it — the skip is unconditional and always present.
 
     The guarded tiers hold passing tests here, so this establishes that the
     guard discriminates by path rather than that it never fires at all.
+
+    **Renamed by `restore-the-skipped-integration-tests`, and the rename is
+    the point.** This test used to be called
+    `test_the_integration_tier_may_still_skip` and its docstring called that
+    exclusion unconditional. It is not: the guard now covers
+    `tests/integration` when `COMMERCE_OPS_REQUIRE_DATABASE` is set. What
+    kept this test passing across that change was not the property it names
+    but `_run`'s environment — built from scratch as `{"PATH": ...}`, so the
+    marker never reaches the child whatever the outer shell holds. A test
+    that keeps passing for a reason other than the one it states is worse
+    than one that fails, which is why the name now carries the condition.
+    The armed half is `tests/unit/test_integration_tier_skip_guard.py`.
     """
     root = _tree(
         tmp_path,

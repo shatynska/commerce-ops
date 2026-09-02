@@ -350,6 +350,10 @@ something other than what the person running it assumes, and says nothing.
 `pytest (integration)... Passed` for a tier that never ran. Surveyed on
 2026-08-28:
 
+Surveyed 2026-08-28 and **not re-surveyed since**; two of its rows name clones that
+no longer exist, and two worktrees created since are absent. Treat it as evidence
+that the shape recurs, not as a census.
+
 | Clone | `.env.test` names | |
 | --- | --- | --- |
 | `commerce-ops` | `commerce_ops_test` | shares a database |
@@ -389,10 +393,47 @@ required-tier flag turns a skip into a failure — in CI only*, which argues the
 `pre-push` decision and the rung order. The survey above and the rung-3 hazard
 are recorded here first.
 
-**Trigger to close.** Any of the three moving: `pre-push` setting the flag, a
-per-worktree database convention with a script that creates and migrates one,
-or the resolver refusing a URL that names the working database. The last is the
-one worth doing whether or not the others are.
+**The first gap is closed for the gate, and only for the gate**
+(`restore-the-skipped-integration-tests`, 2026-09-02). CI's ephemeral database is
+named `commerce_ops_test`, and `COMMERCE_OPS_REQUIRE_DATABASE` now also arms
+`tests/conftest.py`'s no-skip guard over `tests/integration`, so a skipped *test*
+fails the job whatever its reason. That change was prompted by a worse instance of
+the same defect than this entry records: the gate was running **132 of 137**
+integration tests and reporting a pass, because the five that check gate readiness
+and stand-down refuse a database not named `*_test` and CI's was named
+`commerce_ops`. The flag could not see it — it fires only when no URL resolves, and
+one resolved. `pre-push` still sets nothing, so a worktree with no `.env.test` still
+skips the tier and still reports `Passed`.
+
+**Accumulated debris is inert — measured, not assumed** (2026-09-02). A
+`TEMPLATE` copy of the shared `commerce_ops_test`, carrying 1325 `retired` rows in
+`ignition`, passes `137 passed, 1 skipped` — identical to a freshly seeded database.
+The "harmless residue" premise in `test_playbook_authoring_live.py`'s docstring
+holds at that volume, so none of the three gaps below owes a cleanup. A red
+integration run met locally is a configuration fault until proven otherwise; check
+the database is seeded as well as migrated before concluding anything else.
+
+**Trigger to close.** Either of the two that remain: `pre-push` setting the flag,
+now that a failure there would name a real fault rather than an absent Postgres; or
+a per-worktree database convention with a script that creates, migrates **and
+seeds** one. Plus the third, which was always independent: the resolver refusing a
+URL that names the working database. The last is still the one worth doing whether
+or not the others are.
+
+### `launch-playbook` says the seeded set is entirely human, and it is not
+
+`openspec/specs/launch-playbook/spec.md`'s *A registered runtime does not activate a
+seeded step* states "the seeded set is entirely `human` drafts", while
+`tests/integration/launch/test_registered_handlers_activate_nothing.py` asserts the
+seeded set carries automated steps — and passes. Both are right about their own
+moment: `lp.listing.014` and `lp.traffic.001` are `automated`, backfilled before
+`seed-the-reference-step-set` made the seed human-only, and they survive.
+
+Noticed during review of `restore-the-skipped-integration-tests` (2026-09-02) and
+deliberately not fixed there, per the scope rule. It is not urgent: the failure mode
+is a loud assertion failure in a test that names the discrepancy, not a silent
+vacuum. What it needs is a decision about which sentence is wrong — the scenario's
+clause, or the two surviving rows — and that belongs to `launch-playbook`.
 
 ### Graduation cannot be triggered, and the persisted launch cannot say it happened
 
