@@ -816,6 +816,60 @@ journal and a reader for it, which is its own decision.
 is likely to disagree with more than once — or *write on acceptance, not on
 production* landing, since both touch the same Slack decision path.
 
+### The shared test database is a shared mutable resource, and one module rewrites it
+
+`tests/integration/launch/test_playbook_readiness_live.py` demotes each
+gate's blocking step to `draft`, asserts what that makes unready, and
+restores the snapshot in a `finally` — with a module-scoped restore around
+the whole file and a final test that re-reads the set so a lost restore is
+loud. That is careful, and it is still only safe while **exactly one test run
+touches the database at a time**.
+
+It is not currently safe, because nothing enforces that. `AGENTS.md` names
+one database, `commerce_ops_test`, and every worktree and session points at
+it. Two overlapping runs interleave snapshot and restore — A snapshots
+`active`, B demotes to `draft`, A restores `active`, B restores from a
+snapshot taken after A's demotion — and the last writer wins with the wrong
+value. An interrupted run loses the `finally` outright.
+
+**Observed, 2026-09-02.** `commerce_ops_test` was left with `lp.strategy.030`
+— the `graduated` gate's only blocking step — sitting at `draft`. The tier
+then failed 62 tests, 54 of them raising
+`PlaybookNotReadyError: gate 'graduated' has no active blocking step
+attached` from files with nothing to do with the step set, and 7 more
+failing downstream of it. The first run after the corruption was green; the
+next was not, so the failure looked like whatever change was in hand. It was
+repaired through `change_step_status`, the validated authoring use case,
+rather than by an `UPDATE` — the same write the module's own restore makes.
+
+Two facts worth keeping, because each rules something out:
+
+- **Concurrency alone does not corrupt it.** Two integration tiers run
+  simultaneously against a freshly seeded database produced 12 failures
+  between them and left every gate held. The interleaving has to land in the
+  wrong order, so this is rare and non-deterministic — which is exactly what
+  makes it expensive when it happens.
+- **`seed_playbook` cannot repair it.** That step adds only rows no stored
+  step names and never touches an existing one, deliberately: a row that
+  differs from its vendored counterpart is indistinguishable from an
+  authored edit. So a demoted step stays demoted through any number of
+  re-seeds.
+
+The same database also carries **1,315 retired `ignition` steps** and several
+hundred drafts accumulated by past runs. That debris is noise rather than
+breakage — the tier passes with it present — but it is the same cause seen
+over a longer period.
+
+**The fix is an isolated database per worktree**, which two sessions reached
+independently on 2026-09-02 and which `AGENTS.md` does not yet describe:
+`createdb`, `alembic upgrade head`, `python -m commerce_ops.seed_playbook`,
+and a `.env.test` naming it. It composes with the entry above — the seeding
+sentence that file already owes is the same sentence.
+
+**Trigger to close.** Whenever `AGENTS.md`'s integration-tier section is next
+edited: both this and *A migrated database is not a seeded one* are closed by
+the same paragraph.
+
 ### A migrated database is not a seeded one
 
 `AGENTS.md` tells a developer to "create and migrate `commerce_ops_test` once
