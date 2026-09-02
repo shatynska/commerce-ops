@@ -168,7 +168,7 @@ Retiring SHALL retain the role whole — slug, title, holders and attribution tr
 
 The step that seeds the first admin SHALL also seed the roles, after the admin exists and before the HTTP server begins serving — the roles' default holders are members, so the membership must be usable first, and a later step seeds the playbook that will come to reference these slugs.
 
-The step SHALL seed twelve roles, adding only those whose slug is not already present and altering no role that is: a slug already in the collection SHALL be left exactly as it is, whatever its title, status or holders, so that an operator's edits survive every subsequent deployment. Seeded roles SHALL be attributed to the same reserved system principal the admin seeding uses.
+The step SHALL seed eleven roles, adding only those whose slug is not already present and altering no role that is: a slug already in the collection SHALL be left exactly as it is, whatever its title, status or holders, so that an operator's edits survive every subsequent deployment. Seeded roles SHALL be attributed to the same reserved system principal the admin seeding uses.
 
 The member the active roles are seeded to hold is **the seeding administrator**, resolved in this order: the member the admin seeding established on this run, where it created or promoted one; otherwise the earliest-created active admin on the membership, ties and absent creation times broken by identifier so that the choice is deterministic.
 
@@ -178,14 +178,14 @@ Naming the seeding administrator SHALL confer no authority on them and SHALL alt
 
 Eight roles SHALL be seeded `active` with the seeding administrator as their sole holder and default: `supply-chain` (*Supply Chain Manager*), `ppc` (*PPC Manager*), `brand` (*Brand Manager*), `catalog` (*Catalog Manager*), `controller` (*Financial Controller*), `creative` (*Creative Manager*), `customer-service` (*Customer Service Manager*) and `marketing` (*Marketing Manager*). These are the roles a later change assigns the seeded step set to, so they must be assignable from the first boot.
 
-Four roles SHALL be seeded `draft` holding nobody: `operations` (*Operations Manager*), `managing-director` (*Managing Director*), `it` (*IT Manager*) and `analytics` (*Data Analyst*). None owns a step, so seeding them active would both assert that a position is filled when it is not and pin the seeding administrator as a default holder who cannot then be deactivated.
+Three roles SHALL be seeded `draft` holding nobody: `operations` (*Operations Manager*), `managing-director` (*Managing Director*) and `it` (*IT Manager*). None owns a step, so seeding them active would both assert that a position is filled when it is not and pin the seeding administrator as a default holder who cannot then be deactivated.
 
 Where the step cannot read or write the role collection it SHALL fail rather than pass silently, and the application SHALL NOT begin serving — it runs after the migrations that just wrote to that same store, so an unusable one is a deployment fault, not a state to tolerate.
 
-#### Scenario: An empty collection is seeded with twelve roles
+#### Scenario: An empty collection is seeded with eleven roles
 
 - **WHEN** the step runs against a collection holding no roles
-- **THEN** the collection afterward holds the twelve roles, the eight `active` with the seeding administrator as their sole holder and default, and the four `draft` holding nobody
+- **THEN** the collection afterward holds the eleven roles, the eight `active` with the seeding administrator as their sole holder and default, and the three `draft` holding nobody
 
 #### Scenario: A seeded role that was edited is not reset
 
@@ -194,7 +194,7 @@ Where the step cannot read or write the role collection it SHALL fail rather tha
 
 #### Scenario: Roles missing from an edited collection are added
 
-- **WHEN** the step runs against a collection holding some of the twelve slugs but not others
+- **WHEN** the step runs against a collection holding some of the eleven slugs but not others
 - **THEN** only the absent ones are added, and the present ones are untouched
 
 #### Scenario: The newly seeded admin holds the eight active roles

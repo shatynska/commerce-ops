@@ -39,12 +39,11 @@ the page rebuild.
   retired, never deleted, and keeps its holders when retired; and a member may
   not be deactivated while they are the default holder of an active role, the
   refusal naming every such role at once.
-- **Twelve roles are seeded**, by the same `seed_admin` step that seeds the
+- **Eleven roles are seeded**, by the same `seed_admin` step that seeds the
   first admin — roles must exist before steps can reference them, and the
   container chain already runs `seed_admin` before `seed_playbook`. The eight
   discipline-owning roles seed `active` holding the **seeding administrator**;
-  `operations`, `managing-director`, `it` and `analytics` seed `draft` and
-  unstaffed, because none owns a step today and seeding them active would
+  `operations`, `managing-director` and `it` seed `draft` and unstaffed, because none owns a step today and seeding them active would
   assert a position is filled when it is not.
 - **The seeding administrator is resolved, not assumed.** "The bootstrap admin"
   names nobody on an already-administered membership — `members` has the admin
@@ -63,7 +62,7 @@ the page rebuild.
   own page, with adding on its own page and editing, deactivating and
   reactivating on the member's page. The `display: contents` hack goes with it.
 - **`docs/playbook-program.md` is amended** in seven places across four
-  sections, listed in `design.md` Decision 12: the role seed is twelve rather
+  sections, listed in `design.md` Decision 13: the role seed is eleven rather
   than nine (three separate statements of it), its default holder is the
   seeding administrator rather than "the bootstrap admin", the *Managing
   Director* question it leaves open is decided, H7 is resolved, the retired-role
@@ -115,10 +114,10 @@ discipline-to-role map the seeded step set uses. Both belong to Changes 2 and
   `__all__` surface grows.
 - **Schema**: new tables for roles and their holders, with an Alembic
   migration. Existing members tables are unchanged.
-- **`seed_admin`**: seeds the twelve roles after the first admin, in the same
+- **`seed_admin`**: seeds the eleven roles after the first admin, in the same
   step. The Dockerfile's healthcheck `start-period` is tuned to this chain's
   length and its comment records `seed_playbook` having broken the probe when
-  it joined; twelve inserts should not move it, but the file records the
+  it joined; eleven inserts should not move it, but the file records the
   sensitivity.
 - **Admin templates**: `team.html` rebuilt and split into per-member pages, new
   role templates, a breadcrumb on each of the four new sub-pages, the shared

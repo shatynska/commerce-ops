@@ -65,7 +65,7 @@ A clean write SHALL land through the membership's write use cases and the surfac
 
 Deactivating an active member and reactivating a deactivated one SHALL be offered on that member's own page, not on their row. A refused deactivation SHALL be surfaced on that page with the refusal's own explanation, leaving the membership unchanged.
 
-There are now two refusals to surface, and both are the membership's own: the last-active-admin refusal, and the refusal to deactivate a member who is the default holder of an active role. The latter names every blocking role, and the page SHALL present them all rather than the first — a refusal listing one of twelve roles would be read as the only obstacle.
+There are now two refusals to surface, and both are the membership's own: the last-active-admin refusal, and the refusal to deactivate a member who is the default holder of an active role. The latter names every blocking role, and the page SHALL present them all rather than the first — a refusal listing one of eight roles would be read as the only obstacle.
 
 #### Scenario: A deactivation lands and the member is set apart
 

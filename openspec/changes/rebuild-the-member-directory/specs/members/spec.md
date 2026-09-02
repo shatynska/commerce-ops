@@ -2,7 +2,7 @@
 
 ### Requirement: A member holding an active role's default may not be deactivated
 
-A deactivation whose outcome would leave any `active` role without an active default holder SHALL be rejected whole, explaining itself and naming **every** active role the member is the default holder of — not the first one found. A member who deactivates while holding twelve such roles should learn that in one refusal rather than in twelve attempts, and the membership already rejects a write "reporting every fault at once".
+A deactivation whose outcome would leave any `active` role without an active default holder SHALL be rejected whole, explaining itself and naming **every** active role the member is the default holder of — not the first one found. A member who deactivates while holding eight such roles should learn that in one refusal rather than in eight attempts, and the membership already rejects a write "reporting every fault at once".
 
 This refusal is independent of the last-active-admin refusal and composes with it: a write may be refused by either, by both, or by neither. Holding a role confers no authority, so a member may be the default holder of any number of roles without being an admin, and an admin may hold none.
 

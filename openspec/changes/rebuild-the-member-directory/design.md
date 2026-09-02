@@ -91,7 +91,7 @@ which binds only an *active* human step to name an assignee.
 *Alternative considered:* two statuses, `active` and `retired`. Rejected
 because the seed then has to point four unstaffed positions at the seeding
 administrator, which both asserts they are filled and pins that member as the
-default holder of twelve roles on day one (see Decision 7).
+default holder of eleven roles on day one (see Decision 7).
 
 Roles get three where steps have four; `in-development` has no counterpart here
 because a role has no work to be in development on.
@@ -163,7 +163,7 @@ role.
 an arbitrary rule presented as a policy, and its result is indistinguishable
 from a deliberate choice when read back a month later.
 
-### 7. Twelve roles seeded, eight `active` and four `draft`
+### 7. Eleven roles seeded, eight `active` and three `draft`
 
 | Slug | Title | Status | Why this status |
 |---|---|---|---|
@@ -178,7 +178,6 @@ from a deliberate choice when read back a month later.
 | `operations` | Operations Manager | `draft` | owns no step; no step names a confirmer today |
 | `managing-director` | Managing Director | `draft` | the plan's open tenth role, decided in |
 | `it` | IT Manager | `draft` | a position the company may not have staffed |
-| `analytics` | Data Analyst | `draft` | " |
 
 The eight are active because Change 3 seeds 358 steps against them and
 `launch-playbook:503` requires an active step to name an active assignee — they
@@ -187,8 +186,8 @@ step, and seeding them active would assert a position is filled when it is not.
 
 The second reason is mechanical and matters more than it looks: every active
 role's default at seed is the seeding administrator, and a member cannot be
-deactivated while holding an active role's default. Twelve active roles pin
-that member on day one and require twelve deliberate actions to release
+deactivated while holding an active role's default. Eleven active roles pin
+that member on day one and require eleven deliberate actions to release
 them. Eight is already the floor Change 3 forces; adding four more for
 completeness would be paying that cost for nothing.
 
@@ -314,7 +313,23 @@ with no behavioural content, inside the diff of a rebuild — three reasons not
 to. It is the shared admin vocabulary's word for *an action control*. Recorded
 as debt; correcting it is separate work touching every admin surface equally.
 
-### 12. `docs/playbook-program.md` is amended, not left to drift
+### 12. No `308` from `/admin/roster`; §6 stands
+
+`rename-the-roster-to-members`' design §6 declined a redirect for the renamed
+path, weighing it as a bookmark's convenience against a route to maintain
+forever. A second argument against that reasoning was raised while this change
+was planned: admin routes refuse with a 404 indistinguishable from an
+unregistered route, so a stale `/admin/roster` reads as *no permission* rather
+than *moved*, which makes the breakage misleading rather than merely
+inconvenient.
+
+Put to the author, and **declined**: §6 stands and no redirect is added. The
+argument is real but the population is a handful of admins who hit it once
+each, and reversing a decision recorded in an archived change costs more than
+the diagnosis it saves. Recorded here so the question is not raised a third
+time from the same evidence.
+
+### 13. `docs/playbook-program.md` is amended, not left to drift
 
 Seven amendments, across four sections this change supersedes. Line numbers are
 against `main` at `d1ee1fa`:
@@ -322,10 +337,10 @@ against `main` at `d1ee1fa`:
 | Location | Amendment |
 |---|---|
 | `:380` rename bullet | "implemented and awaiting merge" → done; `rename-the-roster-to-members` merged as PR #152 |
-| `:194` "Roles are a managed collection, seeded with nine" | twelve, with the seeded-status rule from Decision 7 |
-| `:197` "What the nine below are is a *starting set*" | twelve |
-| `:221` "seeding the nine roles and pointing every default at the bootstrap admin" | twelve, of which four point at nobody; and the holder is the seeding administrator, not "the bootstrap admin" |
-| `:263` "**Open:** whether capital commitments want a tenth role" | decided: `managing-director` is seeded, with `it` and `analytics` alongside it |
+| `:194` "Roles are a managed collection, seeded with nine" | eleven, with the seeded-status rule from Decision 7 |
+| `:197` "What the nine below are is a *starting set*" | eleven |
+| `:221` "seeding the nine roles and pointing every default at the bootstrap admin" | eleven, of which three point at nobody; and the holder is the seeding administrator, not "the bootstrap admin" |
+| `:263` "**Open:** whether capital commitments want a tenth role" | decided: `managing-director` is seeded, with `it` alongside it |
 | `:568` H7 | resolved — a member may hold several roles |
 | `:215` and `:399` "a retired role takes no new assignments…" | both halves belong to Change 2, including "the steps still naming one are reported rather than failing a load" |
 
@@ -348,7 +363,7 @@ reads the map; this change seeds the positions.
   retired → **Mitigation**: the refusal names every blocking role at once, so it
   takes one attempt to learn the full list rather than eight; and the ordinary
   onboarding path (add a holder, move the default) is the same two actions the
-  admin would take anyway. Decision 7 keeps this at eight rather than twelve.
+  admin would take anyway. Decision 7 keeps this at eight rather than eleven.
 - **[Risk]** `members`:103-111's mis-seed correction path now has a second step
   nothing tells the operator about. That path says a wrongly seeded first admin
   is "deactivated through ordinary writes once the corrected admin exists" — but
@@ -383,8 +398,8 @@ reads the map; this change seeds the positions.
   primary argument for holders-as-a-set survives that cut intact. **The
   measurement is recorded, not acted on: whether to split is the author's call
   and is being put to them rather than taken here.**
-- **[Risk]** A slug chosen badly is unfixable, and twelve are chosen here in one
-  go → **Mitigation**: the twelve come from the plan, where they were derived
+- **[Risk]** A slug chosen badly is unfixable, and eleven are chosen here in one
+  go → **Mitigation**: they come from the plan, where they were derived
   from the 358 steps' disciplines rather than invented; and the title, which is
   what anyone actually reads, stays editable.
 - **[Risk]** The seed's add-only behaviour means a mistake in the seeded set
@@ -398,7 +413,7 @@ reads the map; this change seeds the positions.
   keep this diff about what it is about.
 - **[Risk]** The Dockerfile's healthcheck `start-period` is tuned to the start
   chain's length, and its comment records `seed_playbook` having broken the
-  probe when it joined the chain → **Mitigation**: twelve inserts inside an
+  probe when it joined the chain → **Mitigation**: eleven inserts inside an
   existing step add no process to the chain; confirm the deployed container
   reaches healthy rather than assuming it.
 
@@ -419,10 +434,6 @@ only upgraded.
 
 ## Open Questions
 
-- **`analytics`' title.** Seeded as *Data Analyst*. Titles are editable by
-  design and no stored reference is by title, so changing it costs one admin
-  action and rewrites nothing. Does not affect the specs, the approach or the
-  tasks.
 - **Column order on the Team list.** The admin's three existing tables disagree
   — the product index and launches list read identity-first, the playbook steps
   table name-first after a request scoped to that one page, and the question was
@@ -430,9 +441,3 @@ only upgraded.
   list carries both a display name and a Slack identity, so it inherits the
   question. Left to the live presentation pass rather than settled in prose; it
   changes no requirement.
-- **A `308` from `/admin/roster`.** `rename-the-roster-to-members`' design §6
-  declined a redirect, weighing only the bookmark's convenience. It did not
-  weigh that admin routes refuse with a 404 indistinguishable from an
-  unregistered route, so a stale link reads as *no permission* rather than
-  *moved*. Raised and **not** decided here: it reverses a recorded decision in
-  an archived change, and doing that unasked is worse than the stale link.

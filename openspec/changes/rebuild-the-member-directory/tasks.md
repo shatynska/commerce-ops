@@ -3,10 +3,10 @@
 Line numbers are against `main` at `d1ee1fa`; re-resolve each by its quoted text rather than trusting the number if the file has moved.
 
 - [ ] 1.1 In `docs/playbook-program.md:380`, mark the rename bullet done — `rename-the-roster-to-members` merged as PR #152 — rather than "implemented and awaiting merge"
-- [ ] 1.2 Split the plan's role table in two (design Decision 12): a **positions** table carrying the twelve slugs, titles and seeded statuses, and a **discipline-to-role seed map** carrying the eight discipline rows and the "every one of the 358 steps is covered and none is counted twice" completeness argument that belongs to it
-- [ ] 1.3 Change "Roles are a managed collection, seeded with nine" (`:194`) to twelve, state the seeded-status rule — active where Change 3 assigns steps, draft where the position owns none — and correct "What the nine below are is a *starting set*" (`:197`) with it
-- [ ] 1.4 Correct "seeding the nine roles and pointing every default at the bootstrap admin" (`:221`): twelve roles, of which four point at nobody, and the holder is the **seeding administrator** as `roles` resolves it, not "the bootstrap admin" — which names nobody on an already-administered membership
-- [ ] 1.5 Resolve the "**Open:** whether capital commitments want a tenth role — *Managing Director*" note (`:263`) as decided, and record that `it` and `analytics` joined with it
+- [ ] 1.2 Split the plan's role table in two (design Decision 13): a **positions** table carrying the eleven slugs, titles and seeded statuses, and a **discipline-to-role seed map** carrying the eight discipline rows and the "every one of the 358 steps is covered and none is counted twice" completeness argument that belongs to it
+- [ ] 1.3 Change "Roles are a managed collection, seeded with nine" (`:194`) to eleven, state the seeded-status rule — active where Change 3 assigns steps, draft where the position owns none — and correct "What the nine below are is a *starting set*" (`:197`) with it
+- [ ] 1.4 Correct "seeding the nine roles and pointing every default at the bootstrap admin" (`:221`): eleven roles, of which three point at nobody, and the holder is the **seeding administrator** as `roles` resolves it, not "the bootstrap admin" — which names nobody on an already-administered membership
+- [ ] 1.5 Resolve the "**Open:** whether capital commitments want a tenth role — *Managing Director*" note (`:263`) as decided, and record that `it` joined with it
 - [ ] 1.6 Resolve H7 in the hazards table (`:568`) — a member may hold several roles; note that the self-confirmation split it implies belongs to Change 2
 - [ ] 1.7 Record at `:215` and `:399` that **both** halves of "a retired role takes no new assignments while the steps still naming it are reported rather than failing a load" belong to Change 2, not here, since nothing in this change can assign anything to a role; and correct the stale `launch-playbook:513` citation at `:425` to `:414` (its load-time enumeration being at `:1060` and `:1098`), which otherwise scopes Change 2 against a blank line
 
@@ -43,7 +43,7 @@ Line numbers are against `main` at `d1ee1fa`; re-resolve each by its quoted text
 
 ## 6. Seeding
 
-- [ ] 6.1 Extend `seed_admin` to seed the twelve roles after the admin is established, attributed to the same reserved system principal
+- [ ] 6.1 Extend `seed_admin` to seed the eleven roles after the admin is established, attributed to the same reserved system principal
 - [ ] 6.2 Resolve the **seeding administrator** — the member the admin seeding established on this run, else the earliest-created active admin with ties broken by identifier — and confirm the resolution is total: `members`:88 has the admin seeding alter nothing only when an active admin already exists, and where none exists that step has already failed the chain
 - [ ] 6.3 Seed the eight discipline roles `active` with the seeding administrator as sole holder and default, and the four remaining roles `draft` holding nobody, per design Decision 7's table
 - [ ] 6.4 Confirm the seed alters no membership entry and confers nothing on the seeding administrator, leaving `members`:88's guarantee that the bootstrap variable confers nothing untouched
@@ -85,7 +85,7 @@ Line numbers are against `main` at `d1ee1fa`; re-resolve each by its quoted text
 - [ ] 10.1 Unit tests for the role entity: slug validation, transitions, holder-set rules, the active-role obligation, and multi-fault reporting
 - [ ] 10.2 Unit tests for each role write use case, including every refusal
 - [ ] 10.3 Unit tests for the extended member deactivation, including the both-refusals-together case
-- [ ] 10.4 Unit tests for the seed: the twelve seeded from empty, an edited slug left alone, absent slugs added, and the unusable-store failure
+- [ ] 10.4 Unit tests for the seed: the eleven seeded from empty, an edited slug left alone, absent slugs added, and the unusable-store failure
 - [ ] 10.5 Unit tests for the seeding administrator on **both** branches — a freshly seeded admin, and an already-administered membership where the admin seeding altered nothing — plus determinism across two runs where several active admins exist
 - [ ] 10.6 Integration tests for the roles repository and the version-row serialization, against a real database
 - [ ] 10.7 Integration tests for both admin surfaces' routes, including the refused transitions and the guard on the stylesheet
