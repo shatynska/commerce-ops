@@ -294,6 +294,26 @@ launch_clickup_webhook.read_people = _RosterReader()
 launch_thread_delivery.read_people = _RosterReader()
 
 
+async def _read_product_on(db_session: AsyncSession, product_id: ProductId) -> Any:
+    """The launch thread anchor's product, on the establishing transaction.
+
+    Deliberately **not** `_RequestScopedCatalog().get_by_id`, which the
+    neighbouring adapters take: that one opens its own `session()`, and this
+    read runs inside `launch_thread_delivery`'s `transaction()` while the
+    thread-establishment advisory lock is held. A second connection checked
+    out there, from a pool of 5 with 10 overflow, would be held alongside the
+    first for the length of a catalog round-trip.
+
+    Building the catalog's store on the caller's session is the arrangement
+    `_register_catalog_product` above already uses, and for the neighbouring
+    reason: `.importlinter` permits only this module to name both sides.
+    """
+    return await CatalogProductRepository(db_session).get_by_id(product_id)
+
+
+launch_thread_delivery.read_product = _read_product_on
+
+
 async def _verify_admin_session(*, session_id: str) -> str | None:
     """The shared asset route's guard, injected the same way and for the
     same reason the two admin pages' collaborators are: `shared` may not

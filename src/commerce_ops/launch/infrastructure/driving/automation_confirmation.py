@@ -162,18 +162,12 @@ async def deliver_pending_result(
     """
     message = compose_message(result=result, product=product, step_name=step_name)
 
-    sku_value = ""
-    marketplace_value = ""
-    if product:
-        sku = getattr(product, "sku", None)
-        sku_value = sku.value if sku else ""
-        marketplace = getattr(product, "marketplace_id", None)
-        marketplace_value = marketplace.value if marketplace else ""
+    # `product` stays: `compose_message` names the product in the ask's
+    # body. What leaves is the anchor's copy of those same facts -- the
+    # establishment path resolves them itself now, so this site names only
+    # the product and the step.
     thread_ts, mention = await establish_thread_and_resolve_mention(
         product_id,
-        product.name if product else product_id.value,
-        sku_value,
-        marketplace_value,
         step=step,
     )
     # No tag where the step names a confirmer the roster could not resolve,

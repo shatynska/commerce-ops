@@ -816,6 +816,60 @@ journal and a reader for it, which is its own decision.
 is likely to disagree with more than once — or *write on acceptance, not on
 production* landing, since both touch the same Slack decision path.
 
+### The shared test database is a shared mutable resource, and one module rewrites it
+
+`tests/integration/launch/test_playbook_readiness_live.py` demotes each
+gate's blocking step to `draft`, asserts what that makes unready, and
+restores the snapshot in a `finally` — with a module-scoped restore around
+the whole file and a final test that re-reads the set so a lost restore is
+loud. That is careful, and it is still only safe while **exactly one test run
+touches the database at a time**.
+
+It is not currently safe, because nothing enforces that. `AGENTS.md` names
+one database, `commerce_ops_test`, and every worktree and session points at
+it. Two overlapping runs interleave snapshot and restore — A snapshots
+`active`, B demotes to `draft`, A restores `active`, B restores from a
+snapshot taken after A's demotion — and the last writer wins with the wrong
+value. An interrupted run loses the `finally` outright.
+
+**Observed, 2026-09-02.** `commerce_ops_test` was left with `lp.strategy.030`
+— the `graduated` gate's only blocking step — sitting at `draft`. The tier
+then failed 62 tests, 54 of them raising
+`PlaybookNotReadyError: gate 'graduated' has no active blocking step
+attached` from files with nothing to do with the step set, and 7 more
+failing downstream of it. The first run after the corruption was green; the
+next was not, so the failure looked like whatever change was in hand. It was
+repaired through `change_step_status`, the validated authoring use case,
+rather than by an `UPDATE` — the same write the module's own restore makes.
+
+Two facts worth keeping, because each rules something out:
+
+- **Concurrency alone does not corrupt it.** Two integration tiers run
+  simultaneously against a freshly seeded database produced 12 failures
+  between them and left every gate held. The interleaving has to land in the
+  wrong order, so this is rare and non-deterministic — which is exactly what
+  makes it expensive when it happens.
+- **`seed_playbook` cannot repair it.** That step adds only rows no stored
+  step names and never touches an existing one, deliberately: a row that
+  differs from its vendored counterpart is indistinguishable from an
+  authored edit. So a demoted step stays demoted through any number of
+  re-seeds.
+
+The same database also carries **1,315 retired `ignition` steps** and several
+hundred drafts accumulated by past runs. That debris is noise rather than
+breakage — the tier passes with it present — but it is the same cause seen
+over a longer period.
+
+**The fix is an isolated database per worktree**, which two sessions reached
+independently on 2026-09-02 and which `AGENTS.md` does not yet describe:
+`createdb`, `alembic upgrade head`, `python -m commerce_ops.seed_playbook`,
+and a `.env.test` naming it. It composes with the entry above — the seeding
+sentence that file already owes is the same sentence.
+
+**Trigger to close.** Whenever `AGENTS.md`'s integration-tier section is next
+edited: both this and *A migrated database is not a seeded one* are closed by
+the same paragraph.
+
 ### A migrated database is not a seeded one
 
 `AGENTS.md` tells a developer to "create and migrate `commerce_ops_test` once
@@ -839,6 +893,14 @@ make: the gap predates it, and closing it is a change of its own.
 **Trigger to close.** The next time a developer or a CI job is set up against
 a fresh database — or the next test that asserts the served step count and
 fails for this reason rather than its own.
+
+**The trigger fired, 2026-09-02**, and the entry cost what it predicted.
+`inject-the-thread-anchor-poster` built an isolated `commerce_ops_anchor_test`
+rather than mutate the shared one; `alembic upgrade head` alone left 97 `lp.*`
+steps, and four integration tests failed asserting 358 — the failures naming a
+step count, not a seed. `uv run python -m commerce_ops.seed_playbook` against
+the same `DATABASE_URL` brought it to 358 and the tier to green. That command
+is the missing sentence, and it is still owed to `AGENTS.md`.
 
 ### Production code carries tolerances for incomplete test doubles
 
@@ -884,6 +946,64 @@ inconsistency is not rediscovered as a defect and "fixed".
 The generalisable part is the convention: a revision id comes from
 `alembic revision`, never from typing one out.
 
+### The stuck-step report cannot reach the notifier the worker injects
+
+Found 2026-09-02 while writing `inject-the-thread-anchor-poster`'s design,
+and **not** folded into it: it is a live defect in a neighbouring path, not
+part of that change's scope.
+
+`automation_pass._report_stuck_step` posts through the module's injected
+notifier with three keyword arguments (`automation_pass.py:656`):
+
+```python
+await notifier.post_monitoring_message(
+    channel=launches_channel(), text=mention_tag + message, thread_ts=thread_ts
+)
+```
+
+The notifier `worker.py:83` injects is **`briefing`'s**, not `launch`'s
+(`worker.py:40` imports `slack_notifier` from
+`commerce_ops.briefing.infrastructure.driven`), and its signature is
+`post_monitoring_message(message: str) -> None`. The call cannot bind:
+
+```
+>>> inspect.signature(briefing_notifier.post_monitoring_message).bind(
+...     channel="C1", text="hi", thread_ts="1.2")
+TypeError: missing a required argument: 'message'
+```
+
+So every stuck-step report raises `TypeError`, is swallowed by
+`_report_stuck_step`'s own `except Exception` into a warning
+(`automation_pass.py:661-670`), nothing is stamped as reported, and the next
+pass tries again and fails the same way. A step that has stopped making
+progress is never reported to anybody — the same shape as the mention defect
+`fix-launch-thread-mentions` corrected, and by the same mechanism: a
+delivery fault inside a swallowing `except`.
+
+**Why `mypy --strict` does not catch it.** The module global is typed
+(`notifier: MonitoringNotifier | None`, `:142`), but `_report_stuck_step`
+re-declares its own parameter as `notifier: Any` (`:595`), and the pass
+threads it through three more `notifier: Any` signatures before the call.
+The one annotation that would have caught it is erased at the first hop.
+
+**Why the tests do not catch it.** They substitute a double that accepts the
+keyword form, so they assert the call the code makes rather than the call
+the injected collaborator accepts — the tolerance *Production code carries
+tolerances for incomplete test doubles* above describes, arriving as a
+missed defect rather than as a missed field.
+
+Two candidate fixes, and the choice is a real one: inject `launch`'s own
+notifier here (it has the channel-taking signature the call already assumes,
+and the launches channel is where a threaded report belongs), or narrow
+`_report_stuck_step`'s `notifier: Any` to the port whose shape it actually
+requires so the mismatch is a type error rather than a runtime one. The
+second is the one that stops the next instance; the first is the one that
+makes today's report arrive. Probably both.
+
+**Worth its own change**, sequenced ahead of the tidy-ups in
+`docs/proposed-change-order.md`: like `fix-launch-thread-mentions`, the harm
+is happening now.
+
 ### Three seams a unit test has to work around, measured
 
 `restore-the-skipped-unit-tests` (2026-09-01) restored 44 tests that had been
@@ -891,7 +1011,9 @@ skipped wholesale under the false reason "Unit test requires database". None
 needed a database. What each of them actually needed was to get around a place
 where production code reaches for a global instead of taking a collaborator,
 and the corrections are still standing in `tests/` because removing the seams
-is `inject-the-thread-anchor-poster`'s scope, not that change's.
+was `inject-the-thread-anchor-poster`'s scope, not that change's. **One of the
+three is now gone** — that change retired the Slack client; the other two
+stand, and its design says why each was out of its scope.
 
 Recorded with what each one cost, because this is the most concrete evidence
 that change has:
@@ -899,7 +1021,7 @@ that change has:
 | Seam | What it cost a test |
 |---|---|
 | `launch_thread_delivery.establish_thread_and_resolve_mention` opens its own `transaction()` (`:82`) | Substituting `slack_entry.transaction` does not reach a second module's own import of the same name. This is what made two files look database-bound. Two test files now substitute `transaction`, `LaunchRepository` and `hold_launch_thread_establishment_lock` on that module. |
-| `thread_establishment._get_slack_client()` is an `lru_cache`d `AsyncWebClient` reading `PRODUCT_AGENT_SLACK_BOT_TOKEN` (`:43-45`) | The anchor post bypasses the injected poster entirely, so a test can only observe it by patching `AsyncWebClient.api_call` at class level — and must then add `thread_establishment` to its cache-reset list, or the cached client outlives the test. Two files now do both. |
+| ~~`thread_establishment._get_slack_client()` is an `lru_cache`d `AsyncWebClient` reading `PRODUCT_AGENT_SLACK_BOT_TOKEN`~~ — **retired** by `inject-the-thread-anchor-poster` (2026-09-02) | It cost this: the anchor post bypassed the injected poster entirely, so a test could only observe it by patching `AsyncWebClient.api_call` at class level, and had then to add `thread_establishment` to its cache-reset list or the cached client outlived the test. The client is now the injected `post_anchor` port. `test_thread_establishment_race.py` substitutes a plain recording callable; no cache-reset list names `thread_establishment` anywhere in `tests/`, and no fixture sets `PRODUCT_AGENT_SLACK_BOT_TOKEN` for this reason alone. |
 | `launches_channel()` reads `os.environ` directly (`slack_notifier.py:44`) | Raises `KeyError` inside `_report_stuck_step`'s own `try`, which swallows it into a warning — seven tests failing on an empty message list with nothing in the failure naming the cause. Three files now set the variable by fixture. |
 
 The common shape is worth stating once: **each fault is absorbed by an
@@ -928,6 +1050,6 @@ Verified present 2026-09-01; suitable for one chore commit.
 | `httpx2` in dev dependencies | It is a runtime requirement of `openai`, not a test dependency. Likely added by mistake. |
 | `description = "Add your description here"` | Placeholder from the project template. Deliberately excluded from `tighten-type-checking` as unrelated scope. |
 | No `known-first-party` for ruff's isort | Without `known-first-party = ["commerce_ops"]` under `[tool.ruff.lint.isort]`, ruff infers first-party packages per invocation, so the classification changes with the set of files it is handed. `uv run ruff check` over the whole project passes while the `pre-commit` hook — which passes explicit staged paths — fails `I001` on those same files, and fixing one file at a time reports success while fixing them together still finds errors. Cost a commit two attempts to diagnose; the one-line declaration makes it deterministic. |
-| `post_monitoring_message` is misnamed | `launch/infrastructure/driven/slack_notifier.py:47` takes `channel` as an argument and is called with `launches_channel()` at every launch-thread site. It posts to whichever channel it is given; only its name still says otherwise. `post_message`. Worth doing while `inject-the-thread-anchor-poster` is already changing its signature, not before. |
+| `post_monitoring_message` is misnamed | `launch/infrastructure/driven/slack_notifier.py` takes `channel` as an argument and is called with `launches_channel()` at every launch-thread site. It posts to whichever channel it is given; only its name still says otherwise. `post_message`. **Measured, 2026-09-02, and declined by `inject-the-thread-anchor-poster` rather than folded in as this row previously invited.** The rename's scope is **14 occurrences over 5 source files** (`slack_notifier.py` 2, `gate_confirmation.py` 4, `automation_confirmation.py` 4, `slack_entry.py` 3, `launch_thread_delivery.py` 1) plus the launch-side tests. An unqualified `grep` gives 27 source and 42 test occurrences; of those, 11 source and 20 test belong to `briefing`/`shared` and their **different function of the same name**, as do both `Protocol` declarations (`shared/application/ports.py`, `briefing/application/ports.py`), which declare `(message: str)` and are not part of the rename. The trap: `clickup_sync_job.py:200` and `automation_pass.py:656` call this name *inside `launch`* on an injected collaborator that is `briefing`'s notifier, so renaming by module or by name would rename them and break the first — see *The stuck-step report cannot reach the notifier the worker injects* for why the second is already broken. **Worth doing** when that defect is fixed, since fixing it settles which notifier each of those two sites is talking to, which is the fact a safe rename needs. |
 | `Proposal.outcome` and `Proposal.finding` are `Any` | `step_handlers/listing/subcategory_advisor.py:229-236`. `StepResolution` types the same two values properly (`StepOutcomeValue`, `Result[Any, Any] \| None`), and `Proposal` exists only to carry them one function further. Nothing forces the widening — no import boundary is crossed here. |
 | Comment archaeology in `main.py` | `main.py:261-272` spends five lines describing what a *previous version of a comment* said. Git holds that. The comment convention this project keeps — record the reasoning, not just the behaviour — is worth keeping; recording the reasoning's own edit history is not. |

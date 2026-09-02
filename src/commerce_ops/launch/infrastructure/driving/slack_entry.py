@@ -563,11 +563,15 @@ def _get_handler() -> AsyncSlackRequestHandler:
 
         # Establish thread and post confirmation reply
         try:
+            # The submission's own values are given up here, and they were
+            # the one call site that could not fail to supply them. That is
+            # the trade: the anchor must not depend on which of four paths
+            # establishes it, so all four now name only the product. The
+            # read that replaces them reads a row committed moments earlier
+            # by `_register_and_start`, in this same process; where it
+            # nonetheless fails, the direct message below is what happens.
             thread_ts, mention = await establish_thread_and_resolve_mention(
                 product_id,
-                submission.name,
-                submission.sku.value,
-                submission.marketplace_id.value,
                 step=None,
             )
             mention_tag = f"<@{mention}> " if mention else ""

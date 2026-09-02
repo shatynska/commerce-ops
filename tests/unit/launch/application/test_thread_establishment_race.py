@@ -31,16 +31,31 @@ Fixed by the change's artifacts:
 - A serial message that comes after the thread exists reuses that reference
 
 INVENTED, recorded in `test-manifest.md`:
-- `_get_slack_client()` is the module-level, `functools.lru_cache`d seam
-  `ensure_launch_thread` posts the anchor through -- substituted here the
-  same way `post_monitoring_message` is substituted in the driving-adapter
-  test files, since nothing else in the function is reachable without it.
 - `hold_lock`'s contract is read off `launch_thread_lock.py`'s docstring
   (block until acquired, held until the caller's own transaction ends) and
   faked with a real `asyncio.Lock` per product, released when the fake
   session used to call `ensure_launch_thread` exits -- not with
   `pg_advisory_xact_lock` itself, which the race scenario does not require
   observing directly.
+
+## Correction under `inject-the-thread-anchor-poster`
+
+That change made the anchor's poster an injected port and moved the
+anchor's product facts out of the caller and into one read taken at
+establishment time. Two consequences here, kept apart on purpose:
+
+- **A harness update.** `_call` passed the six positional arguments the
+  operation used to take, so all three scenario tests below broke on the
+  new signature even where their assertions were untouched. The helper was
+  updated; `test_concurrent_race_produces_one_anchor` and
+  `test_serial_establishment_is_idempotent` assert exactly what they
+  asserted before.
+- **One assertion rewritten.** `test_first_message_establishes_thread`
+  passed the three product strings and then asserted they appeared in the
+  anchor -- a postcondition satisfied precisely by composing from whatever
+  the caller held, which is the defect that change removes. It now asserts
+  the anchor names the product the *reader* resolved, which is the same
+  scenario grounded in the thing that is now authoritative.
 
 ## Correction from the first-run scaffold
 
@@ -60,17 +75,18 @@ from __future__ import annotations
 import asyncio
 import uuid
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import UTC, date, datetime
 from typing import Any, Final, Self
 
 import pytest
 
+from commerce_ops.catalog.domain.product import Product
 from commerce_ops.launch.application.thread_establishment import (
     ensure_launch_thread,
     resolve_mention_target,
 )
 from commerce_ops.launch.domain.launch_run import Launch
-from commerce_ops.shared.domain.identity import ProductId
+from commerce_ops.shared.domain.identity import MarketplaceId, ProductId, Sku
 
 pytestmark = pytest.mark.anyio
 
@@ -156,48 +172,65 @@ class _FakeAdvisoryLock:
         db_session.on_release(lock.release)
 
 
-class _CapturingSlackClient:
-    """Substitutes `thread_establishment._get_slack_client()`'s return
-    value -- the only reachable seam, since the function is
-    `functools.lru_cache`d and reads a real credential at construction."""
+class _CapturingPoster:
+    """Substitutes the injected anchor poster: `(channel, text) -> ts`.
+
+    This used to substitute `thread_establishment._get_slack_client()`'s
+    return value, because the operation built its own `AsyncWebClient` from
+    a credential and there was no other reachable seam.
+    `inject-the-thread-anchor-poster` made the poster a port like the lock
+    and the channel already were, so the class-level patching and the
+    `lru_cache` reset it needed are both gone. The recorded shape is
+    unchanged, so every assertion below reads exactly as it did.
+    """
 
     def __init__(self) -> None:
         self.posts: list[dict[str, Any]] = []
         self._next_ts = 0
 
-    async def chat_postMessage(self, **kwargs: Any) -> dict[str, Any]:
+    async def __call__(self, channel: str, text: str) -> str:
         self._next_ts += 1
         ts = f"1700000000.{self._next_ts:06d}"
-        self.posts.append({**kwargs, "ts": ts})
-        return {"ok": True, "ts": ts}
+        self.posts.append({"channel": channel, "text": text, "ts": ts})
+        return ts
 
 
 @pytest.fixture()
-def slack_client(monkeypatch: pytest.MonkeyPatch) -> _CapturingSlackClient:
-    from commerce_ops.launch.application import thread_establishment
-
-    client = _CapturingSlackClient()
-    monkeypatch.setattr(thread_establishment, "_get_slack_client", lambda: client)
-    return client
+def poster() -> _CapturingPoster:
+    return _CapturingPoster()
 
 
-async def _call(store: _FakeLaunchStore, lock: _FakeAdvisoryLock) -> str:
+#: What the launch's product resolves to. The operation reads the anchor's
+#: facts from this now, rather than taking them from its caller -- the whole
+#: point of the change -- so the constants below are what the *reader*
+#: answers, not what a delivery path happened to be holding.
+PRODUCT: Final = Product.register(
+    sku=Sku(PRODUCT_SKU),
+    marketplace_id=MarketplaceId(PRODUCT_MARKETPLACE),
+    name=PRODUCT_NAME,
+    registered_at=datetime(2026, 8, 23, 9, 0, tzinfo=UTC),
+)
+
+
+async def _call(
+    store: _FakeLaunchStore, lock: _FakeAdvisoryLock, poster: _CapturingPoster
+) -> str:
     async with _FakeSession() as db_session:
         return await ensure_launch_thread(
-            db_session,  # type: ignore[arg-type]
             store,
             PRODUCT_ID,
-            PRODUCT_NAME,
-            PRODUCT_SKU,
-            PRODUCT_MARKETPLACE,
-            hold_lock=lock.hold,  # type: ignore[arg-type]
+            hold_lock=lambda: lock.hold(db_session, PRODUCT_ID),
             channel=lambda: CHANNEL_ID,
+            post_anchor=poster,
+            read_product=_resolves_to_the_product,
         )
 
 
-async def test_first_message_establishes_thread(
-    slack_client: _CapturingSlackClient,
-) -> None:
+async def _resolves_to_the_product() -> Any:
+    return PRODUCT
+
+
+async def test_first_message_establishes_thread(poster: _CapturingPoster) -> None:
     """Scenario: The first per-product Slack message establishes the thread.
 
     WHEN the first message about a launch that has no thread reference is
@@ -208,25 +241,25 @@ async def test_first_message_establishes_thread(
     store = _FakeLaunchStore(launch=_launch())
     lock = _FakeAdvisoryLock()
 
-    thread_ts = await _call(store, lock)
+    thread_ts = await _call(store, lock, poster)
 
-    assert len(slack_client.posts) == 1, (
-        f"expected exactly one anchor message, observed: {slack_client.posts}"
+    assert len(poster.posts) == 1, (
+        f"expected exactly one anchor message, observed: {poster.posts}"
     )
-    anchor = slack_client.posts[0]
+    anchor = poster.posts[0]
     assert anchor["channel"] == CHANNEL_ID
-    assert PRODUCT_NAME in anchor["text"]
-    assert PRODUCT_SKU in anchor["text"]
-    assert PRODUCT_MARKETPLACE in anchor["text"]
+    # The resolved product's facts, not the caller's: `_call` supplies none,
+    # and these read off `PRODUCT`, which is what the reader answered.
+    assert PRODUCT.name in anchor["text"]
+    assert PRODUCT.sku.value in anchor["text"]
+    assert PRODUCT.marketplace_id.value in anchor["text"]
     assert thread_ts == anchor["ts"]
     assert store.launch.slack_thread_id == thread_ts, (
         "the returned reference was not persisted on the launch record"
     )
 
 
-async def test_concurrent_race_produces_one_anchor(
-    slack_client: _CapturingSlackClient,
-) -> None:
+async def test_concurrent_race_produces_one_anchor(poster: _CapturingPoster) -> None:
     """Scenario: A concurrent race to establish the thread produces exactly
     one anchor.
 
@@ -239,22 +272,20 @@ async def test_concurrent_race_produces_one_anchor(
     lock = _FakeAdvisoryLock()
 
     first_ts, second_ts = await asyncio.gather(
-        _call(store, lock),
-        _call(store, lock),
+        _call(store, lock, poster),
+        _call(store, lock, poster),
     )
 
-    assert len(slack_client.posts) == 1, (
-        f"a concurrent race produced more than one anchor message: {slack_client.posts}"
+    assert len(poster.posts) == 1, (
+        f"a concurrent race produced more than one anchor message: {poster.posts}"
     )
-    assert first_ts == second_ts == slack_client.posts[0]["ts"], (
+    assert first_ts == second_ts == poster.posts[0]["ts"], (
         "the two racing callers did not settle on the same thread reference"
     )
     assert store.launch.slack_thread_id == first_ts
 
 
-async def test_serial_establishment_is_idempotent(
-    slack_client: _CapturingSlackClient,
-) -> None:
+async def test_serial_establishment_is_idempotent(poster: _CapturingPoster) -> None:
     """Scenario: Establishing an already-set thread reference changes
     nothing.
 
@@ -268,11 +299,11 @@ async def test_serial_establishment_is_idempotent(
     store = _FakeLaunchStore(launch=launch)
     lock = _FakeAdvisoryLock()
 
-    thread_ts = await _call(store, lock)
+    thread_ts = await _call(store, lock, poster)
 
-    assert not slack_client.posts, (
+    assert not poster.posts, (
         f"a new anchor was posted for a launch that already had a thread: "
-        f"{slack_client.posts}"
+        f"{poster.posts}"
     )
     assert thread_ts == "1700000000.000001"
     assert not store.saves, "an already-set thread reference was re-saved"

@@ -59,11 +59,15 @@ import time
 import urllib.parse
 from collections.abc import AsyncIterator, Iterator
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime
 from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
 from slack_sdk.signature import SignatureVerifier
+
+from commerce_ops.catalog.domain.product import Product
+from commerce_ops.shared.domain.identity import MarketplaceId, Sku
 
 SLACK_ENTRY_PATH = "/product_agent/slack/events"  # ASSUMED
 SIGNING_SECRET = "test-product-agent-signing-secret"  # not a real credential
@@ -318,6 +322,30 @@ async def _no_lock(*args: Any, **kwargs: Any) -> None:
     """`hold_launch_thread_establishment_lock`, which needs a real session."""
 
 
+async def _resolves_a_product(*args: Any, **kwargs: Any) -> Any:
+    """`launch_thread_delivery.read_product`, the anchor's own catalog read.
+
+    Substituted for the same reason as the three collaborators beside it,
+    and it became necessary with `inject-the-thread-anchor-poster`: the
+    anchor's facts are resolved at establishment time now rather than
+    supplied by the caller, so without this the composition root's real
+    reader runs against this file's registrar double -- which returns
+    `None` for the product identifier -- and establishment refuses, leaving
+    the fallback DM where the test asserts a threaded reply.
+
+    Answers the real `Product`, not a stand-in with fewer fields: the
+    anchor reads `name`, `sku` and `marketplace_id` off it directly, and a
+    double modelling less than the aggregate could satisfy a check the real
+    store would fail.
+    """
+    return Product.register(
+        sku=Sku("SKU-0002"),
+        marketplace_id=MarketplaceId("ATVPDKIKX0DER"),
+        name="Widget",
+        registered_at=datetime(2026, 8, 23, 9, 0, tzinfo=UTC),
+    )
+
+
 @pytest.fixture(autouse=True)
 def sessionless(monkeypatch: pytest.MonkeyPatch) -> None:
     module = importlib.import_module(SLACK_ENTRY_MODULE)
@@ -340,6 +368,7 @@ def sessionless(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(delivery, "transaction", _fake_transaction)
     monkeypatch.setattr(delivery, "LaunchRepository", _FakeLaunchStore)
     monkeypatch.setattr(delivery, "hold_launch_thread_establishment_lock", _no_lock)
+    monkeypatch.setattr(delivery, "read_product", _resolves_a_product)
 
 
 class _FakePlaybookRepository:
