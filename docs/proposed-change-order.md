@@ -1,11 +1,11 @@
 # Proposed change order
 
 **Status: working queue.** Eight changes were proposed on 2026-09-01 from a
-review of the work merged between 2026-08-28 and 2026-09-01. **Five remain.**
+review of the work merged between 2026-08-28 and 2026-09-01. **Four remain.**
 `restore-the-skipped-unit-tests` and `fix-launch-thread-mentions` were
 implemented and archived on 2026-09-01, and
-`await-the-subcategory-advisors-graph` on 2026-09-02; all three entries were
-deleted, per the rule below. The rest exist as a `proposal.md`
+`await-the-subcategory-advisors-graph` and `inject-the-thread-anchor-poster`
+on 2026-09-02; all four entries were deleted, per the rule below. The rest exist as a `proposal.md`
 on their own branch and are unimplemented — except where one is in flight,
 which this file does not track, since a queue that also tracked progress
 would need updating twice. This document records the order
@@ -35,27 +35,7 @@ before any code is applied.
 
 ---
 
-## 1. `inject-the-thread-anchor-poster`
-
-`launch/application/thread_establishment.py` builds its own
-`slack_sdk.AsyncWebClient`, reads a credential from the environment, and
-types a parameter `AsyncSession` — while the module beneath it documents that
-the application layer takes its collaborators as ports for exactly that
-reason. `import-linter` passes because its contracts govern edges inside
-`commerce_ops`, not third-party imports. Also moves anchor composition out of
-the four call sites that each assemble it from whatever they happen to hold.
-
-**First**, and its stated reason has changed. It was written as retiring "the
-last 2 skips" left by `restore-the-skipped-unit-tests`; that change left none,
-and none of the 44 was database-bound in the first place. What it retires
-instead is the three seams that change had to work around and could not
-remove, each now recorded in `docs/deferred-work.md` with what it costs a
-test: `launch_thread_delivery`'s own `transaction()`,
-`thread_establishment`'s `lru_cache`d `AsyncWebClient`, and
-`launches_channel`'s direct `os.environ` read. It still removes the *class* of
-defect that `fix-launch-thread-mentions` patched instance by instance.
-
-## 2. `defer-eager-clickup-convergence`
+## 1. `defer-eager-clickup-convergence`
 
 `converge_launch_eagerly` holds a database connection open across the entire
 ClickUp conversation — and `retry-clickup-rate-limits` adds up to ~30 s of
@@ -69,7 +49,7 @@ trigger blocks into one.
 and whether its runs belong in `scheduled-jobs`' freshness history at all.
 Worth `/openspec-explore` before `design.md`.
 
-## 3. `unify-launch-adapter-dependencies`
+## 2. `unify-launch-adapter-dependencies`
 
 One dependencies object per process, replacing 11 mutable module globals, 5
 verbatim copies of `_launch_folder_id`, and 6 of `_read_product_or_fail`
@@ -80,7 +60,7 @@ those globals outright by moving convergence off the four request-path
 adapters. Re-scope it on arrival rather
 than executing it as written.
 
-## 4. `unify-the-launch-advisory-locks`
+## 3. `unify-the-launch-advisory-locks`
 
 `launch_advisory_lock.py` and `launch_thread_lock.py` are the same module
 twice, differing in one constant — and the load-bearing docstring is already
@@ -91,7 +71,7 @@ so "these must not collide" is checkable by reading four lines.
 `defer-eager-clickup-convergence`, which changes how long the advance lock is
 held and by which process.
 
-## 5. `share-the-unit-test-harness`
+## 4. `share-the-unit-test-harness`
 
 162,335 lines of tests against 23,629 of source, across 272 test files and
 **four** `conftest.py` files. Eleven separate `_FakeSession` classes. This is
