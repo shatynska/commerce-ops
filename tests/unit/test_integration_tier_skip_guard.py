@@ -21,15 +21,17 @@ Decision 1.
 That file is the spec-derived test for the same guard's commit-time half,
 written by `restore-the-skipped-unit-tests`. This pass may add tests and
 never subtract or amend one, so the new cases land here rather than being
-folded into it. `tasks.md` 5.3 assigns the one edit that file needs — its
-`test_the_integration_tier_may_still_skip`, whose docstring says the
-integration exclusion is unconditional — to whoever implements §2. Until
-then, that test and
+folded into it. `tasks.md` 5.3 assigned the one edit that file needed — its
+`test_the_integration_tier_may_still_skip`, whose docstring called the
+integration exclusion unconditional — to whoever implemented §2, and that
+edit was made in the same commit that added this file: it is now
+`test_the_integration_tier_may_still_skip_without_the_marker`, and it
+holds the unarmed half while
 `test_a_developers_run_is_not_failed_by_a_skipped_integration_test` below
-assert the same behaviour for opposite reasons: it asserts the exclusion
-holds always, this asserts it holds only without the marker. Both pass on
-the tree as this pass found it, because the marker is not inherited into
-the child process either file runs.
+holds it here. The two files assert opposite outcomes for the same tier
+because they differ in one environment variable, which is the whole
+behaviour. Neither inherits the marker: `_run` in each builds its child
+environment as `{"PATH": ...}`, so a job-level marker cannot reach them.
 
 ## Expected first-run state (measured, see `test-manifest.md`)
 
@@ -162,6 +164,7 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -722,11 +725,21 @@ def test_the_projects_own_configuration_reports_skips() -> None:
     the subject is the recorded configuration, not this session's resolved
     options -- which any `-p`/`-o` on the invocation could have overridden.
     """
-    configuration = PROJECT_PYPROJECT.read_text(encoding="utf-8")
+    configuration = tomllib.loads(PROJECT_PYPROJECT.read_text(encoding="utf-8"))
+    addopts = (
+        configuration.get("tool", {})
+        .get("pytest", {})
+        .get("ini_options", {})
+        .get("addopts", "")
+    )
 
-    assert "-rs" in configuration, (
-        f"{PROJECT_PYPROJECT} no longer carries `-rs` in its pytest "
-        "`addopts`. Without it pytest's default `-r fE` prints a skip "
+    # Read the parsed `addopts` value, never the file's text. `-rs` also
+    # appears in the comment above the setting, so a substring search over
+    # the whole file passes even when the setting itself is deleted -- a
+    # tautology, and one this file of all files should not carry.
+    assert "-rs" in addopts, (
+        f"{PROJECT_PYPROJECT}'s pytest `addopts` is {addopts!r}, which no "
+        "longer carries `-rs`. Without it pytest's default `-r fE` prints a skip "
         "count and no reason, and a developer's run -- which the "
         "requirement exempts from failing on a skip -- stops reporting "
         "what did not run at all. The exemption is from failing, not from "

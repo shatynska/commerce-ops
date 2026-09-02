@@ -37,8 +37,14 @@ jobs:
           POSTGRES_DB: commerce_ops_test
         ports:
           - 5432:5432
+        # `psql ... -c 'select 1'` rather than `pg_isready`: `PQpingParams`
+        # reports OK whenever the server answers the startup packet, an
+        # unknown database included, so `pg_isready -d` calls the service
+        # healthy after a misspelt POSTGRES_DB and fails several steps later
+        # at `alembic upgrade head` instead. A present-but-misnamed database
+        # failing quietly is the fault this change was written to make loud.
         options: >-
-          --health-cmd "pg_isready -U commerce_ops -d commerce_ops_test"
+          --health-cmd "psql -U commerce_ops -d commerce_ops_test -c 'select 1'"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10

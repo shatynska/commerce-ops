@@ -407,7 +407,9 @@ skips the tier and still reports `Passed`.
 
 **Accumulated debris is inert — measured, not assumed** (2026-09-02). A
 `TEMPLATE` copy of the shared `commerce_ops_test`, carrying 1325 `retired` rows in
-`ignition`, passes `137 passed, 1 skipped` — identical to a freshly seeded database.
+`ignition`, passed exactly as a freshly seeded database did — `137 passed, 1 skipped`
+when measured, *before* that change deleted one test; the same comparison today reads
+`137 passed, 0 skipped` on both. The point is the equality, not the figure.
 The "harmless residue" premise in `test_playbook_authoring_live.py`'s docstring
 holds at that volume, so none of the three gaps below owes a cleanup. A red
 integration run met locally is a configuration fault until proven otherwise; check
@@ -419,6 +421,50 @@ a per-worktree database convention with a script that creates, migrates **and
 seeds** one. Plus the third, which was always independent: the resolver refusing a
 URL that names the working database. The last is still the one worth doing whether
 or not the others are.
+
+### The gate's green depends on one integration test seeding a roster for another
+
+`tests/integration/launch/test_playbook_authoring_roster_live.py` skips when the
+roster carries no active person, and says in its own docstring that it "adds nobody
+to a shared roster to avoid the skip". Nothing in CI's preparation creates one:
+`alembic upgrade head` inserts no person and `seed_playbook` writes no roster at all.
+
+It passes only because `test_gate_progression_atomicity_live.py`'s `_seed_decider`
+creates an active admin earlier in the same session, through the real `access` use
+cases, and never removes it. Confirmed on a local test database: exactly **one**
+active roster person, and it is that one.
+
+The coupling predates `restore-the-skipped-integration-tests`. What that change did
+was convert its failure mode from a silent skip into a **hard failure of the whole
+validation job**, since a skipped integration test now fails the gate. So reordering
+or renaming a launch test file, running the tier under `-k`, `--lf` or xdist, or
+having the atomicity test error before it reaches `_press`, turns the gate red for a
+reason unrelated to the code under review. Found by `/code-review` on PR #149
+(2026-09-02).
+
+Two fixes are available and the choice is not obvious, which is why this is recorded
+rather than done: seed a roster person in CI's preparation chain — cheap, and it puts
+a person in a database whose emptiness some other test may one day rely on — or have
+the roster test create its own, which is more correct and makes that file a
+roster-writing module with the cleanup obligations that implies. A tier-level fixture
+is a third option and inherits the first's objection.
+
+### A wall-clock assertion in the commit-time tier fails under CI load
+
+`tests/unit/launch/infrastructure/driving/test_slack_entry_ack_and_failure_visibility.py`
+asserts a Slack acknowledgement returns within `SLOW_PERSISTENCE_SECONDS / 2` — 0.75s
+— while a collaborator is made to take 1.5s, proving the ack does not wait on
+persistence. On a loaded two-core GitHub runner it measured **2.175s** and failed the
+job (2026-09-02, PR #149); the same commit passed on re-run, passes locally, and had
+passed eleven consecutive CI runs before.
+
+So it is event-loop starvation meeting a wall-clock budget, not a defect in the code
+under test — a real property asserted by a proxy that shared hardware can violate. It
+will fire again at random, and the next reader will spend an afternoon on it, which is
+the "failures that read as defects and are not" pattern this file exists to shorten.
+Whoever takes it should decide whether the property can be asserted without a
+stopwatch — observing that the response is produced before the collaborator completes,
+rather than timing it — since widening the budget only makes the flake rarer.
 
 ### `launch-playbook` says the seeded set is entirely human, and it is not
 
