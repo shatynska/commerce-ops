@@ -422,6 +422,57 @@ seeds** one. Plus the third, which was always independent: the resolver refusing
 URL that names the working database. The last is still the one worth doing whether
 or not the others are.
 
+### Per-worktree test databases accumulate, and nothing drops them
+
+The convention `docs/deferred-work.md` proposes — one database per worktree on the
+shared container — is already in use, unwritten and unautomated. Sessions that hit
+the fail-open trap create one by hand and name it after their branch. Nobody deletes
+it when the worktree goes.
+
+Surveyed 2026-09-02, on the running container:
+
+| database | its worktree |
+| --- | --- |
+| `commerce_ops` | the working database — not a test database at all |
+| `commerce_ops_test` | the main clone |
+| `commerce_ops_anchor_test` | `inject-the-thread-anchor-poster` — live |
+| `commerce_ops_failopen_test` | `close-the-integration-tier-fail-open` — live |
+| `commerce_ops_await_test` | **orphan** — worktree gone |
+| `commerce_ops_gate_progression_test` | **orphan** — worktree gone |
+| `commerce_ops_launch_journal_test` | **orphan** — clone gone |
+
+Three of seven are orphans, and two live worktrees
+(`playbooks-as-versioned-graphs`, `rebuild-the-member-directory`) carry no
+`.env.test` at all, so the tier fails open in both right now.
+
+Nothing here is broken today: an orphan costs disk and nothing else. It is recorded
+because it is an obligation the provisioning script has to answer *before* it is
+written, not after. A script that creates a database per worktree without deciding
+who drops it converts an occasional hand-made mess into a systematic one — and
+`EnterWorktree`/`ExitWorktree` know nothing about databases, so removal cannot simply
+be hung off worktree teardown. Whoever writes that script owns this question.
+
+### The working database is behind head, which is currently hiding the rung-3 hazard
+
+`commerce_ops` — the database `.env` names, holding **2019** launch positions — sits
+at `1a2b3c4d5e6f`, four revisions behind the repository's head `c04d95ba6e31`
+(2026-09-02). Every test database on the container is at head.
+
+That matters for one reason. The entry above records that the resolver's third rung
+reaches this database, and that the tier would then run its unscoped
+`DELETE FROM known_work` against real data, green. Today it probably would not get
+that far: the schema is old enough that the tier would fail early and loudly instead.
+
+**That is luck, not a guard, and it expires the moment anyone runs
+`alembic upgrade head` against their development database** — an ordinary thing to
+do, which would silently remove the only thing currently standing between rung 3 and
+2019 real rows. Nobody should rely on it, and nobody should be reassured by never
+having seen rung 3 do damage: the reason is a stale schema, not a safety property.
+
+It also means a rung-3 failure met today reads as a migration error rather than as a
+misconfigured tier, which is one more way this class of fault arrives wearing the
+wrong label.
+
 ### The gate's green depends on one integration test seeding a roster for another
 
 `tests/integration/launch/test_playbook_authoring_roster_live.py` skips when the
