@@ -378,8 +378,17 @@ to show, and the stored shape cannot tell it from one whose gate already opened.
 `Launch.__init__` sets `_graduated = False` on every rehydration, so the flag is
 process-local and does not survive a read.
 
-That gap is latent today because nothing advances gates. It stops being latent
-the moment something does, and it breaks in both directions:
+**No longer latent — confirmed in production, 2026-09-02.** A launch (product
+`399a0a06-0a2d-4b79-b9c5-182ede671fbd`, launch date 2027-02-01) reached
+`graduated` that morning on its `phase-one-complete` approval, and stands there
+with no way to be asked. `/admin/launches` reports it as awaiting confirmation,
+reading `list_all`; the ten-minute pass, reading `list_active`, has never seen
+it — the walk logs 21 launches and this is not one of them. Its
+`launch_gate_ask_suppression` rows record an ask for `commit`, `order` and
+`phase-one-complete`, and none for `graduated`. So the first bullet below is
+live; the second is still latent, no advancing pass reading `list_all`.
+
+It breaks in both directions:
 
 - A pass reading `list_active` never sees a launch standing at `graduated` —
   `list_active` filters on `current_gate != 'graduated'` — so the graduation ask
@@ -392,12 +401,23 @@ the moment something does, and it breaks in both directions:
   reported as "an error naming the manual catalog correction required" — a false
   instruction to correct a correctly-stamped product, delivered on every pass.
 
-**So a future change owes three things together**, and they are one change
-because none of them is useful alone: a surface for `record_metric_attestation`,
-a persisted graduation marker on the launch, and the graduation ask itself — the
-five-posture approving choice, and carrying a refused catalog stamp back to the
-decider. The posture choice cannot be defaulted: `launch-instance` requires the
-approver to name it, because the system never chooses one.
+**So a future change owes two things together** — three until
+`replace-metric-conditions-with-steps` removed attestation outright, taking the
+surface for `record_metric_attestation` off the list — and they are one change
+because neither is useful alone: a persisted graduation marker on the launch,
+and the graduation ask itself — the five-posture approving choice, and carrying
+a refused catalog stamp back to the decider. The posture choice cannot be
+defaulted: `launch-instance` requires the approver to name it, because the
+system never chooses one.
+
+The domain half is already built and waiting. `Launch.approve_gate` requires a
+posture on the graduation approval and rejects one on every other gate,
+`LaunchGraduated` carries it, and `progress_launch` stamps the catalog through
+`stamp_steady_state`. What is missing is only the way to obtain the posture from
+a person — today's ask carries two buttons and no third choice — together with
+the three refusals standing in for it: `gate_decisions.py`'s `_FINAL_GATE`
+refusal, `gate_confirmation.py`'s `FinalGateNotAsked`, and `list_active`'s
+filter.
 
 Note also that `InventoryOverride` is one of the five postures and
 `shared-vocabulary` marks it temporary — "a state a product must eventually
@@ -407,6 +427,37 @@ ask should offer it is an open question for that change, not a settled one.
 **Recorded in**: `advance-gates-and-confirm-in-slack`'s `design.md` (Non-Goals
 and Risks) and `proposal.md` (Impact). Found by `openspec-change-reviewer`
 during that change's spec review, 2026-08-28.
+
+### Nothing records that a gate was asked about, or that an ask failed
+
+`launch-journal` defines seven entry kinds — `launch-started`,
+`step-outcome-recorded`, `gate-approval-recorded`, `gate-opened`,
+`launch-graduated`, `launch-date-moved`, `advance-refused` — and none of them is
+an ask. The only trace an ask leaves is a `launch_gate_ask_suppression` row,
+which is a cool-off record rather than a history: one row per (launch, gate),
+overwritten on each ask, also written by `record_rejection` having delivered
+nothing at all, and reachable from no admin surface.
+
+A failed delivery leaves less than that. `_ask_if_owed` catches it, logs a
+warning and returns, and `launch-gate-progression` requires exactly that — "a
+delivery that fails ... SHALL NOT fail the run" — so `/health/scheduled-runs`
+reports the pass healthy while every ask it owes is failing. The reasoning for
+that is sound and is not what is deferred here. What is deferred is that nothing
+a person can reach says an ask was owed, attempted, or lost.
+
+The consequence: "the admin says a gate awaits confirmation and no message
+arrived" is not answerable from any surface this project offers. On 2026-09-02
+it was answered instead by reading worker container logs and querying
+`launch_gate_ask_suppression` over SSH — and the answer was the final-gate
+deferral above, a case where no ask was ever owed. A journal entry when an ask
+is delivered and when one fails would have made that a glance.
+
+Worth pairing with the graduation change rather than doing first. The entry
+above is why the question got asked, and observability that still cannot say
+"this gate will never be asked about" leaves the same confusion standing.
+
+**Recorded in**: nothing yet — found while diagnosing a launch standing at
+`graduated`, 2026-09-02. This file is its first record.
 
 ### `LaunchRepository.save` overwrites the whole aggregate, with no optimistic concurrency
 
