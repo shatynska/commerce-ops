@@ -144,7 +144,7 @@ below is a first cut, not a settled answer:
 | `provenance`, `metric_id` | | |
 
 `assignees` sits with the step because roles make it person-independent (see
-below): a step assigned to `finance-lead` carries no one's identity into the
+below): a step assigned to `controller` carries no one's identity into the
 three playbooks that place it. Were assignment still by person, this row would
 be the table's hardest question.
 
@@ -166,7 +166,7 @@ therefore a union of a role reference and a person reference, stored in the
 `JSONB` column `assignees` already is:
 
 ```
-assignees: [ {role: "finance-lead"} ]   ← the usual case, follows whoever holds it
+assignees: [ {role: "controller"} ]     ← the usual case, follows whoever holds it
 assignees: [ {person: "<uuid>"} ]       ← the override, always this person
 ```
 
@@ -196,31 +196,49 @@ own vocabulary, but the 358 steps already carry a discipline each, and those
 twelve values collapse by *what the work actually is* for a mid-sized
 marketplace seller. Every step is covered and none is counted twice:
 
-| Role | Steps | From disciplines |
-|---|---|---|
-| `supply-chain` | 78 | `inventory`, `setup` — suppliers, MOQ, cartons, HS codes, freight, packaging spec |
-| `ppc-manager` | 77 | `ppc`, `rank`, `traffic` — campaign structure, launch keyword strategy, spend |
-| `category-manager` | 65 | `strategy`, `price` — product selection gates, price ladder, competitive position |
-| `listing-specialist` | 39 | `listing` — flat files, browse paths, variation families |
-| `finance-lead` | 36 | `finance` — CM1/CM2/CM3, landed cost, fee tiers |
-| `creative-lead` | 26 | `creative` — photography, A+, packaging artwork, CTR assets |
-| `customer-service` | 22 | `customer` — reviews, feedback, 1-star response |
-| `marketing` | 15 | `external` — email, influencers, affiliates, off-Amazon |
-| `manager` | — | maps to no discipline; the cross-cutting **confirmer** role |
+Each role is a position a marketplace company actually staffs, so the directory
+reads as an org chart rather than as a re-spelling of the discipline enum. The
+identifier is a short slug and the display name is the full title — the same
+split the member rows already use for people, and without it seven of the nine
+identifiers would end in `-manager`.
+
+| Identifier | Position | Steps | From disciplines |
+|---|---|---|---|
+| `supply-chain` | Supply Chain Manager | 78 | `inventory`, `setup` — suppliers, MOQ, cartons, HS codes, freight, packaging spec |
+| `ppc` | PPC Manager | 77 | `ppc`, `rank`, `traffic` — campaign structure, launch keyword strategy, spend |
+| `brand` | Brand Manager | 65 | `strategy`, `price` — product selection gates, price ladder, competitive position |
+| `catalog` | Catalog Manager | 39 | `listing` — flat files, browse paths, variation families |
+| `controller` | Financial Controller | 36 | `finance` — CM1/CM2/CM3, landed cost, fee tiers |
+| `creative` | Creative Manager | 26 | `creative` — photography, A+, packaging artwork, CTR assets |
+| `customer-service` | Customer Service Manager | 22 | `customer` — reviews, feedback, 1-star response |
+| `marketing` | Marketing Manager | 15 | `external` — email, influencers, affiliates, off-Amazon |
+| `operations` | Operations Manager | — | maps to no discipline; the cross-cutting **confirmer** role |
+
+Two naming choices worth keeping. **Brand Manager**, not Category Manager: both
+are real titles, but in a private-label marketplace business the person clearing
+the demand and revenue gates owns a brand's P&L, which is what a brand manager
+does. **Financial Controller**, giving the identifier `controller` — a
+distinct word for free, where `finance` would read ambiguously against the
+`finance` discipline. `ppc` and `creative` do overlap with their disciplines;
+that is accepted rather than fixed, since the alternative is a worse job title
+and the two vocabularies are separate namespaces.
 
 Three merges carry the reasoning and are the ones to revisit first if they feel
-wrong. `rank` folds into `ppc-manager` because launch ranking here *is* ad
+wrong. `rank` folds into `ppc` because launch ranking here *is* ad
 strategy — keyword families, never-keywords, Titan Tools — not a separate craft;
 `traffic` is one step. `setup` folds into `supply-chain` because its steps are
 packaging and production spec (shrink wrap, in-box inserts, batch codes), which
 the sourcing owner decides with the supplier. `price` folds into
-`category-manager` because whoever clears the demand and revenue gates sets the
+`brand` because whoever clears the demand and revenue gates sets the
 price those gates were computed from — though at 31 steps it is the most
 plausible candidate to split out later.
 
-`manager` exists because a confirmer is often not the discipline owner: it is
-the role that accepts someone else's work, and it maps to no discipline
-deliberately.
+`operations` exists because a confirmer is often not the discipline owner: it
+is the role that accepts someone else's work, and it maps to no discipline
+deliberately. **Open:** whether capital commitments want a tenth role —
+*Managing Director* — rather than being confirmed by the Operations Manager.
+The company head confirms some steps and is not an employee, which is one of
+the reasons the directory is `members` rather than `employees`.
 
 **`LifecycleStage` is renamed `LifecycleState`.** A product is in a *state*; a
 playbook has *stages*. The rename exists solely to free the word.
@@ -366,8 +384,8 @@ the two groups described below.
 **The one spec consequence.** `launch-playbook:513` rejects a step whose *only*
 assignee is also its confirmer — "a single actor confirming their own work is
 not a second opinion" — and it is a **load-time** rule today precisely because
-it is a pure function of the step set. Roles break that purity: `finance-lead`
-and `manager` are plainly different references, yet resolve to the same person
+it is a pure function of the step set. Roles break that purity: `controller`
+and `operations` are plainly different references, yet resolve to the same person
 if one member holds both. The check splits — references differing stays
 load-time and pure; resolved people colliding becomes a roster-dependent fault,
 reported the way a deactivated confirmer already is (`launch-playbook:509`),
@@ -379,13 +397,13 @@ flag would not:
 
 ```
   ── By role ──  follows whoever holds it
-     default manager (Helen)
-     default finance-lead (Sven)
+     default Operations Manager (Helen)
+     default Financial Controller (Sven)
 
   ── By person ──  always this person
-     Helen (manager)
-     Marko (manager)
-     Sven (finance-lead)
+     Helen (Operations Manager)
+     Marko (Operations Manager)
+     Sven (Financial Controller)
 ```
 
 A member appearing in both groups is the point, not a defect: the parenthetical
