@@ -195,7 +195,36 @@ Tests are split into three directory-based tiers, each mirroring the module/laye
 
 - Test command: `uv run pytest` (invoked inside the uv-managed environment, not a bare `pytest` assuming manual venv activation)
 - Test-path glob: `tests/**/test_*.py` (matches all three tiers)
-- The integration tier finds its own database — `tests/integration/conftest.py` reads `DATABASE_URL`, else `.env.test`, else `.env` — so no `export` is needed before running it. Only that one key is read from either file; the suite sets its own Slack, OpenAI and ClickUp values. An isolated test database is optional: create and migrate `commerce_ops_test` once by hand and name it in `.env.test`. Where nothing resolves, tests needing a database skip and say why; in CI, where `COMMERCE_OPS_REQUIRE_DATABASE` is set, they fail instead, so a gate cannot pass a tier it never ran.
+- The integration tier finds its own database — `tests/integration/conftest.py` reads `DATABASE_URL`, else `.env.test`, else `.env` — so no `export` is needed before running it. Only that one key is read from either file; the suite sets its own Slack, OpenAI and ClickUp values. An isolated test database is optional: create one once by hand, **migrate it and then seed it** (`alembic upgrade head`, then `uv run python -m commerce_ops.seed_playbook`), and name it in `.env.test`. Where nothing resolves, tests needing a database skip and say why; where `COMMERCE_OPS_REQUIRE_DATABASE` is set — CI sets it — they fail instead, and a skipped test anywhere in the tier fails the run, so a gate cannot pass a tier, or a check, it never ran.
+
+### Working in a git worktree
+
+Parallel sessions run as worktrees under `.claude/worktrees/`, and a worktree
+starts out unable to run the integration tier. These are obligations, not tips.
+
+1. **The Postgres container runs continuously.** Check it — `docker ps` — before
+   concluding a database, or Docker, is unavailable. A session has already
+   reported "Docker isn't available in this WSL setup" while
+   `commerce-ops-postgres-1` was up and serving on `127.0.0.1:5432`.
+2. **A worktree does not inherit `.env.test`.** It is gitignored (`.env.*`), so
+   it exists only in the clone it was written into, and `git worktree add`
+   carries none. Configure one before relying on the tier. Until you do, the
+   tier skips in its entirety and `pre-push` reports it as `Passed` — that
+   green is not evidence anything ran, and a merged pull request has already
+   claimed a tier that had skipped.
+3. **Migrated is not seeded.** `alembic upgrade head` writes the migrated rows;
+   the other steps come from `uv run python -m commerce_ops.seed_playbook`,
+   which every container runs on start and no migration performs. A database
+   with only the schema applied fails four tests.
+4. **Read a failing test's assertion message before concluding the failure is
+   pre-existing.** The four above say what is wrong with the database in their
+   own messages. "Pre-existing failures" has been the wrong answer every time it
+   has been given here.
+5. **Put `_test` last in a test database's name.** The check is a suffix check,
+   so `commerce_ops_x_test` is a test database and `commerce_ops_test_x` is not.
+   Give each worktree its own; the tier writes freely and issues at least one
+   unscoped `DELETE`, so two sessions sharing a database produce failures that
+   read as defects and are not.
 
 ## Development Tooling
 

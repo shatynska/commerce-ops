@@ -1,4 +1,4 @@
-"""The commit-time tier tolerates no skipped test.
+"""A guarded tier tolerates no skipped test.
 
 `tests/unit` and `tests/agents` run at commit time and in CI. A skipped
 test there is invisible: the run reports success, the count moves by one,
@@ -17,8 +17,30 @@ inspecting reasons for a filename match is unenforceable. Zero tolerance
 cannot be satisfied by widening a list, which is exactly how the defect
 grew, and there is no list here to widen.
 
-`tests/integration` is deliberately excluded. It skips legitimately when
-no database resolves, and says why -- see `AGENTS.md`.
+**`tests/integration` is guarded too, but only where the run says the tier
+is required.** `COMMERCE_OPS_REQUIRE_DATABASE` already means exactly that
+sentence: `tests/integration/conftest.py` turns its own no-database skip
+into a failure when it is set, and CI sets it. So the marker is the line
+between two populations, and it is a line this project had already drawn:
+
+- **Marker set** -- the validation gate, and anything else declaring the
+  tier required. No skip is tolerated, for any reason. The gate's own
+  variable cannot see most of them: it fires only when *no* URL resolves,
+  so a database that is present, reachable and merely named wrong left
+  five tests skipping on every CI run while the job reported a pass. That
+  is what this half exists to catch.
+- **Marker unset** -- a developer's machine. The tier skips as it always
+  has, and a skip fails nothing. The population with no database
+  configured is the one least able to act on a failure, which is the
+  trade-off `2026-08-25-verify-the-integration-tier`'s `design.md` argued
+  and this change does not reverse.
+
+Read once, at import, and never per report: a session is judged by one
+rule, so a test that mutates the environment mid-run cannot change what
+the session it is running in is held to. Decided by **truthiness** rather
+than presence, matching how `tests/integration/conftest.py` reads the same
+variable -- two readings of one variable is the class of silent
+disagreement this guard exists to end.
 
 ## Two report kinds, because there are two shapes of whole-file skip
 
@@ -45,21 +67,38 @@ A conftest is loaded only for the paths actually collected, so a hook
 under `tests/unit/` would not be registered by `uv run pytest
 tests/agents` -- leaving that tier unguarded and silent. Placed here it
 is loaded for any invocation under `tests/`, and the *path filter* below,
-not this file's location, is what excludes `tests/integration`.
+not this file's location, is what decides which tiers a given run guards.
 """
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 if TYPE_CHECKING:
     import pytest
 
+#: Set where the integration tier is required and may not be skipped -- CI
+#: sets it, `pre-push` deliberately does not. The same variable
+#: `tests/integration/conftest.py` reads to turn its no-database skip into
+#: a failure; read the same way here, by truthiness, so an empty value
+#: cannot mean "unset" to one and "set" to the other.
+REQUIRE_DATABASE: Final = "COMMERCE_OPS_REQUIRE_DATABASE"
+
+# Tiers that run on every commit. A skip beneath one of these always fails
+# the run.
+_COMMIT_TIME_TIERS: Final = ("unit", "agents")
+
 # Tier directories, relative to this file. A skip anywhere beneath one of
-# these fails the run; anywhere else -- `tests/integration` above all --
-# is left alone.
-_GUARDED_TIERS = ("unit", "agents")
+# these fails the run; anywhere else is left alone. Evaluated once, at
+# import, so both report hooks below judge the whole session by the rule it
+# began under -- see the module docstring.
+_GUARDED_TIERS: Final[tuple[str, ...]] = (
+    (*_COMMIT_TIME_TIERS, "integration")
+    if os.environ.get(REQUIRE_DATABASE)
+    else _COMMIT_TIME_TIERS
+)
 
 _TESTS_ROOT = Path(__file__).resolve().parent
 
@@ -152,8 +191,7 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
 
     tiers = ", ".join(f"tests/{tier}" for tier in _GUARDED_TIERS)
     headline = (
-        f"{len(_skips)} skipped test(s) in the commit-time tier "
-        f"({tiers}), which tolerates none:"
+        f"{len(_skips)} skipped test(s) in {tiers}, which tolerate none in this run:"
     )
     lines = ["", "=" * 72, headline, ""]
     for nodeid, reason in _skips:
@@ -161,10 +199,22 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
         lines.append(f"           reason: {reason}")
     lines += [
         "",
-        "These tiers run on every commit and in CI, so a skip here removes a",
-        "check without failing anything. If a test genuinely cannot run at",
-        "this tier, move it to tests/integration or delete it -- do not skip",
-        "it. See tests/conftest.py for why this rule admits no exceptions.",
+        "A skip in a guarded tier removes a check without failing anything,",
+        "which is why it fails the run instead. If a test genuinely cannot",
+        "run, delete it and record why -- do not skip it, and do not route",
+        "it through xfail, which this guard exempts for expectations that",
+        "are named rather than checks that are withdrawn.",
+    ]
+    if "integration" in _GUARDED_TIERS:
+        lines += [
+            "",
+            f"tests/integration is guarded here because {REQUIRE_DATABASE} is",
+            "set, which says the tier is required in this run. Unset it and a",
+            "skip there reports and fails nothing -- but do that only on a",
+            "machine, never in a gate.",
+        ]
+    lines += [
+        "See tests/conftest.py for why this rule admits no exceptions.",
         "=" * 72,
         "",
     ]

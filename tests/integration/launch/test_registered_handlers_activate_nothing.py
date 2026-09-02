@@ -56,18 +56,17 @@ composition root, which this file performs by import.
   (no handlers registered at all) is exactly what would make this test
   worthless, so it is refused explicitly.
 
-## Expected first-run state
+## These assertions run in the gate
 
-Expected to fail on the registration precondition: `HANDLERS` is empty
-until `tasks.md` 7.4 registers the advisor from `registrations.py`, so
-`_registered_names()` finds none and the test fails loudly rather than
-passing vacuously. Where no database is configured — as here — the tier's
-gate skips instead, so these assertions have never been executed. Both
-facts are recorded in `test-manifest.md`.
-
-Baseline recorded before these tests were written:
-`uv run pytest tests/integration` — 3 passed, 81 skipped (no database is
-configured here).
+They did not always. This file was written against an empty `HANDLERS` and
+a machine with no database configured, so its original docstring recorded
+that the assertions had never been executed — true then, and false since
+`restore-the-skipped-integration-tests` named CI's database for the
+suffix the tier checks. `COMMERCE_OPS_REQUIRE_DATABASE` now also arms the
+no-skip guard in `tests/conftest.py` over this tier, so a skip here fails
+the validation job rather than passing quietly. Anything below that cannot
+run must be deleted with its reason, not skipped — see the note at the foot
+of this file for the one that was.
 """
 
 from __future__ import annotations
@@ -318,38 +317,42 @@ async def test_no_seeded_human_step_is_in_development_after_registration() -> No
     )
 
 
-async def test_no_seeded_automated_step_is_activated_by_its_handler_existing() -> None:
-    """Requirement statement: "activation is an authoring act performed
-    against a deployment that registers the step's handler, never
-    something seeding or deploying does on an author's behalf."
-
-    The sharper form of the scenario: it is not merely that the automated
-    steps are `in-development`, but that this holds *even for one whose
-    handler this deployment now registers*. An implementation that
-    activated a step the moment its handler resolved would satisfy the
-    scenario for a step whose handler is still missing and fail here.
-
-    Where no seeded automated step names a registered handler, the check
-    has nothing to discriminate on and says so rather than passing
-    silently.
-    """
-    registered = set(_registered_names())
-    seeded_automated = tuple(
-        step
-        for step in await _authored_steps()
-        if step.identifier.startswith(SEEDED_PREFIX) and step.kind is StepKind.AUTOMATED
-    )
-
-    resolvable = [step for step in seeded_automated if step.handler in registered]
-    if not resolvable:
-        pytest.skip(
-            "no seeded automated step names a handler this deployment "
-            "registers, so there is nothing here to discriminate on — the "
-            "seed's two automated steps and the one handler this change "
-            "adds may legitimately not overlap"
-        )
-
-    assert all(step.status is StepStatus.IN_DEVELOPMENT for step in resolvable), (
-        "a seeded automated step was activated by nothing more than its "
-        f"handler becoming resolvable: {[step.identifier for step in resolvable]}"
-    )
+# `test_no_seeded_automated_step_is_activated_by_its_handler_existing` stood
+# here, and `restore-the-skipped-integration-tests` deleted it rather than
+# repairing it. What it was for is worth keeping; the test was not.
+#
+# It asserted the sharper form of the requirement above -- that a seeded
+# automated step stays `in-development` *even when this deployment registers
+# the handler it names* -- and skipped when no seeded step named a registered
+# one. That reads as an occasional coincidence. It is structural: the backfill
+# migration writes `handler = NULL` for every row, `_automation_faults`
+# obliges a handler only once a step is `active`, and
+# `handler_registry.py` says so outright -- "One handler is registered, and no
+# step names it." So its subject was empty on every run of every correctly
+# prepared database and its assertion never executed anywhere.
+#
+# Nothing was lost by deleting it.
+# `test_a_registered_runtime_does_not_activate_a_seeded_step` above asserts
+# over `automated`, and the deleted test's `resolvable` was a filtered subset
+# of exactly that tuple -- so the assertion over the whole set entails the one
+# over the subset. `launch-playbook`'s only scenario for this behaviour, *A
+# registered runtime does not activate a seeded step*, is the one that sibling
+# is named for.
+#
+# **The finding, which outlives the test.** The requirement's negative half --
+# activation is "never something seeding or deploying does on an author's
+# behalf" -- has no integration-level subject in this system. The only writer
+# in the container's start chain is `seed_playbook`; `check_step_handlers`
+# only reports, every read scoped to `active`. And seeding cannot re-status
+# anything: `_establish()` returns before writing when no vendored identifier
+# is missing, and `compose()` "carries across untouched" every stored record,
+# with no branch on what one contains. That half is held at unit level, by
+# `tests/unit/test_seed_playbook.py`'s
+# `test_an_edited_step_is_left_exactly_as_it_stands`.
+#
+# Two replacement tests were drafted and rejected as tautologies before the
+# deletion was chosen; `design.md` Decision 3 of that change records both, so
+# a third is not attempted here. Integration coverage of the requirement's
+# *positive* half -- that `activate_step` refuses a step naming an
+# unregistered handler, via `_registration_faults` -- is a real gap and a
+# separate change.
