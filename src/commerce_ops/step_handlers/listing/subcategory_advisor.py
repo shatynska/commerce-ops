@@ -400,7 +400,23 @@ class Proposal:
 
 
 def build_graph(model: BaseChatModel) -> Any:
-    """The graph over an injected model — the testable seam."""
+    """The graph over an injected model — the testable seam.
+
+    **The compiled graph is async-only, and that is load-bearing.** Its
+    one node is a coroutine, so `compiled.invoke(...)` raises
+    `TypeError: No synchronous function provided to "recommend"` rather
+    than running anything. Callers reach it through `ainvoke`, and
+    `propose()` is the only caller that should.
+
+    That refusal is the enforcement for the graph half of
+    `launch-step-automation`'s *A handler's waiting does not stop the
+    process*: a later author who reverts `propose()` to the synchronous
+    entry point does not get a handler that quietly pins the event loop
+    for the length of a model call, which is the defect this shape
+    replaced — they get one that fails on its first invocation, naming
+    the node. Do not "restore" a synchronous path to make some caller
+    work; fix the caller.
+    """
     # Imported here, not at module scope: registering this handler must not
     # load what running it needs (`launch-step-automation`). `recommend` is
     # nested below, so its closure carries `HumanMessage` and the import runs
@@ -408,7 +424,7 @@ def build_graph(model: BaseChatModel) -> Any:
     from langchain_core.messages import HumanMessage
     from langgraph.graph import END, START, StateGraph
 
-    def recommend(state: AdvisorState) -> dict[str, Any]:
+    async def recommend(state: AdvisorState) -> dict[str, Any]:
         prompt = _PROMPT.format(
             product_name=state.get("product_name", ""),
             marketplace=state.get("marketplace", ""),
@@ -420,7 +436,16 @@ def build_graph(model: BaseChatModel) -> Any:
         structured = model.with_structured_output(AdvisorResponse, include_raw=True)
         # No `try` around this: a model or transport fault must surface,
         # not become a recommendation.
-        response = structured.invoke([HumanMessage(content=prompt)])
+        #
+        # Awaited, not called: `invoke` issues a blocking HTTP request, and
+        # a coroutine that never yields pins the loop it was invoked on for
+        # the whole round-trip -- `launch-step-automation`'s *A handler's
+        # waiting does not stop the process*. Reaching the model through
+        # the synchronous entry point here would satisfy every assertion
+        # about what the advisor produces while doing exactly that, which
+        # is why the agent tier's stubs raise on `invoke` rather than
+        # answering it.
+        response = await structured.ainvoke([HumanMessage(content=prompt)])
         # `include_raw=True` always answers a dict of `raw`/`parsed`/
         # `parsing_error` (the docstring says so; the stub's return type
         # does not encode it, since it carries no `include_raw` overload).
@@ -463,7 +488,7 @@ def _advisor_refuses(comment: str) -> bool:
     return _ADVISOR_REFUSES.search(comment) is not None
 
 
-def propose(
+async def propose(
     *,
     product_name: str,
     marketplace: str,
@@ -474,9 +499,15 @@ def propose(
     The recommendation reaches the reader whole — never summarised,
     truncated or re-encoded — because it is both what a person decides on
     and what the recording keeps as evidence.
+
+    Awaited, because the graph it runs is async-only: `ainvoke` is the
+    entry point the compiled graph answers, and `invoke` on it raises
+    (see `build_graph`).
     """
     running = graph if graph is not None else build_production_graph()
-    state = running.invoke({"product_name": product_name, "marketplace": marketplace})
+    state = await running.ainvoke(
+        {"product_name": product_name, "marketplace": marketplace}
+    )
     parsed = state.get("parsed")
 
     if isinstance(parsed, Supported):
@@ -561,7 +592,7 @@ async def advise_sub_category(context: StepContext) -> StepResolution:
     # is a plain `str`, which is why the line below it was correct while
     # this one was not.
     marketplace = getattr(product, "marketplace_id", "")
-    proposal = propose(
+    proposal = await propose(
         product_name=str(getattr(product, "name", "")),
         marketplace=str(getattr(marketplace, "value", marketplace)),
         graph=_graph(),

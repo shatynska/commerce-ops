@@ -181,8 +181,18 @@ class _ScriptedWireRunnable:
         }
 
     def invoke(self, input_: Any, *args: Any, **kwargs: Any) -> dict[str, Any]:
-        self.received.append(input_)
-        return self._answer()
+        # `tasks.md` 2.5 / `design.md` Decision 2's model-level guard.
+        # Both entry points are real on a structured-output runnable, so a
+        # `recommend` body reverted to `structured.invoke(...)` inside an
+        # `async def` would work, pin the invoking loop for the whole
+        # round-trip, and pass every assertion in this file about what the
+        # advisor produces. It fails here instead, naming the mistake.
+        raise AssertionError(
+            "the advisor reached the model through the model's synchronous "
+            "`invoke(...)` entry point instead of awaiting `ainvoke(...)` — "
+            "the enclosing coroutine then never yields, and the invoking "
+            "loop is pinned for the whole of the round-trip"
+        )
 
     async def ainvoke(self, input_: Any, *args: Any, **kwargs: Any) -> dict[str, Any]:
         self.received.append(input_)
@@ -237,14 +247,22 @@ class _ScriptedWireChatModel(BaseChatModel):
 # ---------------------------------------------------------------------------
 
 
-def _capture_wire_schema() -> Any:
+async def _capture_wire_schema() -> Any:
     model = _ScriptedWireChatModel(None)
     graph = advisor_graph.build_graph(model)
     if not model.schemas:
         try:
-            advisor_graph.propose(
+            await advisor_graph.propose(
                 product_name=PRODUCT_NAME, marketplace=MARKETPLACE, graph=graph
             )
+        except AssertionError:
+            # Never swallowed. An `AssertionError` out of `propose()` here
+            # came from this file's own fakes, so it reports that the
+            # advisor reached the model by a path this file forbids. The
+            # schema is recorded before the model is called, so the
+            # `schemas`-empty condition below never held for one of these
+            # and swallowed every guard.
+            raise
         except Exception as failure:
             if not model.schemas:
                 raise AssertionError(
@@ -259,14 +277,14 @@ def _capture_wire_schema() -> Any:
 
 
 @pytest.fixture(scope="module")
-def wire_schema() -> Any:
+async def wire_schema() -> Any:
     """The schema the advisor's own call site hands the model.
 
     Captured rather than imported: the wire model's *name* is fixed by no
     artifact, and the delta requires the schema under test to be the one
     the call site passes rather than a symbol expected to match it.
     """
-    return _capture_wire_schema()
+    return await _capture_wire_schema()
 
 
 def _wire(
@@ -289,7 +307,7 @@ def _wire(
         )
 
 
-def _propose(
+async def _propose(
     schema: Any,
     *,
     ok: bool,
@@ -301,7 +319,7 @@ def _propose(
         _wire(schema, ok=ok, value=value, error=error, comment=comment)
     )
     graph = advisor_graph.build_graph(model)
-    return advisor_graph.propose(
+    return await advisor_graph.propose(
         product_name=PRODUCT_NAME, marketplace=MARKETPLACE, graph=graph
     )
 
@@ -372,7 +390,8 @@ def _names_shortfall(reason: str) -> bool:
 
 
 @pytest.mark.parametrize("error", BLANK_ERRORS, ids=("none", "empty", "whitespace"))
-def test_a_supported_choice_proposes_satisfaction(
+@pytest.mark.anyio
+async def test_a_supported_choice_proposes_satisfaction(
     wire_schema: Any, error: str | None
 ) -> None:
     """Scenario: A supported choice proposes satisfaction.
@@ -389,7 +408,7 @@ def test_a_supported_choice_proposes_satisfaction(
     is parametrised over all three blank forms because `design.md` fixes
     blank as empty-or-whitespace, not merely `None`.
     """
-    proposal = _propose(wire_schema, ok=True, value=NODE, error=error)
+    proposal = await _propose(wire_schema, ok=True, value=NODE, error=error)
 
     assert _outcome_of(proposal) is Satisfied
     finding = _finding_of(proposal)
@@ -408,7 +427,8 @@ def test_a_supported_choice_proposes_satisfaction(
     (None, "", NODE),
     ids=("no-value", "empty-value", "value-present"),
 )
-def test_an_unsupported_choice_proposes_no_satisfaction(
+@pytest.mark.anyio
+async def test_an_unsupported_choice_proposes_no_satisfaction(
     wire_schema: Any, value: str | None
 ) -> None:
     """Scenario: An unsupported choice proposes no satisfaction.
@@ -429,7 +449,7 @@ def test_an_unsupported_choice_proposes_no_satisfaction(
     artifact fixes; that it carries the advisor's own error is asserted
     through the rendered text, which the requirement does pin.
     """
-    proposal = _propose(wire_schema, ok=False, value=value, error=REFUSAL_ERROR)
+    proposal = await _propose(wire_schema, ok=False, value=value, error=REFUSAL_ERROR)
 
     reason = _reason_of(proposal)
     assert _finding_of(proposal) is None
@@ -455,7 +475,8 @@ def test_an_unsupported_choice_proposes_no_satisfaction(
 
 @pytest.mark.parametrize("error", BLANK_ERRORS, ids=("none", "empty", "whitespace"))
 @pytest.mark.parametrize("value", BLANK_VALUES, ids=("none", "empty", "whitespace"))
-def test_a_supporting_discriminant_without_its_value_is_not_support(
+@pytest.mark.anyio
+async def test_a_supporting_discriminant_without_its_value_is_not_support(
     wire_schema: Any, value: str | None, error: str | None
 ) -> None:
     """Scenario: A supporting discriminant without its value is not support.
@@ -470,7 +491,7 @@ def test_a_supporting_discriminant_without_its_value_is_not_support(
     "and carries no error either" — a response carrying an error alongside
     the missing value is the contradiction below, not this route.
     """
-    proposal = _propose(wire_schema, ok=True, value=value, error=error)
+    proposal = await _propose(wire_schema, ok=True, value=value, error=error)
 
     reason = _reason_of(proposal)
     assert _finding_of(proposal) is None
@@ -491,7 +512,8 @@ def test_a_supporting_discriminant_without_its_value_is_not_support(
 
 
 @pytest.mark.parametrize("error", BLANK_ERRORS, ids=("none", "empty", "whitespace"))
-def test_a_withholding_discriminant_without_its_error_is_not_a_refusal(
+@pytest.mark.anyio
+async def test_a_withholding_discriminant_without_its_error_is_not_a_refusal(
     wire_schema: Any, error: str | None
 ) -> None:
     """Scenario: A withholding discriminant without its error is not a
@@ -503,7 +525,7 @@ def test_a_withholding_discriminant_without_its_error_is_not_a_refusal(
     verdict could be read, rather than one asserting that the advisor
     considered and declined a classification.
     """
-    proposal = _propose(wire_schema, ok=False, value=None, error=error)
+    proposal = await _propose(wire_schema, ok=False, value=None, error=error)
 
     reason = _reason_of(proposal)
     assert _finding_of(proposal) is None
@@ -527,7 +549,8 @@ def test_a_withholding_discriminant_without_its_error_is_not_a_refusal(
     ids=("value-present", "no-value", "empty-value", "whitespace-value"),
 )
 @pytest.mark.parametrize("comment", (COMMENT, ""), ids=("commented", "no-comment"))
-def test_a_supporting_discriminant_carrying_a_reported_error_withholds_satisfaction(
+@pytest.mark.anyio
+async def test_a_supporting_discriminant_carrying_a_reported_error_withholds_satisfaction(
     wire_schema: Any, value: str | None, comment: str
 ) -> None:
     """Scenario: A supporting discriminant carrying a reported error
@@ -554,7 +577,7 @@ def test_a_supporting_discriminant_carrying_a_reported_error_withholds_satisfact
     not claim it, and rendering it as a supported result would show a
     reader a bare node path with no refusal anywhere in it.
     """
-    proposal = _propose(
+    proposal = await _propose(
         wire_schema, ok=True, value=value, error=REPORTED_ERROR, comment=comment
     )
 
@@ -592,7 +615,10 @@ def test_a_supporting_discriminant_carrying_a_reported_error_withholds_satisfact
     )
 
 
-def test_the_three_withholding_reasons_are_distinguishable(wire_schema: Any) -> None:
+@pytest.mark.anyio
+async def test_the_three_withholding_reasons_are_distinguishable(
+    wire_schema: Any,
+) -> None:
     """The reason-naming obligation, asserted without depending on wording.
 
     SPECIFIED: "the reason recorded SHALL name what was actually wrong —
@@ -604,12 +630,12 @@ def test_the_three_withholding_reasons_are_distinguishable(wire_schema: Any) -> 
     directly, so that an implementation collapsing two of them fails on
     this test rather than only on the word lists above.
     """
-    shortfall = _reason_of(_propose(wire_schema, ok=True, value=None, error=None))
+    shortfall = _reason_of(await _propose(wire_schema, ok=True, value=None, error=None))
     advisor_error = _reason_of(
-        _propose(wire_schema, ok=False, value=None, error=REFUSAL_ERROR)
+        await _propose(wire_schema, ok=False, value=None, error=REFUSAL_ERROR)
     )
     contradiction = _reason_of(
-        _propose(wire_schema, ok=True, value=NODE, error=REPORTED_ERROR)
+        await _propose(wire_schema, ok=True, value=NODE, error=REPORTED_ERROR)
     )
 
     assert shortfall != advisor_error, (
@@ -683,7 +709,8 @@ _GRID: Final = [
 
 
 @pytest.mark.parametrize(("ok", "value", "error"), _GRID)
-def test_every_wire_combination_has_a_defined_destination(
+@pytest.mark.anyio
+async def test_every_wire_combination_has_a_defined_destination(
     wire_schema: Any, ok: bool, value: str | None, error: str | None
 ) -> None:
     """Scenario: Every wire combination has a defined destination.
@@ -707,7 +734,7 @@ def test_every_wire_combination_has_a_defined_destination(
     that none of the 32 falls through — is this scenario's.
     """
     expected = _expected_destination(ok=ok, value=value, error=error)
-    proposal = _propose(wire_schema, ok=ok, value=value, error=error)
+    proposal = await _propose(wire_schema, ok=ok, value=value, error=error)
 
     if expected == _SATISFIED:
         assert _outcome_of(proposal) is Satisfied
@@ -753,7 +780,8 @@ def test_every_wire_combination_has_a_defined_destination(
 # ---------------------------------------------------------------------------
 
 
-def test_a_supported_wire_response_reports_what_a_supported_result_always_did(
+@pytest.mark.anyio
+async def test_a_supported_wire_response_reports_what_a_supported_result_always_did(
     wire_schema: Any,
 ) -> None:
     """Scenario: The reported variants are unchanged by the wire shape.
@@ -777,7 +805,7 @@ def test_a_supported_wire_response_reports_what_a_supported_result_always_did(
     The served requirement makes that a MAY ("The finding MAY also carry
     the comment"), so pinning it would invent a constraint.
     """
-    proposal = _propose(wire_schema, ok=True, value=NODE, error=None)
+    proposal = await _propose(wire_schema, ok=True, value=NODE, error=None)
 
     assert _outcome_of(proposal) is Satisfied
     # SPECIFIED: the same typed finding — `Success`, whose value is exactly
@@ -793,7 +821,8 @@ def test_a_supported_wire_response_reports_what_a_supported_result_always_did(
         assert line.strip() in text
 
 
-def test_an_unsupported_wire_response_reports_what_a_refusal_always_did(
+@pytest.mark.anyio
+async def test_an_unsupported_wire_response_reports_what_a_refusal_always_did(
     wire_schema: Any,
 ) -> None:
     """Scenario: The reported variants are unchanged by the wire shape,
@@ -804,7 +833,7 @@ def test_an_unsupported_wire_response_reports_what_a_refusal_always_did(
     recommendation still says so in prose* makes against a domain
     `Unsupported`.
     """
-    proposal = _propose(wire_schema, ok=False, value=None, error=REFUSAL_ERROR)
+    proposal = await _propose(wire_schema, ok=False, value=None, error=REFUSAL_ERROR)
 
     _assert_withheld(proposal)
     assert _finding_of(proposal) is None

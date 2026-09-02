@@ -91,5 +91,27 @@ class StepResolution:
 
 
 StepHandler = Callable[[StepContext], Awaitable[StepResolution]]
-"""What the registry holds. Awaited: a handler is free to reach a model or
-a service, and the one this change ships does."""
+"""What the registry holds.
+
+Awaited: a handler is free to reach a model or a service, and the one
+this deployment ships does.
+
+**Being awaited is not the same as yielding, and this type cannot tell
+the difference.** `Awaitable[StepResolution]` is satisfied by any
+coroutine, including one that reaches a model through a blocking call
+and so never gives the loop back. `async def` describes what a function
+returns, not whether the work inside it ever pauses. The pass invokes
+handlers one at a time and awaits each precisely so that one handler's
+waiting costs the pass its own time; a handler that blocks instead makes
+it cost the whole process -- the worker runs on a single loop, so
+nothing else progresses for as long as the dependency takes to answer.
+
+That obligation is `launch-step-automation`'s *A handler's waiting does
+not stop the process*, and it is stated there rather than here because
+nothing here can enforce it: there is no annotation for "and actually
+yields", and no linter that knows a third-party library's synchronous
+entry point. It is held by each handler's own tests. The shipped handler
+was written against this type, satisfied it exactly, and pinned the loop
+for the whole of an OpenAI round-trip -- which is why this note exists
+rather than a comment saying handlers may reach a service.
+"""

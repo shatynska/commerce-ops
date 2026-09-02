@@ -147,8 +147,18 @@ class _ScriptedStructuredRunnable:
         }
 
     def invoke(self, input_: Any, *args: Any, **kwargs: Any) -> dict[str, Any]:
-        self.received.append(input_)
-        return self._answer()
+        # `tasks.md` 2.5 / `design.md` Decision 2's model-level guard.
+        # Both entry points are real on a structured-output runnable, so a
+        # `recommend` body reverted to `structured.invoke(...)` inside an
+        # `async def` would work, pin the invoking loop for the whole
+        # round-trip, and pass every assertion in this file about what the
+        # advisor produces. It fails here instead, naming the mistake.
+        raise AssertionError(
+            "the advisor reached the model through the model's synchronous "
+            "`invoke(...)` entry point instead of awaiting `ainvoke(...)` — "
+            "the enclosing coroutine then never yields, and the invoking "
+            "loop is pinned for the whole of the round-trip"
+        )
 
     async def ainvoke(self, input_: Any, *args: Any, **kwargs: Any) -> dict[str, Any]:
         self.received.append(input_)
@@ -238,10 +248,10 @@ def _finding_of(proposal: Any) -> Any:
     return getattr(proposal, "finding", _ABSENT)
 
 
-def _propose(outcome: Any, *, product_name: str = PRODUCT_NAME) -> Any:
+async def _propose(outcome: Any, *, product_name: str = PRODUCT_NAME) -> Any:
     model = _ScriptedStructuredChatModel(outcome)
     graph = advisor_graph.build_graph(model)
-    return advisor_graph.propose(
+    return await advisor_graph.propose(
         product_name=product_name, marketplace=MARKETPLACE, graph=graph
     ), model
 
@@ -251,7 +261,8 @@ def _propose(outcome: Any, *, product_name: str = PRODUCT_NAME) -> Any:
 # ---------------------------------------------------------------------------
 
 
-def test_a_recommendation_names_node_demands_and_alternative() -> None:
+@pytest.mark.anyio
+async def test_a_recommendation_names_node_demands_and_alternative() -> None:
     """Scenario: A recommendation names node, demands and alternative.
 
     WHEN the advisor is given a product name and a marketplace identifier
@@ -266,7 +277,9 @@ def test_a_recommendation_names_node_demands_and_alternative() -> None:
     all three parts, and that a supported response's rendered text carries
     the node and the comment whole.
     """
-    proposal, model = _propose(AdvisorResponse(ok=True, value=NODE, comment=COMMENT))
+    proposal, model = await _propose(
+        AdvisorResponse(ok=True, value=NODE, comment=COMMENT)
+    )
 
     # SPECIFIED: both inputs reach the model.
     assert model.prompt, "the advisor invoked no model"
@@ -292,7 +305,8 @@ def test_a_recommendation_names_node_demands_and_alternative() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_a_recommendation_is_readable_as_it_stands() -> None:
+@pytest.mark.anyio
+async def test_a_recommendation_is_readable_as_it_stands() -> None:
     """Scenario: A recommendation is readable as it stands.
 
     WHEN a recommendation is returned
@@ -300,7 +314,7 @@ def test_a_recommendation_is_readable_as_it_stands() -> None:
     processing, since it is delivered to a person for a decision and
     stored as the evidence of what was decided.
     """
-    proposal, _ = _propose(AdvisorResponse(ok=True, value=NODE, comment=COMMENT))
+    proposal, _ = await _propose(AdvisorResponse(ok=True, value=NODE, comment=COMMENT))
 
     text = _text_of(proposal)
     assert isinstance(text, str)
@@ -320,7 +334,8 @@ def test_a_recommendation_is_readable_as_it_stands() -> None:
 @pytest.mark.parametrize(
     "comment", [pytest.param("", id="empty-string"), pytest.param(None, id="none")]
 )
-def test_a_supported_comment_cannot_be_empty(comment: str | None) -> None:
+@pytest.mark.anyio
+async def test_a_supported_comment_cannot_be_empty(comment: str | None) -> None:
     """Scenario: A supported comment cannot be empty.
 
     WHEN the advisor's structured response validates as supported but its
@@ -329,7 +344,7 @@ def test_a_supported_comment_cannot_be_empty(comment: str | None) -> None:
     it would for an unreadable verdict — a supported result with no
     comment is not a valid recommendation for this step.
     """
-    proposal, _ = _propose(AdvisorResponse(ok=True, value=NODE, comment=comment))
+    proposal, _ = await _propose(AdvisorResponse(ok=True, value=NODE, comment=comment))
 
     # SPECIFIED: a non-terminal outcome, not the satisfying one.
     outcome = _outcome_of(proposal)
@@ -347,7 +362,8 @@ def test_a_supported_comment_cannot_be_empty(comment: str | None) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_a_comments_content_is_never_checked_by_code() -> None:
+@pytest.mark.anyio
+async def test_a_comments_content_is_never_checked_by_code() -> None:
     """Scenario: A comment's content is never checked by code.
 
     WHEN the advisor's structured response validates as supported with a
@@ -359,7 +375,9 @@ def test_a_comments_content_is_never_checked_by_code() -> None:
     which this capability does not do.
     """
     bare_comment = "ok, ship it"
-    proposal, _ = _propose(AdvisorResponse(ok=True, value=NODE, comment=bare_comment))
+    proposal, _ = await _propose(
+        AdvisorResponse(ok=True, value=NODE, comment=bare_comment)
+    )
 
     # SPECIFIED: the satisfying outcome, whatever the comment says.
     assert _outcome_of(proposal) is Satisfied
