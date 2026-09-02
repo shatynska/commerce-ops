@@ -381,12 +381,28 @@ sessions push at once produce failures that read as defects and are not.
 database per worktree on the same container, which costs a `CREATE DATABASE` and
 an `alembic upgrade head`, no second container and no second port.
 
-**Rung 3 can reach the working database.** `commerce-ops/.env` names
-`commerce_ops` — the database carrying 1880 launch positions — and is shadowed
-only by that clone's `.env.test`. Delete or rename one file and the tier falls
-through to it and runs that unscoped delete against real data, green. Nothing in
-the resolver refuses a URL naming the database the developer works in, though
-`.env.test` exists precisely to "keep the tier out of" it.
+**Rung 3 can reach the development database.** `commerce-ops/.env` names
+`commerce_ops`, and is shadowed only by that clone's `.env.test`. Delete or
+rename one file and the tier falls through to it and runs that unscoped delete
+against it, green. Nothing in the resolver refuses a URL naming the database the
+developer works in, though `.env.test` exists precisely to "keep the tier out
+of" it.
+
+**Corrected 2026-09-02, because the original wording overstated this and the
+overstatement was repeated.** This entry used to call `commerce_ops` "the
+database carrying 1880 launch positions" and the hazard "that unscoped delete
+against **real data**". It is a *development* database. Production is the
+deployed container on its own host with its own volume; nothing here is business
+data, and no local run can reach it. Losing `commerce_ops` costs local state, not
+records anyone needs.
+
+The hazard survives the correction, for a different reason, and the reason is the
+better one: the tier **writes freely** into whatever it finds, and
+`test_playbook_seed.py` asserts a "before any authored edit" premise that any
+admin-UI editing done in a development database breaks. So rung 3 produces a
+wrecked development state and a run whose failures read as defects and are not —
+which is this file's recurring pattern, not a data-loss event. Whoever closes
+this should argue it on correctness, not on stakes that are not there.
 
 **Recorded in**: `2026-08-25-verify-the-integration-tier`'s `design.md` — *A
 required-tier flag turns a skip into a failure — in CI only*, which argues the
@@ -454,8 +470,9 @@ be hung off worktree teardown. Whoever writes that script owns this question.
 
 ### The working database is behind head, which is currently hiding the rung-3 hazard
 
-`commerce_ops` — the database `.env` names, holding **2019** launch positions — sits
-at `1a2b3c4d5e6f`, four revisions behind the repository's head `c04d95ba6e31`
+`commerce_ops` — the development database `.env` names, holding **2019** launch
+positions accumulated by development and testing, not by anyone's business — sits at
+`1a2b3c4d5e6f`, four revisions behind the repository's head `c04d95ba6e31`
 (2026-09-02). Every test database on the container is at head.
 
 That matters for one reason. The entry above records that the resolver's third rung
@@ -466,8 +483,16 @@ that far: the schema is old enough that the tier would fail early and loudly ins
 **That is luck, not a guard, and it expires the moment anyone runs
 `alembic upgrade head` against their development database** — an ordinary thing to
 do, which would silently remove the only thing currently standing between rung 3 and
-2019 real rows. Nobody should rely on it, and nobody should be reassured by never
+those 2019 rows. Nobody should rely on it, and nobody should be reassured by never
 having seen rung 3 do damage: the reason is a stale schema, not a safety property.
+
+There is a second, unrelated reason to migrate it anyway, and it points the other
+way. CI creates an empty Postgres and migrates that; the deploy host migrates a
+populated one. So **no migration in this repository is exercised against populated
+data anywhere except in production.** This database is the only populated one
+available, which makes `alembic upgrade head` against it a free rehearsal of what a
+deploy does — and makes dropping and recreating it a loss of the only fixture that
+rehearsal has. Worth weighing before anyone tidies it away.
 
 It also means a rung-3 failure met today reads as a migration error rather than as a
 misconfigured tier, which is one more way this class of fault arrives wearing the
