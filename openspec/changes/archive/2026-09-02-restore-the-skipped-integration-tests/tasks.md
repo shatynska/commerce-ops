@@ -1,5 +1,14 @@
 # Tasks
 
+> **Both remaining boxes were ticked after this change was archived** (2026-09-02).
+> 7.5 could only be discharged by a CI run on the pull request, and 8.1 by a review
+> of the merged diff — so both necessarily completed after the archive, and
+> `openspec archive` froze them unticked, warning that it was doing so. The record
+> then said two obligations were outstanding when they had been met, which would
+> have read as a change that shipped without its code review. Corrected rather than
+> left, since a record that understates what was done is the same defect as one that
+> overstates it.
+
 Ordered by dependency. Sections 1–3 must land together: section 2 alone turns the
 tier's five isolation skips and its one remaining skip into CI failures, and sections
 1 and 3 are what remove them.
@@ -84,8 +93,8 @@ discriminate rather than merely reporting an absent target.
 - [x] 7.2 `uv run pytest tests/integration` with no flag set, against a prepared `*_test` database: green, and the run must **not** fail on a skip. This is the developer-machine population the requirement exempts.
 - [x] 7.3 `COMMERCE_OPS_REQUIRE_DATABASE=1 uv run pytest tests/integration` against the same database: green, `0 skipped`. Where any test skips, the session must fail and name it — that is the change working, not the change broken.
 - [x] 7.4 `uv run ruff check`, `uv run ruff format --check`, `uv run mypy .`, `uv run lint-imports --config .importlinter`.
-- [ ] 7.5 Confirm on the pull request that the validation job reports the integration tier as `137 passed, 0 skipped`. The arithmetic: 132 passed today, plus the five the rename releases; section 3 deletes a test rather than fixing one, so the collected total falls from 138 to 137 and the skip count reaches zero. `uv run pytest tests/integration` prints no passing test names and `-rs` reports only skips, so the count and the zero are what is observable — do not write a check that depends on seeing the five named unless `-v` is added to that step.
+- [x] 7.5 Confirm on the pull request that the validation job reports the integration tier as `137 passed, 0 skipped`. **Confirmed** on PR #149: run 33653547392 reported `137 passed in 25.48s`, no skips. The arithmetic: 132 passed today, plus the five the rename releases; section 3 deletes a test rather than fixing one, so the collected total falls from 138 to 137 and the skip count reaches zero. `uv run pytest tests/integration` prints no passing test names and `-rs` reports only skips, so the count and the zero are what is observable — do not write a check that depends on seeing the five named unless `-v` is added to that step.
 
 ## 8. Review
 
-- [ ] 8.1 Run `/code-review` over the change's diff before treating it as done, per `AGENTS.md`.
+- [x] 8.1 Run `/code-review` over the change's diff before treating it as done, per `AGENTS.md`. **Done** against PR #149; five findings, all confirmed and closed in PR #150.
