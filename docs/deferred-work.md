@@ -840,6 +840,14 @@ make: the gap predates it, and closing it is a change of its own.
 a fresh database — or the next test that asserts the served step count and
 fails for this reason rather than its own.
 
+**The trigger fired, 2026-09-02**, and the entry cost what it predicted.
+`inject-the-thread-anchor-poster` built an isolated `commerce_ops_anchor_test`
+rather than mutate the shared one; `alembic upgrade head` alone left 97 `lp.*`
+steps, and four integration tests failed asserting 358 — the failures naming a
+step count, not a seed. `uv run python -m commerce_ops.seed_playbook` against
+the same `DATABASE_URL` brought it to 358 and the tier to green. That command
+is the missing sentence, and it is still owed to `AGENTS.md`.
+
 ### Production code carries tolerances for incomplete test doubles
 
 Several modules read one value through several attribute spellings, or
@@ -949,7 +957,9 @@ skipped wholesale under the false reason "Unit test requires database". None
 needed a database. What each of them actually needed was to get around a place
 where production code reaches for a global instead of taking a collaborator,
 and the corrections are still standing in `tests/` because removing the seams
-is `inject-the-thread-anchor-poster`'s scope, not that change's.
+was `inject-the-thread-anchor-poster`'s scope, not that change's. **One of the
+three is now gone** — that change retired the Slack client; the other two
+stand, and its design says why each was out of its scope.
 
 Recorded with what each one cost, because this is the most concrete evidence
 that change has:
@@ -957,7 +967,7 @@ that change has:
 | Seam | What it cost a test |
 |---|---|
 | `launch_thread_delivery.establish_thread_and_resolve_mention` opens its own `transaction()` (`:82`) | Substituting `slack_entry.transaction` does not reach a second module's own import of the same name. This is what made two files look database-bound. Two test files now substitute `transaction`, `LaunchRepository` and `hold_launch_thread_establishment_lock` on that module. |
-| `thread_establishment._get_slack_client()` is an `lru_cache`d `AsyncWebClient` reading `PRODUCT_AGENT_SLACK_BOT_TOKEN` (`:43-45`) | The anchor post bypasses the injected poster entirely, so a test can only observe it by patching `AsyncWebClient.api_call` at class level — and must then add `thread_establishment` to its cache-reset list, or the cached client outlives the test. Two files now do both. |
+| ~~`thread_establishment._get_slack_client()` is an `lru_cache`d `AsyncWebClient` reading `PRODUCT_AGENT_SLACK_BOT_TOKEN`~~ — **retired** by `inject-the-thread-anchor-poster` (2026-09-02) | It cost this: the anchor post bypassed the injected poster entirely, so a test could only observe it by patching `AsyncWebClient.api_call` at class level, and had then to add `thread_establishment` to its cache-reset list or the cached client outlived the test. The client is now the injected `post_anchor` port. `test_thread_establishment_race.py` substitutes a plain recording callable; no cache-reset list names `thread_establishment` anywhere in `tests/`, and no fixture sets `PRODUCT_AGENT_SLACK_BOT_TOKEN` for this reason alone. |
 | `launches_channel()` reads `os.environ` directly (`slack_notifier.py:44`) | Raises `KeyError` inside `_report_stuck_step`'s own `try`, which swallows it into a warning — seven tests failing on an empty message list with nothing in the failure naming the cause. Three files now set the variable by fixture. |
 
 The common shape is worth stating once: **each fault is absorbed by an
@@ -986,6 +996,6 @@ Verified present 2026-09-01; suitable for one chore commit.
 | `httpx2` in dev dependencies | It is a runtime requirement of `openai`, not a test dependency. Likely added by mistake. |
 | `description = "Add your description here"` | Placeholder from the project template. Deliberately excluded from `tighten-type-checking` as unrelated scope. |
 | No `known-first-party` for ruff's isort | Without `known-first-party = ["commerce_ops"]` under `[tool.ruff.lint.isort]`, ruff infers first-party packages per invocation, so the classification changes with the set of files it is handed. `uv run ruff check` over the whole project passes while the `pre-commit` hook — which passes explicit staged paths — fails `I001` on those same files, and fixing one file at a time reports success while fixing them together still finds errors. Cost a commit two attempts to diagnose; the one-line declaration makes it deterministic. |
-| `post_monitoring_message` is misnamed | `launch/infrastructure/driven/slack_notifier.py:47` takes `channel` as an argument and is called with `launches_channel()` at every launch-thread site. It posts to whichever channel it is given; only its name still says otherwise. `post_message`. Worth doing while `inject-the-thread-anchor-poster` is already changing its signature, not before. |
+| `post_monitoring_message` is misnamed | `launch/infrastructure/driven/slack_notifier.py` takes `channel` as an argument and is called with `launches_channel()` at every launch-thread site. It posts to whichever channel it is given; only its name still says otherwise. `post_message`. **Measured, 2026-09-02, and declined by `inject-the-thread-anchor-poster` rather than folded in as this row previously invited.** The rename's scope is **14 occurrences over 5 source files** (`slack_notifier.py` 2, `gate_confirmation.py` 4, `automation_confirmation.py` 4, `slack_entry.py` 3, `launch_thread_delivery.py` 1) plus the launch-side tests. An unqualified `grep` gives 27 source and 42 test occurrences; of those, 11 source and 20 test belong to `briefing`/`shared` and their **different function of the same name**, as do both `Protocol` declarations (`shared/application/ports.py`, `briefing/application/ports.py`), which declare `(message: str)` and are not part of the rename. The trap: `clickup_sync_job.py:200` and `automation_pass.py:656` call this name *inside `launch`* on an injected collaborator that is `briefing`'s notifier, so renaming by module or by name would rename them and break the first — see *The stuck-step report cannot reach the notifier the worker injects* for why the second is already broken. **Worth doing** when that defect is fixed, since fixing it settles which notifier each of those two sites is talking to, which is the fact a safe rename needs. |
 | `Proposal.outcome` and `Proposal.finding` are `Any` | `step_handlers/listing/subcategory_advisor.py:229-236`. `StepResolution` types the same two values properly (`StepOutcomeValue`, `Result[Any, Any] \| None`), and `Proposal` exists only to carry them one function further. Nothing forces the widening — no import boundary is crossed here. |
 | Comment archaeology in `main.py` | `main.py:261-272` spends five lines describing what a *previous version of a comment* said. Git holds that. The comment convention this project keeps — record the reasoning, not just the behaviour — is worth keeping; recording the reasoning's own edit history is not. |

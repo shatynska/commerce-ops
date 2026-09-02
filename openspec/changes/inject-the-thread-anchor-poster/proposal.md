@@ -5,6 +5,7 @@
 ```python
 from slack_sdk.web.async_client import AsyncWebClient
 
+
 @functools.lru_cache
 def _get_slack_client() -> AsyncWebClient:
     return AsyncWebClient(token=os.environ["PRODUCT_AGENT_SLACK_BOT_TOKEN"])

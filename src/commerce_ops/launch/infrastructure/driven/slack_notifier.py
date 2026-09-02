@@ -50,7 +50,7 @@ async def post_monitoring_message(
     text: str,
     blocks: list[dict[str, Any]] | None = None,
     thread_ts: str | None = None,
-) -> None:
+) -> str:
     """Post to the monitoring channel, optionally with interactive blocks.
 
     `text` is always sent even where blocks are: Slack uses it for the
@@ -59,10 +59,19 @@ async def post_monitoring_message(
 
     When `thread_ts` is set, the message is posted as a reply within that
     thread; when absent, it is a top-level message.
+
+    Returns the posted message's `ts`. Every caller but the anchor poster
+    ignores it, and this returned it as `None` until
+    `inject-the-thread-anchor-poster`: discarding the response is the whole
+    reason `thread_establishment` built a *third* `AsyncWebClient` of its
+    own, in the application layer, to learn the one value that becomes a
+    launch's thread reference.
     """
     kwargs: dict[str, Any] = {"channel": channel, "text": text}
     if blocks is not None:
         kwargs["blocks"] = blocks
     if thread_ts is not None:
         kwargs["thread_ts"] = thread_ts
-    await _get_slack_client().chat_postMessage(**kwargs)
+    response = await _get_slack_client().chat_postMessage(**kwargs)
+    ts: str = response["ts"]
+    return ts

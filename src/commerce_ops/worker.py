@@ -16,6 +16,8 @@ import asyncio
 import logging
 from datetime import date
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from commerce_ops.access.application import Person, list_people
 from commerce_ops.access.infrastructure.driven.roster_repository import PostgresRoster
 from commerce_ops.catalog.domain.product import Product
@@ -177,6 +179,31 @@ gate_progression_job.read_people = clickup_sync_job.read_people
 # by this process's automation pass, so the same stateless reader is reused
 # once more.
 launch_thread_delivery.read_people = clickup_sync_job.read_people
+
+
+async def _read_product_on(
+    db_session: AsyncSession, product_id: ProductId
+) -> Product | None:
+    """The launch thread anchor's product, on the establishing transaction.
+
+    Deliberately **not** `_read_catalog_product`, whose docstring says in as
+    many words that "it opens its own session -- the pass may run for many
+    launches, and this read is not part of their transaction". That is right
+    for the pass and wrong here: this read happens inside
+    `launch_thread_delivery`'s `transaction()` while the thread-establishment
+    advisory lock is held, so opening a session would hold a second
+    connection alongside the first for a catalog round-trip.
+
+    Same scope as its sibling, and for the same reason: scheduled work is not
+    a person, so this says which scope it runs under rather than defaulting
+    into one.
+    """
+    return await get_product_by_id(
+        CatalogProductRepository(db_session), product_id, scope=_INTERNAL_SCOPE
+    )
+
+
+launch_thread_delivery.read_product = _read_product_on
 
 
 async def _read_launch_reports(*, as_of: date) -> tuple[LaunchReport, ...]:

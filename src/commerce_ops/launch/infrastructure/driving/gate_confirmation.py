@@ -239,20 +239,18 @@ async def post_gate_ask(
             )
             product = None
     message = compose_message(product=product, product_id=product_id, gate_id=gate_id)
-    sku_value = ""
-    marketplace_value = ""
-    if product:
-        sku = getattr(product, "sku", None)
-        sku_value = sku.value if sku else ""
-        marketplace = getattr(product, "marketplace_id", None)
-        marketplace_value = marketplace.value if marketplace else ""
     # Gates have no confirmer of their own, so this always resolves to the
     # launch's submitter (`step=None`).
+    #
+    # The read above still degrades the *body* to the identifier, which is
+    # what its own `except` is for and is untouched. The anchor is resolved
+    # separately, inside establishment, and refuses instead of degrading --
+    # a message can be rewritten and a permanent thread header cannot. So a
+    # catalog fault no longer withholds this ask's wording, but it does
+    # withhold the *first* ask for a launch with no thread yet, which is
+    # then retried next pass under this capability's own rule.
     thread_ts, mention = await establish_thread_and_resolve_mention(
         product_id,
-        product.name if product else product_id.value,
-        sku_value,
-        marketplace_value,
         step=None,
     )
     mention_tag = f" <@{mention}>" if mention else ""

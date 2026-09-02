@@ -6,7 +6,12 @@ dedicated Slack threads. This module provides:
 1. Lazy thread establishment: the first per-product message posts an anchor
    (product name, SKU, marketplace, launch date) and records the thread ID
    for reuse by subsequent messages; concurrent callers race under an
-   advisory lock and produce exactly one anchor.
+   advisory lock and produce exactly one anchor. The anchor's facts are
+   resolved **here**, once, from the launch's own product — not supplied by
+   whichever delivery path got there first — and where they cannot be
+   resolved, establishment is *refused* rather than anchored with blanks.
+   The anchor is permanent (`launch-instance`: never re-created once set),
+   so a delayed thread is recoverable and a degraded one is not.
 
 2. Mention resolution: who to tag in a message — the step's confirmer if
    it names one, else the launch's submitter.
@@ -14,13 +19,9 @@ dedicated Slack threads. This module provides:
 
 from __future__ import annotations
 
-import functools
 import logging
-import os
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Any
-
-from slack_sdk.web.async_client import AsyncWebClient
 
 from commerce_ops.launch.application.playbook_authoring import (
     RosterReader,
@@ -33,28 +34,19 @@ from commerce_ops.shared.domain.identity import ProductId
 _logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-    from sqlalchemy.ext.asyncio import AsyncSession
-
     from commerce_ops.launch.domain.launch_playbook import StepDefinition
 
 __all__ = ["ensure_launch_thread", "resolve_mention_target"]
 
 
-@functools.lru_cache
-def _get_slack_client() -> AsyncWebClient:
-    return AsyncWebClient(token=os.environ["PRODUCT_AGENT_SLACK_BOT_TOKEN"])
-
-
 async def ensure_launch_thread(
-    db_session: AsyncSession,
     launch_store: LaunchStore,
     product_id: ProductId,
-    product_name: str,
-    product_sku: str,
-    product_marketplace: str,
     *,
-    hold_lock: Callable[[AsyncSession, ProductId], Any],
+    hold_lock: Callable[[], Awaitable[None]],
     channel: Callable[[], str],
+    post_anchor: Callable[[str, str], Awaitable[str]],
+    read_product: Callable[[], Awaitable[Any]] | None = None,
 ) -> str:
     """Establish or reuse a launch's Slack thread, returning its reference.
 
@@ -63,31 +55,94 @@ async def ensure_launch_thread(
     under an advisory lock and produce exactly one anchor. Later callers
     reuse the existing thread reference without posting a second anchor.
 
+    Every collaborator is an injected port, `post_anchor` included. This
+    module is the application layer, and it used to build its own
+    `AsyncWebClient` from the environment — the third copy of six lines
+    whose other two live where a Slack client belongs. It also used to take
+    the anchor's product facts as three loose strings from its caller, and
+    to name `AsyncSession` in this signature for a value it only handed on.
+
+    The anchor's facts are resolved here instead, through `read_product`,
+    **after** the lock is held and after the early return for a launch that
+    already has a thread. That placement is the requirement rather than an
+    optimisation: `launch-instance` says a launch carrying a thread
+    reference never resolves its product for the anchor, and it is what
+    keeps every message after the first untouched by whether the catalog is
+    answering.
+
+    Refuses — raises — where the product cannot be resolved, rather than
+    anchoring a thread with blanks in it. The anchor is permanent, so a
+    degraded one has no repair path short of editing the database, while a
+    delayed one costs one message that each caller already knows how to
+    handle: three of the four retry, and the launch confirmation tells its
+    submitter directly (`launch-entry`).
+
     Returns the thread reference (`ts`) as a string.
     """
     # Acquire the lock, reload the launch to re-check the thread reference
     # under lock, and post if absent.
-    await hold_lock(db_session, product_id)
+    await hold_lock()
     launch = await launch_store.get_by_product_id(product_id)
     if launch is None:
         raise RuntimeError(f"no launch found for product {product_id.value}")
     if launch.slack_thread_id is not None:
-        # Another caller won the race and established it first.
+        # Another caller won the race and established it first. Nothing is
+        # resolved on this path -- not the product, not the anchor.
         return launch.slack_thread_id
-    # Post the anchor message and persist the thread reference.
-    anchor_text = _compose_anchor_message(
-        product_name, product_sku, product_marketplace, launch.launch_date
-    )
+    # Only now, with something permanent about to be written, is the product
+    # resolved.
+    product = await _product_or_refuse(product_id, read_product=read_product)
+    anchor_text = _compose_anchor_message(product, launch.launch_date)
     # The anchor is posted as a top-level message in launches_channel;
     # the returned ts becomes the thread reference for this and all future
     # per-product messages.
-    response = await _get_slack_client().chat_postMessage(
-        channel=channel(), text=anchor_text
-    )
-    thread_ts: str = response["ts"]
+    thread_ts = await post_anchor(channel(), anchor_text)
     launch.slack_thread_id = thread_ts
     await launch_store.save(launch)
     return thread_ts
+
+
+async def _product_or_refuse(
+    product_id: ProductId, *, read_product: Callable[[], Awaitable[Any]] | None
+) -> Any:
+    """The launch's product, or a refusal naming which of three gaps occurred.
+
+    A reader that was never injected, one that fails, and one that answers
+    nothing are one case — the system cannot say what the product is — and
+    each refuses. They are still named apart in the message, because the
+    repairs differ entirely: the first is a composition root that forgot a
+    collaborator, the second a catalog that is down, the third a launch
+    whose product is not there to be read.
+
+    `RuntimeError` rather than a type of its own: no caller distinguishes
+    this from any other delivery failure, each having one rule for "the post
+    did not happen". The neighbouring impossible-state above raises the same
+    way.
+    """
+    if read_product is None:
+        raise RuntimeError(
+            f"cannot establish the launch thread for product "
+            f"{product_id.value}: no product reader is wired into this "
+            f"process, so the anchor's facts cannot be resolved; the anchor "
+            f"is permanent, so it is not posted with what is missing"
+        )
+    try:
+        product = await read_product()
+    except Exception as error:
+        raise RuntimeError(
+            f"cannot establish the launch thread for product "
+            f"{product_id.value}: the catalog product could not be read "
+            f"({error!r}); the anchor is permanent, so it is not posted with "
+            f"what is missing"
+        ) from error
+    if product is None:
+        raise RuntimeError(
+            f"cannot establish the launch thread for product "
+            f"{product_id.value}: the catalog holds no product for it, so "
+            f"the anchor's facts cannot be resolved; the anchor is "
+            f"permanent, so it is not posted with what is missing"
+        )
+    return product
 
 
 async def resolve_mention_target(
@@ -255,14 +310,23 @@ def _report_gap(
     )
 
 
-def _compose_anchor_message(
-    product_name: str, product_sku: str, product_marketplace: str, launch_date: Any
-) -> str:
-    """Compose the anchor message for a launch thread."""
+def _compose_anchor_message(product: Any, launch_date: Any) -> str:
+    """Compose the anchor message for a launch thread.
+
+    Reads the product's fields directly rather than through `getattr`
+    defaults. The four call sites needed that tolerance because each
+    accepted a product that might be `None`; refusing on an unresolvable
+    product is what makes it unnecessary here, and keeping it would let a
+    test double satisfy a check the real store does not -- which is how the
+    pending-result delivery seam shipped broken.
+
+    The wording is unchanged and out of this change's scope: `launch-entry`
+    governs what the anchor names.
+    """
     date_str = launch_date.isoformat() if launch_date else "TBD"
     return (
-        f"*{product_name}*\n"
-        f"SKU: {product_sku}\n"
-        f"Marketplace: {product_marketplace}\n"
+        f"*{product.name}*\n"
+        f"SKU: {product.sku.value}\n"
+        f"Marketplace: {product.marketplace_id.value}\n"
         f"Launch Date: {date_str}"
     )

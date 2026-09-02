@@ -614,18 +614,11 @@ async def _report_stuck_step(
         )
         return
     try:
-        sku_value = ""
-        marketplace_value = ""
-        if product:
-            sku = getattr(product, "sku", None)
-            sku_value = sku.value if sku else ""
-            marketplace = getattr(product, "marketplace_id", None)
-            marketplace_value = marketplace.value if marketplace else ""
+        # `product` stays: `_stuck_step_message` names the product in the
+        # report's body. What leaves is the anchor's copy of those same
+        # facts -- the establishment path resolves them itself now.
         thread_ts, mention = await establish_thread(
             launch.product_id,
-            product.name if product else launch.product_id.value,
-            sku_value,
-            marketplace_value,
             step=step,
         )
         # Where the step names a confirmer the roster could not resolve, this
