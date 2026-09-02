@@ -341,12 +341,12 @@ hand pass.
 
 ## 9. Archive and merge
 
-- [ ] 9.1 Run `openspec archive rename-the-roster-to-members --yes` as the
+- [x] 9.1 Run `openspec archive rename-the-roster-to-members --yes` as the
       last commit before the merge, per `AGENTS.md`'s *Deployment and
       configuration*. With `skip_specs: true` it folds no deltas, which is
       exactly why it is easy to skip silently — and skipping it merges an
       unarchived change to `main`, which the deploy rule forbids. (It would
       *not* break 8.2 for later changes: the directory sits inside the
       `openspec/changes/**` exclusion either way.)
-- [ ] 9.2 Open the PR. Nothing ships from a local machine; merging to `main`
+- [x] 9.2 Open the PR. Nothing ships from a local machine; merging to `main`
       is what triggers the deploy.
