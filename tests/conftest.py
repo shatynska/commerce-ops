@@ -84,6 +84,14 @@ if TYPE_CHECKING:
 #: `tests/integration/conftest.py` reads to turn its no-database skip into
 #: a failure; read the same way here, by truthiness, so an empty value
 #: cannot mean "unset" to one and "set" to the other.
+#:
+#: **Any non-empty value arms it, `"0"` and `"false"` included.** That is
+#: not a nicety of this guard -- it is what `tests/integration/conftest.py`
+#: does, and the two must not disagree about the same variable. So there is
+#: exactly one way to opt out and it is to *unset* the variable, never to
+#: set it to something that looks negative. Matching a set of accepted words
+#: was considered and rejected: it would make this file stricter than the
+#: resolver, which is the disagreement the shared reading exists to prevent.
 REQUIRE_DATABASE: Final = "COMMERCE_OPS_REQUIRE_DATABASE"
 
 # Tiers that run on every commit. A skip beneath one of these always fails
