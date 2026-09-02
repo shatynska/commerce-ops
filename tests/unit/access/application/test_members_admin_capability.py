@@ -1,8 +1,8 @@
-"""Resolving admin capability from the roster (`access-scope`).
+"""Resolving admin capability from the membership (`access-scope`).
 
 Derived strictly from the delta spec:
 `openspec/changes/move-principals-to-roster/specs/access-scope/spec.md`,
-the ADDED requirement *Admin capability resolves from the roster* — all
+the ADDED requirement *Admin capability resolves from the membership* — all
 five scenarios.
 
 This file replaces nothing: `tests/unit/access/application/
@@ -14,26 +14,26 @@ change.
 ## Why the application level
 
 Each scenario is stated about what *resolution* answers, and resolution
-is `resolve_admin_capability` over one collaborator — the roster store,
+is `resolve_admin_capability` over one collaborator — the members store,
 supplied here as a double. No Postgres, no I/O.
 
 ## The interface under test does not exist yet
 
 Fixed by the artifacts, not invented: `resolve_admin_capability` becomes
-async and reads the roster, fail-closed for unknown, deactivated and
+async and reads the membership, fail-closed for unknown, deactivated and
 non-admin entries (`tasks.md` 2.3); the admin declaration is orthogonal
 to membership, and no membership confers it.
 
 INVENTED, recorded in the manifest: the call shape
-`resolve_admin_capability(roster, identity=...)`, async. Correction
+`resolve_admin_capability(members, identity=...)`, async. Correction
 point: `_resolves_admin`. The store double, row accessors and write call
-shapes are the ones `test_roster_writes.py` records; the files correct
+shapes are the ones `test_members_writes.py` records; the files correct
 together, and are repeated rather than shared because this pass may
 write only files matching `tests/**/test_*.py`.
 
 ## Expected first-run state
 
-The roster use cases do not exist, so every test here is expected to
+The membership use cases do not exist, so every test here is expected to
 fail on an absent target (`ImportError`) — which establishes only
 absence.
 
@@ -54,8 +54,8 @@ from typing import Any, Final
 import pytest
 
 from commerce_ops.access.application import (
-    create_person,
-    deactivate_person,
+    create_member,
+    deactivate_member,
     resolve_admin_capability,
 )
 
@@ -76,11 +76,11 @@ def anyio_backend() -> str:
 
 
 # ---------------------------------------------------------------------------
-# Store doubles and row accessors (see test_roster_writes.py)
+# Store doubles and row accessors (see test_members_writes.py)
 # ---------------------------------------------------------------------------
 
 
-class _FakeRosterStore:
+class _FakeMembersStore:
     def __init__(self, rows: tuple[Any, ...] = (), version: int = 5) -> None:
         self.rows = tuple(rows)
         self.version = version
@@ -97,18 +97,18 @@ class _FakeRosterStore:
         self.version += 1
 
 
-class _UnreadableRosterStore(_FakeRosterStore):
+class _UnreadableMembersStore(_FakeMembersStore):
     async def load(self) -> tuple[tuple[Any, ...], int]:
-        raise ConnectionError("could not connect to the roster store")
+        raise ConnectionError("could not connect to the members store")
 
 
-_ID_NAMES: Final = ("id", "person_id", "identifier")
+_ID_NAMES: Final = ("id", "member_id", "identifier")
 _SLACK_NAMES: Final = ("slack_identity", "slack_user_id", "slack_id")
 
 
 def _targets(row: Any) -> tuple[Any, ...]:
     found = [row]
-    for attribute in ("person", "entry", "definition", "record"):
+    for attribute in ("member", "entry", "definition", "record"):
         nested = getattr(row, attribute, None)
         if nested is not None:
             found.append(nested)
@@ -121,12 +121,12 @@ def _field(row: Any, names: tuple[str, ...], what: str) -> Any:
             if hasattr(target, name):
                 return getattr(target, name)
     pytest.fail(
-        f"a stored roster row exposes no {what} under any of {names} — "
+        f"a stored membership row exposes no {what} under any of {names} — "
         "correct this file's accessor names to the implemented row"
     )
 
 
-def _id_of(store: _FakeRosterStore, identity: str) -> Any:
+def _id_of(store: _FakeMembersStore, identity: str) -> Any:
     for row in store.rows:
         if str(_field(row, _SLACK_NAMES, "Slack identity")) == identity:
             return _field(row, _ID_NAMES, "generated identifier")
@@ -139,14 +139,14 @@ def _id_of(store: _FakeRosterStore, identity: str) -> Any:
 
 
 async def _create(
-    store: _FakeRosterStore,
+    store: _FakeMembersStore,
     *,
     display_name: str,
     slack_identity: str,
     admin: bool = False,
 ) -> Any:
-    return await create_person(
-        roster=store,
+    return await create_member(
+        members=store,
         principal=PRINCIPAL,
         display_name=display_name,
         slack_identity=slack_identity,
@@ -166,9 +166,9 @@ async def _resolves_admin(store: Any, identity: str) -> bool:
     return answer
 
 
-async def _roster() -> _FakeRosterStore:
+async def _members() -> _FakeMembersStore:
     """One active admin and one active member with no admin declaration."""
-    store = _FakeRosterStore()
+    store = _FakeMembersStore()
     await _create(
         store,
         display_name="Alice Admin",
@@ -188,14 +188,14 @@ async def test_a_declared_entry_resolves_admin_capable() -> None:
     """Scenario: A declared entry resolves admin-capable.
 
     WHEN admin capability is resolved for an identity whose active
-    roster entry carries the admin declaration
+    members entry carries the admin declaration
     THEN the identity resolves as admin-capable.
 
     This is the file's one discriminating positive: every other test
     asserts `False`, and a resolution stuck on `False` would pass them
     all.
     """
-    store = await _roster()
+    store = await _members()
 
     # SPECIFIED: the declaration confers the capability.
     assert await _resolves_admin(store, ADMIN_IDENTITY) is True
@@ -210,7 +210,7 @@ async def test_membership_confers_nothing() -> None:
     """Scenario: Membership confers nothing.
 
     WHEN admin capability is resolved for an identity whose active
-    roster entry carries no admin declaration
+    members entry carries no admin declaration
     THEN the identity resolves as not admin-capable.
 
     The member resolves to the *unrestricted* scope (the delta's other
@@ -218,7 +218,7 @@ async def test_membership_confers_nothing() -> None:
     of "no membership of any shape SHALL by itself confer it": the
     widest visibility there is still confers no admin authority.
     """
-    store = await _roster()
+    store = await _members()
 
     # SPECIFIED: membership alone confers nothing.
     assert await _resolves_admin(store, MEMBER_IDENTITY) is False
@@ -235,7 +235,7 @@ async def test_membership_confers_nothing() -> None:
 async def test_a_deactivated_admin_fails_closed() -> None:
     """Scenario: A deactivated admin fails closed.
 
-    WHEN admin capability is resolved for an identity whose roster entry
+    WHEN admin capability is resolved for an identity whose membership entry
     carries the admin declaration but is deactivated
     THEN the identity resolves as not admin-capable.
 
@@ -245,7 +245,7 @@ async def test_a_deactivated_admin_fails_closed() -> None:
     declaration. A second admin exists so the deactivation is permitted
     by the last-admin floor at all.
     """
-    store = await _roster()
+    store = await _members()
     await _create(
         store,
         display_name="Bob Admin",
@@ -254,8 +254,8 @@ async def test_a_deactivated_admin_fails_closed() -> None:
     )
     assert await _resolves_admin(store, ADMIN_IDENTITY) is True
 
-    await deactivate_person(
-        roster=store, principal=PRINCIPAL, person_id=_id_of(store, ADMIN_IDENTITY)
+    await deactivate_member(
+        members=store, principal=PRINCIPAL, member_id=_id_of(store, ADMIN_IDENTITY)
     )
 
     # SPECIFIED: a deactivated entry is not admin-capable.
@@ -272,17 +272,17 @@ async def test_a_deactivated_admin_fails_closed() -> None:
 async def test_an_unknown_identity_fails_closed() -> None:
     """Scenario: An unknown identity fails closed.
 
-    WHEN admin capability is resolved for an identity the roster does
+    WHEN admin capability is resolved for an identity the membership does
     not know
     THEN the identity resolves as not admin-capable.
 
-    The roster is not empty, so the refusal is the fail-closed rule at
+    The membership is not empty, so the refusal is the fail-closed rule at
     work. Resolving rather than raising is asserted by reaching the
     assertion at all.
     """
-    store = await _roster()
+    store = await _members()
 
-    # SPECIFIED: an identity the roster does not know is not admin-capable.
+    # SPECIFIED: an identity the membership does not know is not admin-capable.
     assert await _resolves_admin(store, STRANGER_IDENTITY) is False
     # DERIVED discrimination guard.
     assert await _resolves_admin(store, ADMIN_IDENTITY) is True
@@ -296,17 +296,17 @@ async def test_an_unknown_identity_fails_closed() -> None:
 async def test_an_unreachable_store_fails_closed() -> None:
     """Scenario: An unreachable store fails closed.
 
-    WHEN admin capability is resolved while the roster store cannot be
+    WHEN admin capability is resolved while the members store cannot be
     read
     THEN the identity resolves as not admin-capable, and the resolution
     succeeds.
 
     "Succeeds" is asserted by reaching the assertion: a propagating
     `ConnectionError` fails the test. The identity used is one that
-    *would* resolve admin-capable against a readable roster, so `False`
+    *would* resolve admin-capable against a readable membership, so `False`
     here is the unreadable store's doing.
     """
-    store = _UnreadableRosterStore()
+    store = _UnreadableMembersStore()
 
     # SPECIFIED: fail-closed, never an error toward the asker.
     assert await _resolves_admin(store, ADMIN_IDENTITY) is False

@@ -1,26 +1,26 @@
-"""Driving adapter: putting a launch gate to a person for confirmation.
+"""Driving adapter: putting a launch gate to a member for confirmation.
 
 Implements the Slack half of `launch-gate-progression` — *A gate awaiting
-only confirmation is asked about in Slack*, *Only a known, active person
+only confirmation is asked about in Slack*, *Only a known, active member
 may approve a gate* and *A decision records the approval and reports what
 it did*.
 
 `automation_confirmation.py`'s shape throughout: a message naming what is
 being decided, an approve and a reject control carrying a JSON subject,
-the presser resolved through the roster, and every refusal returned as a
+the presser resolved through the membership, and every refusal returned as a
 reasoned `GateDecision` rather than raised — the wording belongs where the
 rule is, not at the point furthest from it.
 
 **Two transactions per approving press, in this order.** The approval is
 recorded and committed first, in its own transaction; only then is the
 advisory lock taken and the cascade run. A decision is a fact about what a
-person did: a cascade that failed must not discard it, or the gate is left
+member did: a cascade that failed must not discard it, or the gate is left
 neither advanced nor -- the ask cool-off having been written on an earlier
 pass -- asked about again for a day.
 
 A **rejecting** press is the opposite: its approval and its cool-off
 refresh are one unit, under one `transaction()`, because a torn write
-either re-proposes a gate a person has just declined or silences one for a
+either re-proposes a gate a member has just declined or silences one for a
 day with no decision recorded.
 
 Delivery reaches Slack through `post_monitoring_message`, imported into
@@ -39,7 +39,7 @@ from typing import Any
 from slack_bolt.app.async_app import AsyncApp
 
 from commerce_ops.launch.application import (
-    UnreadableRosterError,
+    UnreadableMembersError,
     approve_gate_decision,
     progress_launch,
     reject_gate_decision,
@@ -137,7 +137,7 @@ async def _read_product_or_fail(product_id: ProductId) -> Any:
 
 
 class FinalGateNotAsked(RuntimeError):
-    """The final gate is never put to a person by this capability.
+    """The final gate is never put to a member by this capability.
 
     Its approval must name a steady-state posture and its opening stamps
     the catalog, and this change obtains neither. Enforced here as well as
@@ -220,7 +220,7 @@ async def post_gate_ask(
     """
     if gate_id == _FINAL_GATE:
         raise FinalGateNotAsked(
-            f"the final gate '{gate_id}' is not put to a person by this "
+            f"the final gate '{gate_id}' is not put to a member by this "
             f"deployment; its approval names a posture this capability does "
             f"not obtain"
         )
@@ -357,7 +357,7 @@ async def _handle_decision(
                 decision = await approve_gate_decision(
                     launches=LaunchRepository(db_session),
                     journal=LaunchJournalRepository(db_session),
-                    roster=_roster_or_fail(),
+                    members=_members_or_fail(),
                     playbooks=PlaybookRepository(db_session),
                     product_id=product_id,
                     gate_id=gate_id,
@@ -377,7 +377,7 @@ async def _handle_decision(
             decision = await reject_gate_decision(
                 launches=LaunchRepository(db_session),
                 journal=LaunchJournalRepository(db_session),
-                roster=_roster_or_fail(),
+                members=_members_or_fail(),
                 playbooks=PlaybookRepository(db_session),
                 suppression=GateAskSuppressionRepository(db_session),
                 product_id=product_id,
@@ -385,24 +385,24 @@ async def _handle_decision(
                 slack_identity=slack_identity,
                 when=when,
             )
-    except UnreadableRosterError:
+    except UnreadableMembersError:
         # Caught by its own type, never a bare `except Exception`: every
         # genuine refusal comes back as a `GateDecision`, so a broad catch
         # would report unrelated bugs as a mis-wired deployment.
         #
         # The sentence says nothing about the decider: their identity, their
-        # roster entry and their authority are all irrelevant to what went
-        # wrong, and blaming the roster for a wiring fault is what sent an
+        # members entry and their authority are all irrelevant to what went
+        # wrong, and blaming the membership for a wiring fault is what sent an
         # active admin looking at correct data.
         _logger.exception(
             "gate confirmation: a decision on gate '%s' could not be judged "
-            "because the roster collaborator cannot be read; this is a "
+            "because the members collaborator cannot be read; this is a "
             "deployment wiring fault, not a fact about the decider",
             gate_id,
         )
         return (
             "That decision could not be processed: this deployment cannot "
-            "read the roster right now. Nothing was recorded, the gate is "
+            "read the membership right now. Nothing was recorded, the gate is "
             "still waiting, and the fault has been reported."
         ), None
 
@@ -411,24 +411,24 @@ async def _handle_decision(
     return f"Recorded — the {gate_id} gate stays closed.", None
 
 
-def _roster_or_fail() -> Any:
-    """The roster reader the composition root injected.
+def _members_or_fail() -> Any:
+    """The members reader the composition root injected.
 
     Absent is refused the same way an unreadable one is, and for the same
     reason: neither is a fact about the decider.
     """
-    if read_people is None:
-        raise UnreadableRosterError(
-            "no roster reader is wired into the gate-confirmation adapter, so "
+    if read_members is None:
+        raise UnreadableMembersError(
+            "no members reader is wired into the gate-confirmation adapter, so "
             "no decision can be judged; this is a deployment wiring fault"
         )
-    return read_people
+    return read_members
 
 
 # Injected by the composition root, the same way and for the same reason as
 # `read_product`: the launch module may reach `access` only through its
 # public application surface.
-read_people: Any = None
+read_members: Any = None
 
 
 async def handle_gate_decision(
@@ -491,7 +491,7 @@ async def handle_gate_decision(
                     clickup=clickup,
                     mapping=ClickUpMappingRepository(db_session),
                     read_product=_read_product_or_fail,
-                    roster=read_people,
+                    members=read_members,
                     folder_id=_launch_folder_id(),
                 )
         except Exception:

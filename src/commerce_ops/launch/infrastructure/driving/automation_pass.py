@@ -14,7 +14,7 @@ produces one.
 **Terminality, not whether a confirmer is named, decides what is held.**
 A non-terminal outcome is recorded directly whatever the step says about
 confirmation: it is a handler reporting that the step is *not* resolved,
-and holding it would ask a person to accept "in progress" — a proposal
+and holding it would ask a member to accept "in progress" — a proposal
 with nothing in it to agree with, which would then suppress re-invocation
 until they clicked. Only a terminal proposal is a result anyone can
 accept.
@@ -95,7 +95,7 @@ _logger = logging.getLogger(__name__)
 
 _AUTOMATED_SOURCE = "automated"
 
-# How long a person's rejection stands before the same step is proposed
+# How long a member's rejection stands before the same step is proposed
 # again. A module constant, never configuration: there is no
 # per-deployment answer to how long a disagreement should hold, and a
 # configured value would owe the four obligations `AGENTS.md` places on
@@ -105,7 +105,7 @@ COOL_OFF = datetime.timedelta(hours=24)
 
 # After a handler repeats the non-terminal outcome the step already
 # carries. Its own constant rather than a reuse of `COOL_OFF`: the two
-# answer different questions — a person disagreed, versus a machine
+# answer different questions — a member disagreed, versus a machine
 # repeated itself — and sharing one would mean a later change to either
 # silently moving the other. Same value today, and a fixed property of
 # the system rather than a configured one, for the reason the rejection
@@ -314,7 +314,7 @@ async def _deliver_waiting(
     the adapter: the requirement is that the message *names the product
     and the step*, and a row carries only their identifiers. Delivering
     without them produces a message headed "an unnamed product", which
-    names nothing a person can act on.
+    names nothing a member can act on.
 
     A failure leaves `delivered_at` unstamped and the row standing, so the
     next pass tries again — the decoupling the daily briefing already keeps
@@ -574,14 +574,14 @@ def _stuck_step_message(
             f"\n\nThis step names a confirmer ({unresolved_confirmer}) who "
             f"could not be resolved to a Slack account, so the launch's "
             f"submitter is tagged instead. Someone should correct the step's "
-            f"confirmer or the roster."
+            f"confirmer or the membership."
         )
     return (
         f"An automated launch step has stopped making progress — "
         f"'{step.name}' ({step.identifier}) on "
         f"{named or launch.product_id.value}. Its handler reported the same "
         f"thing twice running, so it will not be asked again for a day. "
-        f"It needs something a person can supply.\n\n"
+        f"It needs something a member can supply.\n\n"
         f"What the handler produced:\n{produced}{gap}"
     )
 
@@ -621,7 +621,7 @@ async def _report_stuck_step(
             launch.product_id,
             step=step,
         )
-        # Where the step names a confirmer the roster could not resolve, this
+        # Where the step names a confirmer the membership could not resolve, this
         # report tags the launch's submitter and says in its text that it did
         # so -- the opposite of what the pending-result ask does on the very
         # same condition, and deliberately.
@@ -629,7 +629,7 @@ async def _report_stuck_step(
         # The ask's reason does not transfer: only a step's named, active
         # confirmer may decide a pending result, so a fallback tag there
         # summons someone whose decision is refused. Nothing governs who may
-        # act on a stuck step. This report exists "so that a person can supply
+        # act on a stuck step. This report exists "so that a member can supply
         # what the handler is missing", so reaching nobody defeats its whole
         # purpose, and an untagged report is a worse outcome than a tagged one
         # naming the gap.
@@ -737,7 +737,7 @@ async def _is_open(
     if cooled:
         return False
     if await results.pending_for(launch.product_id, step.identifier) is not None:
-        # A step awaiting a person is not a step awaiting more work, and a
+        # A step awaiting a member is not a step awaiting more work, and a
         # second result would leave two proposals and no way to say which
         # was decided.
         return False

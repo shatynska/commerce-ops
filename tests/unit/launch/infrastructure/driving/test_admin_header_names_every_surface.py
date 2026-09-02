@@ -12,7 +12,7 @@ from which the other admin surface is reachable* in
 The requirement's four pre-existing scenarios are carried forward
 verbatim by the delta and are already covered, unweakened, by
 `tests/unit/launch/infrastructure/driving/test_admin_surface_navigation_and_assets.py`
-— `test_the_roster_page_is_reachable_from_the_step_list`,
+— `test_the_members_page_is_reachable_from_the_step_list`,
 `test_the_header_does_not_depend_on_how_many_steps_are_shown`,
 `test_the_authoring_surfaces_carry_the_header_too` and
 `test_departing_from_the_create_surface_carries_nothing_forward`. This
@@ -25,12 +25,12 @@ that accounting.
 `design.md` — Decision 9 is explicit that generalizing one capability's
 header requirement alone is wrong, and that "a test derived from a single
 delta would not catch the asymmetry". `tasks.md` 5.3 therefore asks for
-the header tests **where each capability is tested**. Its roster half is
-`tests/unit/access/infrastructure/driving/test_roster_header_names_every_surface.py`.
+the header tests **where each capability is tested**. Its members half is
+`tests/unit/access/infrastructure/driving/test_members_header_names_every_surface.py`.
 
 ## Level
 
-The playbook router mounted beside the roster router and the new launch
+The playbook router mounted beside the membership router and the new launch
 router, the way `main.py` composes them — the smallest unit that can
 observe "each admin surface the session can reach is offered", since the
 destinations belong to other modules.
@@ -53,14 +53,14 @@ on 2026-08-27.
 Fixed: that the header names every admin surface the session can reach
 and offers each in one action without scripting; that every page this
 capability serves — the step list, the create surface and the edit
-surface — does so; and that a surface beyond the playbook and roster
+surface — does so; and that a surface beyond the playbook and membership
 pages is named there rather than left unreachable.
 
 INVENTED, with correction points in the code: how a header is located
 and how it identifies the current surface (`_header_of`,
 `_identifies_current`, taken unchanged in shape from
 `test_admin_surface_navigation_and_assets.py`); the words by which each
-surface is named (`_PLAYBOOK_WORDS`, `_ROSTER_WORDS`, `_LAUNCH_WORDS`);
+surface is named (`_PLAYBOOK_WORDS`, `_MEMBERS_WORDS`, `_LAUNCH_WORDS`);
 how the create and edit surfaces are reached (`_authoring_pages`); and
 every seam of the launch module (`_LAUNCH_SEAMS`).
 """
@@ -80,8 +80,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from commerce_ops.access.application import create_person
-from commerce_ops.access.infrastructure.driving import roster_admin as roster_module
+from commerce_ops.access.application import create_member
+from commerce_ops.access.infrastructure.driving import members_admin as members_module
 from commerce_ops.launch.domain.launch_playbook import (
     Gate,
     GateOpening,
@@ -137,7 +137,7 @@ ALICE: Final = "prs_01HQ8Z6M4A"
 #: INVENTED: how each admin surface is named in a header. The delta fixes
 #: that each is named, not the wording.
 _PLAYBOOK_WORDS: Final = ("playbook", "step", "steps")
-_ROSTER_WORDS: Final = ("roster", "people", "person")
+_MEMBERS_WORDS: Final = ("team", "members", "member")
 _LAUNCH_WORDS: Final = ("launch", "launches", "product")
 
 _CURRENT_ATTRIBUTES: Final = ("aria-current", "data-current")
@@ -168,7 +168,7 @@ _LAUNCH_SEAMS: Final[dict[str, tuple[str, ...]]] = {
     "verify": ("verify_admin_session",),
     "launches": ("launches", "launch_store", "launch_positions", "store"),
     "playbooks": ("playbooks", "playbook_store", "playbook_repository", "playbook"),
-    "roster": ("roster", "people", "roster_store", "read_roster"),
+    "members": ("members", "members_store", "read_members"),
     "list_products": ("list_products", "products", "catalog_products"),
     "get_product_by_id": ("get_product_by_id", "product_by_id", "get_product"),
 }
@@ -246,25 +246,25 @@ def _seeded_steps() -> _FakeStepStore:
     return _FakeStepStore(records)
 
 
-class _Person:
-    def __init__(self, person_id: str, display_name: str) -> None:
-        self.id = person_id
+class _Member:
+    def __init__(self, member_id: str, display_name: str) -> None:
+        self.id = member_id
         self.display_name = display_name
         self.clickup_user_id: str | None = "clickup-1"
         self.active = True
 
 
-class _FakeRoster:
-    async def list_people(self) -> tuple[_Person, ...]:
-        return (_Person(ALICE, "Alice Admin"),)
+class _FakeMembers:
+    async def list_members(self) -> tuple[_Member, ...]:
+        return (_Member(ALICE, "Alice Admin"),)
 
-    people = list_people
+    members = list_members
 
-    async def __call__(self) -> tuple[_Person, ...]:
-        return await self.list_people()
+    async def __call__(self) -> tuple[_Member, ...]:
+        return await self.list_members()
 
 
-class _FakeRosterStore:
+class _FakeMembersStore:
     def __init__(self, rows: tuple[Any, ...] = (), version: int = 13) -> None:
         self.rows = tuple(rows)
         self.version = version
@@ -280,10 +280,10 @@ class _FakeRosterStore:
         self.version += 1
 
 
-async def _build_roster() -> _FakeRosterStore:
-    store = _FakeRosterStore()
-    await create_person(
-        roster=store,
+async def _build_members() -> _FakeMembersStore:
+    store = _FakeMembersStore()
+    await create_member(
+        members=store,
         principal="the-seeding-admin",
         display_name="Alice Admin",
         slack_identity=PRINCIPAL,
@@ -293,8 +293,8 @@ async def _build_roster() -> _FakeRosterStore:
     return store
 
 
-def _roster_store() -> _FakeRosterStore:
-    return asyncio.run(_build_roster())
+def _members_store() -> _FakeMembersStore:
+    return asyncio.run(_build_members())
 
 
 class _EmptyLaunchStore:
@@ -357,7 +357,12 @@ def _install_launch_seam(
     )
 
 
-_PLAYBOOK_ROSTER_SEAMS: Final = ("roster", "read_roster", "people", "roster_reader")
+_PLAYBOOK_MEMBERS_SEAMS: Final = (
+    "members",
+    "read_members",
+    "members",
+    "members_reader",
+)
 
 
 @dataclass(frozen=True)
@@ -373,20 +378,20 @@ def _app(monkeypatch: pytest.MonkeyPatch) -> _Surfaces:
 
     monkeypatch.setattr(page_module, "steps", _seeded_steps())
     monkeypatch.setattr(page_module, "verify_admin_session", _fake_verify)
-    for name in _PLAYBOOK_ROSTER_SEAMS:
+    for name in _PLAYBOOK_MEMBERS_SEAMS:
         if hasattr(page_module, name):
-            monkeypatch.setattr(page_module, name, _FakeRoster())
+            monkeypatch.setattr(page_module, name, _FakeMembers())
             break
     else:  # pragma: no cover - guarded by the existing navigation test
-        pytest.fail("the playbook page exposes no roster seam")
+        pytest.fail("the playbook page exposes no members seam")
 
-    monkeypatch.setattr(roster_module, "roster", _roster_store())
-    monkeypatch.setattr(roster_module, "verify_admin_session", _fake_verify)
+    monkeypatch.setattr(members_module, "members", _members_store())
+    monkeypatch.setattr(members_module, "verify_admin_session", _fake_verify)
 
     _install_launch_seam(monkeypatch, launch, "verify", _fake_verify)
     _install_launch_seam(monkeypatch, launch, "launches", _EmptyLaunchStore())
     _install_launch_seam(monkeypatch, launch, "playbooks", _EmptyPlaybooks())
-    _install_launch_seam(monkeypatch, launch, "roster", _roster_store())
+    _install_launch_seam(monkeypatch, launch, "members", _members_store())
     catalog = _EmptyCatalog()
     _install_launch_seam(monkeypatch, launch, "list_products", catalog.list_products)
     _install_launch_seam(
@@ -395,7 +400,7 @@ def _app(monkeypatch: pytest.MonkeyPatch) -> _Surfaces:
 
     app = FastAPI()
     app.include_router(page_module.router)
-    app.include_router(roster_module.router)
+    app.include_router(members_module.router)
     app.include_router(launch.router)
     client = TestClient(app)
     client.cookies.set(_SESSION_COOKIE, _SESSION_VALUE)
@@ -694,15 +699,15 @@ def test_every_other_admin_surface_is_reachable_from_the_step_list(
     other than this capability's own, in one action.
     """
     surfaces = _app(monkeypatch)
-    roster_path = _shortest_get_route(roster_module.router)
+    members_path = _shortest_get_route(members_module.router)
     launch_path = _shortest_get_route(surfaces.launch.router)
 
     listed = _list_html(surfaces)
-    header = _header_of(_tree(listed), other_path=roster_path)
+    header = _header_of(_tree(listed), other_path=members_path)
 
     # SPECIFIED: *each* other surface — not one of them — in one action,
     # and without scripting.
-    for path, what in ((roster_path, "roster"), (launch_path, "launch")):
+    for path, what in ((members_path, "members"), (launch_path, "launch")):
         assert _offers_in_one_action(header, path), (
             f"the step list's header offers no live link to the {what} surface "
             f"at {path!r}, so an admin who does not know the URL cannot reach "
@@ -726,7 +731,7 @@ def test_a_surface_added_later_is_named_by_the_header(
 ) -> None:
     """Scenario: A surface added later is named by the header.
 
-    WHEN an admin surface beyond the playbook and roster pages is
+    WHEN an admin surface beyond the playbook and membership pages is
     reachable by the session
     THEN every page this capability serves names it in the header and
     offers it in one action.
@@ -735,11 +740,11 @@ def test_a_surface_added_later_is_named_by_the_header(
     the case the generalization was written for.
     """
     surfaces = _app(monkeypatch)
-    roster_path = _shortest_get_route(roster_module.router)
+    members_path = _shortest_get_route(members_module.router)
     launch_path = _shortest_get_route(surfaces.launch.router)
 
     for page, html in _served_pages(surfaces).items():
-        header = _header_of(_tree(html), other_path=roster_path)
+        header = _header_of(_tree(html), other_path=members_path)
         # SPECIFIED: the header *names* it...
         assert _names(header, _LAUNCH_WORDS), (
             f"the {page}'s header does not name the launch surface: "
@@ -779,11 +784,11 @@ def test_the_product_index_is_named_by_the_header(
     )
 
     surfaces = _app(monkeypatch)
-    roster_path = _shortest_get_route(roster_module.router)
+    members_path = _shortest_get_route(members_module.router)
     product_path = _shortest_get_route(product_module.router)
 
     for page, html in _served_pages(surfaces).items():
-        header = _header_of(_tree(html), other_path=roster_path)
+        header = _header_of(_tree(html), other_path=members_path)
         assert _names(header, _PRODUCT_WORDS), (
             f"the {page}'s header does not name the product surface: "
             f"{_flat(_all_text(header))[:300]!r}"

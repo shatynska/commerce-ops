@@ -1,24 +1,24 @@
-"""The roster collaborator an authoring write is given, against real
+"""The members collaborator an authoring write is given, against real
 Postgres and the real adapters.
 
 Derived strictly from the delta spec
 `openspec/changes/restore-admin-step-writes/specs/playbook-authoring/spec.md`
 (MODIFIED requirement *Every write is validated as the playbook it would
-produce* — cases 1 and 3 of the roster collaborator's stated shape), and
+produce* — cases 1 and 3 of the members collaborator's stated shape), and
 placed here by `tasks.md` 5.1 and 5.2.
 
 ## Why this exists as well as the unit tier
 
-`tests/unit/launch/application/test_authoring_roster_collaborator_shape.py`
-hands the use cases a double shaped like `PostgresRoster`.
-This file hands them **`PostgresRoster` itself**, over a live session,
+`tests/unit/launch/application/test_authoring_members_collaborator_shape.py`
+hands the use cases a double shaped like `PostgresMembers`.
+This file hands them **`PostgresMembers` itself**, over a live session,
 which is the object `main.py` actually injects. A double can be shaped
 wrongly and pass; the real adapter cannot.
 
 `tests/integration/launch/test_playbook_authoring_live.py` — the file
-`tasks.md` 5.1 names — passes no `roster=` at all, and so covers the
+`tasks.md` 5.1 names — passes no `members=` at all, and so covers the
 delta's case 2 and nothing else. This file is **additive** to it rather
-than an edit of it: those no-roster cases are the suite's only coverage
+than an edit of it: those no-members cases are the suite's only coverage
 of the permitted case and are left exactly as they are.
 
 ## Fixed by the artifacts, and what is INVENTED
@@ -31,15 +31,15 @@ INVENTED — the same two this directory's sibling records, plus one:
 - The write store the use cases take as `steps=`, resolved from
   `launch/infrastructure/driven/playbook_repository`. Correction point:
   `_store`.
-- The roster store adapter, `PostgresRoster()`, from
-  `access/infrastructure/driven/roster_repository` — constructed with no
+- The members store adapter, `PostgresMembers()`, from
+  `access/infrastructure/driven/members_repository` — constructed with no
   session, since it opens its own per operation. Correction point:
-  `_roster_store`.
-- The session-scoped store it wraps, `RosterRepository(session)`, used
-  wherever this file actually *reads* the roster. Correction point:
-  `_roster_reader`.
+  `_members_store`.
+- The session-scoped store it wraps, `MembersRepository(session)`, used
+  wherever this file actually *reads* the membership. Correction point:
+  `_members_reader`.
 - The error's class, and the spelling by which its message names the
-  expected shape (`list_people`). Correction point:
+  expected shape (`list_members`). Correction point:
   `_EXPECTED_SHAPE_NAMES`.
 
 ## Test-database lifecycle
@@ -48,37 +48,37 @@ This file's first test **writes nothing**: the refusal precedes any
 persistence, which is also `proposal.md` — *Impact*'s reason for there
 being no data migration. Its second test creates one `mg.*` step and
 retires it, the convention this directory already follows; seeded `lp.*`
-rows are never touched, and neither is the roster — no test here adds,
-edits or deactivates a person.
+rows are never touched, and neither is the membership — no test here adds,
+edits or deactivates a member.
 
 One consequence is worth stating because it is easy to reintroduce:
-nothing here **reads** the roster through `PostgresRoster()`. That
+nothing here **reads** the membership through `PostgresMembers()`. That
 adapter opens its own connection pool and binds it to whichever event
 loop first touches it, which outlives this module and breaks a later
 test in this tier (`test_slack_entry_start.py`, "attached to a different
 loop" — observed while writing these tests). It is used only where the
 write is refused before any connection is opened; every read goes
-through `RosterRepository(session)` on a session this file disposes.
+through `MembersRepository(session)` on a session this file disposes.
 
-`design.md` — *Risks* records that the local development roster is
-empty, and that an empty roster makes the fixed path look like a
-different failure. The second test therefore reads the live roster first
+`design.md` — *Risks* records that the local development membership is
+empty, and that an empty membership makes the fixed path look like a
+different failure. The second test therefore reads the live membership first
 and **skips, saying so**, where it carries nobody active — rather than
-asserting against an empty roster or inventing a person in a shared
+asserting against an empty membership or inventing a member in a shared
 database.
 
 ## Expected first-run state
 
-`test_the_real_roster_store_is_refused_by_name` fails: today the real
-store reaches `_read_people` unadapted and raises `TypeError: 'PostgresRoster'
+`test_the_real_members_store_is_refused_by_name` fails: today the real
+store reaches `_read_members` unadapted and raises `TypeError: 'PostgresMembers'
 object is not iterable`, which names what arrived and nothing about what
 was expected.
 
-`test_a_write_judged_against_the_live_roster_lands` **skips** on the
-database this was written against, whose roster carries nobody — the
-empty local roster `design.md` — *Risks* names. It is the only skip
+`test_a_write_judged_against_the_live_members_lands` **skips** on the
+database this was written against, whose members carries nobody — the
+empty local members `design.md` — *Risks* names. It is the only skip
 these tests add, and the skip message says what to do about it. Where a
-roster does carry an active person it is expected to pass, a reader
+members does carry an active member it is expected to pass, a reader
 having always been an accepted shape, and is recorded in the manifest as
 a regression guard that narrowing the collaborator to one shape does not
 break case 1 against the real adapters.
@@ -104,8 +104,8 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
-from commerce_ops.access.application import list_people
-from commerce_ops.access.infrastructure.driven import roster_repository
+from commerce_ops.access.application import list_members
+from commerce_ops.access.infrastructure.driven import members_repository
 from commerce_ops.launch.application import create_step, retire_step
 from commerce_ops.launch.domain.launch_playbook import (
     Hazard,
@@ -126,7 +126,7 @@ A_DISCIPLINE: Final = next(iter(Discipline))
 
 #: How a refusal may spell "the shape expected" (INVENTED — see the
 #: docstring), matching the unit-tier file's set.
-_EXPECTED_SHAPE_NAMES: Final = ("list_people", "listpeople", "list people")
+_EXPECTED_SHAPE_NAMES: Final = ("list_members", "listpeople", "list members")
 
 
 @pytest.fixture(scope="module")
@@ -169,30 +169,30 @@ def _store(session: AsyncSession) -> Any:
     return factory(session)
 
 
-def _roster_store() -> Any:
-    """The roster store `main.py` injects into the admin page.
+def _members_store() -> Any:
+    """The members store `main.py` injects into the admin page.
 
-    Constructed with no session: it is "the `RosterStore` port, opening
+    Constructed with no session: it is "the `MembersStore` port, opening
     its own session per operation", which is why the admin surface holds
     one of these rather than a session.
 
     Used **only** by the refusal test, which never reaches a connection —
     the collaborator is refused on its shape before anything is loaded.
-    Reading the roster through it would open its internal pool on this
+    Reading the membership through it would open its internal pool on this
     module's event loop and leave it bound there for the rest of the
-    tier; `_roster_reader` below exists for that reason.
+    tier; `_members_reader` below exists for that reason.
     """
-    return roster_repository.PostgresRoster()
+    return members_repository.PostgresMembers()
 
 
-def _roster_reader(session: AsyncSession) -> Any:
-    """The same roster, read over a session this file owns and disposes.
+def _members_reader(session: AsyncSession) -> Any:
+    """The same membership, read over a session this file owns and disposes.
 
-    `RosterRepository(session)` is the store `PostgresRoster` wraps, so
-    what `list_people` sees is identical — only the session's lifetime
+    `MembersRepository(session)` is the store `PostgresMembers` wraps, so
+    what `list_members` sees is identical — only the session's lifetime
     differs, and this one ends with the test rather than outliving it.
     """
-    return _ReaderOverTheStore(roster_repository.RosterRepository(session))
+    return _ReaderOverTheStore(members_repository.MembersRepository(session))
 
 
 async def _served() -> LaunchPlaybook:
@@ -226,41 +226,41 @@ def _authorable_fields(description: str, assignees: tuple[str, ...]) -> dict[str
 
 
 class _ReaderOverTheStore:
-    """The adaptation the admin page is required to make: the roster
-    store, read through `access`'s own public `list_people`."""
+    """The adaptation the admin page is required to make: the members
+    store, read through `access`'s own public `list_members`."""
 
     def __init__(self, store: Any) -> None:
         self._store = store
 
-    async def list_people(self) -> Sequence[Any]:
-        return tuple(await _maybe_await(list_people(roster=self._store)))
+    async def list_members(self) -> Sequence[Any]:
+        return tuple(await _maybe_await(list_members(members=self._store)))
 
 
-async def _active_person() -> Any | None:
+async def _active_member() -> Any | None:
     async with _session() as session:
-        people = await _roster_reader(session).list_people()
-    return next((person for person in people if getattr(person, "active", True)), None)
+        members = await _members_reader(session).list_members()
+    return next((member for member in members if getattr(member, "active", True)), None)
 
 
-def _identifier_of(person: Any) -> str:
-    for name in ("identifier", "id", "person_id"):
-        if hasattr(person, name):
-            return str(getattr(person, name))
-    pytest.fail(f"a roster person carries no identifier: {person!r}")
+def _identifier_of(member: Any) -> str:
+    for name in ("identifier", "id", "member_id"):
+        if hasattr(member, name):
+            return str(getattr(member, name))
+    pytest.fail(f"a member carries no identifier: {member!r}")
 
 
 # ---------------------------------------------------------------------------
 # MODIFIED requirement: Every write is validated as the playbook it would
-# produce — the roster collaborator, against the real adapters
+# produce — the members collaborator, against the real adapters
 # ---------------------------------------------------------------------------
 
 
-async def test_the_real_roster_store_is_refused_by_name() -> None:
+async def test_the_real_members_store_is_refused_by_name() -> None:
     """Scenario: A collaborator of the wrong shape is refused by name —
-    with the collaborator being the real `PostgresRoster`.
+    with the collaborator being the real `PostgresMembers`.
 
-    WHEN a write is given a roster collaborator that cannot answer who
-    the roster carries
+    WHEN a write is given a members collaborator that cannot answer who
+    the membership carries
     THEN the write is refused with a named error identifying the
     collaborator supplied and the shape expected
     AND the step set is unchanged.
@@ -274,20 +274,20 @@ async def test_the_real_roster_store_is_refused_by_name() -> None:
     version_before = (await _served()).version
 
     async with _session() as session:
-        supplied = _roster_store()
+        supplied = _members_store()
         with pytest.raises(Exception) as caught:
             await _maybe_await(
                 create_step(
                     steps=_store(session),
                     principal=PRINCIPAL,
-                    roster=supplied,
+                    members=supplied,
                     **_authorable_fields(description, ()),
                 )
             )
 
     # SPECIFIED: not among the write's coherence faults …
     assert not isinstance(caught.value, InvalidPlaybookError), (
-        "the real roster store was refused as an `InvalidPlaybookError`, the "
+        "the real members store was refused as an `InvalidPlaybookError`, the "
         "type a rejected write's fault list arrives in — a mis-wired "
         "deployment would be rendered to an author as a fault of what they "
         "submitted"
@@ -312,32 +312,32 @@ async def test_the_real_roster_store_is_refused_by_name() -> None:
     assert all(step.name != description for step in served.steps)
 
 
-async def test_a_write_judged_against_the_live_roster_lands() -> None:
-    """Scenario: A roster that answers the stated shape — case 1, against
-    the live roster.
+async def test_a_write_judged_against_the_live_members_lands() -> None:
+    """Scenario: A membership that answers the stated shape — case 1, against
+    the live membership.
 
-    WHEN a write is given a roster collaborator answering the stated
-    shape, naming a person that roster carries as active
+    WHEN a write is given a members collaborator answering the stated
+    shape, naming a member that membership carries as active
     THEN the two preconditions are evaluated and the write lands.
 
-    `design.md` — *Risks*: "an empty roster is not a neutral state for
+    `design.md` — *Risks*: "an empty membership is not a neutral state for
     the fixed path: once the preconditions actually run, an `active`
-    `human` step can no longer be saved without an assignee the roster
-    carries. Verification has to happen against a roster that holds
-    people, or the fix will look like a different failure." So this test
+    `human` step can no longer be saved without an assignee the membership
+    carries. Verification has to happen against a membership that holds
+    members, or the fix will look like a different failure." So this test
     skips, saying so, rather than asserting against an empty one — and
-    it adds nobody to a shared roster to avoid the skip.
+    it adds nobody to a shared membership to avoid the skip.
     """
-    person = await _active_person()
-    if person is None:
+    member = await _active_member()
+    if member is None:
         pytest.skip(
-            "the live roster carries no active person, so the two write-side "
+            "the live membership carries no active member, so the two write-side "
             "preconditions cannot be satisfied by any assignee — see "
-            "`design.md` — *Risks*; seed a person and re-run to cover this"
+            "`design.md` — *Risks*; seed a member and re-run to cover this"
         )
 
-    identifier = _identifier_of(person)
-    description = _unique_description("Work judged against the live roster")
+    identifier = _identifier_of(member)
+    description = _unique_description("Work judged against the live membership")
     before = {step.identifier for step in (await _served()).steps}
 
     async with _session() as session:
@@ -345,7 +345,7 @@ async def test_a_write_judged_against_the_live_roster_lands() -> None:
             create_step(
                 steps=_store(session),
                 principal=PRINCIPAL,
-                roster=_roster_reader(session),
+                members=_members_reader(session),
                 **_authorable_fields(description, (identifier,)),
             )
         )
@@ -358,7 +358,7 @@ async def test_a_write_judged_against_the_live_roster_lands() -> None:
     ]
     # SPECIFIED: the preconditions were evaluated and the write landed.
     assert len(created) == 1, (
-        "the write naming a person the live roster carries as active did not "
+        "the write naming a member the live membership carries as active did not "
         f"join the served set: {[s.identifier for s in created]}"
     )
     assert tuple(created[0].assignees) == (identifier,)

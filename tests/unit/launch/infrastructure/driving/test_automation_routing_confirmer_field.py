@@ -17,7 +17,7 @@ requirement's would be:
 - *A result needing no confirmation is recorded at once* — scenario *An
   unconfirmed result is recorded directly*, restated: "the resolved step
   names no confirmer."
-- *A result needing confirmation is held until a person decides* —
+- *A result needing confirmation is held until a member decides* —
   scenario *A confirmable terminal result is held rather than recorded*,
   restated: "the resolved step names a confirmer."
 - *The retained record covers results held for a decision and nothing
@@ -584,7 +584,7 @@ async def test_a_step_naming_no_confirmer_is_recorded_directly() -> None:
 
 # ---------------------------------------------------------------------------
 # Requirement (MODIFIED): A result needing confirmation is held until a
-# person decides
+# member decides
 # ---------------------------------------------------------------------------
 
 

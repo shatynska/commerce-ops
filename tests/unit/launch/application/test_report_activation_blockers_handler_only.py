@@ -24,12 +24,12 @@ file's `test_a_step_missing_a_registered_handler_is_reported` covers a
 different case (a handler *named but unregistered*, not *absent
 entirely*) and is unaffected by this delta.
 
-*A set of ready steps reports nothing* and *A roster change does not
+*A set of ready steps reports nothing* and *A membership change does not
 break an accepted set* (the report half) are unaffected by this delta's
 wording and stay covered by the existing file.
 
 **Level.** The report use case over an authored-step tuple, with the
-roster and handler registry as collaborators — the same level and the
+members and handler registry as collaborators — the same level and the
 same `_report()`/`_blockers()` probing pattern
 `test_report_activation_blockers.py` already uses.
 
@@ -89,25 +89,25 @@ def _step(**overrides: Any) -> StepDefinition:
     return StepDefinition(**attributes)
 
 
-class _Person:
-    def __init__(self, person_id: str, display_name: str, *, active: bool) -> None:
-        self.id = person_id
+class _Member:
+    def __init__(self, member_id: str, display_name: str, *, active: bool) -> None:
+        self.id = member_id
         self.display_name = display_name
         self.clickup_user_id: str | None = "clickup-1"
         self.active = active
 
 
-class _FakeRoster:
-    def __init__(self, people: tuple[_Person, ...]) -> None:
-        self._people = people
+class _FakeMembers:
+    def __init__(self, members: tuple[_Member, ...]) -> None:
+        self._members = members
 
-    async def list_people(self) -> tuple[_Person, ...]:
-        return self._people
+    async def list_members(self) -> tuple[_Member, ...]:
+        return self._members
 
-    people = list_people
+    members = list_members
 
-    async def __call__(self) -> tuple[_Person, ...]:
-        return await self.list_people()
+    async def __call__(self) -> tuple[_Member, ...]:
+        return await self.list_members()
 
 
 class _FakeHandlerRegistry:
@@ -124,8 +124,8 @@ class _FakeHandlerRegistry:
         return self._names
 
 
-def _roster() -> _FakeRoster:
-    return _FakeRoster((_Person(ALICE, "Alice Admin", active=True),))
+def _members() -> _FakeMembers:
+    return _FakeMembers((_Member(ALICE, "Alice Admin", active=True),))
 
 
 _REPORT_NAMES: Final = (
@@ -151,13 +151,13 @@ def _report() -> Any:
 def _blockers(
     steps: tuple[StepDefinition, ...],
     *,
-    roster: _FakeRoster | None = None,
+    members: _FakeMembers | None = None,
     handlers: _FakeHandlerRegistry | None = None,
 ) -> list[Any]:
     return list(
         _report()(
             steps=steps,
-            roster=roster or _roster(),
+            members=members or _members(),
             handlers=handlers or _FakeHandlerRegistry(frozenset({REGISTERED_HANDLER})),
         )
     )

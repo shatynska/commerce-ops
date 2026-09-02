@@ -10,7 +10,7 @@ and `access.infrastructure` may both reach without relaxing an
 `import-linter` contract. `shared` may not import a business module, so
 this module cannot ask `access` whether a caller holds an admin session;
 the composition root, which may know both, hands it `verify` after the app
-is built — the idiom `roster_admin` and `playbook_admin` already use for
+is built — the idiom `members_admin` and `playbook_admin` already use for
 their own collaborators, resolved at call time.
 
 This module knows nothing about what an "admin" is. It was handed a

@@ -649,7 +649,7 @@ async def test_an_edited_task_name_is_never_restored() -> None:
         if any("name" in field.lower() for field in payload["fields"])
     ]
     assert name_updates == [], (
-        f"the authored name was written back over a person's edit: {name_updates}"
+        f"the authored name was written back over a member's edit: {name_updates}"
     )
     # SPECIFIED corollary: the task is not replaced instead of renamed.
     assert collaborators.clickup.calls_named("create_task") == []

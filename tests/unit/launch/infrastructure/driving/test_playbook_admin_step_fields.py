@@ -40,7 +40,7 @@ project keeps its test files self-contained.
 guard seam, the session cookie, the query-parameter names and the
 control-discovery vocabulary. This change adds:
 
-- a roster the page reads to offer assignees. `_install_roster` sets
+- a membership the page reads to offer assignees. `_install_members` sets
   whichever module attribute the page exposes, from a candidate list,
   and fails loudly if none — so the seam is discovered rather than
   assumed into existence.
@@ -171,29 +171,29 @@ class _FakeStepStore:
         self.version += 1
 
 
-class _Person:
-    def __init__(self, person_id: str, display_name: str, *, active: bool) -> None:
-        self.id = person_id
+class _Member:
+    def __init__(self, member_id: str, display_name: str, *, active: bool) -> None:
+        self.id = member_id
         self.display_name = display_name
         self.clickup_user_id: str | None = "clickup-1"
         self.active = active
 
 
-class _FakeRoster:
+class _FakeMembers:
     def __init__(self) -> None:
-        self.people_rows = (
-            _Person(ALICE, ALICE_NAME, active=True),
-            _Person(BOHDAN, BOHDAN_NAME, active=True),
-            _Person(CHRIS_DEPARTED, CHRIS_NAME, active=False),
+        self.members_rows = (
+            _Member(ALICE, ALICE_NAME, active=True),
+            _Member(BOHDAN, BOHDAN_NAME, active=True),
+            _Member(CHRIS_DEPARTED, CHRIS_NAME, active=False),
         )
 
-    async def list_people(self) -> tuple[_Person, ...]:
-        return self.people_rows
+    async def list_members(self) -> tuple[_Member, ...]:
+        return self.members_rows
 
-    people = list_people
+    members = list_members
 
-    async def __call__(self) -> tuple[_Person, ...]:
-        return await self.list_people()
+    async def __call__(self) -> tuple[_Member, ...]:
+        return await self.list_members()
 
 
 def _seeded_store(extra: tuple[_Record, ...] = ()) -> _FakeStepStore:
@@ -381,24 +381,24 @@ async def _fake_verify(*args: Any, **kwargs: Any) -> str | None:
     return PRINCIPAL if _SESSION_VALUE in haystack else None
 
 
-_ROSTER_ATTRIBUTES: Final = ("roster", "read_roster", "people", "roster_reader")
+_MEMBERS_ATTRIBUTES: Final = ("members", "read_members", "members_reader")
 
 
-def _install_roster(monkeypatch: pytest.MonkeyPatch, roster: _FakeRoster) -> None:
-    """Substitute the page's roster seam (INVENTED — see the docstring).
+def _install_members(monkeypatch: pytest.MonkeyPatch, members: _FakeMembers) -> None:
+    """Substitute the page's members seam (INVENTED — see the docstring).
 
     Fails loudly rather than creating the attribute, so a page that reads
-    the roster by some other route is reported instead of silently
+    the membership by some other route is reported instead of silently
     passing with an unused double.
     """
-    for name in _ROSTER_ATTRIBUTES:
+    for name in _MEMBERS_ATTRIBUTES:
         if hasattr(page_module, name):
-            monkeypatch.setattr(page_module, name, roster)
+            monkeypatch.setattr(page_module, name, members)
             return
     pytest.fail(
-        "the page module exposes no roster seam under any of "
-        f"{_ROSTER_ATTRIBUTES} — the form must offer the roster's active "
-        "people, so it reads the roster somehow; correct this file's "
+        "the page module exposes no members seam under any of "
+        f"{_MEMBERS_ATTRIBUTES} — the form must offer the membership's active "
+        "members, so it reads the membership somehow; correct this file's "
         "probe to the implemented name"
     )
 
@@ -406,11 +406,11 @@ def _install_roster(monkeypatch: pytest.MonkeyPatch, roster: _FakeRoster) -> Non
 def _app(
     monkeypatch: pytest.MonkeyPatch,
     store: _FakeStepStore,
-    roster: _FakeRoster | None = None,
+    members: _FakeMembers | None = None,
 ) -> TestClient:
     monkeypatch.setattr(page_module, "steps", store)
     monkeypatch.setattr(page_module, "verify_admin_session", _fake_verify)
-    _install_roster(monkeypatch, roster or _FakeRoster())
+    _install_members(monkeypatch, members or _FakeMembers())
     app = FastAPI()
     app.include_router(page_module.router)
     return TestClient(app)
@@ -419,9 +419,9 @@ def _app(
 def _signed_client(
     monkeypatch: pytest.MonkeyPatch,
     store: _FakeStepStore,
-    roster: _FakeRoster | None = None,
+    members: _FakeMembers | None = None,
 ) -> TestClient:
-    client = _app(monkeypatch, store, roster)
+    client = _app(monkeypatch, store, members)
     client.cookies.set(_SESSION_COOKIE, _SESSION_VALUE)
     return client
 

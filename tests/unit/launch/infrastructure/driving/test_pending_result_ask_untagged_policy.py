@@ -8,10 +8,10 @@ delivered for a decision, and delivery failure does not lose it* in
 Covers the ask's half of:
 
 - *A tagged confirmer is mentioned by their Slack identity*
-- *A confirmer the roster does not carry is not mentioned, and the gap is
+- *A confirmer the membership does not carry is not mentioned, and the gap is
   reported*
 - *A deactivated confirmer is not mentioned, and the gap is reported*
-- *A pending result is delivered untagged when the roster cannot be read*
+- *A pending result is delivered untagged when the membership cannot be read*
 - *An identifier in the message or its controls appears as its value*
 
 ## Why this file exists beside the resolver's own tests
@@ -125,9 +125,9 @@ STEP_ID: Final = "listing.sub-category"
 STEP_NAME: Final = "Choose the sub-category node"
 HANDLER_NAME: Final = "listing.subcategory_advisor"
 
-#: A roster identifier, as a step's `confirmer` field actually holds one.
+#: A member identifier, as a step's `confirmer` field actually holds one.
 #: Deliberately not Slack-shaped, so a message carrying it is visibly wrong.
-CONFIRMER_ROSTER_ID: Final = "3f7c1a92-6b0e-4c7a-9d51-1e8a4b2c9f30"
+CONFIRMER_MEMBER_ID: Final = "3f7c1a92-6b0e-4c7a-9d51-1e8a4b2c9f30"
 CONFIRMER_SLACK: Final = "U01ALICE"
 SUBMITTER_SLACK: Final = "U0SUBMITTER"
 
@@ -165,7 +165,7 @@ class _CatalogProduct:
 class _Step:
     identifier: str = STEP_ID
     name: str = STEP_NAME
-    confirmer: str | None = CONFIRMER_ROSTER_ID
+    confirmer: str | None = CONFIRMER_MEMBER_ID
 
 
 @dataclass
@@ -292,20 +292,20 @@ async def _deliver(
 # ---------------------------------------------------------------------------
 
 
-async def test_the_ask_mentions_the_slack_identity_and_never_the_roster_identifier(
+async def test_the_ask_mentions_the_slack_identity_and_never_the_member_identifier(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Scenario: A tagged confirmer is mentioned by their Slack identity.
 
     WHEN a pending result is delivered for a step naming a confirmer the
-    roster carries, active and with a Slack identity
-    THEN the message mentions that person by their Slack identity, and the
-    roster's own identifier for them appears nowhere in it.
+    members carries, active and with a Slack identity
+    THEN the message mentions that member by their Slack identity, and the
+    membership's own identifier for them appears nowhere in it.
 
     SPECIFIED, both halves. The negative half is the one the shipped tests
     could not state: they passed a Slack-looking constant as the step's
     `confirmer` and asserted it appeared, which a mention nobody receives
-    satisfies. Here the two strings differ, and the roster identifier is
+    satisfies. Here the two strings differ, and the member identifier is
     asserted absent from the *whole* payload — blocks included, since a
     control could carry it just as easily as the text.
     """
@@ -318,9 +318,9 @@ async def test_the_ask_mentions_the_slack_identity_and_never_the_roster_identifi
     assert f"<@{CONFIRMER_SLACK}>" in poster.rendered, (
         f"the ask did not mention the confirmer's Slack identity: {poster.rendered!r}"
     )
-    # SPECIFIED: the roster's own identifier appears nowhere in it.
-    assert CONFIRMER_ROSTER_ID not in poster.rendered, (
-        "the roster's own identifier for the confirmer reached the message; "
+    # SPECIFIED: the membership's own identifier appears nowhere in it.
+    assert CONFIRMER_MEMBER_ID not in poster.rendered, (
+        "the membership's own identifier for the confirmer reached the message; "
         "Slack leaves it as inert literal text and notifies nobody: "
         f"{poster.rendered!r}"
     )
@@ -330,7 +330,7 @@ async def test_the_ask_threads_the_step_through_to_mention_resolution(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Requirement statement: the system "SHALL resolve the step's
-    confirmer through the roster to that person's Slack identity".
+    confirmer through the membership to that member's Slack identity".
 
     SPECIFIED, in the half this adapter owns: it must hand the real step to
     resolution, since a resolution given no step cannot reach the confirmer
@@ -348,25 +348,25 @@ async def test_the_ask_threads_the_step_through_to_mention_resolution(
 
 
 # ---------------------------------------------------------------------------
-# Scenarios: A confirmer the roster does not carry / a deactivated confirmer
-# / the roster cannot be read — all three, at this caller, are one policy
+# Scenarios: A confirmer the membership does not carry / a deactivated confirmer
+# / the membership cannot be read — all three, at this caller, are one policy
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize(
     "why",
     [
-        pytest.param("not carried by the roster", id="unknown-confirmer"),
-        pytest.param("deactivated on the roster", id="deactivated-confirmer"),
-        pytest.param("the roster could not be read", id="unreadable-roster"),
+        pytest.param("not carried by the membership", id="unknown-confirmer"),
+        pytest.param("deactivated on the membership", id="deactivated-confirmer"),
+        pytest.param("the membership could not be read", id="unreadable-members"),
     ],
 )
 async def test_an_unresolvable_confirmer_leaves_the_ask_carrying_no_mention_at_all(
     why: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Scenarios: *A confirmer the roster does not carry is not mentioned*,
+    """Scenarios: *A confirmer the membership does not carry is not mentioned*,
     *A deactivated confirmer is not mentioned*, and *A pending result is
-    delivered untagged when the roster cannot be read*.
+    delivered untagged when the membership cannot be read*.
 
     THEN the message is still delivered […] carrying no mention and not
     tagging the submitter.
@@ -386,7 +386,7 @@ async def test_an_unresolvable_confirmer_leaves_the_ask_carrying_no_mention_at_a
     """
     _, poster = _install(monkeypatch, mention=None)
 
-    await _deliver(product=_CatalogProduct(), step=_Step(confirmer=CONFIRMER_ROSTER_ID))
+    await _deliver(product=_CatalogProduct(), step=_Step(confirmer=CONFIRMER_MEMBER_ID))
 
     # SPECIFIED: the pending result SHALL still be delivered.
     assert poster.calls, (
@@ -399,21 +399,21 @@ async def test_an_unresolvable_confirmer_leaves_the_ask_carrying_no_mention_at_a
     )
     # SPECIFIED, and stated separately because it is the clause with the
     # reason attached: only the named confirmer may decide a pending
-    # result, so tagging anyone else summons a person whose accept and
+    # result, so tagging anyone else summons a member whose accept and
     # reject are certain to be refused.
     assert f"<@{SUBMITTER_SLACK}>" not in poster.rendered, (
         "the ask fell back to tagging the launch's submitter; their decision "
         "on it would be refused, and it makes 'this step names no confirmer' "
         "read identically to 'this confirmer cannot be reached'"
     )
-    # SPECIFIED: and the roster identifier is not what got carried instead.
-    assert CONFIRMER_ROSTER_ID not in poster.rendered
+    # SPECIFIED: and the member identifier is not what got carried instead.
+    assert CONFIRMER_MEMBER_ID not in poster.rendered
 
 
 async def test_an_untagged_ask_still_names_the_product_the_step_and_the_produced_text(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Scenario: *A confirmer the roster does not carry is not mentioned* —
+    """Scenario: *A confirmer the membership does not carry is not mentioned* —
     its "the message is still delivered naming the product, the step and
     the produced text" clause.
 

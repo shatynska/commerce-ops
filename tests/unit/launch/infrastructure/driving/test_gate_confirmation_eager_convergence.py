@@ -213,7 +213,7 @@ def _launch_at_commit(*, satisfy: bool = True) -> Launch:
 
 
 @dataclass
-class _Person:
+class _Member:
     id: str
     display_name: str
     slack_identity: str
@@ -222,12 +222,12 @@ class _Person:
     admin: bool = False
 
 
-class _ReaderRoster:
-    def __init__(self, *people: _Person) -> None:
-        self._people = list(people)
+class _ReaderMembers:
+    def __init__(self, *members: _Member) -> None:
+        self._members = list(members)
 
-    async def list_people(self) -> tuple[_Person, ...]:
-        return tuple(self._people)
+    async def list_members(self) -> tuple[_Member, ...]:
+        return tuple(self._members)
 
 
 class _FakeLaunches:
@@ -396,7 +396,7 @@ _SUPPRESSION_NAMES: Final = (
     "ask_suppression",
     "asks",
 )
-_ROSTER_NAMES: Final = ("read_people", "roster", "RosterReader", "roster_reader")
+_MEMBERS_NAMES: Final = ("read_members", "members", "MembersReader", "members_reader")
 _JOURNAL_NAMES: Final = ("journal", "LaunchJournalRepository", "launch_journal")
 _SESSION_SEAM_NAMES: Final = ("transaction", "session")
 _LOCK_NAMES: Final = (
@@ -448,7 +448,7 @@ class _Harness:
     progress: _FakeProgress
     suppression: _FakeSuppression
     journal: _FakeJournal
-    roster: Any
+    members: Any
     order: list[str]
     respond: _CapturingRespond
     ack: _RecordingAck
@@ -461,7 +461,7 @@ class _Harness:
         self._place("progress", _PROGRESS_NAMES, self.progress)
         self._place("suppression", _SUPPRESSION_NAMES, self.suppression)
         self._place("journal", _JOURNAL_NAMES, self.journal)
-        self._place("roster", _ROSTER_NAMES, self.roster)
+        self._place("members", _MEMBERS_NAMES, self.members)
         self._place_lock()
         self._place_transaction()
         self.monkeypatch.setattr(self.module, _helper_name(self.module), self.helper)
@@ -531,8 +531,8 @@ def _harness(
         progress=_FakeProgress(launches, order),
         suppression=_FakeSuppression(),
         journal=_FakeJournal(),
-        roster=_ReaderRoster(
-            _Person(id=ALICE, display_name=ALICE_NAME, slack_identity=ALICE_SLACK)
+        members=_ReaderMembers(
+            _Member(id=ALICE, display_name=ALICE_NAME, slack_identity=ALICE_SLACK)
         ),
         order=order,
         respond=_CapturingRespond(order),

@@ -386,7 +386,7 @@ def test_request_is_rejected_when_the_signing_secret_is_empty(
 # --------------------------------------------------------------------------
 
 
-def test_person_authored_mention_is_rejected_when_the_bot_token_is_absent(
+def test_member_authored_mention_is_rejected_when_the_bot_token_is_absent(
     monkeypatch: pytest.MonkeyPatch,
     client: TestClient,
     slack_api: _RecordingSlackApi,
@@ -394,7 +394,7 @@ def test_person_authored_mention_is_rejected_when_the_bot_token_is_absent(
 ) -> None:
     """Scenario: The credential needed to reply is absent or empty (absent).
 
-    WHEN an authentic person-authored `app_mention` arrives and the token
+    WHEN an authentic member-authored `app_mention` arrives and the token
     needed to post a reply is absent, or present but empty
     THEN the system SHALL respond as unauthorized rather than acknowledging an
     event it cannot answer.
@@ -419,7 +419,7 @@ def test_person_authored_mention_is_rejected_when_the_bot_token_is_absent(
     assert slack_api.posts == []
 
 
-def test_person_authored_mention_is_rejected_when_the_bot_token_is_empty(
+def test_member_authored_mention_is_rejected_when_the_bot_token_is_empty(
     monkeypatch: pytest.MonkeyPatch,
     client: TestClient,
     slack_api: _RecordingSlackApi,
@@ -427,7 +427,7 @@ def test_person_authored_mention_is_rejected_when_the_bot_token_is_empty(
 ) -> None:
     """Scenario: The credential needed to reply is absent or empty (empty).
 
-    WHEN an authentic person-authored `app_mention` arrives and the token
+    WHEN an authentic member-authored `app_mention` arrives and the token
     needed to post a reply is absent, or present but empty
     THEN the system SHALL respond as unauthorized rather than acknowledging an
     event it cannot answer.

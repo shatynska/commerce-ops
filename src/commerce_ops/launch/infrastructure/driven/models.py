@@ -239,7 +239,7 @@ class LaunchClickUpTask(Base):
     # retained for the same reason the name and body are. Null on rows
     # predating the change, which is read as "last set to nobody" — an
     # unassigned task is the failure the projection exists to fix, so
-    # silence there is the system's own doing rather than a person's edit.
+    # silence there is the system's own doing rather than a member's edit.
     retained_assignees: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
 
 
@@ -384,7 +384,7 @@ class PlaybookStep(Base):
     siblings go on recording who moved the step and when.
     `timing_anchor` is the anchor's JSON shape (`{"kind": ..., ...}`),
     exactly as the seed's source format spelled it; `assignees` is a JSON
-    array of the roster's generated identifiers, never of names.
+    array of the membership's generated identifiers, never of names.
     `starts_at_gate` and `after_steps` say when the step may start
     (`let-a-step-say-when-it-starts`) and are shaped to mirror the two
     columns they most resemble: the first nullable like `handler`, since
@@ -441,19 +441,19 @@ class AutomatedStepResult(Base):
     """One result an automated step's handler produced, and what became of it.
 
     `launch-step-automation`: a terminal proposal on a step that needs
-    confirmation is held here rather than recorded, until a person accepts
+    confirmation is held here rather than recorded, until a member accepts
     or rejects it. A non-terminal proposal never reaches this table — it is
-    recorded directly, because there is nothing in it for a person to
+    recorded directly, because there is nothing in it for a member to
     accept.
 
     **Settled rows are kept, never deleted**, the same retire-never-delete
-    discipline `playbook_steps` follows: what a person accepted, and when,
+    discipline `playbook_steps` follows: what a member accepted, and when,
     is the record of a compliance-adjacent decision.
 
     `state` carries four values, and `voided` is its own rather than a
     flavour of `rejected`. A decision arriving for a step the served
     playbook no longer defines is refused and the row voided; recording
-    that as a rejection would misattribute a refused decision to the person
+    that as a rejection would misattribute a refused decision to the member
     who made it, and — since the cool-off keys on the most recent
     *rejection* — would park the step for a further day once it returned.
 
@@ -523,7 +523,7 @@ class LaunchGateAskSuppression(Base):
     """When a launch's gate was last asked about, or last decided against.
 
     At most one row per (launch, gate). It means "this gate has been put to
-    a person, and the day it was put has not yet elapsed" — the whole of
+    a member, and the day it was put has not yet elapsed" — the whole of
     what `launch-gate-progression`'s once-a-day rule reads.
 
     Two writers, deliberately, where `clickup_field_gap_suppression` has

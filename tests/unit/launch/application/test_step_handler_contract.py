@@ -310,7 +310,7 @@ def test_a_resolution_carries_an_outcome_from_the_vocabulary_and_its_text(
 ) -> None:
     """Requirement statement: "A handler SHALL return an outcome from the
     `launch-playbook` outcome vocabulary together with the result it
-    produced, expressed as text a person can read."
+    produced, expressed as text a member can read."
 
     SPECIFIED, over the whole vocabulary: a contract accepting only the
     terminal outcomes would make the requirement's own "A handler with
@@ -347,7 +347,7 @@ def test_a_resolution_refuses_empty_produced_text() -> None:
 
 def test_a_resolution_refuses_produced_text_that_is_only_whitespace() -> None:
     """DERIVED, recorded as such: the spec says the text SHALL NOT be
-    empty, and a string of spaces is empty to the person who has to read
+    empty, and a string of spaces is empty to the member who has to read
     it as the evidence for a compliance-relevant decision, but no
     artifact says so. If the implementation deliberately admits it, this
     is the assertion to reconsider — not the one above.
@@ -374,7 +374,7 @@ def test_a_resolution_has_no_place_to_put_provenance() -> None:
     """
     smuggled = Provenance(
         source="clickup",
-        who="a person who never saw this",
+        who="a member who never saw this",
         when=AS_OF,
         evidence=RECOMMENDATION,
     )
@@ -395,7 +395,7 @@ def test_a_resolution_has_no_place_to_put_provenance() -> None:
 def test_no_field_of_the_contract_is_a_provenance_in_disguise() -> None:
     """Requirement statement: "A handler SHALL NOT supply its own
     recording provenance ... A handler therefore cannot record work as
-    having come from a person, from ClickUp, or from an attestation."
+    having come from a member, from ClickUp, or from an attestation."
 
     DERIVED probe, not exhaustive: the rejection above covers the field
     named `provenance`; this covers the field named something else that

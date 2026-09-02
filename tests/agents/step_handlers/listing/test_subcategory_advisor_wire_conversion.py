@@ -57,7 +57,7 @@ one — so neither test can pass by taking the other's route.
 reason, the rendered text and the finding together. The conversion itself
 is not reachable as a plain function without naming an internal the
 artifacts do not fix; observing it through `propose()` also keeps the
-assertions on what a person and the launch record actually receive.
+assertions on what a member and the launch record actually receive.
 
 ## What is fixed, and what is INVENTED
 
@@ -82,7 +82,7 @@ INVENTED, each recorded in `test-manifest.md`:
   already uses, so an implementation satisfying that file satisfies this
   one.
 - `REPORTED_ERROR` and `REFUSAL_ERROR` as realistic model-authored prose
-  with no first-person subject — deliberately the shape `design.md` names
+  with no first-member subject — deliberately the shape `design.md` names
   as the one `_advisor_refuses` will *not* catch, so a pass here is
   evidence about the conversion rather than about a matcher's word list.
 
@@ -127,7 +127,7 @@ COMMENT: Final = (
 )
 
 # DERIVED: an error a model would author alongside `ok: true` — deliberately
-# with no first-person subject, since `design.md` records that
+# with no first-member subject, since `design.md` records that
 # `_advisor_refuses` matches on one and would not fire on this. The route
 # under test must be the conversion's, not the comment veto's.
 REPORTED_ERROR: Final = (
@@ -462,7 +462,7 @@ async def test_an_unsupported_choice_proposes_no_satisfaction(
         f"contradiction: {reason!r}"
     )
     assert REFUSAL_ERROR in _text_of(proposal), (
-        "the advisor's own error never reached the person reading the "
+        "the advisor's own error never reached the member reading the "
         f"recommendation: {_text_of(proposal)!r}"
     )
 
@@ -561,7 +561,7 @@ async def test_a_supporting_discriminant_carrying_a_reported_error_withholds_sat
     THEN it proposes a non-terminal outcome naming the contradiction, does
     not propose a satisfying outcome, and its rendered text carries that
     error — the error is never discarded as surplus to a supported
-    response, and never left only in the recorded reason where the person
+    response, and never left only in the recorded reason where the member
     reading the recommendation would not see it.
 
     SPECIFIED, and the three blank-value cases are the **precedence** the
@@ -607,7 +607,7 @@ async def test_a_supporting_discriminant_carrying_a_reported_error_withholds_sat
         f"carried: {reason!r}"
     )
     # SPECIFIED: the rendered text carries the error, so the refusal is
-    # visible to the person reading it.
+    # visible to the member reading it.
     assert REPORTED_ERROR in _text_of(proposal), (
         "the reported error never reached the reader; a contradiction was "
         f"rendered with nothing in it to say support was withheld: "

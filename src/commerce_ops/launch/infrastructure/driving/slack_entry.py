@@ -86,7 +86,7 @@ __all__ = [
     "establish_thread_and_resolve_mention",
     "launches_channel",
     "post_monitoring_message",
-    "read_people",
+    "read_members",
     "read_product",
     "register_catalog_product",
     "reset_handler_cache",
@@ -160,11 +160,11 @@ register_catalog_product: CatalogRegistrar | None = None
 # The eager-convergence call below (`trigger-clickup-projection-on-launch-
 # events`) needs the same two readers `clickup_sync_job.py` injects for the
 # periodic pass — `converge_launch` requires `read_product`, with no
-# default, to name the launch's ClickUp list; `roster` is optional. Injected
+# default, to name the launch's ClickUp list; `members` is optional. Injected
 # by `main.py`, this process's own composition root, not shared with the
 # worker's.
 read_product: Any = None
-read_people: Any = None
+read_members: Any = None
 
 
 def _launch_folder_id() -> str | None:
@@ -634,7 +634,7 @@ def _get_handler() -> AsyncSlackRequestHandler:
                     clickup=clickup,
                     mapping=ClickUpMappingRepository(db_session),
                     read_product=_read_product_or_fail,
-                    roster=read_people,
+                    members=read_members,
                     folder_id=_launch_folder_id(),
                 )
         except PlaybookNotReadyError as unready:

@@ -64,7 +64,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from commerce_ops.access.application import Person, PersonRecord, mint_admin_link
+from commerce_ops.access.application import Member, MemberRecord, mint_admin_link
 from commerce_ops.access.infrastructure.driving import admin_link as admin_link_module
 
 ADMIN_IDENTITY: Final = "U01ALICE"
@@ -120,8 +120,8 @@ class _FakeAdminSessions:
 # ---------------------------------------------------------------------------
 
 
-class _FakeRosterStore:
-    """The roster the link is minted against.
+class _FakeMembersStore:
+    """The membership the link is minted against.
 
     Adapted from a YAML directory by `move-principals-to-roster`; the
     link-exchange requirements these tests cover are untouched by that
@@ -130,9 +130,9 @@ class _FakeRosterStore:
 
     def __init__(self) -> None:
         self.rows = (
-            PersonRecord(
-                person=Person(
-                    identifier="person-admin",
+            MemberRecord(
+                member=Member(
+                    identifier="member-admin",
                     display_name="Alice Admin",
                     slack_identity=ADMIN_IDENTITY,
                     admin=True,
@@ -144,11 +144,11 @@ class _FakeRosterStore:
         return self.rows, 1
 
     async def save(self, rows: Any, *, expected_version: int) -> None:
-        raise AssertionError("these tests never write to the roster")
+        raise AssertionError("these tests never write to the membership")
 
 
-def _roster(tmp_path: Path) -> Any:
-    return _FakeRosterStore()
+def _members(tmp_path: Path) -> Any:
+    return _FakeMembersStore()
 
 
 def _mint_link_path(
@@ -162,7 +162,7 @@ def _mint_link_path(
     """
     link = asyncio.run(
         mint_admin_link(
-            _roster(tmp_path),
+            _members(tmp_path),
             tokens,
             identity=ADMIN_IDENTITY,
             base_url=BASE_URL,

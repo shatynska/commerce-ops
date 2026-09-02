@@ -2,11 +2,11 @@
   The header every admin surface carries, naming both surfaces the session
   can reach. Included from `launch`'s templates and from `access`'s alike,
   through a `ChoiceLoader` over this directory — one copy, so the two
-  surfaces cannot drift apart the way the roster page's inline styles did.
+  surfaces cannot drift apart the way the Team page's inline styles did.
 
   `current` says which surface is being viewed: `"playbook"` from the step
   list and from both authoring surfaces (an admin authoring a step is within
-  the playbook surface), `"roster"` from the roster page. The current one is
+  the playbook surface), `"team"` from the Team page. The current one is
   identified rather than linked, so the header reads as a position rather
   than as an undifferentiated pair of links.
 
@@ -17,8 +17,8 @@
 
   The outbound link from the playbook surfaces is un-boosted, for the reason
   `page.html`'s Add step control already records: `hx-boost` is inherited
-  from `<body>`, so htmx would swap the roster page into this page's body,
-  discard that page's own body attributes and leave a roster page that
+  from `<body>`, so htmx would swap the Team page into this page's body,
+  discard that page's own body attributes and leave a Team page that
   cannot post.
 #}
 <header class="admin-header">
@@ -29,20 +29,20 @@
      surfaces a two-way `if` was legible, and a third made "every surface
      names every other" something a reader had to verify by counting
      branches. Adding a fourth is now one row here, which is what
-     `playbook-admin` and `roster-admin` both require -- a surface added
+     `playbook-admin` and `members-admin` both require -- a surface added
      later is named by the header rather than left unreachable from the
      pages that predate it. #}
   <nav class="container" aria-label="Admin surfaces">
     {# Ordered as the work is: the catalog first, then the launches driven from
-       it, then the playbook those launches run on, and the people last. The
-       `key` and the path are unchanged -- only the order they are listed in
-       and the roster's label, which now reads `Users`, the word the admin who
-       uses this header calls those people by. #}
+       it, then the playbook those launches run on, and the membership last. The
+       key, the path and the label now read `team`, `/admin/team` and `Team`
+       (`rename-the-roster-to-members`): `Team` is the container that makes
+       "members" read naturally, and it is what an admin calls these people. #}
     {% for key, path, label in [
          ("products", "/admin/products", "Products"),
          ("launches", "/admin/launches", "Launches"),
          ("playbook", "/admin/playbook", "Playbook"),
-         ("roster", "/admin/roster", "Users"),
+         ("team", "/admin/team", "Team"),
        ] %}
       {% if key == current %}
     <span class="admin-surface current" aria-current="page">{{ label }}</span>

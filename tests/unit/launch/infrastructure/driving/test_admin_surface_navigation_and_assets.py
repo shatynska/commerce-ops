@@ -15,8 +15,8 @@ Derived strictly from the delta spec
   which drives the shared route directly.
 
 It also carries one assertion belonging to the *other* capability's
-delta — `roster-admin`'s ADDED *The page's presentation comes from the
-shared admin vocabulary* requires the roster page's presentation to come
+delta — `members-admin`'s ADDED *The page's presentation comes from the
+shared admin vocabulary* requires the Team page's presentation to come
 from "the same stylesheet the playbook admin surfaces load", and only a
 rendering of the playbook surfaces can establish the second half of
 that. It rides the stylesheet test below rather than becoming a file of
@@ -45,7 +45,7 @@ Fixed by the artifacts:
   edit surfaces each identify the *playbook* surface as current (delta,
   the requirement's own prose).
 - That reachability depends on neither scripting nor the step set.
-- That travelling to the roster page is not a write and carries nothing
+- That travelling to the Team page is not a write and carries nothing
   forward.
 - That the shared asset route lives in
   `commerce_ops.shared.infrastructure.driving.admin_assets`, exposes
@@ -60,7 +60,7 @@ INVENTED, each recorded in the manifest with its correction point:
   element of its own fails here with that message. Correction point:
   `_header_of`.
 - The words by which each surface is named — `_PLAYBOOK_WORDS`,
-  `_ROSTER_WORDS`. The delta fixes that both surfaces are named, not the
+  `_MEMBERS_WORDS`. The delta fixes that both surfaces are named, not the
   wording.
 - How "identifies the surface currently viewed" is read: within the
   header, the current surface is either not rendered as a live link to
@@ -69,9 +69,9 @@ INVENTED, each recorded in the manifest with its correction point:
   undifferentiated pair of links"; `design.md` chose "the current one
   identified rather than linked", which passes it. Correction point:
   `_identifies_current`.
-- The roster page module's seams (`roster`, `verify_admin_session`) and
-  the roster store double, both taken from
-  `tests/unit/access/infrastructure/driving/test_roster_admin_page.py`.
+- The Team page module's seams (`members`, `verify_admin_session`) and
+  the members store double, both taken from
+  `tests/unit/access/infrastructure/driving/test_members_admin_page.py`.
   Correction point: `_app`.
 
 ## What this file deliberately does NOT cover
@@ -110,8 +110,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from commerce_ops.access.application import create_person
-from commerce_ops.access.infrastructure.driving import roster_admin as roster_module
+from commerce_ops.access.application import create_member
+from commerce_ops.access.infrastructure.driving import members_admin as members_module
 from commerce_ops.launch.domain.launch_playbook import (
     Hazard,
     OffsetAnchor,
@@ -163,7 +163,7 @@ _FILTER_PARAMS: Final = {"gate": "gate", "discipline": "discipline", "search": "
 #: fixes that both are named, not the wording. Correction point for a
 #: header that calls them something else.
 _PLAYBOOK_WORDS: Final = ("playbook", "step", "steps")
-_ROSTER_WORDS: Final = ("roster", "people", "person")
+_MEMBERS_WORDS: Final = ("team", "members", "member")
 
 #: Markers by which a header may identify the current surface while still
 #: rendering it as a link.
@@ -179,8 +179,8 @@ BOHDAN_NAME: Final = "Bohdan Colleague"
 CHRIS_DEPARTED: Final = "prs_01HQ8Z6M4C"
 CHRIS_NAME: Final = "Chris Departed"
 
-ROSTER_ADMIN_IDENTITY: Final = "U01ALICE"
-ROSTER_ADMIN_NAME: Final = "Alice Admin"
+MEMBER_ADMIN_IDENTITY: Final = "U01ALICE"
+MEMBER_ADMIN_NAME: Final = "Alice Admin"
 
 _VOID_TAGS: Final = (
     "area",
@@ -266,29 +266,29 @@ class _FakeStepStore:
         self.version += 1
 
 
-class _Person:
-    def __init__(self, person_id: str, display_name: str, *, active: bool) -> None:
-        self.id = person_id
+class _Member:
+    def __init__(self, member_id: str, display_name: str, *, active: bool) -> None:
+        self.id = member_id
         self.display_name = display_name
         self.clickup_user_id: str | None = "clickup-1"
         self.active = active
 
 
-class _FakeRoster:
+class _FakeMembers:
     def __init__(self) -> None:
-        self.people_rows = (
-            _Person(ALICE, ALICE_NAME, active=True),
-            _Person(BOHDAN, BOHDAN_NAME, active=True),
-            _Person(CHRIS_DEPARTED, CHRIS_NAME, active=False),
+        self.members_rows = (
+            _Member(ALICE, ALICE_NAME, active=True),
+            _Member(BOHDAN, BOHDAN_NAME, active=True),
+            _Member(CHRIS_DEPARTED, CHRIS_NAME, active=False),
         )
 
-    async def list_people(self) -> tuple[_Person, ...]:
-        return self.people_rows
+    async def list_members(self) -> tuple[_Member, ...]:
+        return self.members_rows
 
-    people = list_people
+    members = list_members
 
-    async def __call__(self) -> tuple[_Person, ...]:
-        return await self.list_people()
+    async def __call__(self) -> tuple[_Member, ...]:
+        return await self.list_members()
 
 
 def _seeded_store() -> _FakeStepStore:
@@ -311,11 +311,11 @@ def _seeded_store() -> _FakeStepStore:
 
 
 # ---------------------------------------------------------------------------
-# The roster-store double (see test_roster_admin_page.py)
+# The membership-store double (see test_members_admin_page.py)
 # ---------------------------------------------------------------------------
 
 
-class _FakeRosterStore:
+class _FakeMembersStore:
     def __init__(self, rows: tuple[Any, ...] = (), version: int = 13) -> None:
         self.rows = tuple(rows)
         self.version = version
@@ -331,24 +331,24 @@ class _FakeRosterStore:
         self.version += 1
 
 
-async def _build_roster_store() -> _FakeRosterStore:
-    store = _FakeRosterStore()
-    await create_person(
-        roster=store,
+async def _build_members_store() -> _FakeMembersStore:
+    store = _FakeMembersStore()
+    await create_member(
+        members=store,
         principal="the-creating-admin",
-        display_name=ROSTER_ADMIN_NAME,
-        slack_identity=ROSTER_ADMIN_IDENTITY,
+        display_name=MEMBER_ADMIN_NAME,
+        slack_identity=MEMBER_ADMIN_IDENTITY,
         clickup_user_id=None,
         admin=True,
     )
     return store
 
 
-def _roster_store() -> _FakeRosterStore:
+def _members_store() -> _FakeMembersStore:
     """Built off the event loop: the tests are synchronous and drive the
     ASGI app through `TestClient`'s own portal, as every driving-adapter
     test in this project does."""
-    return asyncio.run(_build_roster_store())
+    return asyncio.run(_build_members_store())
 
 
 # ---------------------------------------------------------------------------
@@ -531,7 +531,7 @@ def _header_of(
             f"this surface (looked for {current_words}) without enclosing the "
             "page's own tables or forms, so the header names one surface "
             "rather than the pair — correct `_header_of` or "
-            "`_PLAYBOOK_WORDS`/`_ROSTER_WORDS` to the implemented header"
+            "`_PLAYBOOK_WORDS`/`_MEMBERS_WORDS` to the implemented header"
         )
     return min(candidates, key=_size)
 
@@ -750,18 +750,18 @@ async def _fake_verify(*args: Any, **kwargs: Any) -> str | None:
     return PRINCIPAL if _SESSION_VALUE in haystack else None
 
 
-_ROSTER_ATTRIBUTES: Final = ("roster", "read_roster", "people", "roster_reader")
+_MEMBERS_ATTRIBUTES: Final = ("members", "read_members", "members_reader")
 
 
-def _install_roster(monkeypatch: pytest.MonkeyPatch) -> None:
-    roster = _FakeRoster()
-    for name in _ROSTER_ATTRIBUTES:
+def _install_members(monkeypatch: pytest.MonkeyPatch) -> None:
+    members = _FakeMembers()
+    for name in _MEMBERS_ATTRIBUTES:
         if hasattr(page_module, name):
-            monkeypatch.setattr(page_module, name, roster)
+            monkeypatch.setattr(page_module, name, members)
             return
     pytest.fail(
-        "the page module exposes no roster seam under any of "
-        f"{_ROSTER_ATTRIBUTES} — correct this file's probe to the "
+        "the page module exposes no members seam under any of "
+        f"{_MEMBERS_ATTRIBUTES} — correct this file's probe to the "
         "implemented name"
     )
 
@@ -770,34 +770,34 @@ def _install_roster(monkeypatch: pytest.MonkeyPatch) -> None:
 class _Surfaces:
     client: TestClient
     steps: _FakeStepStore
-    roster: _FakeRosterStore
+    members: _FakeMembersStore
 
 
 def _app(
     monkeypatch: pytest.MonkeyPatch,
     *,
     steps: _FakeStepStore | None = None,
-    roster: _FakeRosterStore | None = None,
+    members: _FakeMembersStore | None = None,
 ) -> _Surfaces:
     step_store = _seeded_store() if steps is None else steps
-    roster_store = _roster_store() if roster is None else roster
+    members_store = _members_store() if members is None else members
 
     monkeypatch.setattr(page_module, "steps", step_store)
     monkeypatch.setattr(page_module, "verify_admin_session", _fake_verify)
-    _install_roster(monkeypatch)
-    monkeypatch.setattr(roster_module, "roster", roster_store)
-    monkeypatch.setattr(roster_module, "verify_admin_session", _fake_verify)
+    _install_members(monkeypatch)
+    monkeypatch.setattr(members_module, "members", members_store)
+    monkeypatch.setattr(members_module, "verify_admin_session", _fake_verify)
 
     app = FastAPI()
     app.include_router(page_module.router)
-    app.include_router(roster_module.router)
+    app.include_router(members_module.router)
     assets = _assets_module()
     if assets is not None:
         monkeypatch.setattr(assets, "verify", _fake_verify)
         app.include_router(assets.router)
     client = TestClient(app)
     client.cookies.set(_SESSION_COOKIE, _SESSION_VALUE)
-    return _Surfaces(client, step_store, roster_store)
+    return _Surfaces(client, step_store, members_store)
 
 
 def _shortest_get_route(router: Any) -> str:
@@ -815,8 +815,8 @@ def _page_path() -> str:
     return _shortest_get_route(page_module.router)
 
 
-def _roster_path() -> str:
-    return _shortest_get_route(roster_module.router)
+def _members_path() -> str:
+    return _shortest_get_route(members_module.router)
 
 
 def _resolve(url: str) -> str:
@@ -910,7 +910,7 @@ def _shared_assets_client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
 
 def _playbook_header(html: str) -> _Node:
     return _header_of(
-        _tree(html), other_path=_roster_path(), current_words=_PLAYBOOK_WORDS
+        _tree(html), other_path=_members_path(), current_words=_PLAYBOOK_WORDS
     )
 
 
@@ -920,13 +920,13 @@ def _playbook_header(html: str) -> _Node:
 # ---------------------------------------------------------------------------
 
 
-def test_the_roster_page_is_reachable_from_the_step_list(
+def test_the_members_page_is_reachable_from_the_step_list(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Scenario: The roster page is reachable from the step list.
+    """Scenario: The Team page is reachable from the step list.
 
     WHEN the step list is rendered
-    THEN its header offers the roster page in one action
+    THEN its header offers the Team page in one action
     AND identifies the step list as the surface currently viewed.
     """
     surfaces = _app(monkeypatch)
@@ -934,11 +934,11 @@ def test_the_roster_page_is_reachable_from_the_step_list(
 
     header = _playbook_header(listed)
 
-    # SPECIFIED: the roster page is offered in one action, and without
+    # SPECIFIED: the Team page is offered in one action, and without
     # scripting — a plain anchor.
-    assert _offers_in_one_action(header, _roster_path()), (
-        f"the header renders no live link to {_roster_path()!r}, so the "
-        "roster page is reachable only by an admin who knows to type the URL"
+    assert _offers_in_one_action(header, _members_path()), (
+        f"the header renders no live link to {_members_path()!r}, so the "
+        "Team page is reachable only by an admin who knows to type the URL"
     )
     # SPECIFIED: and the header identifies the step list as current.
     assert _identifies_current(header, words=_PLAYBOOK_WORDS), (
@@ -946,12 +946,12 @@ def test_the_roster_page_is_reachable_from_the_step_list(
         "viewed, so it reads as an undifferentiated pair of links rather than "
         f"as a position (header: {_flat(_all_text(header))[:300]!r})"
     )
-    # SPECIFIED: travelling there really serves the roster page.
-    link = _links_to(header, _roster_path())[0]
+    # SPECIFIED: travelling there really serves the Team page.
+    link = _links_to(header, _members_path())[0]
     served = surfaces.client.get(link.attrs["href"])
     assert served.status_code == 200, served.text
-    assert ROSTER_ADMIN_IDENTITY in served.text, (
-        "the header's roster link does not lead to the roster page"
+    assert MEMBER_ADMIN_IDENTITY in served.text, (
+        "the header's members link does not lead to the Team page"
     )
 
 
@@ -962,7 +962,7 @@ def test_the_header_does_not_depend_on_how_many_steps_are_shown(
 
     WHEN the step list is rendered under a narrowing that matches no step
     at all
-    THEN the header is still rendered and still offers the roster page.
+    THEN the header is still rendered and still offers the Team page.
     """
     surfaces = _app(monkeypatch)
     needle = "no-step-anywhere-carries-this-phrase"
@@ -976,10 +976,10 @@ def test_the_header_does_not_depend_on_how_many_steps_are_shown(
             f"the search {needle!r} still renders {identifier}, so this test "
             "does not reach the empty-list case"
         )
-    # SPECIFIED: the header is still rendered and still offers the roster.
+    # SPECIFIED: the header is still rendered and still offers the membership.
     header = _playbook_header(empty)
-    assert _offers_in_one_action(header, _roster_path()), (
-        "the header stops offering the roster page once the narrowing "
+    assert _offers_in_one_action(header, _members_path()), (
+        "the header stops offering the Team page once the narrowing "
         "empties the list, so reachability depends on the step set"
     )
 
@@ -990,7 +990,7 @@ def test_the_authoring_surfaces_carry_the_header_too(
     """Scenario: The authoring surfaces carry the header too.
 
     WHEN the create surface and a step's edit surface are each rendered
-    THEN each carries the header offering the roster page
+    THEN each carries the header offering the Team page
     AND each identifies the playbook surface as the one currently
     viewed.
     """
@@ -1001,11 +1001,11 @@ def test_the_authoring_surfaces_carry_the_header_too(
         ("edit surface", _open_edit(surfaces.client)),
     ):
         header = _playbook_header(html)
-        # SPECIFIED: each carries the header offering the roster page.
-        assert _offers_in_one_action(header, _roster_path()), (
-            f"the {what} carries no live link to {_roster_path()!r} in its "
+        # SPECIFIED: each carries the header offering the Team page.
+        assert _offers_in_one_action(header, _members_path()), (
+            f"the {what} carries no live link to {_members_path()!r} in its "
             "header — an admin part-way through authoring is exactly the "
-            "person who needs the roster"
+            "member who needs the membership"
         )
         # SPECIFIED: and identifies the playbook surface as current —
         # the authoring surfaces are not named in the header themselves.
@@ -1021,8 +1021,8 @@ def test_departing_from_the_create_surface_carries_nothing_forward(
     """Scenario: Departing from the create surface carries nothing
     forward.
 
-    WHEN the header's roster link is taken from the create surface
-    THEN the roster page is served
+    WHEN the header's members link is taken from the create surface
+    THEN the Team page is served
     AND nothing the create surface held is persisted.
 
     That departing discards what was typed is accepted by the
@@ -1033,32 +1033,32 @@ def test_departing_from_the_create_surface_carries_nothing_forward(
     """
     surfaces = _app(monkeypatch)
     # Taken before anything is driven, and compared rather than required to
-    # be empty: this file's own roster fixture seeds its store *through the
-    # write path* (`_build_roster_store` calls `create_person`), so the
+    # be empty: this file's own members fixture seeds its store *through the
+    # write path* (`_build_members_store` calls `create_member`), so the
     # double already carries that one save before a request exists. What the
     # scenario is about is whether *departing* writes anything, which is a
     # difference across the navigation and not an absolute count.
     steps_written = len(surfaces.steps.saves)
-    roster_written = len(surfaces.roster.saves)
+    members_written = len(surfaces.members.saves)
 
     created = _open_create(surfaces.client)
     header = _playbook_header(created)
 
-    link = _links_to(header, _roster_path())[0]
+    link = _links_to(header, _members_path())[0]
     href = link.attrs["href"]
     served = surfaces.client.get(href)
 
-    # SPECIFIED: the roster page is served.
+    # SPECIFIED: the Team page is served.
     assert served.status_code == 200, served.text
-    assert ROSTER_ADMIN_IDENTITY in served.text, (
-        "the header's roster link from the create surface does not serve the "
-        f"roster page: {served.text[:1000]}"
+    assert MEMBER_ADMIN_IDENTITY in served.text, (
+        "the header's members link from the create surface does not serve the "
+        f"Team page: {served.text[:1000]}"
     )
-    # SPECIFIED: and carries nothing forward — the roster page has no
+    # SPECIFIED: and carries nothing forward — the Team page has no
     # narrowing of its own, so the link takes none.
     assert not urlsplit(href).query, (
-        f"the header's roster link carries {urlsplit(href).query!r} forward "
-        "from the create surface, though the roster page has no narrowing of "
+        f"the header's members link carries {urlsplit(href).query!r} forward "
+        "from the create surface, though the Team page has no narrowing of "
         "its own"
     )
     # SPECIFIED: nothing the create surface held is persisted — travelling
@@ -1069,9 +1069,9 @@ def test_departing_from_the_create_surface_carries_nothing_forward(
         "taking the header link from the create surface persisted a step: "
         f"{surfaces.steps.saves[steps_written:]}"
     )
-    assert len(surfaces.roster.saves) == roster_written, (
-        "taking the header link from the create surface wrote to the roster: "
-        f"{surfaces.roster.saves[roster_written:]}"
+    assert len(surfaces.members.saves) == members_written, (
+        "taking the header link from the create surface wrote to the membership: "
+        f"{surfaces.members.saves[members_written:]}"
     )
 
 
@@ -1100,11 +1100,11 @@ def test_the_admin_surfaces_load_their_stylesheet_with_no_build_step_run(
 
     A second assertion rides here because it needs the same three
     renderings: every stylesheet these surfaces link is served by the
-    **shared** asset route. That is what makes `roster-admin`'s "the same
+    **shared** asset route. That is what makes `members-admin`'s "the same
     stylesheet the playbook admin surfaces load" literally true rather
-    than true by convention — the roster side asserts its own href is
+    than true by convention — the membership side asserts its own href is
     served there, and one URL for one file is what joins the two.
-    SPECIFIED, by `roster-admin`'s ADDED *The page's presentation comes
+    SPECIFIED, by `members-admin`'s ADDED *The page's presentation comes
     from the shared admin vocabulary*, which has no scenario of its own
     for this half.
     """
@@ -1135,7 +1135,7 @@ def test_the_admin_surfaces_load_their_stylesheet_with_no_build_step_run(
             assert response.content, f"{href!r} is served empty to the {what}"
             linked.append((what, href))
 
-    # SPECIFIED (`roster-admin`): and it is the *shared* stylesheet.
+    # SPECIFIED (`members-admin`): and it is the *shared* stylesheet.
     # Asserted after the loop above, so that a checkout where the shared
     # route does not exist yet still reports whether the pages load what
     # they link at all.

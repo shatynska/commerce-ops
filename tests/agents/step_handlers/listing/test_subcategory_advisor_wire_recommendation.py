@@ -327,7 +327,7 @@ async def test_a_recommendation_names_node_demands_and_alternative(
 @pytest.mark.anyio
 async def test_a_recommendation_is_readable_as_it_stands(wire_schema: Any) -> None:
     """WHEN a recommendation is returned THEN the rendered text is
-    readable by a person without further processing.
+    readable by a member without further processing.
     """
     proposal, _ = await _propose(wire_schema, ok=True, value=NODE, error=None)
 

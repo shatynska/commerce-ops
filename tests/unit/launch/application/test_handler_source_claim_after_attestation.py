@@ -9,7 +9,7 @@ and the product, and attributes nothing* — its scenario *A handler cannot
 claim another source*, whose words this delta leaves unchanged while
 striking `attestation` from the sources the requirement's own sentence
 names ("A handler therefore cannot record work as having come from a
-person or from ClickUp").
+member or from ClickUp").
 
 Its three other scenarios are untouched by this delta and stay covered by
 `tests/unit/launch/application/test_step_handler_contract.py` and
@@ -81,11 +81,11 @@ def test_a_handler_cannot_claim_a_surviving_source() -> None:
     still names — so the refusal is asserted over a value that outlives
     this change. A handler claiming `clickup` is the concrete harm the
     rule prevents: a completion the system would then report as a
-    person's own, arriving through a channel nobody used.
+    member's own, arriving through a channel nobody used.
     """
     smuggled = Provenance(
         source="clickup",
-        who="a person who never saw this",
+        who="a member who never saw this",
         when=AS_OF,
         evidence=RESULT,
     )

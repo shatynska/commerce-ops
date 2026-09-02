@@ -1,4 +1,4 @@
-"""Driving adapter: putting a produced result in front of a person.
+"""Driving adapter: putting a produced result in front of a member.
 
 `launch-step-automation`'s "A pending result is delivered for a decision"
 and the decision half of "Only the step's named confirmer may decide a
@@ -10,7 +10,7 @@ actually checked — this adapter stays a thin relay of whichever Slack
 identity pressed the button.
 
 The produced text goes in whole rather than truncated. It is the thing
-being decided — a person asked to accept a recommendation they can only
+being decided — a member asked to accept a recommendation they can only
 half-read is being asked to accept it unread, and the message is also the
 only place it is legible before it becomes a launch record.
 
@@ -35,8 +35,8 @@ from typing import Any
 from slack_bolt.app.async_app import AsyncApp
 
 from commerce_ops.launch.application import (
-    RosterReader,
-    UnreadableRosterError,
+    MembersReader,
+    UnreadableMembersError,
     accept_automated_result,
     record_step_outcome,
     reject_automated_result,
@@ -81,17 +81,17 @@ _logger = logging.getLogger(__name__)
 SLACK_APP_IDENTITY = "product_agent"
 
 # Injected by `main.py`, never imported: resolving a Slack identity means
-# reading the roster, and `.importlinter` forbids this module from naming
+# reading the membership, and `.importlinter` forbids this module from naming
 # `access`'s *store*. Only a composition root may construct one, which is
 # what makes the injection legal there and not here.
 #
-# A **reader** is what belongs here -- something answering `list_people()`
+# A **reader** is what belongs here -- something answering `list_members()`
 # -- and the type says so. It was `Any`, and the root assigned it the
-# `PostgresRoster` store, which answers `load()`/`save()`: nothing
+# `PostgresMembers` store, which answers `load()`/`save()`: nothing
 # objected, and every decision by every identity was refused as though
-# the roster did not carry them. Typed, that assignment is a `mypy`
+# the membership did not carry them. Typed, that assignment is a `mypy`
 # error at the line where the mistake is made.
-read_people: RosterReader | None = None
+read_members: MembersReader | None = None
 
 ACCEPT_ACTION = "automation_result_accept"
 REJECT_ACTION = "automation_result_reject"
@@ -105,7 +105,7 @@ def _outcome_name(outcome: Any) -> str:
 
 
 def compose_message(*, result: Any, product: Any, step_name: str | None) -> str:
-    """The message a person decides on.
+    """The message a member decides on.
 
     Plain text rather than Block Kit: the produced text is the substance
     and is already prose, and a layout would only wrap it. The two
@@ -170,11 +170,11 @@ async def deliver_pending_result(
         product_id,
         step=step,
     )
-    # No tag where the step names a confirmer the roster could not resolve,
+    # No tag where the step names a confirmer the membership could not resolve,
     # and specifically **not** the submitter in their place. Only the named
     # confirmer may decide a pending result (`launch-step-automation`: *Only
     # the step's named confirmer may decide a pending result*, which accepts
-    # a decision only from that person and only while they are active), so
+    # a decision only from that member and only while they are active), so
     # tagging anyone else summons someone whose accept and reject are certain
     # to be refused. The gap is reported by `resolve_mention_target`, which
     # is the only place that can name what failed to resolve.
@@ -277,7 +277,7 @@ async def _handle_decision(body: dict[str, Any], accept: bool) -> str:
             use_case = accept_automated_result if accept else reject_automated_result
             decision = await use_case(
                 results=AutomatedResultRepository(db_session),
-                roster=_roster_or_fail(),
+                members=_members_or_fail(),
                 launches=launches,
                 playbook=playbook,
                 record_outcome=functools.partial(
@@ -291,7 +291,7 @@ async def _handle_decision(body: dict[str, Any], accept: bool) -> str:
                 slack_identity=slack_identity,
                 when=datetime.now(UTC),
             )
-    except UnreadableRosterError:
+    except UnreadableMembersError:
         # Caught by its own type, never a bare `except Exception`: every
         # genuine refusal comes back as a `Decision`, so a broad catch
         # here would report unrelated bugs as a mis-wired deployment.
@@ -300,19 +300,19 @@ async def _handle_decision(body: dict[str, Any], accept: bool) -> str:
         # decider can do nothing about, and answered because the
         # alternative -- letting it escape after `ack()` -- leaves the
         # press unanswered. The sentence says nothing about the decider:
-        # their identity, their roster entry and their authority are all
+        # their identity, their members entry and their authority are all
         # irrelevant to what went wrong, and the previous behaviour of
-        # blaming the roster for a wiring fault is what sent an active
+        # blaming the membership for a wiring fault is what sent an active
         # admin looking at correct data.
         _logger.exception(
             "automation confirmation: a decision on step '%s' could not be "
-            "judged because the roster collaborator cannot be read; this is "
+            "judged because the members collaborator cannot be read; this is "
             "a deployment wiring fault, not a fact about the decider",
             step_id,
         )
         return (
             "That decision could not be processed: this deployment cannot "
-            "read the roster right now. Nothing was recorded, the result is "
+            "read the membership right now. Nothing was recorded, the result is "
             "still waiting, and the fault has been reported."
         )
     if decision.refused:
@@ -347,10 +347,10 @@ def attach_listeners(app: AsyncApp) -> None:
 contribute_listeners(SLACK_APP_IDENTITY, attach_listeners)
 
 
-def _roster_or_fail() -> RosterReader:
+def _members_or_fail() -> MembersReader:
     """The injected reader, or the wiring error owed when there is none.
 
-    `UnreadableRosterError` rather than the `RuntimeError` this used to
+    `UnreadableMembersError` rather than the `RuntimeError` this used to
     raise, and the type is the whole point: a collaborator that is absent
     and one that is the wrong shape are one mistake made in two places,
     and a decider cannot act differently on them. Raising two types meant
@@ -361,10 +361,10 @@ def _roster_or_fail() -> RosterReader:
     The message is unchanged: it already named the fault and where the
     injection belongs.
     """
-    if read_people is None:
-        raise UnreadableRosterError(
-            "a decision arrived on an automated result, but no roster "
+    if read_members is None:
+        raise UnreadableMembersError(
+            "a decision arrived on an automated result, but no members "
             "reader was injected; `main.py` supplies one after the routers "
             "are mounted"
         )
-    return read_people
+    return read_members

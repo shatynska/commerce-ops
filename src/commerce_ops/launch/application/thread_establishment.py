@@ -24,8 +24,8 @@ from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Any
 
 from commerce_ops.launch.application.playbook_authoring import (
-    RosterReader,
-    person_identifier,
+    MembersReader,
+    member_identifier,
 )
 from commerce_ops.launch.application.ports import LaunchStore
 from commerce_ops.launch.domain.launch_run import Launch
@@ -149,45 +149,45 @@ async def resolve_mention_target(
     launch: Launch,
     step: StepDefinition | None = None,
     *,
-    roster: RosterReader | None = None,
+    members: MembersReader | None = None,
 ) -> str | None:
     """Resolve who to tag in a launch message, as a Slack identity or nothing.
 
     Given a step naming a confirmer, resolves that confirmer **through the
-    roster** to their Slack identity; otherwise returns the launch's
+    members** to their Slack identity; otherwise returns the launch's
     `submitter`, which is already one (`slack_entry.py` records
     `body["user"]["id"]` at launch start).
 
     The returned value is a Slack identity usable in `<@identity>` syntax
     without further translation, or `None`. That is what this docstring
     always claimed and what the confirmer branch did not do: `step.confirmer`
-    holds the roster's own generated identifier, which Slack cannot resolve
+    holds the membership's own generated identifier, which Slack cannot resolve
     and renders as inert literal text, so the two messages whose entire
-    purpose is to notify a named person notified nobody.
+    purpose is to notify a named member notified nobody.
 
-    A named confirmer is resolvable for tagging only where the roster carries
+    A named confirmer is resolvable for tagging only where the membership carries
     them, carries them with a Slack identity, and carries them **active**.
     The active condition is the one that occurs durably: deactivation keeps
     the entry's Slack identity intact, and a decision is accepted only from
-    an active confirmer, so tagging a deactivated one summons a person whose
+    an active confirmer, so tagging a deactivated one summons a member whose
     accept and reject are certain to be refused.
 
     A gap resolves to `None` and is reported, never raised: what each caller
     does about a missing tag differs (the pending-result ask carries none,
     the stuck-step report substitutes the submitter and says so), and both
     need the message itself to go out regardless. This is deliberately the
-    opposite disposition from `automation_confirmation._roster_or_fail`,
-    which raises — there the roster read *is* the decision, here it is an
+    opposite disposition from `automation_confirmation._members_or_fail`,
+    which raises — there the membership read *is* the decision, here it is an
     embellishment on a message whose substance does not depend on it.
     """
     if step is None or not step.confirmer:
         # The submitter needs no translation, so this branch never reads the
-        # roster. That is what keeps the gate ask, the launch confirmation
-        # and every step naming no confirmer working through a roster outage
+        # members. That is what keeps the gate ask, the launch confirmation
+        # and every step naming no confirmer working through a membership outage
         # or a composition root that never injected a reader.
         return launch.submitter
     return await _slack_identity_of(
-        step.confirmer, launch=launch, step=step, roster=roster
+        step.confirmer, launch=launch, step=step, members=members
     )
 
 
@@ -196,9 +196,9 @@ async def _slack_identity_of(
     *,
     launch: Launch,
     step: StepDefinition,
-    roster: RosterReader | None,
+    members: MembersReader | None,
 ) -> str | None:
-    """One roster identifier translated to a Slack identity, or `None` and a report.
+    """One member identifier translated to a Slack identity, or `None` and a report.
 
     Every gap names the step, the launch and the confirmer that could not be
     resolved — the trade `clickup_sync._clickup_users` already makes for an
@@ -206,33 +206,37 @@ async def _slack_identity_of(
     here would hide a data gap behind a retry, and the run record only says
     whether the pass succeeded.
     """
-    people = await _people_or_none(confirmer, launch=launch, step=step, roster=roster)
-    if people is None:
+    # `entries`, not `members`: the keyword argument is the reader and this
+    # is its result. Two names for two things.
+    entries = await _members_or_none(
+        confirmer, launch=launch, step=step, members=members
+    )
+    if entries is None:
         return None
 
-    for person in people:
+    for member in entries:
         try:
-            identifier = person_identifier(person)
+            identifier = member_identifier(member)
         except ValueError:
             continue
         if identifier != confirmer:
             continue
-        slack_identity = getattr(person, "slack_identity", None)
+        slack_identity = getattr(member, "slack_identity", None)
         if not slack_identity:
             # Defence-in-depth, not a state the specifications say occurs:
-            # `roster` requires every entry to carry a non-empty Slack
-            # identity and `Person.faults()` enforces it. Kept because it
+            # `members` requires every entry to carry a non-empty Slack
+            # identity and `Member.faults()` enforces it. Kept because it
             # costs one condition and is what a reader looks for.
             _report_gap(
-                "the roster carries them without a Slack identity",
+                "the membership carries them without a Slack identity",
                 confirmer,
                 launch=launch,
                 step=step,
             )
             return None
-        if not getattr(person, "active", True):
+        if not getattr(member, "active", True):
             _report_gap(
-                "they are deactivated on the roster, so a decision could not "
+                "they are deactivated on the membership, so a decision could not "
                 "be accepted from them in any case",
                 confirmer,
                 launch=launch,
@@ -241,37 +245,39 @@ async def _slack_identity_of(
             return None
         return str(slack_identity)
 
-    _report_gap("the roster does not carry them", confirmer, launch=launch, step=step)
+    _report_gap(
+        "the membership does not carry them", confirmer, launch=launch, step=step
+    )
     return None
 
 
-async def _people_or_none(
+async def _members_or_none(
     confirmer: str,
     *,
     launch: Launch,
     step: StepDefinition,
-    roster: RosterReader | None,
+    members: MembersReader | None,
 ) -> tuple[Any, ...] | None:
-    """Everyone the roster carries, or `None` and a report where it cannot be read.
+    """Everyone the membership carries, or `None` and a report where it cannot be read.
 
     Covers all three ways the delta names — no reader at all, a reader of the
     wrong shape, and one that fails — because they fail at three different
     points and catching one is not catching the others.
     """
-    if roster is None:
+    if members is None:
         _report_gap(
-            "no roster reader is wired into this process, so nothing could "
+            "no members reader is wired into this process, so nothing could "
             "translate the identifier",
             confirmer,
             launch=launch,
             step=step,
         )
         return None
-    lister = getattr(roster, "list_people", None)
+    lister = getattr(members, "list_members", None)
     if lister is None:
         _report_gap(
-            f"the roster collaborator {type(roster).__name__} answers no "
-            "`list_people()`, which is a wiring fault rather than a fact "
+            f"the members collaborator {type(members).__name__} answers no "
+            "`list_members()`, which is a wiring fault rather than a fact "
             "about the confirmer",
             confirmer,
             launch=launch,
@@ -280,9 +286,9 @@ async def _people_or_none(
         return None
     try:
         return tuple(await lister())
-    except Exception:  # noqa: BLE001 — an unreadable roster still sends the message
+    except Exception:  # noqa: BLE001 — an unreadable membership still sends the message
         _report_gap(
-            "the roster could not be read",
+            "the membership could not be read",
             confirmer,
             launch=launch,
             step=step,

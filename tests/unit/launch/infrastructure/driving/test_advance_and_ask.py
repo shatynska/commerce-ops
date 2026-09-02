@@ -1011,7 +1011,7 @@ async def test_an_unready_playbook_stands_the_trigger_down_for_that_launch(
 
     Asserted three ways, because a stand-down that raised would still
     satisfy "no advance, no ask" — the response has already been sent by
-    then, so an exception here goes nowhere a person will read it.
+    then, so an exception here goes nowhere a member will read it.
     """
     harness = _harness(
         monkeypatch,

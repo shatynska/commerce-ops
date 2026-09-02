@@ -21,7 +21,7 @@ active*), are covered in
 
 `tasks.md` 4a.2 is the task this file guards: "Apply the same exclusion on
 the webhook path." Without it, the webhook keeps the older, status-only
-notion of which steps are defined, and a person closing the orphaned task
+notion of which steps are defined, and a member closing the orphaned task
 in ClickUp records a `clickup`-sourced `Satisfied` — terminal for hazard
 `none`, and so permanently suppressing the automation the flip to
 `automated` was performed to enable.

@@ -1,42 +1,42 @@
-"""The roster's validated, attributed write use cases (`roster`).
+"""The membership's validated, attributed write use cases (`members`).
 
 Derived strictly from the delta spec:
 `openspec/changes/move-principals-to-roster/specs/roster/spec.md` — four
 of its five ADDED requirements, twelve scenarios:
 
-- *A person is a declared identity with coherent identity data* (3)
-- *Every roster write is validated whole and attributed* (4)
-- *The roster never loses its last active admin* (3)
-- *A person is deactivated, never deleted* (2)
+- *A member is a declared identity with coherent identity data* (3)
+- *Every membership write is validated whole and attributed* (4)
+- *The membership never loses its last active admin* (3)
+- *A member is deactivated, never deleted* (2)
 
 The fifth requirement (*The first admin is seeded from declared
-configuration*) is covered in `test_roster_bootstrap.py`.
+configuration*) is covered in `test_members_bootstrap.py`.
 
 ## Why the application level
 
-Every scenario above is stated about a *write* and what the roster holds
+Every scenario above is stated about a *write* and what the membership holds
 afterwards — "nothing is persisted", "a subsequent read observes the
-roster exactly as it was", "records who deactivated it and when". The
+members exactly as it was", "records who deactivated it and when". The
 domain alone cannot observe persistence, so the smallest observing unit
 is the write use case over a store double: no Postgres, no I/O, the
 project's fast mocked unit tier.
 
 ## Seed state is built through the use cases, deliberately
 
-The only shape any artifact fixes for a stored roster row is whatever the
+The only shape any artifact fixes for a stored membership row is whatever the
 write use cases produce (`design.md` Decision 1: `load() -> (rows,
 version)` / `save(rows, expected_version)`), so these tests build their
-starting rosters by *calling* `create_person` rather than by inventing a
-row class and handing it to `load()`. The trade — a `create_person`
+starting members by *calling* `create_member` rather than by inventing a
+row class and handing it to `load()`. The trade — a `create_member`
 defect fails tests written for `update`/`deactivate` too — is the one
 `tests/unit/access/application/test_resolve_scope.py` recorded for
 building directories through the loader, and is recorded again in
 `test-manifest.md`.
 
-The first write against an empty roster is always an *admin* create.
+The first write against an empty membership is always an *admin* create.
 That is forced by the last-admin floor as the delta states it ("a write
-whose outcome would leave the roster without at least one active entry
-carrying the admin flag SHALL be rejected whole"): on an empty roster no
+whose outcome would leave the membership without at least one active entry
+carrying the admin flag SHALL be rejected whole"): on an empty membership no
 non-admin create has a coherent outcome. `design.md` Decision 4 confirms
 the reading — it is why the startup seed must be one atomic write rather
 than composed from the enumerated verbs.
@@ -44,10 +44,10 @@ than composed from the enumerated verbs.
 ## The interface under test does not exist yet
 
 Fixed by the artifacts, not invented: the four use-case names
-`create_person`, `update_person`, `deactivate_person`,
-`reactivate_person` exported from `commerce_ops.access.application`
-(`tasks.md` 2.1, 2.4); the aggregated error `InvalidRosterError` in
-`commerce_ops.access.domain.principals`, same shape as
+`create_member`, `update_member`, `deactivate_member`,
+`reactivate_member` exported from `commerce_ops.access.application`
+(`tasks.md` 2.1, 2.4); the aggregated error `InvalidMembersError` in
+`commerce_ops.access.domain.members`, same shape as
 `InvalidPrincipalsError` (`tasks.md` 1.1); the store port's
 `load`/`save` pair (`design.md` Decision 1); that `update` may change
 exactly the display name, the ClickUp user id and the admin flag.
@@ -55,17 +55,17 @@ exactly the display name, the ClickUp user id and the admin flag.
 INVENTED, each recorded in the manifest as an unresolved project
 question, with its single correction point named:
 
-- The call shape `create_person(roster=store, principal=..., ...)` and
+- The call shape `create_member(members=store, principal=..., ...)` and
   its siblings — collaborator-first with a keyword `principal`,
   mirroring `create_step(steps=..., principal=...)` in
   `tests/unit/launch/application/test_playbook_authoring.py`.
   Correction points: `_create`, `_update`, `_deactivate`, `_reactivate`.
 - The field keywords `display_name`, `slack_identity`,
-  `clickup_user_id`, `admin`, and the addressing keyword `person_id`.
+  `clickup_user_id`, `admin`, and the addressing keyword `member_id`.
   Correction points: the same four helpers.
 - The stored row's attribute spellings, read through `_field` with
   candidate names — including whether attribution sits on the row or on
-  a nested person object. Correction point: the `_*_NAMES` tuples.
+  a nested member object. Correction point: the `_*_NAMES` tuples.
 - `REFUSED`, the tuple of acceptable exception types where the delta
   fixes the outcome ("refused", "rejected") but not the type — the
   `REJECTED` precedent from `test_playbook_authoring.py`.
@@ -95,13 +95,13 @@ import pytest
 
 import commerce_ops.access.application as access_application
 from commerce_ops.access.application import (
-    create_person,
-    deactivate_person,
-    reactivate_person,
+    create_member,
+    deactivate_member,
+    reactivate_member,
     resolve_scope,
-    update_person,
+    update_member,
 )
-from commerce_ops.access.domain.principals import InvalidRosterError
+from commerce_ops.access.domain.members import InvalidMembersError
 from commerce_ops.shared.domain.identity import ProductId
 
 pytestmark = pytest.mark.anyio
@@ -119,7 +119,7 @@ PRINCIPAL: Final = "helen"
 ANOTHER_PRINCIPAL: Final = "the-second-admin"
 
 # INVENTED refusal surface: the delta fixes the outcome, not the type.
-REFUSED: Final = (InvalidRosterError, ValueError, TypeError)
+REFUSED: Final = (InvalidMembersError, ValueError, TypeError)
 
 
 @pytest.fixture(scope="module")
@@ -129,12 +129,12 @@ def anyio_backend() -> str:
 
 
 # ---------------------------------------------------------------------------
-# The roster store double (the port `design.md` Decision 1 fixes)
+# The members store double (the port `design.md` Decision 1 fixes)
 # ---------------------------------------------------------------------------
 
 
-class _FakeRosterStore:
-    """In-memory whole-set roster store with the optimistic set-version.
+class _FakeMembersStore:
+    """In-memory whole-set members store with the optimistic set-version.
 
     `load()` answers every stored row — deactivated included, since the
     uniqueness rule spans them — together with the current version;
@@ -166,7 +166,7 @@ class _FakeRosterStore:
 # Row accessors: the single correction point for attribute spellings
 # ---------------------------------------------------------------------------
 
-_ID_NAMES: Final = ("id", "person_id", "identifier")
+_ID_NAMES: Final = ("id", "member_id", "identifier")
 _NAME_NAMES: Final = ("display_name", "name")
 _SLACK_NAMES: Final = ("slack_identity", "slack_user_id", "slack_id")
 _CLICKUP_NAMES: Final = ("clickup_user_id", "clickup_id")
@@ -184,11 +184,11 @@ _REACTIVATED_ON: Final = ("reactivated_on", "reactivated_at")
 
 
 def _targets(row: Any) -> tuple[Any, ...]:
-    """The row itself plus any nested person/entry object, since no
+    """The row itself plus any nested member/entry object, since no
     artifact fixes whether attribution sits beside the identity data or
     wraps it."""
     found = [row]
-    for attribute in ("person", "entry", "definition", "record"):
+    for attribute in ("member", "entry", "definition", "record"):
         nested = getattr(row, attribute, None)
         if nested is not None:
             found.append(nested)
@@ -203,7 +203,7 @@ def _field(row: Any, names: tuple[str, ...], what: str) -> Any:
             if hasattr(target, name):
                 return getattr(target, name)
     pytest.fail(
-        f"a stored roster row exposes no {what} under any of {names} — "
+        f"a stored membership row exposes no {what} under any of {names} — "
         "correct this file's accessor names to the implemented row"
     )
 
@@ -228,24 +228,24 @@ def _is_active(row: Any) -> bool:
     return bool(_field(row, _ACTIVE_NAMES, "active flag"))
 
 
-def _row_for(store: _FakeRosterStore, identity: str) -> Any:
+def _row_for(store: _FakeMembersStore, identity: str) -> Any:
     for row in store.rows:
         if _slack(row) == identity:
             return row
     pytest.fail(f"no stored row carries the Slack identity {identity!r}")
 
 
-def _row_by_id(store: _FakeRosterStore, person_id: Any) -> Any:
+def _row_by_id(store: _FakeMembersStore, member_id: Any) -> Any:
     for row in store.rows:
-        if _id(row) == person_id:
+        if _id(row) == member_id:
             return row
-    pytest.fail(f"no stored row carries the identifier {person_id!r}")
+    pytest.fail(f"no stored row carries the identifier {member_id!r}")
 
 
 def _faults(error: BaseException) -> tuple[str, ...]:
     """Every fault the rejection reports, however the aggregated error
     carries them (`InvalidPrincipalsError`'s shape is a list of
-    messages; `tasks.md` 1.1 keeps it for `InvalidRosterError`)."""
+    messages; `tasks.md` 1.1 keeps it for `InvalidMembersError`)."""
     for attribute in ("faults", "errors", "messages", "reasons"):
         carried = getattr(error, attribute, None)
         if isinstance(carried, (list, tuple)) and carried:
@@ -261,7 +261,7 @@ def _faults(error: BaseException) -> tuple[str, ...]:
 
 
 async def _create(
-    store: _FakeRosterStore,
+    store: _FakeMembersStore,
     *,
     display_name: str,
     slack_identity: str,
@@ -269,8 +269,8 @@ async def _create(
     admin: bool = False,
     principal: str = PRINCIPAL,
 ) -> Any:
-    return await create_person(
-        roster=store,
+    return await create_member(
+        members=store,
         principal=principal,
         display_name=display_name,
         slack_identity=slack_identity,
@@ -280,37 +280,37 @@ async def _create(
 
 
 async def _update(
-    store: _FakeRosterStore,
-    person_id: Any,
+    store: _FakeMembersStore,
+    member_id: Any,
     *,
     principal: str = PRINCIPAL,
     **fields: Any,
 ) -> Any:
-    return await update_person(
-        roster=store, principal=principal, person_id=person_id, **fields
+    return await update_member(
+        members=store, principal=principal, member_id=member_id, **fields
     )
 
 
 async def _deactivate(
-    store: _FakeRosterStore, person_id: Any, *, principal: str = PRINCIPAL
+    store: _FakeMembersStore, member_id: Any, *, principal: str = PRINCIPAL
 ) -> Any:
-    return await deactivate_person(
-        roster=store, principal=principal, person_id=person_id
+    return await deactivate_member(
+        members=store, principal=principal, member_id=member_id
     )
 
 
 async def _reactivate(
-    store: _FakeRosterStore, person_id: Any, *, principal: str = PRINCIPAL
+    store: _FakeMembersStore, member_id: Any, *, principal: str = PRINCIPAL
 ) -> Any:
-    return await reactivate_person(
-        roster=store, principal=principal, person_id=person_id
+    return await reactivate_member(
+        members=store, principal=principal, member_id=member_id
     )
 
 
-async def _roster_with_an_admin() -> _FakeRosterStore:
+async def _members_with_an_admin() -> _FakeMembersStore:
     """A store holding exactly one active admin, built through the write
     path (see the module docstring)."""
-    store = _FakeRosterStore()
+    store = _FakeMembersStore()
     await _create(
         store,
         display_name=ADMIN_NAME,
@@ -320,28 +320,28 @@ async def _roster_with_an_admin() -> _FakeRosterStore:
     return store
 
 
-def _snapshot(store: _FakeRosterStore) -> tuple[Any, int, int]:
+def _snapshot(store: _FakeMembersStore) -> tuple[Any, int, int]:
     return store.rows, store.version, len(store.saves)
 
 
-def _assert_unchanged(store: _FakeRosterStore, before: tuple[Any, int, int]) -> None:
+def _assert_unchanged(store: _FakeMembersStore, before: tuple[Any, int, int]) -> None:
     """SPECIFIED across three scenarios: a rejected write persists
     nothing — asserted as the stored set, the set-version and the number
     of saves all standing exactly where they stood."""
     assert (store.rows, store.version, len(store.saves)) == before, (
-        "a rejected write reached the store: the roster must be left exactly as it was"
+        "a rejected write reached the store: the membership must be left exactly as it was"
     )
 
 
 # ---------------------------------------------------------------------------
-# Requirement: A person is a declared identity with coherent identity data
+# Requirement: A member is a declared identity with coherent identity data
 # ---------------------------------------------------------------------------
 
 
-async def test_a_created_person_carries_a_generated_identifier() -> None:
-    """Scenario: A created person carries a generated identifier.
+async def test_a_created_member_carries_a_generated_identifier() -> None:
+    """Scenario: A created member carries a generated identifier.
 
-    WHEN a person is created with a display name and a Slack identity
+    WHEN a member is created with a display name and a Slack identity
     THEN the created entry carries an identifier the caller did not
     supply, and the entry is retrievable by it.
 
@@ -354,24 +354,24 @@ async def test_a_created_person_carries_a_generated_identifier() -> None:
     "never reused" clause at the only strength a two-write test can
     reach.
     """
-    store = await _roster_with_an_admin()
+    store = await _members_with_an_admin()
     before = {_id(row) for row in store.rows}
 
     await _create(store, display_name=MEMBER_NAME, slack_identity=MEMBER_IDENTITY)
 
     created = [row for row in store.rows if _id(row) not in before]
     assert len(created) == 1
-    person_id = _id(created[0])
+    member_id = _id(created[0])
 
     # SPECIFIED: an identifier the caller did not supply.
-    assert person_id is not None
-    assert str(person_id).strip() != ""
-    assert str(person_id) not in (MEMBER_IDENTITY, MEMBER_NAME)
+    assert member_id is not None
+    assert str(member_id).strip() != ""
+    assert str(member_id) not in (MEMBER_IDENTITY, MEMBER_NAME)
 
     # SPECIFIED: the entry is retrievable by it.
-    assert _slack(_row_by_id(store, person_id)) == MEMBER_IDENTITY
-    await _update(store, person_id, display_name="Carol Corrected")
-    assert _name(_row_by_id(store, person_id)) == "Carol Corrected"
+    assert _slack(_row_by_id(store, member_id)) == MEMBER_IDENTITY
+    await _update(store, member_id, display_name="Carol Corrected")
+    assert _name(_row_by_id(store, member_id)) == "Carol Corrected"
 
     # SPECIFIED: identifiers are never reused (two writes' worth).
     await _create(store, display_name="Dave Newcomer", slack_identity=NEWCOMER_IDENTITY)
@@ -384,17 +384,17 @@ async def test_a_created_person_carries_a_generated_identifier() -> None:
 async def test_a_duplicate_slack_identity_is_rejected(deactivate_first: bool) -> None:
     """Scenario: A duplicate Slack identity is rejected.
 
-    WHEN a person is created with a Slack identity an existing entry
+    WHEN a member is created with a Slack identity an existing entry
     already carries — even a deactivated one
     THEN the write is rejected with a fault naming that Slack identity,
     and nothing is persisted.
 
     Parametrized over both halves of "even a deactivated one": the
     deactivated case is the discriminating one, since an implementation
-    checking uniqueness against only the active roster passes the first
+    checking uniqueness against only the active membership passes the first
     and fails the second.
     """
-    store = await _roster_with_an_admin()
+    store = await _members_with_an_admin()
     await _create(store, display_name=MEMBER_NAME, slack_identity=MEMBER_IDENTITY)
     if deactivate_first:
         await _deactivate(store, _id(_row_for(store, MEMBER_IDENTITY)))
@@ -417,7 +417,7 @@ async def test_a_duplicate_slack_identity_is_rejected(deactivate_first: bool) ->
 async def test_multiple_faults_are_reported_together() -> None:
     """Scenario: Multiple faults are reported together.
 
-    WHEN a person is created with an empty display name and a
+    WHEN a member is created with an empty display name and a
     whitespace-padded Slack identity
     THEN the write is rejected reporting both faults at once, and
     nothing is persisted.
@@ -428,7 +428,7 @@ async def test_multiple_faults_are_reported_together() -> None:
     words a fault uses; the delta fixes that each fault names the
     offending entry, not its wording.
     """
-    store = await _roster_with_an_admin()
+    store = await _members_with_an_admin()
     before = _snapshot(store)
     padded = f"  {NEWCOMER_IDENTITY}  "
 
@@ -447,14 +447,14 @@ async def test_multiple_faults_are_reported_together() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Requirement: Every roster write is validated whole and attributed
+# Requirement: Every membership write is validated whole and attributed
 # ---------------------------------------------------------------------------
 
 
 async def test_a_landed_write_is_attributed() -> None:
     """Scenario: A landed write is attributed.
 
-    WHEN a person is created by an authenticated admin principal
+    WHEN a member is created by an authenticated admin principal
     THEN the stored entry records that principal as its creator with the
     time of creation.
 
@@ -462,7 +462,7 @@ async def test_a_landed_write_is_attributed() -> None:
     row, so "records that principal" is a per-write decision rather than
     a store-wide constant.
     """
-    store = await _roster_with_an_admin()
+    store = await _members_with_an_admin()
 
     await _create(
         store,
@@ -481,40 +481,40 @@ async def test_a_landed_write_is_attributed() -> None:
     assert _field(_row_for(store, ADMIN_IDENTITY), _CREATED_BY, "creator") == PRINCIPAL
 
 
-async def test_a_rejected_write_leaves_the_roster_unchanged() -> None:
-    """Scenario: A rejected write leaves the roster unchanged.
+async def test_a_rejected_write_leaves_the_members_unchanged() -> None:
+    """Scenario: A rejected write leaves the membership unchanged.
 
-    WHEN an update would produce an incoherent roster
+    WHEN an update would produce an incoherent membership
     THEN the update is rejected with its faults and a subsequent read
-    observes the roster exactly as it was.
+    observes the membership exactly as it was.
 
     The incoherence is an emptied display name — a per-entry rule from
     the first requirement, so this scenario is not a restatement of the
     last-admin floor below. The "subsequent read" is asserted through
     `load()`, the same door the use cases go through.
     """
-    store = await _roster_with_an_admin()
+    store = await _members_with_an_admin()
     await _create(store, display_name=MEMBER_NAME, slack_identity=MEMBER_IDENTITY)
-    person_id = _id(_row_for(store, MEMBER_IDENTITY))
+    member_id = _id(_row_for(store, MEMBER_IDENTITY))
     before = _snapshot(store)
 
     with pytest.raises(REFUSED) as excinfo:
-        await _update(store, person_id, display_name="")
+        await _update(store, member_id, display_name="")
 
     # SPECIFIED: rejected with its faults.
     assert _faults(excinfo.value)
-    # SPECIFIED: a subsequent read observes the roster exactly as it was.
+    # SPECIFIED: a subsequent read observes the membership exactly as it was.
     _assert_unchanged(store, before)
     rows, version = await store.load()
     assert version == before[1]
-    assert _name(_row_by_id(store, person_id)) == MEMBER_NAME
+    assert _name(_row_by_id(store, member_id)) == MEMBER_NAME
     assert len(rows) == len(before[0])
 
 
 async def test_a_slack_identity_cannot_be_updated() -> None:
     """Scenario: A Slack identity cannot be updated.
 
-    WHEN an update names a person's Slack identity as a field to change
+    WHEN an update names a member's Slack identity as a field to change
     THEN the update is refused, explaining that the identity is not
     updatable.
 
@@ -523,26 +523,26 @@ async def test_a_slack_identity_cannot_be_updated() -> None:
     `TypeError` from an unexpected keyword satisfies that reading as
     much as a domain refusal does, which is why both are in `REFUSED`.
     """
-    store = await _roster_with_an_admin()
+    store = await _members_with_an_admin()
     await _create(store, display_name=MEMBER_NAME, slack_identity=MEMBER_IDENTITY)
-    person_id = _id(_row_for(store, MEMBER_IDENTITY))
+    member_id = _id(_row_for(store, MEMBER_IDENTITY))
     before = _snapshot(store)
 
     with pytest.raises(REFUSED) as excinfo:
-        await _update(store, person_id, slack_identity=NEWCOMER_IDENTITY)
+        await _update(store, member_id, slack_identity=NEWCOMER_IDENTITY)
 
     # SPECIFIED: the refusal explains itself by naming the field.
     assert "slack" in str(excinfo.value).lower()
     # SPECIFIED (from the requirement's "a rejected write SHALL persist
     # nothing"): the identity stands and nothing was written.
     _assert_unchanged(store, before)
-    assert _slack(_row_by_id(store, person_id)) == MEMBER_IDENTITY
+    assert _slack(_row_by_id(store, member_id)) == MEMBER_IDENTITY
 
 
 async def test_a_deactivated_entry_can_be_corrected_in_place() -> None:
     """Scenario: A deactivated entry can be corrected in place.
 
-    WHEN an update changes a deactivated person's display name
+    WHEN an update changes a deactivated member's display name
     THEN the update lands, is attributed, and the entry remains
     deactivated.
 
@@ -551,15 +551,15 @@ async def test_a_deactivated_entry_can_be_corrected_in_place() -> None:
     reserves active-status changes for deactivate/reactivate, "so those
     transitions always carry their own attribution".
     """
-    store = await _roster_with_an_admin()
+    store = await _members_with_an_admin()
     await _create(store, display_name=MEMBER_NAME, slack_identity=MEMBER_IDENTITY)
-    person_id = _id(_row_for(store, MEMBER_IDENTITY))
-    await _deactivate(store, person_id)
+    member_id = _id(_row_for(store, MEMBER_IDENTITY))
+    await _deactivate(store, member_id)
 
     await _update(
-        store, person_id, display_name="Carol Corrected", principal=ANOTHER_PRINCIPAL
+        store, member_id, display_name="Carol Corrected", principal=ANOTHER_PRINCIPAL
     )
-    row = _row_by_id(store, person_id)
+    row = _row_by_id(store, member_id)
 
     # SPECIFIED: the update lands.
     assert _name(row) == "Carol Corrected"
@@ -571,22 +571,22 @@ async def test_a_deactivated_entry_can_be_corrected_in_place() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Requirement: The roster never loses its last active admin
+# Requirement: The membership never loses its last active admin
 # ---------------------------------------------------------------------------
 
 
 async def test_deactivating_the_last_active_admin_is_refused() -> None:
     """Scenario: Deactivating the last active admin is refused.
 
-    WHEN the roster holds exactly one active admin and a write
-    deactivates that person
-    THEN the write is rejected with a fault explaining the roster would
+    WHEN the membership holds exactly one active admin and a write
+    deactivates that member
+    THEN the write is rejected with a fault explaining the membership would
     be left without an active admin, and nothing is persisted.
 
     An ordinary active member stands beside the admin, so the refusal is
-    about the *admin* floor and not about emptying the roster.
+    about the *admin* floor and not about emptying the membership.
     """
-    store = await _roster_with_an_admin()
+    store = await _members_with_an_admin()
     await _create(store, display_name=MEMBER_NAME, slack_identity=MEMBER_IDENTITY)
     admin_id = _id(_row_for(store, ADMIN_IDENTITY))
     before = _snapshot(store)
@@ -594,7 +594,7 @@ async def test_deactivating_the_last_active_admin_is_refused() -> None:
     with pytest.raises(REFUSED) as excinfo:
         await _deactivate(store, admin_id)
 
-    # SPECIFIED: a fault explaining the roster would be left without an
+    # SPECIFIED: a fault explaining the membership would be left without an
     # active admin. DERIVED: the marker word "admin" — the delta fixes
     # that the refusal explains itself, not its wording.
     assert "admin" in str(excinfo.value).lower()
@@ -606,8 +606,8 @@ async def test_deactivating_the_last_active_admin_is_refused() -> None:
 async def test_withdrawing_the_last_active_admins_flag_is_refused() -> None:
     """Scenario: Withdrawing the last active admin's flag is refused.
 
-    WHEN the roster holds exactly one active admin and an update
-    withdraws that person's admin flag
+    WHEN the membership holds exactly one active admin and an update
+    withdraws that member's admin flag
     THEN the write is rejected with the same explanation, and nothing is
     persisted.
 
@@ -615,7 +615,7 @@ async def test_withdrawing_the_last_active_admins_flag_is_refused() -> None:
     the same marker as the deactivation refusal above — the strongest
     reading available without pinning wording the delta does not fix.
     """
-    store = await _roster_with_an_admin()
+    store = await _members_with_an_admin()
     await _create(store, display_name=MEMBER_NAME, slack_identity=MEMBER_IDENTITY)
     admin_id = _id(_row_for(store, ADMIN_IDENTITY))
     before = _snapshot(store)
@@ -633,7 +633,7 @@ async def test_withdrawing_the_last_active_admins_flag_is_refused() -> None:
 async def test_an_admin_among_admins_can_step_down() -> None:
     """Scenario: An admin among admins can step down.
 
-    WHEN the roster holds two active admins and a write deactivates one
+    WHEN the membership holds two active admins and a write deactivates one
     of them
     THEN the write lands.
 
@@ -642,7 +642,7 @@ async def test_an_admin_among_admins_can_step_down() -> None:
     the flag while another active admin remains is likewise permitted —
     is asserted alongside it, since the same floor governs both.
     """
-    store = await _roster_with_an_admin()
+    store = await _members_with_an_admin()
     await _create(
         store,
         display_name="Bob Admin",
@@ -672,34 +672,34 @@ async def test_an_admin_among_admins_can_step_down() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Requirement: A person is deactivated, never deleted
+# Requirement: A member is deactivated, never deleted
 # ---------------------------------------------------------------------------
 
 
-async def test_a_deactivated_person_remains_on_the_roster() -> None:
-    """Scenario: A deactivated person remains on the roster.
+async def test_a_deactivated_member_remains_on_the_members() -> None:
+    """Scenario: A deactivated member remains on the membership.
 
-    WHEN a person is deactivated
+    WHEN a member is deactivated
     THEN the entry is still readable with its history, records who
     deactivated it and when, and no longer resolves to any access.
 
     The last clause is `access-scope`'s "a deactivated member sees
-    nothing" observed from this side; `test_roster_scope_resolution.py`
+    nothing" observed from this side; `test_members_scope_resolution.py`
     covers it as its own scenario. Asserting it here too is what ties
     *this* write to that resolution.
     """
-    store = await _roster_with_an_admin()
+    store = await _members_with_an_admin()
     await _create(
         store,
         display_name=MEMBER_NAME,
         slack_identity=MEMBER_IDENTITY,
         principal=ANOTHER_PRINCIPAL,
     )
-    person_id = _id(_row_for(store, MEMBER_IDENTITY))
+    member_id = _id(_row_for(store, MEMBER_IDENTITY))
     row_count = len(store.rows)
 
-    await _deactivate(store, person_id)
-    row = _row_by_id(store, person_id)
+    await _deactivate(store, member_id)
+    row = _row_by_id(store, member_id)
 
     # SPECIFIED: the entry is still readable — deactivation is not
     # deletion.
@@ -719,21 +719,21 @@ async def test_a_deactivated_person_remains_on_the_roster() -> None:
 async def test_reactivation_restores_the_same_entry() -> None:
     """Scenario: Reactivation restores the same entry.
 
-    WHEN a deactivated person is reactivated
+    WHEN a deactivated member is reactivated
     THEN the same identifier resolves again, and the entry records who
     reactivated it and when.
 
     "The same identifier" is the point: a reactivation that recreated
-    the person under a fresh identifier would break every step assignee
+    the member under a fresh identifier would break every step assignee
     pointing at the old one (`design.md` Decision 2).
     """
-    store = await _roster_with_an_admin()
+    store = await _members_with_an_admin()
     await _create(store, display_name=MEMBER_NAME, slack_identity=MEMBER_IDENTITY)
-    person_id = _id(_row_for(store, MEMBER_IDENTITY))
-    await _deactivate(store, person_id)
+    member_id = _id(_row_for(store, MEMBER_IDENTITY))
+    await _deactivate(store, member_id)
 
-    await _reactivate(store, person_id, principal=ANOTHER_PRINCIPAL)
-    row = _row_by_id(store, person_id)
+    await _reactivate(store, member_id, principal=ANOTHER_PRINCIPAL)
+    row = _row_by_id(store, member_id)
 
     # SPECIFIED: the same identifier resolves again.
     assert _is_active(row) is True
@@ -749,13 +749,13 @@ async def test_reactivation_restores_the_same_entry() -> None:
     assert scope.permits(ProductId("22222222-2222-2222-2222-222222222222")) is True
 
 
-def test_the_roster_offers_no_deletion() -> None:
-    """Requirement text: "The roster SHALL offer no deletion." — no
+def test_the_members_offers_no_deletion() -> None:
+    """Requirement text: "The membership SHALL offer no deletion." — no
     scenario states it, so this is the requirement's own sentence
     asserted structurally.
 
     DERIVED mechanism: the public application surface exports no
-    delete/remove/purge verb for a person. A deletion reachable only
+    delete/remove/purge verb for a member. A deletion reachable only
     through the store adapter would not be caught here; that bound is
     recorded in the manifest.
     """
@@ -769,6 +769,6 @@ def test_the_roster_offers_no_deletion() -> None:
     ]
     # SPECIFIED: no deletion is offered.
     assert offending == [], (
-        f"the roster's public surface offers deletion verbs {offending!r}; "
-        "people are deactivated, never deleted"
+        f"the membership's public surface offers deletion verbs {offending!r}; "
+        "members are deactivated, never deleted"
     )

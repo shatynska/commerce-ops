@@ -1,0 +1,9 @@
+schema: spec-driven
+created: 2026-09-02
+
+# No specification deltas. This change renames vocabulary; no requirement's
+# meaning changes. The reasoning and the alternative considered are in
+# proposal.md's `Capabilities` section; the machine check that replaces a
+# delta review is design.md Decision 8, "Completion is three checks, not a
+# reading".
+skip_specs: true

@@ -73,7 +73,7 @@ INVENTED, each with a correction point:
 - The helper's call shape (`_invoke`), probed and filtered by its
   implemented signature.
 - `converge_launch`'s own collaborator keywords (`launch`, `playbook`,
-  `clickup`, `mapping`, `read_product`, `roster`, `folder_id`) —
+  `clickup`, `mapping`, `read_product`, `members`, `folder_id`) —
   transcribed from `test_clickup_sync_projection.py`, which records them
   as invented there.
 - `ClickUpMappingRepository`'s method names, transcribed from
@@ -439,7 +439,7 @@ async def _invoke(
         "clickup": clickup,
         "mapping": mapping,
         "read_product": read_product,
-        "roster": None,
+        "members": None,
         "folder_id": FOLDER_ID,
     }
     supplied = {key: value for key, value in pool.items() if key in parameters}

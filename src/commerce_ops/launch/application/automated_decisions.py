@@ -1,4 +1,4 @@
-"""Deciding a produced result: what a person's accept or reject does.
+"""Deciding a produced result: what a member's accept or reject does.
 
 `launch-step-automation`'s four decision requirements — who may decide,
 what accepting records, what rejecting records, and that a result is
@@ -9,16 +9,16 @@ Three rules here are worth reading twice, because each is a place a
 plausible implementation goes wrong:
 
 - **Accepting keeps source `automated` while naming the accepter as the
-  recorder.** The work was the handler's; the acceptance was the person's.
+  recorder.** The work was the handler's; the acceptance was the member's.
   Both facts fit in the one `Provenance`, so no new source value is owed
   and the launch's record answers both questions.
 - **The evidence names the handler as well as the produced text.** Without
-  it, "what produced the result this person accepted" is answerable only
+  it, "what produced the result this member accepted" is answerable only
   from the pending-result row, and the launch's own record would depend on
   a second store still holding it.
 - **Rejecting records `Blocked`, never `Refused`.** `Refused` is reserved
   for a `prohibited-tactic` step and means the tactic itself was declined;
-  a person declining one produced result has said nothing about the step's
+  a member declining one produced result has said nothing about the step's
   permissibility. `Blocked` is chosen from among the non-terminal outcomes
   because it is the one that carries a reason, and a rejection whose reason
   went unrecorded would leave the launch showing an unresolved step with
@@ -29,10 +29,10 @@ the caller is a Slack interaction that must reply to the decider either
 way, and an exception would make "tell them why" the adapter's problem
 to reconstruct.
 
-The one exception is not a refusal of a decision at all. A roster
+The one exception is not a refusal of a decision at all. A members
 collaborator that cannot be read is a mis-wired deployment, and it
-raises `UnreadableRosterError`, because there is nothing true to tell
-the decider about *their* decision — see `_person_for`.
+raises `UnreadableMembersError`, because there is nothing true to tell
+the decider about *their* decision — see `_member_for`.
 """
 
 from __future__ import annotations
@@ -42,9 +42,9 @@ from datetime import datetime
 from typing import Any
 
 from commerce_ops.launch.application.playbook_authoring import (
-    RosterReader,
-    UnreadableRosterError,
-    person_identifier,
+    MembersReader,
+    UnreadableMembersError,
+    member_identifier,
 )
 from commerce_ops.launch.domain.launch_playbook import (
     Blocked,
@@ -68,7 +68,7 @@ class Decision:
     """What became of a decision, and what to tell the decider.
 
     `refused` is the field the Slack reply reads. `reason` is written for
-    a person, since it is what they will see.
+    a member, since it is what they will see.
     """
 
     refused: bool
@@ -83,42 +83,42 @@ def _refuse(reason: str) -> Decision:
     return Decision(refused=True, reason=reason)
 
 
-async def _person_for(roster: RosterReader, slack_identity: str) -> Any | None:
-    """The roster person a Slack identity belongs to, or None.
+async def _member_for(members: MembersReader, slack_identity: str) -> Any | None:
+    """The member a Slack identity belongs to, or None.
 
     One shape, and anything else is refused by name. This once probed
-    three spellings — `person_for_slack_identity`, `list_people`,
-    `people` — and returned `None` when the collaborator answered to
-    none of them. The composition root supplied a `RosterStore`, which
+    three spellings — `member_for_slack_identity`, `list_members`,
+    `members` — and returned `None` when the collaborator answered to
+    none of them. The composition root supplied a `MembersStore`, which
     answers `load()`/`save()` and so matched nothing, and every decision
-    by every identity was refused as "the roster does not know that
+    by every identity was refused as "the membership does not know that
     Slack identity". A collaborator that cannot be read is a defect of
     *wiring*; resolving it into a statement about the decider told
-    active admins their roster entry was at fault and sent them looking
+    active admins their members entry was at fault and sent them looking
     at data that was correct all along.
 
     So it raises rather than answering `None`. `None` here means one
-    thing only: the roster was read, and it does not carry that
+    thing only: the membership was read, and it does not carry that
     identity.
 
-    The whole roster is read, deactivated entries included, because
+    The whole membership is read, deactivated entries included, because
     "known" and "active" are two facts this module decides separately —
-    a reader that answered only active people would collapse two
+    a reader that answered only active members would collapse two
     distinct refusals into one.
     """
-    lister = getattr(roster, "list_people", None)
+    lister = getattr(members, "list_members", None)
     if lister is None:
-        raise UnreadableRosterError(
-            f"the roster collaborator is a {type(roster).__name__!r}, which "
-            f"cannot answer who the roster carries: a roster reader must "
-            f"provide `list_people()`, and this one does not. Pass a reader "
-            f"rather than a roster store — a decision cannot be judged "
+        raise UnreadableMembersError(
+            f"the members collaborator is a {type(members).__name__!r}, which "
+            f"cannot answer who the membership carries: a members reader must "
+            f"provide `list_members()`, and this one does not. Pass a reader "
+            f"rather than a members store — a decision cannot be judged "
             f"without one, and no decision may be refused as though the "
-            f"roster had been read"
+            f"members had been read"
         )
-    for person in await lister():
-        if getattr(person, "slack_identity", None) == slack_identity:
-            return person
+    for member in await lister():
+        if getattr(member, "slack_identity", None) == slack_identity:
+            return member
     return None
 
 
@@ -135,7 +135,7 @@ def _step_for(playbook: LaunchPlaybook, step_id: str) -> StepDefinition | None:
 async def _decide(
     *,
     results: Any,
-    roster: RosterReader,
+    members: MembersReader,
     launches: Any,
     playbook: LaunchPlaybook,
     record_outcome: Any,
@@ -155,22 +155,22 @@ async def _decide(
             "that result has already been decided; the decision recorded first stands"
         )
 
-    # The roster is read *after* the pending lookup, deliberately. A
+    # The membership is read *after* the pending lookup, deliberately. A
     # mis-wired deployment raises from here, so a repeat press on an
     # already-settled result keeps answering "already decided" rather
     # than reporting the wiring: that refusal does not depend on the
-    # roster, and it is still the true thing to say. "Before the
+    # members, and it is still the true thing to say. "Before the
     # deciding identity is judged" is what the requirement asks, and
     # this is that point — not the top of the function.
-    person = await _person_for(roster, slack_identity)
-    if person is None:
+    member = await _member_for(members, slack_identity)
+    if member is None:
         return _refuse(
-            "the roster does not know that Slack identity, so the decision "
+            "the membership does not know that Slack identity, so the decision "
             "was not recorded"
         )
-    if not getattr(person, "active", False):
+    if not getattr(member, "active", False):
         return _refuse(
-            "that person is not active on the roster, so the decision was not recorded"
+            "that member is not active on the membership, so the decision was not recorded"
         )
 
     if not _serves(playbook, step_id):
@@ -188,16 +188,16 @@ async def _decide(
     # Checked once the step is known to be served, so a step the playbook
     # no longer serves keeps the refusal above rather than this one — a
     # confirmer comparison against a step that no longer exists would be
-    # meaningless anyway. Only a known, active *and* named person may
+    # meaningless anyway. Only a known, active *and* named member may
     # decide now: any other identity, active or not, is refused here.
     step = _step_for(playbook, step_id)
-    if step is None or person_identifier(person) != step.confirmer:
+    if step is None or member_identifier(member) != step.confirmer:
         return _refuse(
-            "that person is not this step's named confirmer, so the "
+            "that member is not this step's named confirmer, so the "
             "decision was not recorded"
         )
 
-    who = getattr(person, "display_name", None) or getattr(person, "id", slack_identity)
+    who = getattr(member, "display_name", None) or getattr(member, "id", slack_identity)
     handler = getattr(pending, "handler", "an automated handler")
     produced = getattr(pending, "result_text", "")
 
@@ -246,7 +246,7 @@ def _proposed_outcome(pending: Any) -> Any:
 async def accept_automated_result(
     *,
     results: Any,
-    roster: RosterReader,
+    members: MembersReader,
     launches: Any,
     playbook: LaunchPlaybook,
     record_outcome: Any,
@@ -258,7 +258,7 @@ async def accept_automated_result(
     """Record exactly the outcome the handler proposed, naming the accepter."""
     return await _decide(
         results=results,
-        roster=roster,
+        members=members,
         launches=launches,
         playbook=playbook,
         record_outcome=record_outcome,
@@ -273,7 +273,7 @@ async def accept_automated_result(
 async def reject_automated_result(
     *,
     results: Any,
-    roster: RosterReader,
+    members: MembersReader,
     launches: Any,
     playbook: LaunchPlaybook,
     record_outcome: Any,
@@ -286,7 +286,7 @@ async def reject_automated_result(
     step live for a later pass."""
     return await _decide(
         results=results,
-        roster=roster,
+        members=members,
         launches=launches,
         playbook=playbook,
         record_outcome=record_outcome,

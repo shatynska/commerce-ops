@@ -9,10 +9,10 @@ between source and response* has a second half — "the admin surfaces load
 their stylesheet successfully" — which is about the pages rather than the
 route, and is covered in
 `tests/unit/launch/infrastructure/driving/
-test_admin_surface_navigation_and_assets.py`. The roster surface's own
+test_admin_surface_navigation_and_assets.py`. The membership surface's own
 copy of the refusal scenario lives in
 `tests/unit/access/infrastructure/driving/
-test_roster_admin_presentation_vocabulary.py`, driven from the href that
+test_members_admin_presentation_vocabulary.py`, driven from the href that
 page renders.
 
 The manifest at

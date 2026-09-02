@@ -5,7 +5,7 @@ Derived strictly from the delta spec:
 
 Covers the ADDED requirement *What blocks a step from being activated is
 reported* — both scenarios — and the report half of
-`playbook-authoring`'s scenario *A roster change does not break an
+`playbook-authoring`'s scenario *A membership change does not break an
 accepted set* ("the step is reported as needing an assignee"), whose
 load half is in `test_step_assignee_preconditions.py`.
 
@@ -21,7 +21,7 @@ are superseded by this file and are recorded as such in
 `test-manifest.md`. They are not edited or deleted here.
 
 **Level.** The report is a use case over the authored set, with the
-roster and the handler registry as collaborators — the same seam every
+members and the handler registry as collaborators — the same seam every
 other use case of this capability takes them on.
 
 ## INVENTED shapes
@@ -31,7 +31,7 @@ other use case of this capability takes them on.
   `undecided_rule_policies.py` is *replaced*, not the replacement's
   spelling.
 - Its call shape: the authored step definitions as `steps=`, plus
-  `roster=` and `handlers=`. `report_undecided_rule_policies` took a
+  `members=` and `handlers=`. `report_undecided_rule_policies` took a
   loaded `LaunchPlaybook`; this report's subject is the **authored** set,
   which includes drafts the served playbook does not carry, so the
   definitions are passed directly. Correction point: `_blockers()`.
@@ -97,25 +97,25 @@ def _step(**overrides: Any) -> StepDefinition:
     return StepDefinition(**attributes)
 
 
-class _Person:
-    def __init__(self, person_id: str, display_name: str, *, active: bool) -> None:
-        self.id = person_id
+class _Member:
+    def __init__(self, member_id: str, display_name: str, *, active: bool) -> None:
+        self.id = member_id
         self.display_name = display_name
         self.clickup_user_id: str | None = "clickup-1"
         self.active = active
 
 
-class _FakeRoster:
-    def __init__(self, people: tuple[_Person, ...]) -> None:
-        self._people = people
+class _FakeMembers:
+    def __init__(self, members: tuple[_Member, ...]) -> None:
+        self._members = members
 
-    async def list_people(self) -> tuple[_Person, ...]:
-        return self._people
+    async def list_members(self) -> tuple[_Member, ...]:
+        return self._members
 
-    people = list_people
+    members = list_members
 
-    async def __call__(self) -> tuple[_Person, ...]:
-        return await self.list_people()
+    async def __call__(self) -> tuple[_Member, ...]:
+        return await self.list_members()
 
 
 class _FakeHandlerRegistry:
@@ -132,11 +132,11 @@ class _FakeHandlerRegistry:
         return self._names
 
 
-def _roster(*, bohdan_active: bool = True) -> _FakeRoster:
-    return _FakeRoster(
+def _members(*, bohdan_active: bool = True) -> _FakeMembers:
+    return _FakeMembers(
         (
-            _Person(ALICE, "Alice Admin", active=True),
-            _Person(BOHDAN, "Bohdan Colleague", active=bohdan_active),
+            _Member(ALICE, "Alice Admin", active=True),
+            _Member(BOHDAN, "Bohdan Colleague", active=bohdan_active),
         )
     )
 
@@ -165,14 +165,14 @@ def _report() -> Any:
 def _blockers(
     steps: tuple[StepDefinition, ...],
     *,
-    roster: _FakeRoster | None = None,
+    members: _FakeMembers | None = None,
     handlers: _FakeHandlerRegistry | None = None,
 ) -> list[Any]:
     """The single correction point for the report's call shape."""
     return list(
         _report()(
             steps=steps,
-            roster=roster or _roster(),
+            members=members or _members(),
             handlers=handlers or _FakeHandlerRegistry(frozenset({REGISTERED_HANDLER})),
         )
     )
@@ -293,11 +293,11 @@ def test_a_step_missing_a_registered_handler_is_reported() -> None:
 
 
 def test_a_step_whose_only_assignee_was_deactivated_is_reported() -> None:
-    """Scenario (playbook-authoring): A roster change does not break an
+    """Scenario (playbook-authoring): A membership change does not break an
     accepted set — the report half.
 
     WHEN the sole assignee of an `active` `human` step is deactivated on
-    the roster
+    the membership
     THEN ... the step is reported as needing an assignee.
 
     This is what makes the load-side relaxation honest: the step keeps
@@ -313,7 +313,7 @@ def test_a_step_whose_only_assignee_was_deactivated_is_reported() -> None:
         assignees=(BOHDAN,),
     )
 
-    rows = _blockers((accepted,), roster=_roster(bohdan_active=False))
+    rows = _blockers((accepted,), members=_members(bohdan_active=False))
 
     row = _row_for(rows, "listing.owned-by-a-leaver")
     assert row.status is StepStatus.ACTIVE

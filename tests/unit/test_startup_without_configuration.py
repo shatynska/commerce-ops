@@ -142,13 +142,13 @@ def test_starting_the_server_opens_no_connection_of_its_own(
     empty_configuration_environment: None,
 ) -> None:
     """Scenario: Starting the server opens no connection of its own
-    (`roster`, "The first admin is seeded before the application serves").
+    (`members`, "The first admin is seeded before the application serves").
 
     WHEN the serving process starts
     THEN it performs no seeding and reads no connection setting, so an
     application started with no database configured still starts.
 
-    A regression guard with a history: the roster's admin seed was first
+    A regression guard with a history: the membership's admin seed was first
     placed in the lifespan, which built and cached an engine before the
     first request. The connection setting is read once per process and
     cached, so that engine outlived every later attempt to point the

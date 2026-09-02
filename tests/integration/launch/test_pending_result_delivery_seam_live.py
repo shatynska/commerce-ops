@@ -147,7 +147,7 @@ MARKETPLACE: Final = MarketplaceId("ATVPDKIKX0DER")
 STEP_ID: Final = "listing.sub-category"
 STEP_NAME: Final = "Choose the sub-category node"
 HANDLER_NAME: Final = "listing.subcategory_advisor"
-CONFIRMER_ROSTER_ID: Final = "3f7c1a92-6b0e-4c7a-9d51-1e8a4b2c9f30"
+CONFIRMER_MEMBER_ID: Final = "3f7c1a92-6b0e-4c7a-9d51-1e8a4b2c9f30"
 CONFIRMER_SLACK: Final = "U01ALICE"
 
 LAUNCH_DATE: Final = date(2027, 3, 2)
@@ -357,7 +357,7 @@ def _step(**overrides: Any) -> StepDefinition:
         "blocking": False,
         "kind": StepKind.AUTOMATED,
         "status": StepStatus.ACTIVE,
-        "confirmer": CONFIRMER_ROSTER_ID,
+        "confirmer": CONFIRMER_MEMBER_ID,
         "hazard": Hazard.NONE,
         "assignees": (),
         "handler": HANDLER_NAME,
@@ -540,7 +540,7 @@ async def test_a_delivered_results_controls_resolve_the_result_they_were_compose
 
     Step 3 is the "resolves that pending result" clause, done through the
     store's own pending lookup rather than by driving `accept_automated_
-    result` end to end: the latter would need a roster and a served
+    result` end to end: the latter would need a membership and a served
     playbook whose absence would fail this test for reasons that have
     nothing to do with the control payload. Recorded in `test-manifest.md`
     as a narrower reading of the scenario's second half.
@@ -611,7 +611,7 @@ async def test_a_delivered_results_controls_resolve_the_result_they_were_compose
 # DELIBERATELY UNTESTED, recorded rather than omitted
 #
 # - Driving `accept_automated_result` end to end from the control payload.
-#   It needs a roster collaborator and a served playbook, whose absence
+#   It needs a members collaborator and a served playbook, whose absence
 #   would fail this file for reasons unrelated to the seam under test; the
 #   decision rules themselves are covered in
 #   `tests/unit/launch/application/test_automated_result_decisions.py`. What

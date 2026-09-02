@@ -1,4 +1,4 @@
-"""The admin surface's roster page (`roster-admin`), plus the
+"""The admin surface's Team page (`members-admin`), plus the
 absence-shaped guard on its routes (`admin-session`, first scenario of
 *Admin access fails closed and absence-shaped*).
 
@@ -8,16 +8,16 @@ Derived strictly from the delta specs:
 `.../specs/admin-session/spec.md` (*No session means no surface*, over
 this change's new admin routes; its two revocation scenarios are
 verification-side and live in
-`tests/unit/access/application/test_admin_session_over_roster.py`).
+`tests/unit/access/application/test_admin_session_over_members.py`).
 
 Two requirement sentences carry no scenario of their own — editing an
-existing person, and reactivating a deactivated one — and are asserted
+existing member, and reactivating a deactivated one — and are asserted
 here as DERIVED (`test_an_edit_from_the_page_lands_through_the_use_cases`,
-`test_a_reactivation_from_the_page_restores_the_person`), so that a page
+`test_a_reactivation_from_the_page_restores_the_member`), so that a page
 offering neither would not pass silently.
 
-Every `roster-admin` scenario is stated over the rendered page and the
-writes made from it, so the page's routes over a roster-store double are
+Every `members-admin` scenario is stated over the rendered page and the
+writes made from it, so the page's routes over a membership-store double are
 the smallest observing unit. The page is HTML end to end, so these tests
 drive it the way a browser does: they *discover* the page's own controls
 and submit them, pinning as little of the URL surface as possible — the
@@ -27,18 +27,18 @@ test_playbook_admin_page.py` established for the playbook page, which
 
 ## What is fixed, and what is INVENTED
 
-Fixed by the artifacts: a roster page in
+Fixed by the artifacts: a Team page in
 `access/infrastructure/driving/` gated by the existing admin-session
 dependency (`tasks.md` 4.1, `design.md` Decision 5); every write going
-through the roster's use cases; a rejected write re-presenting every
+through the membership's use cases; a rejected write re-presenting every
 fault with the submitted values and persisting nothing; the last-admin
 refusal surfaced on the page.
 
 INVENTED, recorded in the manifest as unresolved project questions:
 
-- The module `commerce_ops.access.infrastructure.driving.roster_admin`
+- The module `commerce_ops.access.infrastructure.driving.members_admin`
   exposing `router`. Correction point: the import and `_app`.
-- The roster store bound as a module-level `roster` name, substituted
+- The members store bound as a module-level `members` name, substituted
   with `monkeypatch.setattr` (raising) — the convention
   `test_playbook_admin_page.py` follows for `steps`. Correction point:
   `_app`.
@@ -54,8 +54,8 @@ INVENTED, recorded in the manifest as unresolved project questions:
 - That an entry's attribution is readable in that entry's own region of
   the page, and that "when" renders carrying the current year.
   Correction points: `_segment`, `_YEAR`.
-- The roster-store double and write call shapes, as
-  `tests/unit/access/application/test_roster_writes.py` records; the
+- The membership-store double and write call shapes, as
+  `tests/unit/access/application/test_members_writes.py` records; the
   files correct together. They are repeated rather than shared because
   this pass may write only files matching `tests/**/test_*.py` — a
   shared `conftest.py` was not available to it.
@@ -82,8 +82,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from commerce_ops.access.application import create_person, deactivate_person
-from commerce_ops.access.infrastructure.driving import roster_admin as page_module
+from commerce_ops.access.application import create_member, deactivate_member
+from commerce_ops.access.infrastructure.driving import members_admin as page_module
 
 # DERIVED sample values; no artifact fixes example identities or names.
 ADMIN_IDENTITY: Final = "U01ALICE"
@@ -109,11 +109,11 @@ _YEAR: Final = str(datetime.now(UTC).year)
 
 
 # ---------------------------------------------------------------------------
-# The roster store double (see test_roster_writes.py)
+# The members store double (see test_members_writes.py)
 # ---------------------------------------------------------------------------
 
 
-class _FakeRosterStore:
+class _FakeMembersStore:
     def __init__(self, rows: tuple[Any, ...] = (), version: int = 13) -> None:
         self.rows = tuple(rows)
         self.version = version
@@ -133,7 +133,7 @@ class _FakeRosterStore:
         self.version += 1
 
 
-_ID_NAMES: Final = ("id", "person_id", "identifier")
+_ID_NAMES: Final = ("id", "member_id", "identifier")
 _NAME_NAMES: Final = ("display_name", "name")
 _SLACK_NAMES: Final = ("slack_identity", "slack_user_id", "slack_id")
 _ACTIVE_NAMES: Final = ("active", "is_active")
@@ -141,7 +141,7 @@ _ACTIVE_NAMES: Final = ("active", "is_active")
 
 def _targets(row: Any) -> tuple[Any, ...]:
     found = [row]
-    for attribute in ("person", "entry", "definition", "record"):
+    for attribute in ("member", "entry", "definition", "record"):
         nested = getattr(row, attribute, None)
         if nested is not None:
             found.append(nested)
@@ -154,7 +154,7 @@ def _field(row: Any, names: tuple[str, ...], what: str) -> Any:
             if hasattr(target, name):
                 return getattr(target, name)
     pytest.fail(
-        f"a stored roster row exposes no {what} under any of {names} — "
+        f"a stored membership row exposes no {what} under any of {names} — "
         "correct this file's accessor names to the implemented row"
     )
 
@@ -167,14 +167,14 @@ def _is_active(row: Any) -> bool:
     return bool(_field(row, _ACTIVE_NAMES, "active flag"))
 
 
-def _id_of(store: _FakeRosterStore, identity: str) -> Any:
+def _id_of(store: _FakeMembersStore, identity: str) -> Any:
     for row in store.rows:
         if _slack(row) == identity:
             return _field(row, _ID_NAMES, "generated identifier")
     pytest.fail(f"no stored row carries the Slack identity {identity!r}")
 
 
-def _row_for(store: _FakeRosterStore, identity: str) -> Any:
+def _row_for(store: _FakeMembersStore, identity: str) -> Any:
     for row in store.rows:
         if _slack(row) == identity:
             return row
@@ -182,15 +182,15 @@ def _row_for(store: _FakeRosterStore, identity: str) -> Any:
 
 
 async def _create(
-    store: _FakeRosterStore,
+    store: _FakeMembersStore,
     *,
     display_name: str,
     slack_identity: str,
     admin: bool = False,
     principal: str = PRINCIPAL,
 ) -> Any:
-    return await create_person(
-        roster=store,
+    return await create_member(
+        members=store,
         principal=principal,
         display_name=display_name,
         slack_identity=slack_identity,
@@ -199,13 +199,13 @@ async def _create(
     )
 
 
-async def _build_seeded_store() -> _FakeRosterStore:
-    """Two active admins, one active member, one deactivated person —
+async def _build_seeded_store() -> _FakeMembersStore:
+    """Two active admins, one active member, one deactivated member —
     built through the write path, so every row is one a real write
     produced. The second admin is what lets the first be deactivated at
     all under the last-admin floor.
     """
-    store = _FakeRosterStore()
+    store = _FakeMembersStore()
     await _create(
         store,
         display_name=ADMIN_NAME,
@@ -232,17 +232,17 @@ async def _build_seeded_store() -> _FakeRosterStore:
         slack_identity=RETIRED_IDENTITY,
         principal=THE_CREATING_ADMIN,
     )
-    await deactivate_person(
-        roster=store,
+    await deactivate_member(
+        members=store,
         principal=THE_EDITING_ADMIN,
-        person_id=_id_of(store, RETIRED_IDENTITY),
+        member_id=_id_of(store, RETIRED_IDENTITY),
     )
     return store
 
 
-async def _build_store_with_one_admin() -> _FakeRosterStore:
+async def _build_store_with_one_admin() -> _FakeMembersStore:
     """One active admin — the last one — plus one ordinary member."""
-    store = _FakeRosterStore()
+    store = _FakeMembersStore()
     await _create(
         store,
         display_name=ADMIN_NAME,
@@ -259,18 +259,18 @@ async def _build_store_with_one_admin() -> _FakeRosterStore:
     return store
 
 
-def _seeded_store() -> _FakeRosterStore:
+def _seeded_store() -> _FakeMembersStore:
     """The seeded store, built off the event loop.
 
     The tests themselves are synchronous — `TestClient` drives the ASGI
     app from its own portal, the way every driving-adapter test in this
     project does — so the async write use cases that build the starting
-    roster run in their own loop here.
+    members run in their own loop here.
     """
     return asyncio.run(_build_seeded_store())
 
 
-def _store_with_one_admin() -> _FakeRosterStore:
+def _store_with_one_admin() -> _FakeMembersStore:
     return asyncio.run(_build_store_with_one_admin())
 
 
@@ -386,29 +386,29 @@ def _require_control(
     return found
 
 
-def _person_control(
+def _member_control(
     html: str,
     *,
-    person_id: Any,
+    member_id: Any,
     identity: str,
     verb: str,
     excludes: tuple[str, ...] = (),
 ) -> tuple[str, str, dict[str, str]]:
-    """A per-person action control, addressed by whichever of the
+    """A per-member action control, addressed by whichever of the
     generated id or the Slack identity the page routes by."""
-    for handle in (str(person_id), identity):
+    for handle in (str(member_id), identity):
         found = _control(html, contains=(handle, verb), excludes=excludes)
         if found is not None:
             return found
     pytest.fail(
-        f"no {verb!r} control for the person carrying {identity!r} was "
+        f"no {verb!r} control for the member carrying {identity!r} was "
         "discovered — correct this file's control vocabulary to the "
         "implemented page"
     )
 
 
 def _create_form(client: TestClient, html: str) -> dict[str, Any]:
-    """The create-a-person form: one offering both a display-name field
+    """The create-a-member form: one offering both a display-name field
     and a Slack-identity field, on the page itself or behind a control
     that opens it."""
 
@@ -433,23 +433,23 @@ def _create_form(client: TestClient, html: str) -> dict[str, Any]:
             if opened is not None:
                 return opened
     pytest.fail(
-        "no create-a-person form was discoverable on the roster page — "
+        "no create-a-member form was discoverable on the Team page — "
         "correct this file's form-discovery vocabulary to the implemented "
         "page"
     )
 
 
 def _edit_form(
-    client: TestClient, html: str, *, person_id: Any, identity: str
+    client: TestClient, html: str, *, member_id: Any, identity: str
 ) -> dict[str, Any]:
-    """The edit form for one person: a form carrying that person's handle
+    """The edit form for one member: a form carrying that member's handle
     and a display-name field, either inline on the page or behind an
     "edit" control that opens it."""
 
     def _candidate(page: str) -> dict[str, Any] | None:
         for form in _parse(page).forms:
             haystack = form["url"] + " " + str(form["fields"])
-            if str(person_id) not in haystack and identity not in haystack:
+            if str(member_id) not in haystack and identity not in haystack:
                 continue
             if any("name" in name.lower() for name in form["fields"]):
                 return form
@@ -458,7 +458,7 @@ def _edit_form(
     found = _candidate(html)
     if found is not None:
         return found
-    for handle in (str(person_id), identity):
+    for handle in (str(member_id), identity):
         control = _control(html, contains=(handle, "edit"))
         if control is None:
             continue
@@ -469,7 +469,7 @@ def _edit_form(
             if opened is not None:
                 return opened
     pytest.fail(
-        f"no edit form for the person carrying {identity!r} was "
+        f"no edit form for the member carrying {identity!r} was "
         "discoverable — correct this file's control vocabulary to the "
         "implemented page"
     )
@@ -522,11 +522,11 @@ def _words(text: str) -> set[str]:
 
 def _distinctive_words(segment: str, handles: tuple[str, ...]) -> set[str]:
     """The words of one entry's page region, with every token carrying a
-    person-specific handle — a name, a Slack identity, a generated id —
+    member-specific handle — a name, a Slack identity, a generated id —
     discarded.
 
     Without that discount the comparison below would pass on nothing but
-    per-person URLs, which differ for every entry whether or not the
+    per-member URLs, which differ for every entry whether or not the
     page renders an admin flag at all.
     """
     lowered = tuple(handle.lower() for handle in handles if handle)
@@ -549,8 +549,8 @@ async def _fake_verify(*args: Any, **kwargs: Any) -> str | None:
     return PRINCIPAL if _SESSION_VALUE in haystack else None
 
 
-def _app(monkeypatch: pytest.MonkeyPatch, store: _FakeRosterStore) -> TestClient:
-    monkeypatch.setattr(page_module, "roster", store)
+def _app(monkeypatch: pytest.MonkeyPatch, store: _FakeMembersStore) -> TestClient:
+    monkeypatch.setattr(page_module, "members", store)
     monkeypatch.setattr(page_module, "verify_admin_session", _fake_verify)
     app = FastAPI()
     app.include_router(page_module.router)
@@ -558,7 +558,7 @@ def _app(monkeypatch: pytest.MonkeyPatch, store: _FakeRosterStore) -> TestClient
 
 
 def _signed_client(
-    monkeypatch: pytest.MonkeyPatch, store: _FakeRosterStore
+    monkeypatch: pytest.MonkeyPatch, store: _FakeMembersStore
 ) -> TestClient:
     client = _app(monkeypatch, store)
     client.cookies.set(_SESSION_COOKIE, _SESSION_VALUE)
@@ -566,7 +566,7 @@ def _signed_client(
 
 
 def _page_path() -> str:
-    """The roster page: the shortest parameterless GET route the page
+    """The Team page: the shortest parameterless GET route the page
     router exposes."""
     candidates: list[str] = []
     for route in page_module.router.routes:
@@ -574,7 +574,7 @@ def _page_path() -> str:
         methods = getattr(route, "methods", None) or set()
         if path and "GET" in methods and "{" not in path:
             candidates.append(path)
-    assert candidates, "the roster page router exposes no parameterless GET route"
+    assert candidates, "the Team page router exposes no parameterless GET route"
     return min(candidates, key=len)
 
 
@@ -595,9 +595,9 @@ def _submit(client: TestClient, method: str, url: str, data: dict[str, str]) -> 
 
 
 def _reachable_text(client: TestClient, html: str, needle: str) -> str:
-    """The page text in which `needle` is reachable — the roster page
+    """The page text in which `needle` is reachable — the Team page
     itself, or a view one discovered control away (the delta requires
-    deactivated people be *reachable* from the page, not necessarily
+    deactivated members be *reachable* from the page, not necessarily
     listed on it)."""
     if needle in html:
         return html
@@ -610,7 +610,7 @@ def _reachable_text(client: TestClient, html: str, needle: str) -> str:
         if response.status_code == 200 and needle in response.text:
             return str(response.text)
     pytest.fail(
-        f"{needle!r} was not reachable from the roster page — neither "
+        f"{needle!r} was not reachable from the Team page — neither "
         "listed on it nor behind any discovered control"
     )
 
@@ -630,16 +630,16 @@ def _shape(response: Any) -> tuple[int, bytes, str | None]:
 
 def test_no_session_means_no_surface(monkeypatch: pytest.MonkeyPatch) -> None:
     """Scenario (`admin-session`): No session means no surface — over
-    this change's new roster routes.
+    this change's new members routes.
 
-    WHEN the roster page is requested without a session, and with a
+    WHEN the Team page is requested without a session, and with a
     session verification refuses
     THEN each response is identical in shape to requesting a route that
     does not exist.
 
-    The roster page is a new admin route, so the guarantee has to be
+    The Team page is a new admin route, so the guarantee has to be
     re-established over it: a page mounted without the gate would leak
-    the whole people directory.
+    the whole membership directory.
     """
     store = _seeded_store()
     client = _app(monkeypatch, store)
@@ -660,26 +660,26 @@ def test_no_session_means_no_surface(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Requirement: The roster page shows the roster whole
+# Requirement: The Team page shows the membership whole
 # ---------------------------------------------------------------------------
 
 
-def test_the_whole_active_roster_is_one_page(
+def test_the_whole_active_members_is_one_page(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Scenario: The whole active roster is one page.
+    """Scenario: The whole active membership is one page.
 
-    WHEN an admin opens the roster page
-    THEN every active person is listed on that one page with their
+    WHEN an admin opens the Team page
+    THEN every active member is listed on that one page with their
     identity data and admin flag.
 
     "On that one page" is asserted by taking a single unparameterized
-    GET and finding every active person in it — no pagination control
+    GET and finding every active member in it — no pagination control
     followed, nothing fetched twice.
 
     The admin flag is asserted as a *distinction*: the admin's region of
     the page carries at least one word no ordinary member's region does,
-    once each person's own name and identity words are discounted. That
+    once each member's own name and identity words are discounted. That
     reads a "Yes", a badge, a checkmark or the word "admin" alike, and
     fails a page that renders the flag nowhere. DERIVED mechanism; the
     delta fixes that the flag is shown, not how.
@@ -690,14 +690,14 @@ def test_the_whole_active_roster_is_one_page(
     html = _get_page(client)
 
     anchors = (ADMIN_IDENTITY, SECOND_ADMIN_IDENTITY, MEMBER_IDENTITY)
-    # SPECIFIED: every active person, with their identity data.
+    # SPECIFIED: every active member, with their identity data.
     for identity, name in (
         (ADMIN_IDENTITY, ADMIN_NAME),
         (SECOND_ADMIN_IDENTITY, SECOND_ADMIN_NAME),
         (MEMBER_IDENTITY, MEMBER_NAME),
     ):
-        assert identity in html, f"{identity} is missing from the roster page"
-        assert name in html, f"{name} is missing from the roster page"
+        assert identity in html, f"{identity} is missing from the Team page"
+        assert name in html, f"{name} is missing from the Team page"
 
     # SPECIFIED: and their admin flag.
     handles = tuple(
@@ -722,11 +722,11 @@ def test_an_entrys_attribution_is_readable(
 ) -> None:
     """Scenario: An entry's attribution is readable.
 
-    WHEN an admin views a person's entry on the roster page
+    WHEN an admin views a member's entry on the Team page
     THEN the page presents who created the entry and when, and the most
     recent change to it with who made it and when.
 
-    The deactivated person is the one entry whose creator and most
+    The deactivated member is the one entry whose creator and most
     recent change were made by *different* principals, which is what
     makes "the most recent change" a real assertion rather than a second
     reading of the creation. This visibility is what the change offers
@@ -765,13 +765,13 @@ def test_an_entrys_attribution_is_readable(
     )
 
 
-def test_deactivated_people_are_reachable_but_set_apart(
+def test_deactivated_members_are_reachable_but_set_apart(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Scenario: Deactivated people are reachable but set apart.
+    """Scenario: Deactivated members are reachable but set apart.
 
-    WHEN the roster holds deactivated people
-    THEN the page presents them distinctly from the active roster, and
+    WHEN the membership holds deactivated members
+    THEN the page presents them distinctly from the active membership, and
     never mixed into it.
 
     Two readings satisfy "set apart" and both pass here: a separate
@@ -795,29 +795,29 @@ def test_deactivated_people_are_reachable_but_set_apart(
 
     actives = _positions(view, ADMIN_IDENTITY, SECOND_ADMIN_IDENTITY, MEMBER_IDENTITY)
     (deactivated,) = _positions(view, RETIRED_IDENTITY)
-    # SPECIFIED: never mixed into the active roster.
+    # SPECIFIED: never mixed into the active membership.
     assert deactivated > max(actives) or deactivated < min(actives), (
-        "a deactivated person is rendered between active ones; the delta "
+        "a deactivated member is rendered between active ones; the delta "
         "requires them visibly set apart, never interleaved"
     )
 
 
 # ---------------------------------------------------------------------------
-# Requirement: A person can be created and edited from the page
+# Requirement: A member can be created and edited from the page
 # ---------------------------------------------------------------------------
 
 
-def test_a_created_person_appears_on_the_page(
+def test_a_created_member_appears_on_the_page(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Scenario: A created person appears on the page.
+    """Scenario: A created member appears on the page.
 
-    WHEN an admin submits a valid new person from the page
-    THEN the person appears on the active roster with the submitted
+    WHEN an admin submits a valid new member from the page
+    THEN the member appears on the active membership with the submitted
     identity data.
 
     The write is asserted twice over — through the store (it went
-    through the roster's use cases, so a row exists and is active) and
+    through the membership's use cases, so a row exists and is active) and
     through the reloaded page (the admin sees what they submitted).
     Either alone would leave the other half unverified.
     """
@@ -830,7 +830,7 @@ def test_a_created_person_appears_on_the_page(
     response = _submit(client, form["method"], form["url"], submitted)
     assert response.status_code < 400, response.text
 
-    # SPECIFIED: the person is on the active roster.
+    # SPECIFIED: the member is on the active membership.
     row = _row_for(store, NEWCOMER_IDENTITY)
     assert _is_active(row) is True
     assert str(_field(row, _NAME_NAMES, "display name")) == NEWCOMER_NAME
@@ -846,9 +846,9 @@ def test_a_rejected_write_shows_every_fault_with_the_typed_values(
     """Scenario: A rejected write shows every fault with the typed
     values.
 
-    WHEN an admin submits a person the roster's validation rejects
+    WHEN an admin submits a member the membership's validation rejects
     THEN the form is re-presented showing every fault and still holding
-    the submitted values, and the roster is unchanged.
+    the submitted values, and the membership is unchanged.
 
     The submission carries *two* faults — a duplicate Slack identity and
     an empty display name — so "every fault" is a real count rather than
@@ -884,7 +884,7 @@ def test_a_rejected_write_shows_every_fault_with_the_typed_values(
     assert any(marker in body.lower() for marker in ("name", "display")), (
         "no fault mentions the empty display name"
     )
-    # SPECIFIED: and the roster is unchanged.
+    # SPECIFIED: and the membership is unchanged.
     assert len(store.saves) == before_saves
     assert store.rows == before_rows
 
@@ -894,13 +894,13 @@ def test_a_rejected_write_shows_every_fault_with_the_typed_values(
 # ---------------------------------------------------------------------------
 
 
-def test_a_deactivation_lands_and_the_person_is_set_apart(
+def test_a_deactivation_lands_and_the_member_is_set_apart(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Scenario: A deactivation lands and the person is set apart.
+    """Scenario: A deactivation lands and the member is set apart.
 
-    WHEN an admin deactivates a person who is not the last active admin
-    THEN the person leaves the active roster and appears among the
+    WHEN an admin deactivates a member who is not the last active admin
+    THEN the member leaves the active membership and appears among the
     deactivated.
 
     The member is deactivated rather than an admin, so the last-admin
@@ -912,16 +912,16 @@ def test_a_deactivation_lands_and_the_person_is_set_apart(
     client = _signed_client(monkeypatch, store)
     html = _get_page(client)
 
-    method, url, fields = _person_control(
+    method, url, fields = _member_control(
         html,
-        person_id=_id_of(store, MEMBER_IDENTITY),
+        member_id=_id_of(store, MEMBER_IDENTITY),
         identity=MEMBER_IDENTITY,
         verb="deactivate",
     )
     response = _submit(client, method, url, fields)
     assert response.status_code < 400, response.text
 
-    # SPECIFIED: the person leaves the active roster.
+    # SPECIFIED: the member leaves the active membership.
     assert _is_active(_row_for(store, MEMBER_IDENTITY)) is False
     after = _get_page(client)
     actives = _positions(after, ADMIN_IDENTITY, SECOND_ADMIN_IDENTITY)
@@ -930,7 +930,7 @@ def test_a_deactivation_lands_and_the_person_is_set_apart(
     if view is after:
         (moved,) = _positions(view, MEMBER_IDENTITY)
         assert moved > max(actives) or moved < min(actives), (
-            "the deactivated person is still rendered among the active roster"
+            "the deactivated member is still rendered among the active membership"
         )
 
 
@@ -940,8 +940,8 @@ def test_a_blocked_deactivation_explains_itself(
     """Scenario: A blocked deactivation explains itself.
 
     WHEN an admin attempts to deactivate the last active admin
-    THEN the page shows the refusal's explanation and the person remains
-    on the active roster.
+    THEN the page shows the refusal's explanation and the member remains
+    on the active membership.
 
     A refusal that reached the admin as a blank page, a 500, or a silent
     no-op would leave them with no idea why nothing happened — which is
@@ -954,9 +954,9 @@ def test_a_blocked_deactivation_explains_itself(
     before_saves = len(store.saves)
     html = _get_page(client)
 
-    method, url, fields = _person_control(
+    method, url, fields = _member_control(
         html,
-        person_id=_id_of(store, ADMIN_IDENTITY),
+        member_id=_id_of(store, ADMIN_IDENTITY),
         identity=ADMIN_IDENTITY,
         verb="deactivate",
     )
@@ -967,7 +967,7 @@ def test_a_blocked_deactivation_explains_itself(
     assert "admin" in response.text.lower(), (
         "the refused deactivation surfaced no explanation on the page"
     )
-    # SPECIFIED: the person remains on the active roster.
+    # SPECIFIED: the member remains on the active membership.
     assert _is_active(_row_for(store, ADMIN_IDENTITY)) is True
     assert len(store.saves) == before_saves
     assert ADMIN_IDENTITY in _get_page(client)
@@ -976,9 +976,9 @@ def test_a_blocked_deactivation_explains_itself(
 def test_an_edit_from_the_page_lands_through_the_use_cases(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """DERIVED, from the requirement's own sentence: "The roster page
-    SHALL offer creating a person and editing an existing person's
-    updatable fields. A clean write SHALL land through the roster's
+    """DERIVED, from the requirement's own sentence: "The Team page
+    SHALL offer creating a member and editing an existing member's
+    updatable fields. A clean write SHALL land through the membership's
     write use cases and the page SHALL reflect it."
 
     No scenario states the editing half, so this test is recorded as
@@ -993,7 +993,7 @@ def test_an_edit_from_the_page_lands_through_the_use_cases(
     form = _edit_form(
         client,
         html,
-        person_id=_id_of(store, MEMBER_IDENTITY),
+        member_id=_id_of(store, MEMBER_IDENTITY),
         identity=MEMBER_IDENTITY,
     )
     submitted = _fill(form["fields"], name="Carol Corrected")
@@ -1008,11 +1008,11 @@ def test_an_edit_from_the_page_lands_through_the_use_cases(
     assert "Carol Corrected" in _get_page(client)
 
 
-def test_a_reactivation_from_the_page_restores_the_person(
+def test_a_reactivation_from_the_page_restores_the_member(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """DERIVED, from the requirement's own sentence: "The roster page
-    SHALL offer deactivating an active person and reactivating a
+    """DERIVED, from the requirement's own sentence: "The Team page
+    SHALL offer deactivating an active member and reactivating a
     deactivated one."
 
     Only the deactivation half carries scenarios; the reactivation half
@@ -1024,15 +1024,15 @@ def test_a_reactivation_from_the_page_restores_the_person(
     html = _get_page(client)
     view = _reachable_text(client, html, RETIRED_IDENTITY)
 
-    method, url, fields = _person_control(
+    method, url, fields = _member_control(
         view,
-        person_id=_id_of(store, RETIRED_IDENTITY),
+        member_id=_id_of(store, RETIRED_IDENTITY),
         identity=RETIRED_IDENTITY,
         verb="reactivate",
     )
     response = _submit(client, method, url, fields)
     assert response.status_code < 400, response.text
 
-    # DERIVED: the person is active again, under the same entry.
+    # DERIVED: the member is active again, under the same entry.
     assert _is_active(_row_for(store, RETIRED_IDENTITY)) is True
     assert RETIRED_IDENTITY in _get_page(client)

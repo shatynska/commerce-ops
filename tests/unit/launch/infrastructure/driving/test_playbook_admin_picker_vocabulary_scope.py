@@ -22,7 +22,7 @@ and accounted for in the manifest at
 
 ## Level
 
-The playbook-admin router mounted beside the roster, launch and product
+The playbook-admin router mounted beside the membership, launch and product
 routers and the shared asset router, the way `main.py` composes them,
 over doubles for every store. That is the smallest unit that can observe
 this obligation: it is stated about the **served stylesheet**, which no
@@ -99,8 +99,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from commerce_ops.access.application import create_person
-from commerce_ops.access.infrastructure.driving import roster_admin as roster_module
+from commerce_ops.access.application import create_member
+from commerce_ops.access.infrastructure.driving import members_admin as members_module
 from commerce_ops.catalog.domain.product import Product
 from commerce_ops.launch.domain.launch_playbook import (
     Gate,
@@ -314,25 +314,25 @@ def _seeded_steps() -> _FakeStepStore:
     )
 
 
-class _Person:
-    def __init__(self, person_id: str, display_name: str) -> None:
-        self.id = person_id
+class _Member:
+    def __init__(self, member_id: str, display_name: str) -> None:
+        self.id = member_id
         self.display_name = display_name
         self.clickup_user_id: str | None = "clickup-1"
         self.active = True
 
 
-class _PlaybookRoster:
-    async def list_people(self) -> tuple[_Person, ...]:
-        return (_Person(ALICE, ALICE_NAME),)
+class _PlaybookMembers:
+    async def list_members(self) -> tuple[_Member, ...]:
+        return (_Member(ALICE, ALICE_NAME),)
 
-    people = list_people
+    members = list_members
 
-    async def __call__(self) -> tuple[_Person, ...]:
-        return await self.list_people()
+    async def __call__(self) -> tuple[_Member, ...]:
+        return await self.list_members()
 
 
-class _FakeRosterStore:
+class _FakeMembersStore:
     def __init__(self, rows: tuple[Any, ...] = (), version: int = 13) -> None:
         self.rows = tuple(rows)
         self.version = version
@@ -345,10 +345,10 @@ class _FakeRosterStore:
         self.version += 1
 
 
-async def _build_roster() -> _FakeRosterStore:
-    store = _FakeRosterStore()
-    await create_person(
-        roster=store,
+async def _build_members() -> _FakeMembersStore:
+    store = _FakeMembersStore()
+    await create_member(
+        members=store,
         principal="the-seeding-admin",
         display_name=ALICE_NAME,
         slack_identity=PRINCIPAL,
@@ -358,8 +358,8 @@ async def _build_roster() -> _FakeRosterStore:
     return store
 
 
-def _roster_store() -> _FakeRosterStore:
-    return asyncio.run(_build_roster())
+def _members_store() -> _FakeMembersStore:
+    return asyncio.run(_build_members())
 
 
 class _FakeLaunchStore:
@@ -446,12 +446,17 @@ _SEAMS: Final[dict[str, tuple[str, ...]]] = {
     "verify": ("verify_admin_session", "verify"),
     "launches": ("launches", "launch_store", "launch_positions", "store"),
     "playbooks": ("playbooks", "playbook_store", "playbook_repository", "playbook"),
-    "roster": ("roster", "people", "roster_store", "read_roster"),
+    "members": ("members", "members_store", "read_members"),
     "list_products": ("list_products", "products", "catalog_products"),
     "get_product_by_id": ("get_product_by_id", "product_by_id", "get_product"),
     "read_journal": ("read_journal", "journal", "journal_entries"),
 }
-_PLAYBOOK_ROSTER_SEAMS: Final = ("roster", "read_roster", "people", "roster_reader")
+_PLAYBOOK_MEMBERS_SEAMS: Final = (
+    "members",
+    "read_members",
+    "members",
+    "members_reader",
+)
 _PRODUCT_RETAINED_SEAMS: Final = (
     "read_retained_results",
     "retained_results",
@@ -554,7 +559,7 @@ def _world(monkeypatch: pytest.MonkeyPatch) -> _World:
     _install(monkeypatch, launch_module, "verify", _fake_verify)
     _install(monkeypatch, launch_module, "launches", _FakeLaunchStore(launch))
     _install(monkeypatch, launch_module, "playbooks", _FakePlaybooks())
-    _install(monkeypatch, launch_module, "roster", _roster_store())
+    _install(monkeypatch, launch_module, "members", _members_store())
     _install(monkeypatch, launch_module, "list_products", catalog.list_products)
     _install(monkeypatch, launch_module, "get_product_by_id", catalog.get_product_by_id)
     _install(monkeypatch, launch_module, "read_journal", _EmptyRead())
@@ -565,13 +570,13 @@ def _world(monkeypatch: pytest.MonkeyPatch) -> _World:
     _install_any(
         monkeypatch,
         playbook_module,
-        _PLAYBOOK_ROSTER_SEAMS,
-        _PlaybookRoster(),
-        "roster",
+        _PLAYBOOK_MEMBERS_SEAMS,
+        _PlaybookMembers(),
+        "members",
     )
 
-    monkeypatch.setattr(roster_module, "roster", _roster_store())
-    monkeypatch.setattr(roster_module, "verify_admin_session", _fake_verify)
+    monkeypatch.setattr(members_module, "members", _members_store())
+    monkeypatch.setattr(members_module, "verify_admin_session", _fake_verify)
 
     _install(monkeypatch, product_module, "verify", _fake_verify)
     _install(monkeypatch, product_module, "list_products", catalog.list_products)
@@ -604,7 +609,7 @@ def _world(monkeypatch: pytest.MonkeyPatch) -> _World:
     app = FastAPI()
     app.include_router(playbook_module.router)
     app.include_router(launch_module.router)
-    app.include_router(roster_module.router)
+    app.include_router(members_module.router)
     app.include_router(product_module.router)
     app.include_router(assets.router)
     client = TestClient(app)
@@ -692,12 +697,12 @@ def _create_surface(world: _World) -> str:
 
 def _sibling_pages(world: _World) -> dict[str, str]:
     """The surfaces this change's rules may not reach: the step list, the
-    roster page, the launch list, the launch detail, the product index
+    Team page, the launch list, the launch detail, the product index
     and the product dossier."""
     launch_router = world.launch_module.router
     return {
         "step list": _step_list(world),
-        "roster page": _fetch(world, _shortest_get_route(roster_module.router)),
+        "Team page": _fetch(world, _shortest_get_route(members_module.router)),
         "launch list": _fetch(world, _shortest_get_route(launch_router)),
         "launch detail": _fetch(
             world,

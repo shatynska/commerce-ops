@@ -1,4 +1,4 @@
-"""Driven adapter: where a produced result waits for a person's decision.
+"""Driven adapter: where a produced result waits for a member's decision.
 
 `launch-step-automation`'s pending-result store, shaped like
 `ClickUpMappingRepository` — a thin repository over one table, holding no
@@ -43,7 +43,7 @@ VOIDED = "voided"
 def _outcome_name(outcome: Any) -> str:
     """The stored spelling of a proposed outcome.
 
-    A name rather than a pickled value: the row is read back by a person's
+    A name rather than a pickled value: the row is read back by a member's
     decision, possibly after a deploy, and a stored class reference would
     tie a waiting proposal to the code that produced it.
     """
@@ -183,7 +183,7 @@ class AutomatedResultRepository:
 
         Deliberately not "the most recent settled row": an accepted row
         resolves the step, and a voided one records that nobody decided.
-        Neither is a person's disagreement, and only a disagreement holds
+        Neither is a member's disagreement, and only a disagreement holds
         a step back.
         """
         result = await self._session.execute(

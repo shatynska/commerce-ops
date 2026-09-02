@@ -1,4 +1,4 @@
-"""Seeding the first admin before the application serves (`roster`).
+"""Seeding the first admin before the application serves (`members`).
 
 Derived strictly from the delta spec:
 `openspec/changes/move-principals-to-roster/specs/roster/spec.md`, the
@@ -6,7 +6,7 @@ ADDED requirement *The first admin is seeded before the application
 serves*.
 
 REVISED after implementation: the requirement originally placed the seed
-in `main.py`'s lifespan. Verification found that reading the roster there
+in `main.py`'s lifespan. Verification found that reading the membership there
 made the serving process open a database connection before its first
 request — which `database-session` forbids, and which broke two
 `scheduled-runs` freshness tests. The seed now runs as its own step
@@ -17,7 +17,7 @@ that runs right after the migrations wrote to it).
 ## Why this level, and what it does not reach
 
 Each scenario is stated about "the process starts", but what the
-scenarios *assert* is what the roster holds afterwards and whether
+scenarios *assert* is what the membership holds afterwards and whether
 the step continued — and both are decided by the seeding step itself,
 which `design.md` Decision 4 places in its own process between
 `alembic upgrade head` and the server. The step over a store double is
@@ -38,13 +38,13 @@ need). Nothing here duplicates them.
 
 ## Reaching the states ordinary writes cannot
 
-Three scenarios begin from a *readable roster with no active admin* —
+Three scenarios begin from a *readable members with no active admin* —
 a state the last-admin floor makes unreachable through the write use
 cases, which is exactly why the seed exists (`design.md` Decision 4).
 These tests reach it by removing a row from the store double's own
 state, never by inventing a row: every row still originates from a real
 write or from the seed under test. `_drop` is that operation, and it is
-a store-state construction, not an assertion about roster behavior.
+a store-state construction, not an assertion about membership behavior.
 
 ## The interface under test does not exist yet
 
@@ -59,13 +59,13 @@ INVENTED, recorded in the manifest as unresolved project questions:
 - The bootstrap step's exported name — resolved over candidates by
   `_bootstrap_use_case`, which fails loudly naming them. Correction
   point: `_BOOTSTRAP_NAMES`.
-- Its call shape: `await step(roster=store, identity=<str|None>)`, with
+- Its call shape: `await step(members=store, identity=<str|None>)`, with
   the environment variable also set, so an implementation reading the
   variable itself passes too. Correction point: `_seed`.
 - The failure types standing for an unconfigured and an unreachable
   store (`RuntimeError` naming the database variable; `ConnectionError`).
   Correction point: `_UNREADABLE_FAILURES`.
-- The row attribute spellings, as in `test_roster_writes.py`; the two
+- The row attribute spellings, as in `test_members_writes.py`; the two
   files correct together. They are repeated rather than shared because
   this pass may write only files matching `tests/**/test_*.py` — a
   shared `conftest.py` was not available to it.
@@ -89,7 +89,7 @@ from typing import Any, Final
 import pytest
 
 import commerce_ops.access.application as access_application
-from commerce_ops.access.application import create_person, deactivate_person
+from commerce_ops.access.application import create_member, deactivate_member
 
 pytestmark = pytest.mark.anyio
 
@@ -98,7 +98,7 @@ BOOTSTRAP_VARIABLE: Final = "BOOTSTRAP_ADMIN_IDENTITY"
 # DERIVED sample values; no artifact fixes example identities.
 SEEDED_IDENTITY: Final = "U01ALICE"
 CORRECTED_IDENTITY: Final = "U02BOB"
-ROSTERED_ADMIN_IDENTITY: Final = "U03CAROL"
+ENROLLED_ADMIN_IDENTITY: Final = "U03CAROL"
 UNRELATED_IDENTITY: Final = "U04DAVE"
 
 PRINCIPAL: Final = "helen"
@@ -131,7 +131,7 @@ def anyio_backend() -> str:
 # ---------------------------------------------------------------------------
 
 
-class _FakeRosterStore:
+class _FakeMembersStore:
     def __init__(self, rows: tuple[Any, ...] = (), version: int = 0) -> None:
         self.rows = tuple(rows)
         self.version = version
@@ -151,7 +151,7 @@ class _FakeRosterStore:
         self.version += 1
 
 
-class _UnreadableRosterStore(_FakeRosterStore):
+class _UnreadableMembersStore(_FakeMembersStore):
     """A store that cannot be read — unconfigured or unreachable."""
 
     def __init__(self, failure: Exception) -> None:
@@ -166,10 +166,10 @@ class _UnreadableRosterStore(_FakeRosterStore):
 
 
 # ---------------------------------------------------------------------------
-# Row accessors: the single correction point (mirrors test_roster_writes.py)
+# Row accessors: the single correction point (mirrors test_members_writes.py)
 # ---------------------------------------------------------------------------
 
-_ID_NAMES: Final = ("id", "person_id", "identifier")
+_ID_NAMES: Final = ("id", "member_id", "identifier")
 _NAME_NAMES: Final = ("display_name", "name")
 _SLACK_NAMES: Final = ("slack_identity", "slack_user_id", "slack_id")
 _ADMIN_NAMES: Final = ("admin", "is_admin")
@@ -179,7 +179,7 @@ _CREATED_BY: Final = ("created_by",)
 
 def _targets(row: Any) -> tuple[Any, ...]:
     found = [row]
-    for attribute in ("person", "entry", "definition", "record"):
+    for attribute in ("member", "entry", "definition", "record"):
         nested = getattr(row, attribute, None)
         if nested is not None:
             found.append(nested)
@@ -192,7 +192,7 @@ def _field(row: Any, names: tuple[str, ...], what: str) -> Any:
             if hasattr(target, name):
                 return getattr(target, name)
     pytest.fail(
-        f"a stored roster row exposes no {what} under any of {names} — "
+        f"a stored membership row exposes no {what} under any of {names} — "
         "correct this file's accessor names to the implemented row"
     )
 
@@ -217,11 +217,11 @@ def _is_active(row: Any) -> bool:
     return bool(_field(row, _ACTIVE_NAMES, "active flag"))
 
 
-def _rows_for(store: _FakeRosterStore, identity: str) -> tuple[Any, ...]:
+def _rows_for(store: _FakeMembersStore, identity: str) -> tuple[Any, ...]:
     return tuple(row for row in store.rows if _slack(row) == identity)
 
 
-def _row_for(store: _FakeRosterStore, identity: str) -> Any:
+def _row_for(store: _FakeMembersStore, identity: str) -> Any:
     rows = _rows_for(store, identity)
     if len(rows) != 1:
         pytest.fail(
@@ -230,13 +230,13 @@ def _row_for(store: _FakeRosterStore, identity: str) -> Any:
     return rows[0]
 
 
-def _active_admins(store: _FakeRosterStore) -> tuple[Any, ...]:
+def _active_admins(store: _FakeMembersStore) -> tuple[Any, ...]:
     return tuple(row for row in store.rows if _is_active(row) and _is_admin(row))
 
 
-def _drop(store: _FakeRosterStore, identity: str) -> None:
+def _drop(store: _FakeMembersStore, identity: str) -> None:
     """Removes a row from the store's own state — see the docstring; this
-    constructs a store state, it exercises no roster behavior."""
+    constructs a store state, it exercises no members behavior."""
     remaining = tuple(row for row in store.rows if _slack(row) != identity)
     assert len(remaining) < len(store.rows), (
         f"no row carrying {identity!r} to remove from the store state"
@@ -288,8 +288,8 @@ async def _seed(
 
     step: Any = _bootstrap_use_case()
     attempts: tuple[Callable[[], Any], ...] = (
-        lambda: step(roster=store, identity=identity),
-        lambda: step(roster=store),
+        lambda: step(members=store, identity=identity),
+        lambda: step(members=store),
         lambda: step(store, identity=identity),
         lambda: step(store),
     )
@@ -308,15 +308,15 @@ async def _seed(
 
 
 async def _create(
-    store: _FakeRosterStore,
+    store: _FakeMembersStore,
     *,
     display_name: str,
     slack_identity: str,
     admin: bool = False,
     principal: str = PRINCIPAL,
 ) -> Any:
-    return await create_person(
-        roster=store,
+    return await create_member(
+        members=store,
         principal=principal,
         display_name=display_name,
         slack_identity=slack_identity,
@@ -326,16 +326,16 @@ async def _create(
 
 
 # ---------------------------------------------------------------------------
-# Scenario: An empty roster is seeded
+# Scenario: An empty membership is seeded
 # ---------------------------------------------------------------------------
 
 
-async def test_an_empty_roster_is_seeded(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Scenario: An empty roster is seeded.
+async def test_an_empty_members_is_seeded(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Scenario: An empty membership is seeded.
 
-    WHEN the process starts with a readable, empty roster and the
+    WHEN the process starts with a readable, empty members and the
     bootstrap variable naming a Slack identity
-    THEN the roster afterward holds that identity as an active admin
+    THEN the membership afterward holds that identity as an active admin
     entry whose display name is the Slack identity itself.
 
     The attribution assertion is the requirement's "attributed to a
@@ -345,11 +345,11 @@ async def test_an_empty_roster_is_seeded(monkeypatch: pytest.MonkeyPatch) -> Non
     `design.md` Decision 4 and `tasks.md` 3.4 both spell it
     `system:bootstrap`, but the spec fixes only its reserved-ness.
     """
-    store = _FakeRosterStore()
+    store = _FakeMembersStore()
 
     await _seed(monkeypatch, store, SEEDED_IDENTITY)
 
-    # SPECIFIED: the identity is on the roster, active and admin.
+    # SPECIFIED: the identity is on the membership, active and admin.
     row = _row_for(store, SEEDED_IDENTITY)
     assert _is_active(row) is True
     assert _is_admin(row) is True
@@ -373,7 +373,7 @@ async def test_an_existing_entry_is_promoted_rather_than_duplicated(
 ) -> None:
     """Scenario: An existing entry is promoted rather than duplicated.
 
-    WHEN the process starts with no active admin on the readable roster
+    WHEN the process starts with no active admin on the readable membership
     and the bootstrap variable naming a Slack identity an existing
     deactivated entry carries
     THEN that entry becomes active and admin, and no second entry with
@@ -382,21 +382,21 @@ async def test_an_existing_entry_is_promoted_rather_than_duplicated(
     The starting state — a deactivated entry and no active admin — is
     built by seeding, creating a second admin, deactivating the first
     through an ordinary write, then removing the second admin's row from
-    the store state (see the module docstring). The person's identifier
+    the store state (see the module docstring). The member's identifier
     is captured beforehand, so "promoted rather than duplicated" is
     asserted as the *same* entry surviving, not merely as a row count.
     """
-    store = _FakeRosterStore()
+    store = _FakeMembersStore()
     await _seed(monkeypatch, store, SEEDED_IDENTITY)
     await _create(
         store,
         display_name="Carol Admin",
-        slack_identity=ROSTERED_ADMIN_IDENTITY,
+        slack_identity=ENROLLED_ADMIN_IDENTITY,
         admin=True,
     )
-    person_id = _id(_row_for(store, SEEDED_IDENTITY))
-    await deactivate_person(roster=store, principal=PRINCIPAL, person_id=person_id)
-    _drop(store, ROSTERED_ADMIN_IDENTITY)
+    member_id = _id(_row_for(store, SEEDED_IDENTITY))
+    await deactivate_member(members=store, principal=PRINCIPAL, member_id=member_id)
+    _drop(store, ENROLLED_ADMIN_IDENTITY)
     assert _active_admins(store) == ()
 
     await _seed(monkeypatch, store, SEEDED_IDENTITY)
@@ -408,22 +408,22 @@ async def test_an_existing_entry_is_promoted_rather_than_duplicated(
     assert _is_active(row) is True
     assert _is_admin(row) is True
     # SPECIFIED: *that* entry — the same one, under the same identifier.
-    assert _id(row) == person_id
+    assert _id(row) == member_id
 
 
 # ---------------------------------------------------------------------------
-# Scenario: A rostered admin makes the variable inert
+# Scenario: An enrolled admin makes the variable inert
 # ---------------------------------------------------------------------------
 
 
-async def test_a_rostered_admin_makes_the_variable_inert(
+async def test_a_enrolled_admin_makes_the_variable_inert(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Scenario: A rostered admin makes the variable inert.
+    """Scenario: An enrolled admin makes the variable inert.
 
-    WHEN the process starts with the readable roster holding an active
+    WHEN the process starts with the readable membership holding an active
     admin beyond a lone seed-attributed entry
-    THEN the roster is not altered, whatever the bootstrap variable
+    THEN the membership is not altered, whatever the bootstrap variable
     names.
 
     "Beyond a lone seed-attributed entry" is built as the seeded admin
@@ -432,12 +432,12 @@ async def test_a_rostered_admin_makes_the_variable_inert(
     variable then names a third, unrelated identity: an implementation
     still honouring it would add a row.
     """
-    store = _FakeRosterStore()
+    store = _FakeMembersStore()
     await _seed(monkeypatch, store, SEEDED_IDENTITY)
     await _create(
         store,
         display_name="Carol Admin",
-        slack_identity=ROSTERED_ADMIN_IDENTITY,
+        slack_identity=ENROLLED_ADMIN_IDENTITY,
         admin=True,
     )
     before_rows, before_version = store.rows, store.version
@@ -445,7 +445,7 @@ async def test_a_rostered_admin_makes_the_variable_inert(
 
     await _seed(monkeypatch, store, UNRELATED_IDENTITY)
 
-    # SPECIFIED: the roster is not altered.
+    # SPECIFIED: the membership is not altered.
     assert store.rows == before_rows
     assert store.version == before_version
     assert len(store.saves) == before_saves
@@ -463,7 +463,7 @@ async def test_a_mis_seeded_first_admin_is_corrected_by_redeploying(
 ) -> None:
     """Scenario: A mis-seeded first admin is corrected by redeploying.
 
-    WHEN the process starts with the readable roster's only active admin
+    WHEN the process starts with the readable membership's only active admin
     being the single seed-attributed entry, and the variable now names a
     different Slack identity
     THEN the newly named identity becomes an active admin alongside it,
@@ -473,9 +473,9 @@ async def test_a_mis_seeded_first_admin_is_corrected_by_redeploying(
     so no state construction is needed. "Nothing is deactivated by the
     seed" is the clause that makes the correction path safe: the
     mis-typed entry stays active until an ordinary write retires it,
-    which is what keeps the last-admin floor from stranding the roster.
+    which is what keeps the last-admin floor from stranding the membership.
     """
-    store = _FakeRosterStore()
+    store = _FakeMembersStore()
     await _seed(monkeypatch, store, SEEDED_IDENTITY)
     mis_typed_id = _id(_row_for(store, SEEDED_IDENTITY))
 
@@ -503,9 +503,9 @@ async def test_the_bound_expires_once_an_admin_beyond_the_seed_exists(
     beyond the lone seed exists ... so the variable never becomes the
     standing overlay this decision rejects". Without this, an
     implementation re-seeding on every start whenever the variable names
-    an unrostered identity would satisfy every scenario above.
+    an unenrolled identity would satisfy every scenario above.
     """
-    store = _FakeRosterStore()
+    store = _FakeMembersStore()
     await _seed(monkeypatch, store, SEEDED_IDENTITY)
     await _seed(monkeypatch, store, CORRECTED_IDENTITY)
     before_rows, before_version = store.rows, store.version
@@ -528,20 +528,20 @@ async def test_no_admin_and_no_variable_stops_startup(
 ) -> None:
     """Scenario: No admin and no variable stops startup.
 
-    WHEN the process starts with a readable roster holding no active
+    WHEN the process starts with a readable membership holding no active
     admin and no bootstrap variable
     THEN startup fails with an error naming the missing variable.
 
     Naming the variable is the whole value of the refusal — it is what
-    tells a deployer which variable to set. An empty roster is the
-    simplest readable admin-less roster, and reaching it needs no
+    tells a deployer which variable to set. An empty membership is the
+    simplest readable admin-less members, and reaching it needs no
     construction.
 
     DELIBERATELY UNTESTED (manifest): that the raised error actually
     stops *startup*, which depends on the lifespan wiring this tier
     cannot observe.
     """
-    store = _FakeRosterStore()
+    store = _FakeMembersStore()
 
     # The refusal's exception type is not fixed by any artifact, so the
     # catch is broad and the discrimination is the message assertion.
@@ -551,7 +551,7 @@ async def test_no_admin_and_no_variable_stops_startup(
     # SPECIFIED: the error names the missing variable.
     assert BOOTSTRAP_VARIABLE in str(excinfo.value)
     # SPECIFIED (from the requirement's refusal shape): nothing was
-    # written to a roster nobody can administer.
+    # written to a membership nobody can administer.
     assert store.saves == []
 
 
@@ -563,7 +563,7 @@ async def test_a_blank_variable_is_treated_as_absent(
 ) -> None:
     """Scenario: An empty variable is treated as absent.
 
-    WHEN the step runs against a roster holding no active admin with the
+    WHEN the step runs against a membership holding no active admin with the
     bootstrap variable set to an empty or whitespace-only value
     THEN it fails naming the variable, exactly as when unset, rather than
     attempting to seed an entry with no identity.
@@ -571,13 +571,13 @@ async def test_a_blank_variable_is_treated_as_absent(
     Discriminating: an implementation that only checks falsiness passes
     the empty case and seeds a whitespace identity in the others, which
     would fail with a fault about the *entry* — telling a deployer their
-    roster is malformed when what is wrong is their configuration.
+    members is malformed when what is wrong is their configuration.
     """
-    store = _FakeRosterStore()
+    store = _FakeMembersStore()
     monkeypatch.setenv(BOOTSTRAP_VARIABLE, blank)
 
     with pytest.raises(Exception) as excinfo:
-        await _bootstrap_use_case()(roster=store, identity=blank)
+        await _bootstrap_use_case()(members=store, identity=blank)
 
     # SPECIFIED: the error names the variable, as the absent case does.
     assert BOOTSTRAP_VARIABLE in str(excinfo.value)
@@ -590,7 +590,7 @@ async def test_a_blank_variable_is_treated_as_absent(
 #
 # REWRITTEN, not weakened. The requirement this was derived from moved the
 # seed out of the serving process's startup and into a step of its own
-# after the migrations (`roster` spec, "The first admin is seeded before
+# after the migrations (`members` spec, "The first admin is seeded before
 # the application serves"), because seeding in the lifespan made the
 # server open a database connection before its first request — which
 # `database-session` forbids, and which broke two `scheduled-runs`
@@ -618,7 +618,7 @@ async def test_an_unreadable_store_fails_the_step(
     The variable *is* set here, so the failure cannot be the missing-
     variable refusal wearing another error's clothes.
     """
-    store = _UnreadableRosterStore(failure)
+    store = _UnreadableMembersStore(failure)
 
     with pytest.raises(Exception) as excinfo:
         await _seed(monkeypatch, store, SEEDED_IDENTITY)

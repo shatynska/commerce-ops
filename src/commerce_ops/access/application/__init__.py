@@ -5,21 +5,21 @@ from commerce_ops.access.application.admin_session import (
     mint_admin_link,
     verify_admin_session,
 )
+from commerce_ops.access.application.members import (
+    BOOTSTRAP_ADMIN_VARIABLE,
+    MemberRecord,
+    MembersStore,
+    StaleMembersError,
+    create_member,
+    deactivate_member,
+    list_members,
+    reactivate_member,
+    seed_bootstrap_admin,
+    update_member,
+)
 from commerce_ops.access.application.ports import (
     AdminSessionStore,
     LinkTokenStore,
-)
-from commerce_ops.access.application.roster import (
-    BOOTSTRAP_ADMIN_VARIABLE,
-    PersonRecord,
-    RosterStore,
-    StaleRosterError,
-    create_person,
-    deactivate_person,
-    list_people,
-    reactivate_person,
-    seed_bootstrap_admin,
-    update_person,
 )
 from commerce_ops.access.application.use_cases import (
     resolve_admin_capability,
@@ -30,31 +30,31 @@ from commerce_ops.access.application.use_cases import (
 # composition root loads a directory and hands it to `resolve_scope`, and a
 # malformed one must be catchable at startup without reaching into
 # `access.domain`.
-from commerce_ops.access.domain.principals import (
-    InvalidRosterError,
-    Person,
-    Roster,
+from commerce_ops.access.domain.members import (
+    InvalidMembersError,
+    Member,
+    Members,
 )
 
 __all__ = [
     "BOOTSTRAP_ADMIN_VARIABLE",
     "AdminSessionStore",
-    "InvalidRosterError",
+    "InvalidMembersError",
     "LinkTokenStore",
-    "Person",
-    "PersonRecord",
-    "Roster",
-    "RosterStore",
-    "StaleRosterError",
-    "create_person",
-    "deactivate_person",
+    "Member",
+    "MemberRecord",
+    "Members",
+    "MembersStore",
+    "StaleMembersError",
+    "create_member",
+    "deactivate_member",
     "exchange_link_token",
-    "list_people",
+    "list_members",
     "mint_admin_link",
-    "reactivate_person",
+    "reactivate_member",
     "resolve_admin_capability",
     "resolve_scope",
     "seed_bootstrap_admin",
-    "update_person",
+    "update_member",
     "verify_admin_session",
 ]

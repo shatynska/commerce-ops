@@ -388,7 +388,7 @@ def _carrying(
 
     The delta says the outcome being repeated is "the one the step
     carries, **whatever recorded it**", so `who` is a parameter: a
-    person's rejection recorded the `Blocked` in one of the tests below.
+    member's rejection recorded the `Blocked` in one of the tests below.
     """
     launch.record_step_outcome(
         playbook,
@@ -1678,12 +1678,12 @@ async def test_a_cool_off_stops_governing_once_the_outcome_differs_from_it() -> 
     The lazy lift (`design.md` Decision 4): nothing actively lifts the
     row, so `automation_confirmation` -- which records for these same
     steps and which this change leaves untouched -- owes nothing. Here the
-    launch carries an `InProgress` a person recorded while the row still
+    launch carries an `InProgress` a member recorded while the row still
     says `Blocked`, well inside the cool-off; an implementation reading
     only `noted_at` skips the step.
     """
     handler = _ScriptedHandler(
-        StepResolution(outcome=InProgress, result="a person restarted the read")
+        StepResolution(outcome=InProgress, result="a member restarted the read")
     )
     world = _world(
         _automated(),

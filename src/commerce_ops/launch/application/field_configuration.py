@@ -114,7 +114,7 @@ class FieldFinding:
 
     role: FieldRole
     kinds: frozenset[GapKind]
-    # How a person finds this field in ClickUp. The identifier is what the
+    # How a member finds this field in ClickUp. The identifier is what the
     # deployment configured; the name is what the field carries. A report
     # names both where it has them -- "which field" cannot be answered by the
     # role alone, which is this system's word rather than anything visible in
@@ -380,7 +380,7 @@ def check_field_configuration(
 
 
 def describe_gap(configuration: FieldConfiguration) -> str:
-    """The gap, as a message a person can act on.
+    """The gap, as a message a member can act on.
 
     Three obligations, each from the requirement. Name **every** finding
     rather than the first, so one repair round closes them all. Name what the

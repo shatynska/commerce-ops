@@ -1,19 +1,19 @@
-"""Recording a person's decision on a confirmation gate.
+"""Recording a member's decision on a confirmation gate.
 
-Implements `launch-gate-progression`'s *Only a known, active person may
+Implements `launch-gate-progression`'s *Only a known, active member may
 approve a gate* and the recording half of *A decision records the approval
 and reports what it did*.
 
 Modelled on `automated_decisions.py`, and for its reasons: a refusal is a
 `Decision` handed back rather than an exception, because every refusal has
-something to tell the person who pressed the control, and an adapter that
+something to tell the member who pressed the control, and an adapter that
 had to translate exception types into sentences would be inventing the
 wording at the point furthest from the rule.
 
 **This module records; it does not advance.** The cascade runs afterwards,
 from the driving adapter, inside the product's advisory lock — and the
 approval is committed *before* that lock is taken, deliberately. A
-decision is a fact about what a person did, and a cascade that failed
+decision is a fact about what a member did, and a cascade that failed
 must not discard it: the ask's cool-off record was written on an earlier
 pass and outside any of this, so an approval lost with the cascade would
 leave the gate neither advanced nor asked about again for a day.
@@ -27,8 +27,8 @@ from datetime import datetime
 from typing import Any
 
 from commerce_ops.launch.application.playbook_authoring import (
-    RosterReader,
-    UnreadableRosterError,
+    MembersReader,
+    UnreadableMembersError,
 )
 from commerce_ops.launch.application.ports import LaunchJournal, LaunchStore
 from commerce_ops.launch.application.use_cases import approve_gate
@@ -53,7 +53,7 @@ class GateDecision:
     """What became of a gate decision, and what to tell the decider.
 
     `refused` is the field the Slack reply reads; `reason` is written for
-    a person, since it is what they will see. `gate_id` travels back so the
+    a member, since it is what they will see. `gate_id` travels back so the
     adapter can run the cascade without re-deriving which gate it just
     recorded against.
     """
@@ -71,49 +71,49 @@ def _refuse(reason: str) -> GateDecision:
     return GateDecision(refused=True, reason=reason)
 
 
-async def _person_for(roster: RosterReader, slack_identity: str) -> Any | None:
-    """The roster person for a Slack identity, deactivated entries included.
+async def _member_for(members: MembersReader, slack_identity: str) -> Any | None:
+    """The member for a Slack identity, deactivated entries included.
 
     Both halves of "known **and** active" are decided here rather than by
-    whatever supplies the roster: a reader that answered only active people
+    whatever supplies the membership: a reader that answered only active members
     would collapse two distinct refusals into one and tell a deactivated
-    person the roster does not carry them — the incident
-    `launch-step-automation`'s roster requirement records.
+    member the membership does not carry them — the incident
+    `launch-step-automation`'s members requirement records.
     """
-    lister = getattr(roster, "list_people", None)
+    lister = getattr(members, "list_members", None)
     if lister is None:
-        raise UnreadableRosterError(
-            f"the roster collaborator is a {type(roster).__name__!r}, which "
-            f"cannot answer who the roster carries: a roster reader must "
-            f"provide `list_people()`, and this one does not. Pass a reader "
-            f"rather than a roster store — a decision cannot be judged "
+        raise UnreadableMembersError(
+            f"the members collaborator is a {type(members).__name__!r}, which "
+            f"cannot answer who the membership carries: a members reader must "
+            f"provide `list_members()`, and this one does not. Pass a reader "
+            f"rather than a members store — a decision cannot be judged "
             f"without one, and no decision may be refused as though the "
-            f"roster had been read"
+            f"members had been read"
         )
-    for person in await lister():
-        if getattr(person, "slack_identity", None) == slack_identity:
-            return person
+    for member in await lister():
+        if getattr(member, "slack_identity", None) == slack_identity:
+            return member
     return None
 
 
-def _approver_name(person: Any) -> str:
+def _approver_name(member: Any) -> str:
     """What is written into the approval as its named approver.
 
-    The roster's own identifier where it has one, so that correcting a
-    person's display name never rewrites the approvals pointing at them.
+    The membership's own identifier where it has one, so that correcting a
+    member's display name never rewrites the approvals pointing at them.
     """
     for attribute in ("identifier", "id", "name"):
-        value = getattr(person, attribute, None)
+        value = getattr(member, attribute, None)
         if isinstance(value, str) and value:
             return value
-    return str(person)
+    return str(member)
 
 
 async def _decide(
     *,
     launches: LaunchStore,
     journal: LaunchJournal,
-    roster: RosterReader,
+    members: MembersReader,
     suppression: Any,
     playbooks: Any,
     product_id: ProductId,
@@ -124,7 +124,7 @@ async def _decide(
 ) -> GateDecision:
     # The stand-down, first and independently of everything else. The pass
     # declines to act on a set that is being authored, and a decision
-    # recorded against one would commit a person to a gate the system has
+    # recorded against one would commit a member to a gate the system has
     # just declined to evaluate. The served read is what refuses, so it is
     # taken rather than assumed.
     if playbooks is not None:
@@ -147,7 +147,7 @@ async def _decide(
             "that product has no launch record, so the decision was not recorded"
         )
 
-    # Both refusals below are independent of the roster and are made first,
+    # Both refusals below are independent of the membership and are made first,
     # so that a decision already refused on grounds having nothing to do
     # with the decider keeps its own refusal rather than being answered
     # with a wiring fault.
@@ -164,15 +164,15 @@ async def _decide(
 
     # "Before the deciding identity is judged" is what the requirement
     # asks, and this is that point — not the top of the function.
-    person = await _person_for(roster, slack_identity)
-    if person is None:
+    member = await _member_for(members, slack_identity)
+    if member is None:
         return _refuse(
-            "the roster does not know that Slack identity, so the decision "
+            "the membership does not know that Slack identity, so the decision "
             "was not recorded"
         )
-    if not getattr(person, "active", False):
+    if not getattr(member, "active", False):
         return _refuse(
-            "that person is not active on the roster, so the decision was not recorded"
+            "that member is not active on the membership, so the decision was not recorded"
         )
 
     decision = ApprovalDecision.APPROVING if approving else ApprovalDecision.REJECTING
@@ -182,7 +182,7 @@ async def _decide(
         gate_id=gate_id,
         approval=GateApproval(
             decision=decision,
-            approver=_approver_name(person),
+            approver=_approver_name(member),
             when=when,
             # Never a posture: the only gate whose approval names one is
             # the final gate, which is refused above.
@@ -193,7 +193,7 @@ async def _decide(
 
     if not approving and suppression is not None:
         # The day runs from the decision rather than from the ask that
-        # prompted it, or a person who declines at hour 23 is asked again
+        # prompted it, or a member who declines at hour 23 is asked again
         # an hour later. This write and the approval above land together
         # under the transaction the adapter opens around both.
         await suppression.record_rejection(product_id, gate_id, when)
@@ -210,7 +210,7 @@ async def approve_gate_decision(
     *,
     launches: LaunchStore,
     journal: LaunchJournal,
-    roster: RosterReader,
+    members: MembersReader,
     playbooks: Any = None,
     product_id: ProductId,
     gate_id: str,
@@ -222,7 +222,7 @@ async def approve_gate_decision(
     return await _decide(
         launches=launches,
         journal=journal,
-        roster=roster,
+        members=members,
         suppression=suppression,
         playbooks=playbooks,
         product_id=product_id,
@@ -237,7 +237,7 @@ async def reject_gate_decision(
     *,
     launches: LaunchStore,
     journal: LaunchJournal,
-    roster: RosterReader,
+    members: MembersReader,
     playbooks: Any = None,
     product_id: ProductId,
     gate_id: str,
@@ -249,7 +249,7 @@ async def reject_gate_decision(
     return await _decide(
         launches=launches,
         journal=journal,
-        roster=roster,
+        members=members,
         suppression=suppression,
         playbooks=playbooks,
         product_id=product_id,

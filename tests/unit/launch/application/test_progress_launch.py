@@ -695,7 +695,7 @@ async def test_a_launch_with_an_unsatisfied_condition_is_left_where_it_is() -> N
     # the refusal would still have journaled it.
     assert collaborators.journal.appended == [], (
         "a launch the cascade could not advance left entries in the journal "
-        f"kept for people to read: {collaborators.journal.kinds()}"
+        f"kept for members to read: {collaborators.journal.kinds()}"
     )
     # Guard: the cascade really did read the launch, so the assertions
     # above cannot hold because nothing ran at all.

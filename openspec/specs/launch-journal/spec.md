@@ -148,8 +148,8 @@ A launch that predates the journal, and a product with no launch record at all, 
 
 #### Scenario: An entry reports its distinguishing facts as their own fields
 
-- **WHEN** a launch whose journal holds a step outcome recorded by a named person from a named source is read
-- **THEN** that entry carries the moment it occurred as `when`, that person as `actor`, that source as `source`, and the recorded outcome and its reason as `outcome` and `reason`, each in its own field
+- **WHEN** a launch whose journal holds a step outcome recorded by a named member from a named source is read
+- **THEN** that entry carries the moment it occurred as `when`, that member as `actor`, that source as `source`, and the recorded outcome and its reason as `outcome` and `reason`, each in its own field
 
 #### Scenario: A kind's distinguishing facts are absent from an entry of another kind
 
@@ -163,7 +163,7 @@ A launch that predates the journal, and a product with no launch record at all, 
 
 #### Scenario: An entry reports its subject, source and actor as raw facts
 
-- **WHEN** a launch whose journal holds a step outcome recorded by a named person from a named source, naming a step as its subject, is read
+- **WHEN** a launch whose journal holds a step outcome recorded by a named member from a named source, naming a step as its subject, is read
 - **THEN** that entry carries the step's name as `subject`, the source as `source`, and the recorder as `actor`, each unworded
 
 #### Scenario: An occurrence naming no subject, source or actor reports each as absent

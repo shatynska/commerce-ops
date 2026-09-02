@@ -1,19 +1,19 @@
-"""The roster page's header names **every** admin surface the session can
-reach (`roster-admin`).
+"""The Team page's header names **every** admin surface the session can
+reach (`members-admin`).
 
 Derived strictly from the MODIFIED requirement *The page carries a header
 from which the other admin surface is reachable* in
 `openspec/changes/add-launch-tracking-pages/specs/roster-admin/spec.md` —
 the **two scenarios the delta adds**:
 
-- *Every other admin surface is reachable from the roster*
+- *Every other admin surface is reachable from the membership*
 - *A surface added later is named by the header*
 
 The requirement's two pre-existing scenarios are carried forward verbatim
 by the delta and are already covered, unweakened, by
-`tests/unit/access/infrastructure/driving/test_roster_admin_presentation_vocabulary.py`
-— `test_the_playbook_page_is_reachable_from_the_roster` and
-`test_the_header_is_rendered_on_a_roster_holding_nobody`. This pass
+`tests/unit/access/infrastructure/driving/test_members_admin_presentation_vocabulary.py`
+— `test_the_playbook_page_is_reachable_from_the_members` and
+`test_the_header_is_rendered_on_a_members_holding_nobody`. This pass
 neither edits nor deletes them; the manifest at
 `openspec/changes/add-launch-tracking-pages/test-manifest.md` records
 that accounting.
@@ -22,7 +22,7 @@ that accounting.
 
 `design.md` — Decision 9: generalizing one capability's header
 requirement without the other "would leave the launch surface reachable
-from the roster page and not from the step list ... the exact asymmetry
+from the Team page and not from the step list ... the exact asymmetry
 the generalization exists to close, and one that a test derived from a
 single delta would not catch". `tasks.md` 5.3 asks for the header tests
 where each capability is tested; the playbook half is
@@ -30,7 +30,7 @@ where each capability is tested; the playbook half is
 
 ## Level
 
-The roster router mounted beside the playbook router and the new launch
+The membership router mounted beside the playbook router and the new launch
 router, the way `main.py` composes them — the smallest unit that can
 observe that another module's surface is offered and actually served.
 
@@ -48,9 +48,9 @@ on 2026-08-27.
 
 ## What is fixed, and what is INVENTED
 
-Fixed: that the roster page carries the header, that it names every
+Fixed: that the Team page carries the header, that it names every
 admin surface the session can reach, that each is offered in one action
-without scripting, that the roster is identified as the surface being
+without scripting, that the membership is identified as the surface being
 viewed, and that a surface added later is named there.
 
 INVENTED, with correction points in the code: how a header is located
@@ -76,8 +76,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from commerce_ops.access.application import create_person
-from commerce_ops.access.infrastructure.driving import roster_admin as page_module
+from commerce_ops.access.application import create_member
+from commerce_ops.access.infrastructure.driving import members_admin as page_module
 from commerce_ops.launch.domain.launch_playbook import (
     Gate,
     GateOpening,
@@ -96,7 +96,7 @@ def _launch_module() -> ModuleType:
     except ModuleNotFoundError as absent:
         pytest.fail(
             f"{_LAUNCH_MODULE_NAME} does not exist ({absent}), so there is no "
-            "third admin surface for the roster's header to name — this is the "
+            "third admin surface for the membership's header to name — this is the "
             "absent-target state and establishes nothing about the assertions "
             "in this test"
         )
@@ -121,9 +121,15 @@ _SESSION_COOKIE: Final = "admin_session"
 _SESSION_VALUE: Final = "a-verified-admin-session"
 
 #: INVENTED: how each admin surface is named in a header.
-# "user"/"users" since the header calls this surface Users; the page
-# itself still says Roster, and both readings must locate it.
-_ROSTER_WORDS: Final = ("roster", "people", "person", "user", "users")
+# A LOCATOR, not a prohibition: these are the words by which the header's
+# entry for this surface is found, and it can still fail -- so it is renamed,
+# not left. The header now labels this surface `Team`
+# (`rename-the-roster-to-members`), so "team" is what locates it and must be
+# here or the assertion has no subject. "members"/"member" stay because the
+# page itself still says them. "user"/"users" are gone: the surface no longer
+# uses that word anywhere, so accepting it would let this pass on a header
+# that never names this surface.
+_MEMBERS_WORDS: Final = ("team", "members", "member")
 _PLAYBOOK_WORDS: Final = ("playbook", "step", "steps")
 _LAUNCH_WORDS: Final = ("launch", "launches", "product")
 
@@ -152,19 +158,24 @@ _LAUNCH_SEAMS: Final[dict[str, tuple[str, ...]]] = {
     "verify": ("verify_admin_session",),
     "launches": ("launches", "launch_store", "launch_positions", "store"),
     "playbooks": ("playbooks", "playbook_store", "playbook_repository", "playbook"),
-    "roster": ("roster", "people", "roster_store", "read_roster"),
+    "members": ("members", "members_store", "read_members"),
     "list_products": ("list_products", "products", "catalog_products"),
     "get_product_by_id": ("get_product_by_id", "product_by_id", "get_product"),
 }
-_PLAYBOOK_ROSTER_SEAMS: Final = ("roster", "read_roster", "people", "roster_reader")
+_PLAYBOOK_MEMBERS_SEAMS: Final = (
+    "members",
+    "read_members",
+    "members",
+    "members_reader",
+)
 
 
 # ---------------------------------------------------------------------------
-# Store doubles (see test_roster_admin_page.py)
+# Store doubles (see test_members_admin_page.py)
 # ---------------------------------------------------------------------------
 
 
-class _FakeRosterStore:
+class _FakeMembersStore:
     def __init__(self, rows: tuple[Any, ...] = (), version: int = 13) -> None:
         self.rows = tuple(rows)
         self.version = version
@@ -180,10 +191,10 @@ class _FakeRosterStore:
         self.version += 1
 
 
-async def _build_roster() -> _FakeRosterStore:
-    store = _FakeRosterStore()
-    await create_person(
-        roster=store,
+async def _build_members() -> _FakeMembersStore:
+    store = _FakeMembersStore()
+    await create_member(
+        members=store,
         principal="the-seeding-admin",
         display_name="Alice Admin",
         slack_identity=PRINCIPAL,
@@ -193,28 +204,28 @@ async def _build_roster() -> _FakeRosterStore:
     return store
 
 
-def _roster_store() -> _FakeRosterStore:
+def _members_store() -> _FakeMembersStore:
     """Built off the event loop: these tests are synchronous and drive the
     ASGI app through `TestClient`'s own portal."""
-    return asyncio.run(_build_roster())
+    return asyncio.run(_build_members())
 
 
-class _Person:
-    def __init__(self, person_id: str, display_name: str) -> None:
-        self.id = person_id
+class _Member:
+    def __init__(self, member_id: str, display_name: str) -> None:
+        self.id = member_id
         self.display_name = display_name
         self.clickup_user_id: str | None = "clickup-1"
         self.active = True
 
 
-class _FakeRoster:
-    async def list_people(self) -> tuple[_Person, ...]:
-        return (_Person("prs_01HQ8Z6M4A", "Alice Admin"),)
+class _FakeMembers:
+    async def list_members(self) -> tuple[_Member, ...]:
+        return (_Member("prs_01HQ8Z6M4A", "Alice Admin"),)
 
-    people = list_people
+    members = list_members
 
-    async def __call__(self) -> tuple[_Person, ...]:
-        return await self.list_people()
+    async def __call__(self) -> tuple[_Member, ...]:
+        return await self.list_members()
 
 
 class _FakeStepStore:
@@ -297,26 +308,26 @@ class _Surfaces:
 
 
 def _app(
-    monkeypatch: pytest.MonkeyPatch, *, roster: _FakeRosterStore | None = None
+    monkeypatch: pytest.MonkeyPatch, *, members: _FakeMembersStore | None = None
 ) -> _Surfaces:
     launch = _launch_module()
 
     monkeypatch.setattr(
-        page_module, "roster", _roster_store() if roster is None else roster
+        page_module, "members", _members_store() if members is None else members
     )
     monkeypatch.setattr(page_module, "verify_admin_session", _fake_verify)
 
     monkeypatch.setattr(playbook_module, "steps", _FakeStepStore())
     monkeypatch.setattr(playbook_module, "verify_admin_session", _fake_verify)
-    for name in _PLAYBOOK_ROSTER_SEAMS:
+    for name in _PLAYBOOK_MEMBERS_SEAMS:
         if hasattr(playbook_module, name):
-            monkeypatch.setattr(playbook_module, name, _FakeRoster())
+            monkeypatch.setattr(playbook_module, name, _FakeMembers())
             break
 
     _install_launch_seam(monkeypatch, launch, "verify", _fake_verify)
     _install_launch_seam(monkeypatch, launch, "launches", _EmptyLaunchStore())
     _install_launch_seam(monkeypatch, launch, "playbooks", _EmptyPlaybooks())
-    _install_launch_seam(monkeypatch, launch, "roster", _roster_store())
+    _install_launch_seam(monkeypatch, launch, "members", _members_store())
     catalog = _EmptyCatalog()
     _install_launch_seam(monkeypatch, launch, "list_products", catalog.list_products)
     _install_launch_seam(
@@ -344,7 +355,7 @@ def _shortest_get_route(router: Any) -> str:
     return str(min(candidates, key=len))
 
 
-def _roster_html(surfaces: _Surfaces) -> str:
+def _members_html(surfaces: _Surfaces) -> str:
     response = surfaces.client.get(_shortest_get_route(page_module.router))
     assert response.status_code == 200, response.text
     return str(response.text)
@@ -486,22 +497,22 @@ def _header_of(root: _Node, *, other_path: str) -> _Node:
     outbound = _links_to(root, other_path)
     if not outbound:
         pytest.fail(
-            f"the roster page renders no link to {other_path!r} at all, so it "
+            f"the Team page renders no link to {other_path!r} at all, so it "
             "carries no header from which that admin surface is reachable"
         )
     candidates = [
         ancestor
         for link in outbound
         for ancestor in _ancestors(link)
-        if _names(ancestor, _ROSTER_WORDS)
+        if _names(ancestor, _MEMBERS_WORDS)
         and ancestor.tag not in ("html", "body", "#document")
         and not any(e.tag in ("table", "form") for e in _elements(ancestor))
     ]
     if not candidates:
         pytest.fail(
             f"the link to {other_path!r} sits in no element that also names the "
-            "roster without enclosing the page's own tables or forms — correct "
-            "`_header_of` or `_ROSTER_WORDS`"
+            "members without enclosing the page's own tables or forms — correct "
+            "`_header_of` or `_MEMBERS_WORDS`"
         )
     return min(candidates, key=_size)
 
@@ -547,27 +558,27 @@ def _identifies_current(header: _Node, *, words: tuple[str, ...]) -> bool:
 # ===========================================================================
 
 
-def test_every_other_admin_surface_is_reachable_from_the_roster(
+def test_every_other_admin_surface_is_reachable_from_the_members(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Scenario: Every other admin surface is reachable from the roster.
+    """Scenario: Every other admin surface is reachable from the membership.
 
-    WHEN the roster page is rendered
+    WHEN the Team page is rendered
     THEN its header offers each admin surface the session can reach,
-    other than the roster itself, in one action.
+    other than the membership itself, in one action.
     """
     surfaces = _app(monkeypatch)
     playbook_path = _shortest_get_route(playbook_module.router)
     launch_path = _shortest_get_route(surfaces.launch.router)
 
-    header = _header_of(_tree(_roster_html(surfaces)), other_path=playbook_path)
+    header = _header_of(_tree(_members_html(surfaces)), other_path=playbook_path)
 
     # SPECIFIED: *each* other surface — not the playbook page alone — in
     # one action, and without scripting.
     for path, what in ((playbook_path, "playbook"), (launch_path, "launch")):
         assert _offers_in_one_action(header, path), (
-            f"the roster page's header offers no live link to the {what} "
-            f"surface at {path!r} — an admin who reaches the roster cannot get "
+            f"the Team page's header offers no live link to the {what} "
+            f"surface at {path!r} — an admin who reaches the membership cannot get "
             "to it without typing a URL"
         )
         served = surfaces.client.get(_links_to(header, path)[0].attrs["href"])
@@ -575,22 +586,22 @@ def test_every_other_admin_surface_is_reachable_from_the_roster(
             f"the header's {what} link does not serve that surface: "
             f"{served.status_code}"
         )
-    # SPECIFIED (carried forward): the header still identifies the roster
+    # SPECIFIED (carried forward): the header still identifies the membership
     # as the surface being viewed.
-    assert _identifies_current(header, words=_ROSTER_WORDS), (
-        "the header does not identify the roster as the surface currently "
+    assert _identifies_current(header, words=_MEMBERS_WORDS), (
+        "the header does not identify the membership as the surface currently "
         "viewed, so it reads as an undifferentiated set of links"
     )
 
 
-def test_a_surface_added_later_is_named_by_the_roster_header(
+def test_a_surface_added_later_is_named_by_the_members_header(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Scenario: A surface added later is named by the header.
 
-    WHEN an admin surface beyond the playbook and roster pages is
+    WHEN an admin surface beyond the playbook and membership pages is
     reachable by the session
-    THEN the roster page's header names it and offers it in one action.
+    THEN the Team page's header names it and offers it in one action.
 
     The surface beyond the two is the launch surface this change adds —
     the case the generalization was written for, and the one a header
@@ -600,16 +611,16 @@ def test_a_surface_added_later_is_named_by_the_roster_header(
     playbook_path = _shortest_get_route(playbook_module.router)
     launch_path = _shortest_get_route(surfaces.launch.router)
 
-    header = _header_of(_tree(_roster_html(surfaces)), other_path=playbook_path)
+    header = _header_of(_tree(_members_html(surfaces)), other_path=playbook_path)
 
     # SPECIFIED: the header *names* it...
     assert _names(header, _LAUNCH_WORDS), (
-        "the roster page's header does not name the launch surface: "
+        "the Team page's header does not name the launch surface: "
         f"{_flat(_all_text(header))[:300]!r}"
     )
     # ...and offers it in one action.
     assert _offers_in_one_action(header, launch_path), (
-        f"the roster page's header offers no live link to {launch_path!r}, so "
+        f"the Team page's header offers no live link to {launch_path!r}, so "
         "a surface added later is left unreachable from a page that predates it"
     )
 
@@ -629,7 +640,7 @@ def test_the_product_index_is_named_by_the_header(
 
     Both capabilities or neither: generalizing the header on one side
     alone would leave the product surface reachable from the playbook
-    page and not from the roster, which is the asymmetry the
+    page and not from the membership, which is the asymmetry the
     generalization exists to close.
     """
     from commerce_ops.launch.infrastructure.driving import (
@@ -640,13 +651,13 @@ def test_the_product_index_is_named_by_the_header(
     playbook_path = _shortest_get_route(playbook_module.router)
     product_path = _shortest_get_route(product_module.router)
 
-    header = _header_of(_tree(_roster_html(surfaces)), other_path=playbook_path)
+    header = _header_of(_tree(_members_html(surfaces)), other_path=playbook_path)
 
     assert _names(header, _PRODUCT_WORDS), (
-        "the roster page's header does not name the product surface: "
+        "the Team page's header does not name the product surface: "
         f"{_flat(_all_text(header))[:300]!r}"
     )
     assert _offers_in_one_action(header, product_path), (
-        f"the roster page's header offers no live link to {product_path!r}, so "
+        f"the Team page's header offers no live link to {product_path!r}, so "
         "a surface added later is left unreachable from a page that predates it"
     )

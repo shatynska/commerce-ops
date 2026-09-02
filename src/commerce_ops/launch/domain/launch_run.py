@@ -661,7 +661,7 @@ class Launch:
         This governs what the system **asks for** — the projection into a
         task tracker and the invocation of a handler — and never what it
         accepts or evaluates. Recording an outcome is outside it: work a
-        person completed early is work done. Gate opening is outside it
+        member completed early is work done. Gate opening is outside it
         too, and that one matters more: `unsatisfied_conditions` turns on
         recorded outcomes alone, and gating a blocking condition on
         release would open a gate over work that had merely not been asked

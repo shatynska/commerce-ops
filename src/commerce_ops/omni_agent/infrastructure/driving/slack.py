@@ -66,9 +66,9 @@ def _bot_token() -> str | None:
 
 
 def _is_bot_authored(event: Mapping[str, Any]) -> bool:
-    """True when the event was authored by a program rather than a person.
+    """True when the event was authored by a program rather than a member.
 
-    Keyed on how the message was authored, never on which person authored it,
+    Keyed on how the message was authored, never on which member authored it,
     so it does not restrict which workspace members may trigger Omni.
     """
     return bool(event.get("bot_id")) or event.get("subtype") == "bot_message"

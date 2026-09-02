@@ -1,4 +1,4 @@
-"""The shape of the roster collaborator an authoring write is given.
+"""The shape of the members collaborator an authoring write is given.
 
 Derived strictly from the delta spec
 `openspec/changes/restore-admin-step-writes/specs/playbook-authoring/spec.md`
@@ -14,17 +14,17 @@ to its existing test by name.
 
 ## The arrangement no existing test makes
 
-`proposal.md` — *Why*: `main.py` injects a roster **store** (`load()` /
+`proposal.md` — *Why*: `main.py` injects a membership **store** (`load()` /
 `save()` and nothing else) where the five write use cases expect a
-reader, and `_read_people` accepts three shapes of which the store is
-none. Every roster double under `tests/unit/launch/` exposes
-`list_people()`, so the suite has never handed a store to a write. That
+reader, and `_read_members` accepts three shapes of which the store is
+none. Every membership double under `tests/unit/launch/` exposes
+`list_members()`, so the suite has never handed a store to a write. That
 is exactly what `_StoreShapedCollaborator` below does, against all five
 write use cases.
 
 ## Fixed by the delta, and what is INVENTED
 
-Fixed: the three cases a roster collaborator can arrive in, and that the
+Fixed: the three cases a members collaborator can arrive in, and that the
 third is a **raised, named error** identifying what was supplied and what
 was expected — never an entry in the write's fault list, and never
 collapsible into case 2.
@@ -38,10 +38,10 @@ correction points named:
   that its message names both sides — rather than pinning a class the
   artifacts never chose. Correction point: `_refusal_of`.
 - The spelling by which the message "identifies the shape expected".
-  Read as naming the method the reader must answer, `list_people`, which
-  `design.md` — *The roster collaborator gets one shape* fixes as the
+  Read as naming the method the reader must answer, `list_members`, which
+  `design.md` — *The members collaborator gets one shape* fixes as the
   protocol's single member. Correction point: `_EXPECTED_SHAPE_NAMES`.
-- The `handlers=` collaborator and the roster row shape, both as
+- The `handlers=` collaborator and the membership row shape, both as
   `test_step_activation.py`'s docstring records them for the sibling
   files.
 
@@ -55,8 +55,8 @@ raises `TypeError: '_StoreShapedCollaborator' object is not iterable`
 from inside the write, which names what was supplied and nothing about
 what was expected.
 
-`test_no_roster_is_still_a_permitted_case` is expected to **PASS** on its
-first run. The no-roster case already works; the delta states it so that
+`test_no_members_is_still_a_permitted_case` is expected to **PASS** on its
+first run. The no-members case already works; the delta states it so that
 narrowing the collaborator's shape cannot remove it by accident
 (`tasks.md` 2.6). It is recorded in the manifest as a regression guard,
 not as coverage of new behaviour.
@@ -108,7 +108,7 @@ A_DISCIPLINE: Final = next(iter(Discipline))
 
 ALICE: Final = "prs_01HQ8Z6M4A"
 ALICE_NAME: Final = "Alice Admin"
-#: An identifier no roster in this file carries.
+#: An identifier no membership in this file carries.
 NOBODY: Final = "prs_00000000NO"
 
 EDITED: Final = "listing.zeta"
@@ -116,7 +116,7 @@ RETIRED_ALREADY: Final = "listing.omega"
 
 #: How a message may spell "the shape expected" (INVENTED — see the
 #: docstring). Correction point for the implemented wording.
-_EXPECTED_SHAPE_NAMES: Final = ("list_people", "listpeople", "list people")
+_EXPECTED_SHAPE_NAMES: Final = ("list_members", "listpeople", "list members")
 
 
 @pytest.fixture(scope="module")
@@ -221,37 +221,39 @@ def _record_named(store: _FakeStepStore, identifier: str) -> Any:
 
 
 # ---------------------------------------------------------------------------
-# Roster collaborators: the reader, and the store production really injects
+# Members collaborators: the reader, and the store production really injects
 # ---------------------------------------------------------------------------
 
 
-class _Person:
+class _Member:
     def __init__(
-        self, person_id: str, display_name: str, *, active: bool = True
+        self, member_id: str, display_name: str, *, active: bool = True
     ) -> None:
-        self.id = person_id
+        self.id = member_id
         self.display_name = display_name
         self.clickup_user_id: str | None = "clickup-1"
         self.active = active
 
 
-class _FakeRoster:
+class _FakeMembers:
     """A collaborator answering the stated shape — case 1."""
 
-    def __init__(self, people: tuple[_Person, ...] | None = None) -> None:
-        self.people_rows = (_Person(ALICE, ALICE_NAME),) if people is None else people
+    def __init__(self, members: tuple[_Member, ...] | None = None) -> None:
+        self.members_rows = (
+            (_Member(ALICE, ALICE_NAME),) if members is None else members
+        )
 
-    async def list_people(self) -> tuple[_Person, ...]:
-        return self.people_rows
+    async def list_members(self) -> tuple[_Member, ...]:
+        return self.members_rows
 
 
 class _StoreShapedCollaborator:
     """The shape `main.py` actually injects: `load()` / `save()` and
     nothing else.
 
-    `PostgresRoster`'s shape, as `tests/unit/access/application/
-    test_roster_writes.py` records it for `access`'s own writes. It
-    answers nothing about who the roster carries, so it is case 3 — and
+    `PostgresMembers`'s shape, as `tests/unit/access/application/
+    test_members_writes.py` records it for `access`'s own writes. It
+    answers nothing about who the membership carries, so it is case 3 — and
     it is the arrangement no test in this repository made before this
     file (`proposal.md` — *What Changes*, last bullet).
     """
@@ -305,60 +307,60 @@ _CREATE_DEFAULTS: Final = {
 }
 
 
-async def _create(store: _FakeStepStore, roster: Any, **overrides: Any) -> Any:
+async def _create(store: _FakeStepStore, members: Any, **overrides: Any) -> Any:
     return await create_step(
         steps=store,
         principal=PRINCIPAL,
-        roster=roster,
+        members=members,
         handlers=_FakeHandlerRegistry(),
         **{**_CREATE_DEFAULTS, **overrides},
     )
 
 
-async def _update(store: _FakeStepStore, roster: Any, **fields: Any) -> Any:
+async def _update(store: _FakeStepStore, members: Any, **fields: Any) -> Any:
     return await update_step(
         steps=store,
         principal=PRINCIPAL,
         step_id=EDITED,
-        roster=roster,
+        members=members,
         handlers=_FakeHandlerRegistry(),
         **({"name": "Work of listing.zeta, reworded"} | fields),
     )
 
 
-async def _retire(store: _FakeStepStore, roster: Any) -> Any:
+async def _retire(store: _FakeStepStore, members: Any) -> Any:
     return await retire_step(
         steps=store,
         principal=PRINCIPAL,
         step_id=EDITED,
-        roster=roster,
+        members=members,
         handlers=_FakeHandlerRegistry(),
     )
 
 
-async def _unretire(store: _FakeStepStore, roster: Any) -> Any:
+async def _unretire(store: _FakeStepStore, members: Any) -> Any:
     return await unretire_step(
         steps=store,
         principal=PRINCIPAL,
         step_id=RETIRED_ALREADY,
-        roster=roster,
+        members=members,
         handlers=_FakeHandlerRegistry(),
     )
 
 
-async def _change_status(store: _FakeStepStore, roster: Any) -> Any:
+async def _change_status(store: _FakeStepStore, members: Any) -> Any:
     return await change_step_status(
         steps=store,
         principal=PRINCIPAL,
         step_id=EDITED,
         status=StepStatus.IN_DEVELOPMENT,
-        roster=roster,
+        members=members,
         handlers=_FakeHandlerRegistry(),
     )
 
 
 #: Every write the delta's "the caller" can be. The proposal enumerates
-#: exactly these five as the use cases taking a `roster=` collaborator.
+#: exactly these five as the use cases taking a `members=` collaborator.
 WRITES: Final = (
     ("create", _create),
     ("update", _update),
@@ -399,7 +401,7 @@ def _refusal_of(caught: BaseException, supplied: object) -> str:
 
 # ---------------------------------------------------------------------------
 # MODIFIED requirement: Every write is validated as the playbook it would
-# produce — the roster collaborator's stated shape (case 3)
+# produce — the members collaborator's stated shape (case 3)
 # ---------------------------------------------------------------------------
 
 
@@ -409,8 +411,8 @@ async def test_a_collaborator_of_the_wrong_shape_is_refused_by_name(
 ) -> None:
     """Scenario: A collaborator of the wrong shape is refused by name.
 
-    WHEN a write is given a roster collaborator that cannot answer who
-    the roster carries
+    WHEN a write is given a members collaborator that cannot answer who
+    the membership carries
     THEN the write is refused with a named error identifying the
     collaborator supplied and the shape expected
     AND the step set is unchanged.
@@ -445,8 +447,8 @@ async def test_a_mis_wiring_is_not_reported_as_a_rejection_of_the_submission() -
     """Scenario: A mis-wiring is not reported as a rejection of the
     submission.
 
-    WHEN a write is given a roster collaborator that cannot answer who
-    the roster carries
+    WHEN a write is given a members collaborator that cannot answer who
+    the membership carries
     THEN the refusal is raised rather than reported among the write's
     coherence faults, so a surface rendering those faults cannot present
     the mis-wiring as a fault of what was submitted.
@@ -455,7 +457,7 @@ async def test_a_mis_wiring_is_not_reported_as_a_rejection_of_the_submission() -
     what it raises is not the type this capability's rejections carry.
     The surface half — that the admin page does not render it among its
     faults — is
-    `tests/unit/launch/infrastructure/driving/test_playbook_admin_writes_reach_the_roster.py`
+    `tests/unit/launch/infrastructure/driving/test_playbook_admin_writes_reach_the_members.py`
     (`tasks.md` 5.4).
 
     The contrast below is what makes the assertion mean anything: the
@@ -477,21 +479,21 @@ async def test_a_mis_wiring_is_not_reported_as_a_rejection_of_the_submission() -
     # as the fault-carrying type, so the distinction the surface draws is
     # a live one rather than an absence of rejections altogether.
     with pytest.raises(InvalidPlaybookError):
-        await _update(_store(), _FakeRoster(), name="   ")
+        await _update(_store(), _FakeMembers(), name="   ")
 
 
 async def test_a_mis_shaped_collaborator_never_passes_for_an_absent_one() -> None:
     """Scenario: A mis-shaped collaborator never passes for an absent
     one.
 
-    WHEN a write is given a roster collaborator that cannot answer who
-    the roster carries
-    THEN the write is not treated as one made without a roster, and the
+    WHEN a write is given a members collaborator that cannot answer who
+    the membership carries
+    THEN the write is not treated as one made without a membership, and the
     two preconditions are not skipped.
 
-    The discriminating pair: one write names a person no roster carries
+    The discriminating pair: one write names a member no membership carries
     and is given the mis-shaped collaborator; the same write with no
-    roster at all is accepted. If case 3 could collapse into case 2 the
+    members at all is accepted. If case 3 could collapse into case 2 the
     first write would land too — which is the arrangement the delta says
     "shipped".
     """
@@ -501,42 +503,42 @@ async def test_a_mis_shaped_collaborator_never_passes_for_an_absent_one() -> Non
     with pytest.raises(Exception) as caught:
         await _update(mis_wired_store, supplied, assignees=(NOBODY,))
 
-    # SPECIFIED: not treated as a write made without a roster …
+    # SPECIFIED: not treated as a write made without a membership …
     _refusal_of(caught.value, supplied)
     assert mis_wired_store.saves == [], (
-        "a write given an unreadable roster collaborator persisted anyway, "
-        "so the two roster preconditions were skipped exactly as though no "
-        "roster had been supplied"
+        "a write given an unreadable members collaborator persisted anyway, "
+        "so the two membership preconditions were skipped exactly as though no "
+        "members had been supplied"
     )
 
     # … and the comparison that gives that assertion its force: with no
-    # roster the identical write is a permitted case and lands.
+    # members the identical write is a permitted case and lands.
     absent_store = _store()
     await _update(absent_store, None, assignees=(NOBODY,))
     assert len(absent_store.saves) == 1, (
-        "the no-roster write did not land, so the contrast above does not "
+        "the no-members write did not land, so the contrast above does not "
         "establish that the mis-shaped collaborator was refused rather than "
         "the write being refused for some unrelated reason"
     )
 
 
-async def test_no_roster_is_still_a_permitted_case() -> None:
-    """Scenario: No roster is still a permitted case.
+async def test_no_members_is_still_a_permitted_case() -> None:
+    """Scenario: No members is still a permitted case.
 
-    WHEN a write is made with no roster collaborator at all
+    WHEN a write is made with no members collaborator at all
     THEN the write proceeds, evaluating every rule except the two the
-    roster decides.
+    members decides.
 
     Three assertions, one per clause of the delta's case 2:
 
     1. the write proceeds;
-    2. the two roster preconditions are not evaluated — a step naming
-       somebody no roster knows saves, which is only sound *because* the
+    2. the two membership preconditions are not evaluated — a step naming
+       somebody no members knows saves, which is only sound *because* the
        caller decided not to have them evaluated;
     3. the load-side rules are still evaluated in full — an incoherent
        submission is still rejected.
 
-    Expected to **PASS** on its first run: the no-roster case already
+    Expected to **PASS** on its first run: the no-members case already
     works. `tasks.md` 2.6 asks for it because narrowing the collaborator
     to one shape is most likely to remove it by accident, so this is a
     regression guard rather than coverage of new behaviour.
@@ -550,9 +552,9 @@ async def test_no_roster_is_still_a_permitted_case() -> None:
         "Work of listing.zeta, reworded"
     )
 
-    # SPECIFIED: except the two the roster decides — an `active` `human`
-    # step naming somebody no roster carries is not refused, because no
-    # roster was supplied to refuse it.
+    # SPECIFIED: except the two the membership decides — an `active` `human`
+    # step naming somebody no members carries is not refused, because no
+    # members was supplied to refuse it.
     await _update(store, None, assignees=(NOBODY,))
     assert tuple(_record_named(store, EDITED).definition.assignees) == (NOBODY,)
 

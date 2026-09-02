@@ -70,10 +70,10 @@ INVENTED, each recorded in the manifest with its correction point:
   enclosing form's action and hidden fields, plus the control's own
   href, name, value and text). Correction points: `_row_of`,
   `_control_haystack`.
-- The page module and its seams, the session cookie, the roster double,
+- The page module and its seams, the session cookie, the membership double,
   the create-surface discovery and the valid-create payload — all
   inherited from the sibling admin-page tests, which the implementation
-  already satisfies. Correction points: `_install_roster`, `_CREATE_HINTS`,
+  already satisfies. Correction points: `_install_members`, `_CREATE_HINTS`,
   `_authoring_form_of`, `_valid_values`.
 
 ## What this file deliberately does NOT cover
@@ -273,29 +273,29 @@ class _FakeStepStore:
         self.version += 1
 
 
-class _Person:
-    def __init__(self, person_id: str, display_name: str, *, active: bool) -> None:
-        self.id = person_id
+class _Member:
+    def __init__(self, member_id: str, display_name: str, *, active: bool) -> None:
+        self.id = member_id
         self.display_name = display_name
         self.clickup_user_id: str | None = "clickup-1"
         self.active = active
 
 
-class _FakeRoster:
+class _FakeMembers:
     def __init__(self) -> None:
-        self.people_rows = (
-            _Person(ALICE, ALICE_NAME, active=True),
-            _Person(BOHDAN, BOHDAN_NAME, active=True),
-            _Person(CHRIS_DEPARTED, CHRIS_NAME, active=False),
+        self.members_rows = (
+            _Member(ALICE, ALICE_NAME, active=True),
+            _Member(BOHDAN, BOHDAN_NAME, active=True),
+            _Member(CHRIS_DEPARTED, CHRIS_NAME, active=False),
         )
 
-    async def list_people(self) -> tuple[_Person, ...]:
-        return self.people_rows
+    async def list_members(self) -> tuple[_Member, ...]:
+        return self.members_rows
 
-    people = list_people
+    members = list_members
 
-    async def __call__(self) -> tuple[_Person, ...]:
-        return await self.list_people()
+    async def __call__(self) -> tuple[_Member, ...]:
+        return await self.list_members()
 
 
 def _seeded_store(extra: tuple[_Record, ...] = ()) -> _FakeStepStore:
@@ -409,7 +409,7 @@ def _elements(node: _Node) -> Iterator[_Node]:
 
 
 def _is_control(node: _Node) -> bool:
-    """A named control a person types into or chooses from."""
+    """A named control a member types into or chooses from."""
     name = node.attrs.get("name")
     if not name:
         return False
@@ -547,7 +547,7 @@ def _in_action_cell(node: _Node) -> bool:
 
 
 def _is_action_control(node: _Node) -> bool:
-    """An affordance a person clicks *to act on the row*, as opposed to
+    """An affordance a member clicks *to act on the row*, as opposed to
     one that merely navigates to read or edit what the row names.
 
     INVENTED — see this file's docstring. A `<select>` submitting itself
@@ -868,18 +868,18 @@ async def _fake_verify(*args: Any, **kwargs: Any) -> str | None:
     return PRINCIPAL if _SESSION_VALUE in haystack else None
 
 
-_ROSTER_ATTRIBUTES: Final = ("roster", "read_roster", "people", "roster_reader")
+_MEMBERS_ATTRIBUTES: Final = ("members", "read_members", "members_reader")
 
 
-def _install_roster(monkeypatch: pytest.MonkeyPatch) -> None:
-    roster = _FakeRoster()
-    for name in _ROSTER_ATTRIBUTES:
+def _install_members(monkeypatch: pytest.MonkeyPatch) -> None:
+    members = _FakeMembers()
+    for name in _MEMBERS_ATTRIBUTES:
         if hasattr(page_module, name):
-            monkeypatch.setattr(page_module, name, roster)
+            monkeypatch.setattr(page_module, name, members)
             return
     pytest.fail(
-        "the page module exposes no roster seam under any of "
-        f"{_ROSTER_ATTRIBUTES} — correct this file's probe to the "
+        "the page module exposes no members seam under any of "
+        f"{_MEMBERS_ATTRIBUTES} — correct this file's probe to the "
         "implemented name"
     )
 
@@ -889,7 +889,7 @@ def _signed_client(
 ) -> TestClient:
     monkeypatch.setattr(page_module, "steps", store)
     monkeypatch.setattr(page_module, "verify_admin_session", _fake_verify)
-    _install_roster(monkeypatch)
+    _install_members(monkeypatch)
     app = FastAPI()
     app.include_router(page_module.router)
     client = TestClient(app)

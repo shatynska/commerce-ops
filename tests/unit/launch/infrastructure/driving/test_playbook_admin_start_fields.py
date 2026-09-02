@@ -49,7 +49,7 @@ says. Correction point: `_marking_of`.
 ## INVENTED, with correction points
 
 Inherited from the sibling admin-page tests: the page module and its
-seams, the session cookie, the roster, the control vocabulary and the
+seams, the session cookie, the membership, the control vocabulary and the
 form discovery. Added here:
 
 - `starts_at_gate` / `after_steps` as constructor keywords on
@@ -232,22 +232,22 @@ class _FakeStepStore:
         self.version += 1
 
 
-class _Person:
-    def __init__(self, person_id: str, display_name: str) -> None:
-        self.id = person_id
+class _Member:
+    def __init__(self, member_id: str, display_name: str) -> None:
+        self.id = member_id
         self.display_name = display_name
         self.clickup_user_id: str | None = "clickup-1"
         self.active = True
 
 
-class _FakeRoster:
-    async def list_people(self) -> tuple[_Person, ...]:
-        return (_Person(ALICE, ALICE_NAME),)
+class _FakeMembers:
+    async def list_members(self) -> tuple[_Member, ...]:
+        return (_Member(ALICE, ALICE_NAME),)
 
-    people = list_people
+    members = list_members
 
-    async def __call__(self) -> tuple[_Person, ...]:
-        return await self.list_people()
+    async def __call__(self) -> tuple[_Member, ...]:
+        return await self.list_members()
 
 
 def _seeded_store() -> _FakeStepStore:
@@ -488,17 +488,17 @@ async def _fake_verify(*args: Any, **kwargs: Any) -> str | None:
     return PRINCIPAL if _SESSION_VALUE in haystack else None
 
 
-_ROSTER_ATTRIBUTES: Final = ("roster", "read_roster", "people", "roster_reader")
+_MEMBERS_ATTRIBUTES: Final = ("members", "read_members", "members_reader")
 
 
-def _install_roster(monkeypatch: pytest.MonkeyPatch) -> None:
-    roster = _FakeRoster()
-    for name in _ROSTER_ATTRIBUTES:
+def _install_members(monkeypatch: pytest.MonkeyPatch) -> None:
+    members = _FakeMembers()
+    for name in _MEMBERS_ATTRIBUTES:
         if hasattr(page_module, name):
-            monkeypatch.setattr(page_module, name, roster)
+            monkeypatch.setattr(page_module, name, members)
             return
     pytest.fail(
-        f"the page module exposes no roster seam under any of {_ROSTER_ATTRIBUTES}"
+        f"the page module exposes no members seam under any of {_MEMBERS_ATTRIBUTES}"
     )
 
 
@@ -507,7 +507,7 @@ def _signed_client(
 ) -> TestClient:
     monkeypatch.setattr(page_module, "steps", store)
     monkeypatch.setattr(page_module, "verify_admin_session", _fake_verify)
-    _install_roster(monkeypatch)
+    _install_members(monkeypatch)
     app = FastAPI()
     app.include_router(page_module.router)
     client = TestClient(app)

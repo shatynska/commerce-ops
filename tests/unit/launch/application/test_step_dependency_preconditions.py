@@ -13,7 +13,7 @@ Derived strictly from the delta spec
   `test_playbook_authoring.py` and `test_playbook_authoring_new_field_set.py`.
 - MODIFIED *Every write is validated as the playbook it would produce* —
   only its one new scenario, *A dependency precondition is evaluated with
-  no roster supplied*. The other eleven are reproduced unchanged.
+  no members supplied*. The other eleven are reproduced unchanged.
 - `launch-playbook`'s ADDED *The stored step set declares when its steps
   start* — only its scenario *An author may set a step back to starting
   immediately*, which is a statement about the authoring surface.
@@ -25,7 +25,7 @@ accounts for every scenario in the change.
 ## Level
 
 The real `create_step` / `update_step` / status-change use cases over a
-step-store double and a roster double — the same level and the same
+step-store double and a membership double — the same level and the same
 doubles `test_step_assignee_preconditions.py` uses, which is the
 smallest unit that can observe a write being refused and nothing being
 persisted.
@@ -33,8 +33,8 @@ persisted.
 ## INVENTED, with correction points
 
 Inherited from `test_step_assignee_preconditions.py`, whose docstring
-records them in full: the `roster=` and `handlers=` collaborators, the
-roster row shape, `REJECTED` as the tuple of acceptable refusal types
+records them in full: the `members=` and `handlers=` collaborators, the
+members row shape, `REJECTED` as the tuple of acceptable refusal types
 (the delta fixes the outcome, not the exception type), and `_load` as
 the composition the serving adapter performs.
 
@@ -186,25 +186,25 @@ class _FakeStepStore:
         self.version += 1
 
 
-class _Person:
-    def __init__(self, person_id: str, display_name: str) -> None:
-        self.id = person_id
+class _Member:
+    def __init__(self, member_id: str, display_name: str) -> None:
+        self.id = member_id
         self.display_name = display_name
         self.active = True
         self.clickup_user_id: str | None = "clickup-1"
 
 
-class _FakeRoster:
+class _FakeMembers:
     def __init__(self) -> None:
-        self.people_rows = (_Person(ALICE, ALICE_NAME),)
+        self.members_rows = (_Member(ALICE, ALICE_NAME),)
 
-    async def list_people(self) -> tuple[_Person, ...]:
-        return self.people_rows
+    async def list_members(self) -> tuple[_Member, ...]:
+        return self.members_rows
 
-    people = list_people
+    members = list_members
 
-    async def __call__(self) -> tuple[_Person, ...]:
-        return await self.list_people()
+    async def __call__(self) -> tuple[_Member, ...]:
+        return await self.list_members()
 
 
 class _FakeHandlerRegistry:
@@ -249,28 +249,28 @@ _CREATE_DEFAULTS: Final[dict[str, Any]] = {
 }
 
 #: A sentinel meaning "do not pass this keyword at all", distinguishing
-#: an omitted roster from one supplied as `None`. The delta makes those
+#: an omitted membership from one supplied as `None`. The delta makes those
 #: two different cases and forbids collapsing them.
 _UNSUPPLIED: Final = object()
 
 
 async def _create(
-    store: _FakeStepStore, *, roster: Any = _UNSUPPLIED, **overrides: Any
+    store: _FakeStepStore, *, members: Any = _UNSUPPLIED, **overrides: Any
 ) -> Any:
     fields = {**_CREATE_DEFAULTS, **overrides}
-    if roster is _UNSUPPLIED:
-        roster = _FakeRoster()
+    if members is _UNSUPPLIED:
+        members = _FakeMembers()
     return await create_step(
         steps=store,
         principal=PRINCIPAL,
-        roster=roster,
+        members=members,
         handlers=_FakeHandlerRegistry(),
         **fields,
     )
 
 
-async def _create_without_a_roster(store: _FakeStepStore, **overrides: Any) -> Any:
-    """A create made with no roster collaborator at all — the permitted
+async def _create_without_a_members(store: _FakeStepStore, **overrides: Any) -> Any:
+    """A create made with no members collaborator at all — the permitted
     case the delta names, in which the two assignee preconditions are not
     evaluated and every other rule still is."""
     fields = {**_CREATE_DEFAULTS, **overrides}
@@ -283,15 +283,15 @@ async def _create_without_a_roster(store: _FakeStepStore, **overrides: Any) -> A
 
 
 async def _update(
-    store: _FakeStepStore, step_id: str, *, roster: Any = _UNSUPPLIED, **fields: Any
+    store: _FakeStepStore, step_id: str, *, members: Any = _UNSUPPLIED, **fields: Any
 ) -> Any:
-    if roster is _UNSUPPLIED:
-        roster = _FakeRoster()
+    if members is _UNSUPPLIED:
+        members = _FakeMembers()
     return await update_step(
         steps=store,
         principal=PRINCIPAL,
         step_id=step_id,
-        roster=roster,
+        members=members,
         handlers=_FakeHandlerRegistry(),
         **fields,
     )
@@ -306,7 +306,7 @@ async def _set_status(store: _FakeStepStore, step_id: str, status: StepStatus) -
                 principal=PRINCIPAL,
                 step_id=step_id,
                 status=status,
-                roster=_FakeRoster(),
+                members=_FakeMembers(),
                 handlers=_FakeHandlerRegistry(),
             )
     return await _update(store, step_id, status=status)
@@ -320,7 +320,7 @@ def _opening_for(identifier: str) -> GateOpening:
 
 def _load(store: _FakeStepStore) -> LaunchPlaybook:
     """What the serving adapter does on read: the stored definitions plus
-    the code-owned gates, with no roster in reach."""
+    the code-owned gates, with no members in reach."""
     return LaunchPlaybook(
         version=f"set-v{store.version}",
         gates=tuple(
@@ -756,21 +756,23 @@ async def test_a_step_is_created_declaring_neither() -> None:
 # ---------------------------------------------------------------------------
 
 
-async def test_a_dependency_precondition_is_evaluated_with_no_roster_supplied() -> None:
-    """Scenario: A dependency precondition is evaluated with no roster
+async def test_a_dependency_precondition_is_evaluated_with_no_members_supplied() -> (
+    None
+):
+    """Scenario: A dependency precondition is evaluated with no members
     supplied.
 
     WHEN a write naming a `retired` step in another step's `after_steps`
-    is validated with no roster supplied
+    is validated with no members supplied
     THEN the write is refused, the dependency precondition having been
     evaluated.
 
-    SPECIFIED reason: "A dependency rule skipped because no roster was
+    SPECIFIED reason: "A dependency rule skipped because no members was
     supplied would be a step-set rule going unevaluated for a reason
     having nothing to do with it." `tasks.md` 5.2 asks for exactly this.
 
     The step is created as `draft` with no assignee, so the two
-    roster-decided preconditions have nothing to say about it either way
+    members-decided preconditions have nothing to say about it either way
     and cannot be what refuses the write.
     """
     store = _store(
@@ -786,7 +788,7 @@ async def test_a_dependency_precondition_is_evaluated_with_no_roster_supplied() 
     )
 
     with pytest.raises(REJECTED) as caught:
-        await _create_without_a_roster(
+        await _create_without_a_members(
             store,
             name="Copy written from retired photos",
             status=StepStatus.DRAFT,

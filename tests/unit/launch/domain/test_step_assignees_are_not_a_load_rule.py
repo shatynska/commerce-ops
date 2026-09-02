@@ -3,7 +3,7 @@
 Derived strictly from the delta spec:
 `openspec/changes/redesign-step-fields/specs/launch-playbook/spec.md`
 
-Covers, from the ADDED requirement *A step names the people responsible
+Covers, from the ADDED requirement *A step names the membership responsible
 for it*, the half that lives at load:
 
 > Both rules above are **write-time preconditions, not load-time
@@ -11,8 +11,8 @@ for it*, the half that lives at load:
 > whose assignee has since been deactivated SHALL continue to load and
 > be served.
 
-and the field's own shape — zero or more people, referenced by the
-roster's generated identifier rather than by name or Slack identity.
+and the field's own shape — zero or more members, referenced by the
+membership's generated identifier rather than by name or Slack identity.
 
 The requirement's four scenarios are all stated as writes and are
 covered in
@@ -20,13 +20,13 @@ covered in
 This file exists for the rule *no scenario states*, because it is the
 one an implementation is most likely to get wrong: assignee validation
 reads naturally as a coherence rule, and putting it there would mean a
-roster deactivation retroactively makes a stored playbook unloadable —
+members deactivation retroactively makes a stored playbook unloadable —
 "a write in another module breaking a capability that accepted no
 write", which is what `design.md` Decision 6 refuses.
 
-The discriminating construction below is a playbook handed **no roster
+The discriminating construction below is a playbook handed **no members
 at all**, carrying an `active` `human` step that names nobody and
-another naming an identifier no roster could match. A load that
+another naming an identifier no membership could match. A load that
 evaluated either rule could not succeed.
 
 **Level.** `LaunchPlaybook` construction — where every load-time rule
@@ -36,8 +36,8 @@ path does not have this rule" is observable.
 ## Names are DERIVED
 
 `tasks.md` 1.2 fixes the field name `assignees`; that it holds the
-roster's generated identifiers is SPECIFIED ("each referencing a person
-by the roster's own generated identifier"), while their *form* is not
+membership's generated identifiers is SPECIFIED ("each referencing a member
+by the membership's own generated identifier"), while their *form* is not
 fixed by any artifact here — so nothing below asserts a format, only
 that what goes in comes back and that no name or Slack identity is
 carried alongside.
@@ -83,11 +83,11 @@ CONFIRMATION_GATES: Final = frozenset(
     {"commit", "order", "phase-one-complete", "graduated"}
 )
 
-# DERIVED sample identifiers. `roster` generates them; no artifact fixes
+# DERIVED sample identifiers. `members` generates them; no artifact fixes
 # their form, so nothing below depends on it.
-PERSON_A: Final = "prs_01HQ8Z6M4A"
-PERSON_B: Final = "prs_01HQ8Z6M4B"
-NOBODY_ON_THE_ROSTER: Final = "prs_00000000NO"
+MEMBER_A: Final = "prs_01HQ8Z6M4A"
+MEMBER_B: Final = "prs_01HQ8Z6M4B"
+NOBODY_IS_A_MEMBER: Final = "prs_00000000NO"
 
 
 def _any_discipline() -> Discipline:
@@ -175,14 +175,14 @@ def test_an_active_human_step_naming_nobody_still_loads_and_is_served() -> None:
     assert "listing.title-conforms" in _served(playbook, "listable")
 
 
-def test_a_step_whose_assignee_the_roster_no_longer_carries_still_loads() -> None:
+def test_a_step_whose_assignee_the_members_no_longer_carries_still_loads() -> None:
     """Requirement statement: "a step whose assignee has since been
     deactivated SHALL continue to load and be served, and SHALL appear in
     the report of what a step still needs".
 
-    Constructed with no roster in reach, so a load that consulted one
+    Constructed with no members in reach, so a load that consulted one
     could not succeed. Note what is *not* asserted: that the identifier
-    below is unknown to some roster — there is no roster here. What is
+    below is unknown to some members — there is no members here. What is
     asserted is that the load neither knows nor asks.
 
     The report half is covered in
@@ -190,7 +190,7 @@ def test_a_step_whose_assignee_the_roster_no_longer_carries_still_loads() -> Non
     """
     step = _step(
         identifier="listing.title-conforms",
-        assignees=(NOBODY_ON_THE_ROSTER,),
+        assignees=(NOBODY_IS_A_MEMBER,),
     )
 
     playbook = _playbook(steps=(step,))
@@ -200,16 +200,16 @@ def test_a_step_whose_assignee_the_roster_no_longer_carries_still_loads() -> Non
     # SPECIFIED: the reference is carried through unaltered — a load that
     # dropped an unresolvable assignee would be re-checking it by another
     # route.
-    assert served["listing.title-conforms"].assignees == (NOBODY_ON_THE_ROSTER,)
+    assert served["listing.title-conforms"].assignees == (NOBODY_IS_A_MEMBER,)
 
 
-def test_a_playbook_construction_takes_no_roster() -> None:
+def test_a_playbook_construction_takes_no_members() -> None:
     """`design.md` Decision 6's rejected alternative, pinned: "give the
-    load path a roster reader ... Rejected — it makes every playbook read
+    load path a members reader ... Rejected — it makes every playbook read
     depend on another module's store being reachable".
 
     DERIVED probe, not exhaustive: the constructor exposes no parameter
-    that would be a roster in disguise. Recorded as derived in
+    that would be a membership in disguise. Recorded as derived in
     `test-manifest.md` — the spec fixes that the load does not evaluate
     the rules, and this pins the seam that would let it.
     """
@@ -218,16 +218,17 @@ def test_a_playbook_construction_takes_no_roster() -> None:
     parameters = set(inspect.signature(LaunchPlaybook).parameters)
 
     assert not parameters & {
-        "roster",
-        "people",
-        "known_people",
-        "active_people",
-        "roster_reader",
-        "read_roster",
+        "members",
+        "known_members",
+        "active_members",
+        "members_reader",
+        "read_members",
         "handlers",
         "registry",
         "handler_registry",
-    }, f"LaunchPlaybook takes a roster or registry collaborator: {sorted(parameters)}"
+    }, (
+        f"LaunchPlaybook takes a membership or registry collaborator: {sorted(parameters)}"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -235,32 +236,32 @@ def test_a_playbook_construction_takes_no_roster() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_a_step_may_name_zero_one_or_several_people() -> None:
+def test_a_step_may_name_zero_one_or_several_members() -> None:
     """Requirement statement: "Each step definition SHALL be able to name
     zero or more assignees"; and, for an `automated` step, "MAY name
     assignees ... and MAY name none".
     """
     none_named = _step(identifier="listing.unowned", assignees=())
-    one_named = _step(identifier="listing.owned", assignees=(PERSON_A,))
-    two_named = _step(identifier="listing.shared", assignees=(PERSON_A, PERSON_B))
-    automated_with_people = _step(
+    one_named = _step(identifier="listing.owned", assignees=(MEMBER_A,))
+    two_named = _step(identifier="listing.shared", assignees=(MEMBER_A, MEMBER_B))
+    automated_with_members = _step(
         identifier="price.buy-box-check",
         kind=StepKind.AUTOMATED,
         handler="price.buy_box_check",
-        assignees=(PERSON_B,),
+        assignees=(MEMBER_B,),
     )
 
     served = _served(
-        _playbook(steps=(none_named, one_named, two_named, automated_with_people)),
+        _playbook(steps=(none_named, one_named, two_named, automated_with_members)),
         "listable",
     )
 
     assert served["listing.unowned"].assignees == ()
-    assert served["listing.owned"].assignees == (PERSON_A,)
-    assert tuple(served["listing.shared"].assignees) == (PERSON_A, PERSON_B)
+    assert served["listing.owned"].assignees == (MEMBER_A,)
+    assert tuple(served["listing.shared"].assignees) == (MEMBER_A, MEMBER_B)
     # SPECIFIED: an automated step may name assignees or none; naming
     # them no longer says who is asked to confirm a result.
-    assert served["price.buy-box-check"].assignees == (PERSON_B,)
+    assert served["price.buy-box-check"].assignees == (MEMBER_B,)
 
 
 _NOT_ON_A_STEP: Final = (
@@ -274,32 +275,32 @@ _NOT_ON_A_STEP: Final = (
 
 def test_assignees_are_references_and_never_copied_details() -> None:
     """Requirement statement: "Assignees SHALL be referenced by identifier
-    rather than by name or Slack identity, so that correcting a person's
+    rather than by name or Slack identity, so that correcting a member's
     details never rewrites the steps that point at them" — and
-    `design.md` Decision 7's rejected alternative, "copy the person's name
+    `design.md` Decision 7's rejected alternative, "copy the member's name
     and ClickUp id onto the step at authoring time. Rejected".
 
     DERIVED probe of the spellings such a copy would take; recorded as
     derived. The behavioural half — a display-name correction leaves
-    every step naming that person unchanged — is
+    every step naming that member unchanged — is
     `test_step_assignee_preconditions.py`'s scenario.
     """
-    step = _step(assignees=(PERSON_A,))
+    step = _step(assignees=(MEMBER_A,))
 
     for name in _NOT_ON_A_STEP:
         assert not hasattr(step, name), (
-            f"StepDefinition exposes {name!r}: a step references a person "
-            "by the roster's identifier and copies nothing about them"
+            f"StepDefinition exposes {name!r}: a step references a member "
+            "by the membership's identifier and copies nothing about them"
         )
 
 
 # DELIBERATELY UNTESTED, recorded rather than omitted:
 #
-# - The *form* of a roster identifier. `roster` generates it and no
+# - The *form* of a member identifier. `members` generates it and no
 #   artifact of this change fixes it, so pinning a format here would
 #   invent a constraint on another capability.
 # - Whether `assignees` preserves the order it was given. Nothing in the
 #   spec makes assignees ordered; `test_a_step_may_name_zero_one_or_
-#   several_people` asserts order only where it was written that way, and
+#   several_members` asserts order only where it was written that way, and
 #   a set-like implementation failing that assertion is a finding for
 #   review, not a fixture to loosen without one.

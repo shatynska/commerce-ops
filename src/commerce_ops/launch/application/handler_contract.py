@@ -53,7 +53,7 @@ class StepContext:
 
 @dataclass(frozen=True, slots=True)
 class StepResolution:
-    """What a handler produced: an outcome, and the text a person reads.
+    """What a handler produced: an outcome, and the text a member reads.
 
     The outcome may be any of the six `launch-playbook` outcomes. Which
     of them are *held* for a decision is not this type's business — the
@@ -62,7 +62,7 @@ class StepResolution:
     accept.
 
     `result` is plain text rather than a structure because both its
-    consumers want text: the Slack message a person reads, and the
+    consumers want text: the Slack message a member reads, and the
     `evidence` field of the recording it becomes.
 
     `finding` is additive and optional: what the handler discovered that

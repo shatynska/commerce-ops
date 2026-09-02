@@ -1,9 +1,9 @@
-"""Every write on the playbook admin page reaches the roster the page
+"""Every write on the playbook admin page reaches the membership the page
 reads.
 
 Derived strictly from the delta spec
 `openspec/changes/restore-admin-step-writes/specs/playbook-admin/spec.md`
-(ADDED requirement *Every write is judged against the same roster the
+(ADDED requirement *Every write is judged against the same membership the
 page reads* — all three scenarios), plus the **surface half** of
 `.../specs/playbook-authoring/spec.md`'s case 3, which `tasks.md` 5.4
 places here: a mis-wired collaborator's refusal is not rendered among the
@@ -11,11 +11,11 @@ page's coherence faults.
 
 ## The arrangement that reproduces the production fault
 
-Every roster double in `tests/unit/launch/` answers `list_people()`, so
+Every membership double in `tests/unit/launch/` answers `list_members()`, so
 the suite has only ever handed the page a *reader*. Production injects a
-`RosterStore` — `load()` / `save()` and nothing else — and the five write
-routes pass it straight through. `_RosterStore` below is that shape, and
-its rows are built by driving `access`'s own `create_person` use case, so
+`MembersStore` — `load()` / `save()` and nothing else — and the five write
+routes pass it straight through. `_MembersStore` below is that shape, and
+its rows are built by driving `access`'s own `create_member` use case, so
 they are the real rows the page's read path adapts rather than a guess at
 their shape.
 
@@ -28,12 +28,12 @@ and nothing is persisted — `proposal.md` — *Why*, reproduced.
 Fixed: the five write routes (`create`, `save_edit`, `retire`,
 `unretire`, `change_status`); the injected collaborator stays the store
 because `_require_admin` needs one (`design.md` — *The page adapts the
-store*); the page's read path already reaches the roster through
-`access`'s `list_people`.
+store*); the page's read path already reaches the membership through
+`access`'s `list_members`.
 
 INVENTED, recorded in the manifest with correction points named:
 
-- The page module's seams: `steps`, `roster`, `verify_admin_session`,
+- The page module's seams: `steps`, `members`, `verify_admin_session`,
   substituted with a raising `monkeypatch.setattr` — the convention the
   sibling admin tests established. Correction point: `_signed_client`.
 - The session cookie's name, `admin_session`. Correction point:
@@ -42,14 +42,14 @@ INVENTED, recorded in the manifest with correction points named:
   name the action it takes ("edit", "retire", "unretire", "status",
   "create"). Correction point: the `_*_HINTS` constants.
 - Fault wording. The refusal's phrasing is not fixed by any artifact;
-  what is asserted is that the fault names the person, which the delta
-  does fix. Correction point: `_names_the_person`.
+  what is asserted is that the fault names the member, which the delta
+  does fix. Correction point: `_names_the_member`.
 
 ## Expected first-run state
 
 Every test in this file fails, and each fails on the same thing: the
 write answers `500` and persists nothing, because the store-shaped
-collaborator reaches `playbook_authoring._read_people` unadapted. That
+collaborator reaches `playbook_authoring._read_members` unadapted. That
 is the fault the change removes.
 
 One exception, deliberate:
@@ -79,7 +79,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from commerce_ops.access.application import create_person
+from commerce_ops.access.application import create_member
 from commerce_ops.launch.domain.launch_playbook import (
     Hazard,
     OffsetAnchor,
@@ -114,9 +114,9 @@ EDITED: Final = "listing.zeta"
 RETIRED_ALREADY: Final = "listing.omega"
 UNOWNED: Final = "listing.unowned"
 
-#: An identifier no roster in this file carries, and which the page
+#: An identifier no membership in this file carries, and which the page
 #: therefore never offers.
-NOBODY: Final = "prs_00000000-never-on-any-roster"
+NOBODY: Final = "prs_00000000-never-a-member-anywhere"
 
 _CREATE_HINTS: Final = ("new", "create", "add")
 _RETIRED_PARAM: Final = "retired"
@@ -198,11 +198,11 @@ class _FakeStepStore:
         self.version += 1
 
 
-def _seeded_store(*, person: str) -> _FakeStepStore:
+def _seeded_store(*, member: str) -> _FakeStepStore:
     """One `active` blocking step per gate — so nothing here leaves a
     gate unheld — the step the edit and status tests touch, one already
     retired for the un-retire write, and one draft naming somebody the
-    roster does not carry."""
+    members does not carry."""
     holding = tuple(
         _Record(
             _step(
@@ -210,7 +210,7 @@ def _seeded_store(*, person: str) -> _FakeStepStore:
                 name=f"Blocking work holding the {gate} gate",
                 gate=gate,
                 blocking=True,
-                assignees=(person,),
+                assignees=(member,),
             )
         )
         for gate in SPECIFIED_GATE_ORDER
@@ -220,7 +220,7 @@ def _seeded_store(*, person: str) -> _FakeStepStore:
         + (
             _Record(
                 _step(
-                    identifier=EDITED, name="Work of listing.zeta", assignees=(person,)
+                    identifier=EDITED, name="Work of listing.zeta", assignees=(member,)
                 ),
                 20,
             ),
@@ -235,7 +235,7 @@ def _seeded_store(*, person: str) -> _FakeStepStore:
             _Record(
                 _step(
                     identifier=UNOWNED,
-                    name="Work nobody on the roster owns",
+                    name="Work nobody on the membership owns",
                     status=StepStatus.DRAFT,
                     assignees=(NOBODY,),
                 ),
@@ -257,15 +257,15 @@ def _identifiers(store: _FakeStepStore) -> set[str]:
 
 
 # ---------------------------------------------------------------------------
-# The roster collaborator production actually injects
+# The members collaborator production actually injects
 # ---------------------------------------------------------------------------
 
 
-class _RosterStore:
-    """`PostgresRoster`'s shape: `load()` / `save()` and nothing else.
+class _MembersStore:
+    """`PostgresMembers`'s shape: `load()` / `save()` and nothing else.
 
-    The shape `tests/unit/access/application/test_roster_writes.py`
-    records for `access`'s own roster writes — which is what makes it the
+    The shape `tests/unit/access/application/test_members_writes.py`
+    records for `access`'s own members writes — which is what makes it the
     right double here: it is the object `main.py` injects, not an
     invented stand-in.
     """
@@ -282,27 +282,29 @@ class _RosterStore:
         self.version += 1
 
 
-def _roster_carrying(*people: tuple[str, str]) -> tuple[_RosterStore, tuple[str, ...]]:
-    """A roster store holding real `access` rows, and their identifiers.
+def _members_carrying(
+    *members: tuple[str, str],
+) -> tuple[_MembersStore, tuple[str, ...]]:
+    """A members store holding real `access` rows, and their identifiers.
 
-    Driven through `access`'s own `create_person` rather than assembled
+    Driven through `access`'s own `create_member` rather than assembled
     by hand, so the rows are the ones the page's read path adapts — the
     row shape is `access`'s to own (`design.md` — *The page adapts the
     store*, rejected alternative).
     """
-    store = _RosterStore()
+    store = _MembersStore()
 
     async def _fill() -> tuple[str, ...]:
         made: list[str] = []
-        for position, (display_name, slack_identity) in enumerate(people):
-            await create_person(
-                roster=store,
+        for position, (display_name, slack_identity) in enumerate(members):
+            await create_member(
+                members=store,
                 principal=PRINCIPAL,
                 display_name=display_name,
                 slack_identity=slack_identity,
                 clickup_user_id=f"clickup-{slack_identity}",
-                # `access` refuses a roster left without an active admin,
-                # so the first person carries the authority. Incidental to
+                # `access` refuses a membership left without an active admin,
+                # so the first member carries the authority. Incidental to
                 # everything asserted here.
                 admin=position == 0,
             )
@@ -312,12 +314,12 @@ def _roster_carrying(*people: tuple[str, str]) -> tuple[_RosterStore, tuple[str,
     return store, asyncio.run(_fill())
 
 
-def _identifier_of(store: _RosterStore, slack_identity: str) -> str:
+def _identifier_of(store: _MembersStore, slack_identity: str) -> str:
     """The generated identifier of a stored row, read the way the sibling
     tests read one: through whichever attribute carries it, failing
     loudly rather than defaulting."""
     for row in store.rows:
-        for target in (row, getattr(row, "person", None)):
+        for target in (row, getattr(row, "member", None)):
             if target is None:
                 continue
             spelling = next(
@@ -330,11 +332,11 @@ def _identifier_of(store: _RosterStore, slack_identity: str) -> str:
             )
             if spelling is None or str(getattr(target, spelling)) != slack_identity:
                 continue
-            for name in ("identifier", "id", "person_id"):
+            for name in ("identifier", "id", "member_id"):
                 if hasattr(target, name):
                     return str(getattr(target, name))
     pytest.fail(
-        f"no stored roster row carries the Slack identity {slack_identity!r} "
+        f"no stored members row carries the Slack identity {slack_identity!r} "
         "under any known spelling — correct `_identifier_of` to `access`'s "
         "stored row"
     )
@@ -423,7 +425,7 @@ def _options_of(node: _Node) -> tuple[tuple[str, str], ...]:
     `<option>` and a per-value checkbox carry the same fact — a value the
     control offers, and the words it is offered under. This form's assignee
     control became a checkbox group in `pick-steps-and-people-by-checkbox`,
-    and what this file asserts about the roster reaching the page is
+    and what this file asserts about the membership reaching the page is
     unchanged by that; only where the offer is written down moved.
 
     A checkbox's own words are on the `<label>` bound to it rather than
@@ -630,13 +632,13 @@ async def _fake_verify(*args: Any, **kwargs: Any) -> str | None:
 
 
 def _signed_client(
-    monkeypatch: pytest.MonkeyPatch, store: _FakeStepStore, roster: Any
+    monkeypatch: pytest.MonkeyPatch, store: _FakeStepStore, members: Any
 ) -> TestClient:
-    """The page, wired as `main.py` wires it: the roster seam holds the
+    """The page, wired as `main.py` wires it: the membership seam holds the
     **store**, which `_require_admin` needs for `verify_admin_session`."""
     monkeypatch.setattr(page_module, "steps", store)
     monkeypatch.setattr(page_module, "verify_admin_session", _fake_verify)
-    monkeypatch.setattr(page_module, "roster", roster)
+    monkeypatch.setattr(page_module, "members", members)
     app = FastAPI()
     app.include_router(page_module.router)
     client = TestClient(app, raise_server_exceptions=False)
@@ -739,7 +741,7 @@ def _authoring_form(html: str) -> _Control:
     )
 
 
-def _valid_values(html: str, *, person: str, **overrides: str) -> dict[str, str]:
+def _valid_values(html: str, *, member: str, **overrides: str) -> dict[str, str]:
     """A payload the authoring write accepts: an `active`, `human`,
     non-blocking step naming an assignee the surface itself offers, on an
     offset anchor, carrying neither an automation brief nor a handler."""
@@ -756,7 +758,7 @@ def _valid_values(html: str, *, person: str, **overrides: str) -> dict[str, str]
     anchor_kind = _field(values, "anchor_kind")
     values[anchor_kind] = _option_matching(html, anchor_kind, "offset")
     values[_field(values, "anchor_days")] = "-7"
-    values[_field(values, "assignee")] = person
+    values[_field(values, "assignee")] = member
     for name in list(values):
         if "automation_brief" in name or name.endswith("handler"):
             values[name] = ""
@@ -765,70 +767,70 @@ def _valid_values(html: str, *, person: str, **overrides: str) -> dict[str, str]
     return values
 
 
-def _names_the_person(html: str, person: str) -> bool:
-    """Whether the rendered refusal names the person it concerns.
+def _names_the_member(html: str, member: str) -> bool:
+    """Whether the rendered refusal names the member it concerns.
 
-    DERIVED reading of "the refusal concerns people the page displayed or
+    DERIVED reading of "the refusal concerns membership the page displayed or
     offered": the identifier the write named appears in what the page
-    says. Correction point if the page names people by display name
-    instead — a refusal naming the person some other way still satisfies
+    says. Correction point if the page names membership by display name
+    instead — a refusal naming the member some other way still satisfies
     the delta, and this predicate is what would need widening.
     """
-    return person in _all_text(html)
+    return member in _all_text(html)
 
 
 # ---------------------------------------------------------------------------
-# ADDED requirement: Every write is judged against the same roster the
+# ADDED requirement: Every write is judged against the same membership the
 # page reads
 # ---------------------------------------------------------------------------
 
 
-def test_a_write_names_a_person_the_page_offered(
+def test_a_write_names_a_member_the_page_offered(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Scenario: A write names a person the page offered.
+    """Scenario: A write names a member the page offered.
 
     WHEN an author saves a step naming an assignee the page offered them
     in the assignee control
     THEN the write is judged on the rules, not refused for being unable
-    to read the roster
-    AND the step is saved naming that person.
+    to read the membership
+    AND the step is saved naming that member.
 
-    The person is not supplied to the submission from outside: it is read
+    The member is not supplied to the submission from outside: it is read
     off the assignee control the page itself rendered, which is what ties
-    "the page offered" to "the write named". A page that offers people it
+    "the page offered" to "the write named". A page that offers membership it
     cannot then be written against fails here rather than passing on a
     fixture both halves were handed.
     """
-    roster, (alice,) = _roster_carrying(("Alice Admin", "U01ALICE"))
-    store = _seeded_store(person=alice)
-    client = _signed_client(monkeypatch, store, roster)
+    members, (alice,) = _members_carrying(("Alice Admin", "U01ALICE"))
+    store = _seeded_store(member=alice)
+    client = _signed_client(monkeypatch, store, members)
 
     surface = _edit_surface(client)
     offered = [value for value, _ in _options_of(_states(surface)["assignees"])]
 
-    # DERIVED guard: the control really offers the roster's person, so
+    # DERIVED guard: the control really offers the membership's member, so
     # the submission below names somebody the page offered.
     assert alice in offered, (
         f"the assignee control offers {offered}, which does not include the "
-        f"roster's own person {alice!r} — the read path is not reaching the "
-        "roster either, and this test would be asserting nothing"
+        f"membership's own member {alice!r} — the read path is not reaching the "
+        "members either, and this test would be asserting nothing"
     )
 
-    values = _valid_values(surface, person=alice, name="Work of listing.zeta, reworded")
+    values = _valid_values(surface, member=alice, name="Work of listing.zeta, reworded")
     response = _issue(client, _authoring_form(surface), data=values)
 
     # SPECIFIED: judged on the rules, not refused for being unable to
-    # read the roster.
+    # read the membership.
     assert response.status_code < 500, (
         "the write answered "
-        f"{response.status_code} naming a person the page had just offered — "
-        "the page reads the roster one way and writes against it another: "
+        f"{response.status_code} naming a member the page had just offered — "
+        "the page reads the membership one way and writes against it another: "
         f"{response.text[:400]}"
     )
-    # SPECIFIED: and the step is saved naming that person.
+    # SPECIFIED: and the step is saved naming that member.
     assert len(store.saves) == 1, (
-        "the write persisted nothing, so the step naming a person the page "
+        "the write persisted nothing, so the step naming a member the page "
         f"offered was not saved: {_all_text(response.text)[:500]}"
     )
     saved = _record_named(store, EDITED).definition
@@ -840,25 +842,25 @@ def test_a_write_names_a_person_the_page_offered(
     "write",
     ("create", "save_edit", "retire", "unretire", "change_status"),
 )
-def test_each_write_reaches_the_roster(
+def test_each_write_reaches_the_members(
     monkeypatch: pytest.MonkeyPatch, write: str
 ) -> None:
-    """Scenario: Each write reaches the roster.
+    """Scenario: Each write reaches the membership.
 
     WHEN a create, an edit, a status change, a retirement or an
     un-retirement is submitted from the page
-    THEN each one evaluates its roster preconditions against the roster
+    THEN each one evaluates its members preconditions against the membership
     the page reads.
 
     Parametrised over all five because the delta names all five and the
     fault is in all five: a fix applied to one route would pass a
     single-write test and leave the other four answering `500`.
 
-    This half establishes that each write reaches *a* roster it can read
+    This half establishes that each write reaches *a* members it can read
     — it completes and persists, rather than failing on the collaborator.
-    That it is *the page's own* roster is the other half, established by
-    `test_a_roster_refusal_is_explicable_from_the_page` and by
-    `test_a_write_names_a_person_the_page_offered`, which read the person
+    That it is *the page's own* members is the other half, established by
+    `test_a_members_refusal_is_explicable_from_the_page` and by
+    `test_a_write_names_a_member_the_page_offered`, which read the member
     off the page and write against it.
 
     Retiring, un-retiring and changing status are submitted through the
@@ -868,18 +870,18 @@ def test_each_write_reaches_the_roster(
     (`playbook_authoring.py`) always returns a step to `in-development`,
     never `active`, so that is the value the `unretire` case submits.
     """
-    roster, (alice,) = _roster_carrying(("Alice Admin", "U01ALICE"))
-    store = _seeded_store(person=alice)
-    client = _signed_client(monkeypatch, store, roster)
+    members, (alice,) = _members_carrying(("Alice Admin", "U01ALICE"))
+    store = _seeded_store(member=alice)
+    client = _signed_client(monkeypatch, store, members)
     before = _identifiers(store)
 
     if write == "create":
         surface = _create_surface(client)
-        values = _valid_values(surface, person=alice, name="Brand new listable work")
+        values = _valid_values(surface, member=alice, name="Brand new listable work")
         response = _issue(client, _authoring_form(surface), data=values)
     elif write == "save_edit":
         surface = _edit_surface(client)
-        values = _valid_values(surface, person=alice, name="Work of listing.zeta again")
+        values = _valid_values(surface, member=alice, name="Work of listing.zeta again")
         response = _issue(client, _authoring_form(surface), data=values)
     elif write == "retire":
         surface = _edit_surface(client, EDITED)
@@ -910,10 +912,10 @@ def test_each_write_reaches_the_roster(
         values[_field(values, "status")] = _option_matching(surface, "status", "draft")
         response = _issue(client, control, data=values)
 
-    # SPECIFIED: the write evaluates its preconditions against the roster
-    # the page reads — so it reaches a roster it can read at all.
+    # SPECIFIED: the write evaluates its preconditions against the membership
+    # the page reads — so it reaches a membership it can read at all.
     assert response.status_code < 500, (
-        f"the {write} write answered {response.status_code} against the roster "
+        f"the {write} write answered {response.status_code} against the membership "
         "collaborator the page is given, so it never got as far as evaluating "
         f"anything: {response.text[:400]}"
     )
@@ -925,59 +927,59 @@ def test_each_write_reaches_the_roster(
         assert _identifiers(store) - before, "the create landed without a new step"
 
 
-def test_a_roster_refusal_is_explicable_from_the_page(
+def test_a_members_refusal_is_explicable_from_the_page(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Scenario: A roster refusal is explicable from the page.
+    """Scenario: A membership refusal is explicable from the page.
 
-    WHEN a write is refused on roster grounds
-    THEN the refusal concerns people the page displayed or offered, and
-    never the page's inability to read the roster at all.
+    WHEN a write is refused on members grounds
+    THEN the refusal concerns membership the page displayed or offered, and
+    never the page's inability to read the membership at all.
 
     The write names somebody the page never offered, which is the one way
-    to provoke a refusal that really is about people. The assertions then
+    to provoke a refusal that really is about members. The assertions then
     separate the two refusals the admin cannot currently tell apart: one
-    naming a person, and one that is the page failing to read the roster
+    naming a member, and one that is the page failing to read the membership
     — which today is the only one there is.
     """
-    roster, (alice,) = _roster_carrying(("Alice Admin", "U01ALICE"))
-    store = _seeded_store(person=alice)
-    client = _signed_client(monkeypatch, store, roster)
+    members, (alice,) = _members_carrying(("Alice Admin", "U01ALICE"))
+    store = _seeded_store(member=alice)
+    client = _signed_client(monkeypatch, store, members)
 
     surface = _edit_surface(client)
     offered = [value for value, _ in _options_of(_states(surface)["assignees"])]
     assert NOBODY not in offered, (
-        "the page offers the very person this test relies on it never having "
+        "the page offers the very member this test relies on it never having "
         "offered, so the refusal below would be explicable after all"
     )
 
-    values = _valid_values(surface, person=NOBODY)
+    values = _valid_values(surface, member=NOBODY)
     response = _issue(client, _authoring_form(surface), data=values)
 
-    # SPECIFIED: never the page's inability to read the roster at all —
+    # SPECIFIED: never the page's inability to read the membership at all —
     # a refusal the admin can act on is rendered, not an error.
     assert response.status_code < 500, (
-        "the write naming an unknown person answered "
+        "the write naming an unknown member answered "
         f"{response.status_code} rather than a refusal the page can render, so "
-        "an admin cannot tell a person who is not on the roster from a page "
+        "an admin cannot tell a member who is not on the membership from a page "
         f"that cannot read one: {response.text[:400]}"
     )
-    # SPECIFIED: the refusal concerns people the page displayed or
-    # offered — it names the person the write named.
-    assert _names_the_person(response.text, NOBODY), (
-        "the refusal does not name the person it concerns: "
+    # SPECIFIED: the refusal concerns membership the page displayed or
+    # offered — it names the member the write named.
+    assert _names_the_member(response.text, NOBODY), (
+        "the refusal does not name the member it concerns: "
         f"{_all_text(response.text)[:600]}"
     )
     assert store.saves == [], "a refused write persisted a step set"
     # SPECIFIED corollary: the write that *is* judged on the rules is the
-    # same write, so the refusal above is about the person and not about
+    # same write, so the refusal above is about the member and not about
     # the collaborator.
     accepted = _issue(
-        client, _authoring_form(surface), data=_valid_values(surface, person=alice)
+        client, _authoring_form(surface), data=_valid_values(surface, member=alice)
     )
     assert accepted.status_code < 500 and len(store.saves) == 1, (
-        "the same write naming a person the page offered was not accepted, so "
-        "the refusal above cannot be attributed to the person it named"
+        "the same write naming a member the page offered was not accepted, so "
+        "the refusal above cannot be attributed to the member it named"
     )
 
 
@@ -992,7 +994,7 @@ def test_a_mis_wired_collaborator_is_not_rendered_as_a_fault_of_the_submission(
     """`playbook-authoring` — *A mis-wiring is not reported as a
     rejection of the submission*, read on the surface (`tasks.md` 5.4).
 
-    WHEN the page is given a roster collaborator it cannot read
+    WHEN the page is given a members collaborator it cannot read
     THEN the refusal is not rendered among the page's coherence faults,
     and the submission is not presented back as a rejected one.
 
@@ -1011,16 +1013,16 @@ def test_a_mis_wired_collaborator_is_not_rendered_as_a_fault_of_the_submission(
     class _AnswersNothing:
         """Neither the store the page adapts nor a reader it could use."""
 
-    roster, (alice,) = _roster_carrying(("Alice Admin", "U01ALICE"))
-    store = _seeded_store(person=alice)
+    members, (alice,) = _members_carrying(("Alice Admin", "U01ALICE"))
+    store = _seeded_store(member=alice)
 
-    # The surface is opened against a readable roster — the mis-wiring is
+    # The surface is opened against a readable membership — the mis-wiring is
     # introduced at the write, so the form under test is a real one.
-    client = _signed_client(monkeypatch, store, roster)
+    client = _signed_client(monkeypatch, store, members)
     surface = _edit_surface(client)
-    values = _valid_values(surface, person=alice, name="Work of listing.zeta, reworded")
+    values = _valid_values(surface, member=alice, name="Work of listing.zeta, reworded")
 
-    monkeypatch.setattr(page_module, "roster", _AnswersNothing())
+    monkeypatch.setattr(page_module, "members", _AnswersNothing())
     response = _issue(client, _authoring_form(surface), data=values)
 
     # SPECIFIED: not presented as a rejection of what was submitted.

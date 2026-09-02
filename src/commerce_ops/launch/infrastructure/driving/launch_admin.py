@@ -1,7 +1,7 @@
 """Driving adapter: the launch-tracking pages (`launch-admin`).
 
 Server-rendered HTML end to end, the shape `playbook_admin` established
-and `roster_admin` followed, so the admin surfaces read the same way and
+and `members_admin` followed, so the admin surfaces read the same way and
 none of them needs JavaScript to work.
 
 **Read-only, by requirement rather than by omission.** Nothing here
@@ -29,7 +29,7 @@ surface this one is modelled on grew to 1400 lines because the two were
 not, and its nearest thing to a view model returns `dict[str, Any]`,
 which mypy cannot check a template against.
 
-`launches`, `playbooks`, `roster`, `catalog` and `admin_sessions` are
+`launches`, `playbooks`, `members`, `catalog` and `admin_sessions` are
 injected by `main.py` after the app is built, the pattern both existing
 admin surfaces use; absent injection refuses every request, which is the
 failing-closed direction.
@@ -48,7 +48,7 @@ from fastapi.responses import HTMLResponse
 from jinja2 import ChoiceLoader, Environment, FileSystemLoader, select_autoescape
 
 from commerce_ops.access.application import (
-    list_people,
+    list_members,
     resolve_scope,
     verify_admin_session,
 )
@@ -73,9 +73,9 @@ __all__ = [
     "admin_sessions",
     "catalog",
     "launches",
+    "members",
     "playbooks",
     "read_journal",
-    "roster",
     "router",
 ]
 
@@ -128,13 +128,13 @@ launches: Any = _RequestScopedLaunches()
 playbooks: Any = None
 
 # Injected by `main.py` after the app is built, the pattern both other
-# admin surfaces use. `roster` and `admin_sessions` come from the access
+# admin surfaces use. `members` and `admin_sessions` come from the access
 # module, whose infrastructure this one may not import; `catalog` is here
 # for the same reason and not for want of a shim -- the
 # `products-infrastructure-boundary` contract permits this module
 # `catalog.application` and forbids it `catalog.infrastructure`, so only
 # the composition root can build the store the reads run against.
-roster: Any = None
+members: Any = None
 catalog: Any = None
 # The journal *read*, injected by `main.py` after the app is built: a
 # callable taking the product and the caller's scope and answering that
@@ -163,7 +163,7 @@ async def _require_admin(request: Request) -> str:
     principal: str | None = None
     if session_id:
         principal = await verify_admin_session(
-            roster,
+            members,
             admin_sessions,
             session_id=session_id,
             now=datetime.now(UTC),
@@ -284,8 +284,8 @@ class GateGroup:
 class JournalLine:
     """One journal entry as the detail page renders it.
 
-    `who` is the entry's `actor`, resolved against the roster to a
-    display name where it names a known person (by roster identifier or
+    `who` is the entry's `actor`, resolved against the membership to a
+    display name where it names a known member (by member identifier or
     by ClickUp user id — `_actor_names`), and left as the raw value
     otherwise.
 
@@ -537,29 +537,31 @@ def _gate_of(report: Any, line: StepLine) -> str:
     return ""
 
 
-async def _actor_names(roster: Any) -> dict[str, str]:
+async def _actor_names(members: Any) -> dict[str, str]:
     """Every identifier a journal entry's `actor` might carry, mapped to
-    the person's display name: a Slack-sourced entry's `actor` is a
-    roster identifier (`Person.identifier`), a ClickUp-sourced one is
-    that person's `clickup_user_id` (`clickup_webhook`'s `_status_change`,
+    the member's display name: a Slack-sourced entry's `actor` is a
+    member identifier (`Member.identifier`), a ClickUp-sourced one is
+    that member's `clickup_user_id` (`clickup_webhook`'s `_status_change`,
     `raw-out-the-journal-columns`). Both map into one dict, since the two
     identifier spaces do not collide in practice.
 
-    Empty where the roster is unavailable or unreadable, the same
+    Empty where the membership is unavailable or unreadable, the same
     fail-quiet fallback `_label_for` uses for an unresolved product: an
     actor then renders by its raw value rather than the page failing.
     """
-    if roster is None:
+    if members is None:
         return {}
     try:
-        people = await list_people(roster=roster)
-    except Exception:  # noqa: BLE001 — an unreadable roster still renders raw ids
+        # `entries`, not `members`: the argument is the reader and this is
+        # its result. Two names for two things.
+        entries = await list_members(members=members)
+    except Exception:  # noqa: BLE001 — an unreadable membership still renders raw ids
         return {}
     names: dict[str, str] = {}
-    for person in people:
-        names[person.identifier] = person.display_name
-        if person.clickup_user_id:
-            names[person.clickup_user_id] = person.display_name
+    for member in entries:
+        names[member.identifier] = member.display_name
+        if member.clickup_user_id:
+            names[member.clickup_user_id] = member.display_name
     return names
 
 
@@ -721,7 +723,7 @@ async def _playbook_port() -> Any:
 
 
 async def _scope_for(principal: str) -> Any:
-    return await resolve_scope(roster, identity=principal)
+    return await resolve_scope(members, identity=principal)
 
 
 async def _journal_for(product_id: ProductId, scope: Any) -> tuple[JournalLine, ...]:
@@ -742,7 +744,7 @@ async def _journal_for(product_id: ProductId, scope: Any) -> tuple[JournalLine, 
     if read_journal is None:
         return ()
     entries = await read_journal(product_id=product_id, scope=scope)
-    return _journal_lines(entries, await _actor_names(roster))
+    return _journal_lines(entries, await _actor_names(members))
 
 
 async def _products_by_id(scope: Any) -> tuple[dict[str, Any], bool]:

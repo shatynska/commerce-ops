@@ -59,7 +59,7 @@ INVENTED, each with a correction point:
   probe; correction point is this file, kept in step with
   `tests/unit/launch/infrastructure/driving/test_advance_and_ask.py`.
 - Everything else — the adapters' entry points, the collaborator names,
-  the Slack press body, the roster wiring and the session rebinding — is
+  the Slack press body, the membership wiring and the session rebinding — is
   transcribed wholesale from
   `tests/integration/launch/test_gate_progression_atomicity_live.py`,
   which records the provenance and the traps behind each. Correcting any
@@ -329,37 +329,37 @@ class _Silent:
         self.calls.append((args, kwargs))
 
 
-class _RealRosterReader:
-    """The roster reader the composition root normally injects, over this
+class _RealMembersReader:
+    """The members reader the composition root normally injects, over this
     tier's engine — transcribed from
     `test_gate_progression_atomicity_live.py`, which records why it must
-    never be `PostgresRoster()`."""
+    never be `PostgresMembers()`."""
 
     def __init__(self, engine: Any) -> None:
         self._engine = engine
 
-    async def list_people(self) -> Any:
-        from commerce_ops.access.application import list_people
-        from commerce_ops.access.infrastructure.driven.roster_repository import (
-            RosterRepository,
+    async def list_members(self) -> Any:
+        from commerce_ops.access.application import list_members
+        from commerce_ops.access.infrastructure.driven.members_repository import (
+            MembersRepository,
         )
 
         async with AsyncSession(self._engine) as db_session:
-            return await list_people(roster=RosterRepository(db_session))
+            return await list_members(members=MembersRepository(db_session))
 
 
 @pytest.fixture(autouse=True)
 def _restore_module_globals() -> Any:
     """Undo every substitution this module makes on the two adapters.
 
-    `_wire_roster` and `_bind_session_providers` set module attributes
+    `_wire_members` and `_bind_session_providers` set module attributes
     outright rather than through `monkeypatch`, because they are reached
     from helpers rather than from a test body. Left in place they outlive
     this file and break the next module to touch either adapter with
     "attached to a different loop" — the trap the neighbour file records
     having fallen into.
     """
-    names = ("session", "transaction", "read_people", "roster", "roster_reader")
+    names = ("session", "transaction", "read_members", "members", "members_reader")
     modules = [
         importlib.import_module(path)
         for path in (CONFIRMATION_MODULE_PATH, JOB_MODULE_PATH)
@@ -384,23 +384,23 @@ def _restore_module_globals() -> Any:
 
 
 async def _seed_decider(engine: Any) -> None:
-    """Put the deciding person on the roster, through `access`'s own use
+    """Put the deciding member on the membership, through `access`'s own use
     case — without it every decision here is refused as an unknown
     identity before reaching the behaviour under test."""
-    from commerce_ops.access.application import create_person, list_people
-    from commerce_ops.access.infrastructure.driven.roster_repository import (
-        RosterRepository,
+    from commerce_ops.access.application import create_member, list_members
+    from commerce_ops.access.infrastructure.driven.members_repository import (
+        MembersRepository,
     )
 
     async with AsyncSession(engine) as db_session:
-        roster = RosterRepository(db_session)
+        members = MembersRepository(db_session)
         if any(
-            getattr(person, "slack_identity", None) == ALICE_SLACK
-            for person in await list_people(roster=roster)
+            getattr(member, "slack_identity", None) == ALICE_SLACK
+            for member in await list_members(members=members)
         ):
             return
-        await create_person(
-            roster=roster,
+        await create_member(
+            members=members,
             principal="integration-tier",
             display_name="Alice",
             slack_identity=ALICE_SLACK,
@@ -440,13 +440,13 @@ def _bind_session_providers(module: ModuleType, engine: Any) -> None:
             setattr(module, name, provider)
 
 
-def _wire_roster(module: ModuleType, engine: Any) -> None:
-    for name in ("read_people", "roster", "roster_reader"):
+def _wire_members(module: ModuleType, engine: Any) -> None:
+    for name in ("read_members", "members", "members_reader"):
         if getattr(module, name, _MISSING) is not _MISSING:
-            setattr(module, name, _RealRosterReader(engine))
+            setattr(module, name, _RealMembersReader(engine))
             return
     raise AssertionError(
-        "the gate confirmation adapter exposes no roster collaborator to "
+        "the gate confirmation adapter exposes no members collaborator to "
         "inject; correct this file's probe to the implemented name"
     )
 
@@ -479,7 +479,7 @@ async def _press(
     engine: Any,
 ) -> Any:
     await _seed_decider(engine)
-    _wire_roster(module, engine)
+    _wire_members(module, engine)
     _bind_session_providers(module, engine)
     entry = _entry(module, _DECISION_ENTRY_NAMES)
     body = _slack_body(approve=approve, product_id=product_id, gate_id=gate_id)

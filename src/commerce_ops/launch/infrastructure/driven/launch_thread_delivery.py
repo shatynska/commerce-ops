@@ -53,31 +53,31 @@ if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
     from typing import Any
 
-    from commerce_ops.launch.application.playbook_authoring import RosterReader
+    from commerce_ops.launch.application.playbook_authoring import MembersReader
     from commerce_ops.launch.domain.launch_playbook import StepDefinition
 
-__all__ = ["establish_thread_and_resolve_mention", "read_people", "read_product"]
+__all__ = ["establish_thread_and_resolve_mention", "read_members", "read_product"]
 
 # Injected by `main.py` and `worker.py`, never imported: resolving a step's
-# confirmer to a Slack identity means reading the roster, and `.importlinter`
+# confirmer to a Slack identity means reading the membership, and `.importlinter`
 # forbids `launch` from naming `access`'s store. Only a composition root may
 # construct one, which is what makes the injection legal there and not here --
-# the same seam `automation_confirmation.read_people`,
-# `gate_confirmation.read_people` and `clickup_sync_job.read_people` already
+# the same seam `automation_confirmation.read_members`,
+# `gate_confirmation.read_members` and `clickup_sync_job.read_members` already
 # use, and reached at module level so a test can substitute it.
 #
 # Absent, mention resolution degrades rather than failing: a step naming no
 # confirmer still tags the submitter, and one naming a confirmer is reported
 # and delivered untagged. That is deliberate -- a mention is an embellishment
-# on a message whose substance does not depend on the roster.
-read_people: RosterReader | None = None
+# on a message whose substance does not depend on the membership.
+read_members: MembersReader | None = None
 
 # Injected by `main.py` and `worker.py` the same way and for the same
-# boundary reason as `read_people` above -- and alike in nothing else. Two
+# boundary reason as `read_members` above -- and alike in nothing else. Two
 # differences, both deliberate, because these globals sit four lines apart
 # and must not be read as one pattern.
 #
-# **Its absence policy is the opposite.** A missing roster degrades an
+# **Its absence policy is the opposite.** A missing membership degrades an
 # embellishment, so mention resolution reports and carries on. A missing
 # product reader means the anchor's facts cannot be resolved at all, and the
 # anchor is permanent -- so establishment refuses rather than writing a
@@ -144,7 +144,7 @@ async def establish_thread_and_resolve_mention(
         )
         launch = await launch_store.get_by_product_id(product_id)
         mention = (
-            await resolve_mention_target(launch, step=step, roster=read_people)
+            await resolve_mention_target(launch, step=step, members=read_members)
             if launch
             else None
         )

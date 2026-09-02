@@ -28,7 +28,7 @@ including the obsolete-test candidates this delta produces.
 
 The requirement says so itself: "a step that becomes `automated` stays
 `active`: it is still part of the launch's obligations, so nothing about
-its status signals its departure from the loop, and a person closing its
+its status signals its departure from the loop, and a member closing its
 orphaned task would otherwise record a `clickup`-sourced completion for
 work a handler was about to do." `design.md` records that the inward
 reconciliation builds its `defined` set from `served_steps`, which
@@ -48,7 +48,7 @@ sibling leave-the-loop file already establishes.
 Nothing new. The harness below is the one
 `test_clickup_non_active_steps_leave_loop.py` records — `converge_launch`
 and `reconcile_launch` over in-memory fakes with the outcome recorder
-injected as `record_outcome=` and the roster as `roster=`. It is
+injected as `record_outcome=` and the membership as `members=`. It is
 re-declared here rather than imported because that file must not be
 edited by this pass and these directories carry no shared test package.
 
@@ -245,25 +245,25 @@ class _FakeCatalog:
         return self._product
 
 
-class _Person:
-    def __init__(self, person_id: str, display_name: str) -> None:
-        self.id = person_id
+class _Member:
+    def __init__(self, member_id: str, display_name: str) -> None:
+        self.id = member_id
         self.display_name = display_name
         self.clickup_user_id: str | None = ALICE_CLICKUP
         self.active = True
 
 
-class _FakeRoster:
-    async def list_people(self) -> tuple[_Person, ...]:
-        return (_Person(ALICE, "Alice Admin"),)
+class _FakeMembers:
+    async def list_members(self) -> tuple[_Member, ...]:
+        return (_Member(ALICE, "Alice Admin"),)
 
-    people = list_people
+    members = list_members
 
-    async def person(self, person_id: str) -> _Person | None:
-        return _Person(ALICE, "Alice Admin") if person_id == ALICE else None
+    async def member(self, member_id: str) -> _Member | None:
+        return _Member(ALICE, "Alice Admin") if member_id == ALICE else None
 
-    async def __call__(self) -> tuple[_Person, ...]:
-        return await self.list_people()
+    async def __call__(self) -> tuple[_Member, ...]:
+        return await self.list_members()
 
 
 @dataclass
@@ -509,7 +509,7 @@ class _Collaborators:
             _CatalogProduct(name=PRODUCT_NAME, sku=PRODUCT_SKU)
         )
     )
-    roster: _FakeRoster = field(default_factory=_FakeRoster)
+    members: _FakeMembers = field(default_factory=_FakeMembers)
     recorder: _FakeRecorder = field(default_factory=_FakeRecorder)
 
 
@@ -524,7 +524,7 @@ async def _converge(
         clickup=collaborators.clickup,
         mapping=collaborators.mapping,
         read_product=collaborators.catalog,
-        roster=collaborators.roster,
+        members=collaborators.members,
         folder_id=FOLDER_ID,
     )
 

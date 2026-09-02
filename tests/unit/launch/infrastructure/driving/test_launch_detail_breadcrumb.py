@@ -47,7 +47,7 @@ breadcrumb offers, and that it offers the journal at all.
 ## Level
 
 The launch router alone, over fakes for the launch store, the served
-playbook, the roster and the catalog read — the smallest unit that can
+playbook, the membership and the catalog read — the smallest unit that can
 render the detail page. Neither the header nor the shared stylesheet is
 under test here, so no sibling admin router is mounted; the breadcrumb
 locator below discriminates the trail from the header by document order
@@ -126,7 +126,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from commerce_ops.access.application import create_person
+from commerce_ops.access.application import create_member
 from commerce_ops.catalog.domain.product import Product
 from commerce_ops.launch.domain.launch_playbook import (
     Gate,
@@ -180,7 +180,7 @@ PRODUCT_NAME: Final = "Alpha widget"
 #: INVENTED. The words the shared admin header, but no breadcrumb, uses to
 #: name the *other* top-level admin surfaces — used to tell the two apart
 #: without mounting the header's own routers.
-_HEADER_WORDS: Final = ("playbook", "roster", "people", "users")
+_HEADER_WORDS: Final = ("playbook", "team", "members", "member")
 
 _HX_VERBS: Final = ("hx-get", "hx-post", "hx-put", "hx-patch", "hx-delete")
 _SCRIPTING_ATTRIBUTES: Final = (*_HX_VERBS, "onclick", "onmousedown", "onkeydown")
@@ -302,7 +302,7 @@ class _FakePlaybooks:
         return PLAYBOOK
 
 
-class _FakeRosterStore:
+class _FakeMembersStore:
     def __init__(self, rows: tuple[Any, ...] = (), version: int = 13) -> None:
         self.rows = tuple(rows)
         self.version = version
@@ -315,10 +315,10 @@ class _FakeRosterStore:
         self.version += 1
 
 
-async def _build_roster() -> _FakeRosterStore:
-    store = _FakeRosterStore()
-    await create_person(
-        roster=store,
+async def _build_members() -> _FakeMembersStore:
+    store = _FakeMembersStore()
+    await create_member(
+        members=store,
         principal="the-seeding-admin",
         display_name="Alice Admin",
         slack_identity=PRINCIPAL,
@@ -328,8 +328,8 @@ async def _build_roster() -> _FakeRosterStore:
     return store
 
 
-def _roster_store() -> _FakeRosterStore:
-    return asyncio.run(_build_roster())
+def _members_store() -> _FakeMembersStore:
+    return asyncio.run(_build_members())
 
 
 class _Catalog:
@@ -356,7 +356,7 @@ _SEAMS: Final[dict[str, tuple[str, ...]]] = {
     "verify": ("verify_admin_session",),
     "launches": ("launches", "launch_store", "launch_positions", "store"),
     "playbooks": ("playbooks", "playbook_store", "playbook_repository", "playbook"),
-    "roster": ("roster", "people", "roster_store", "read_roster"),
+    "members": ("members", "members_store", "read_members"),
     "list_products": ("list_products", "products", "catalog_products"),
     "get_product_by_id": ("get_product_by_id", "product_by_id", "get_product"),
 }
@@ -438,7 +438,7 @@ def _world(monkeypatch: pytest.MonkeyPatch, *, journal: Any = None) -> _World:
     _install(monkeypatch, module, "verify", _fake_verify)
     _install(monkeypatch, module, "launches", _FakeLaunchStore(_launch(product.id)))
     _install(monkeypatch, module, "playbooks", _FakePlaybooks())
-    _install(monkeypatch, module, "roster", _roster_store())
+    _install(monkeypatch, module, "members", _members_store())
     catalog = _Catalog(product)
     _install(monkeypatch, module, "list_products", catalog.list_products)
     _install(monkeypatch, module, "get_product_by_id", catalog.get_product_by_id)
