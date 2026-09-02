@@ -144,7 +144,7 @@ below is a first cut, not a settled answer:
 | `provenance`, `metric_id` | | |
 
 `assignees` sits with the step because roles make it person-independent (see
-below): a step assigned to `finance-lead` carries no one's identity into the
+below): a step assigned to `controller` carries no one's identity into the
 three playbooks that place it. Were assignment still by person, this row would
 be the table's hardest question.
 
@@ -166,7 +166,7 @@ therefore a union of a role reference and a person reference, stored in the
 `JSONB` column `assignees` already is:
 
 ```
-assignees: [ {role: "finance-lead"} ]   ← the usual case, follows whoever holds it
+assignees: [ {role: "controller"} ]     ← the usual case, follows whoever holds it
 assignees: [ {person: "<uuid>"} ]       ← the override, always this person
 ```
 
@@ -191,36 +191,79 @@ with active steps in one order, so the served set must stay visually
 distinguishable — today it is separated into two tables, which no longer
 expresses the ordering.
 
-**The starting role list is nine, derived from the step set.** Roles are their
-own vocabulary, but the 358 steps already carry a discipline each, and those
-twelve values collapse by *what the work actually is* for a mid-sized
-marketplace seller. Every step is covered and none is counted twice:
+**Roles are a managed collection, seeded with nine.** They are created, renamed
+and retired in the admin like any other content — nobody can guess today which
+roles this company will actually need, and a vocabulary fixed in code would have
+to be guessed correctly the first time. What the nine below are is a *starting
+set*, seeded because step seeding needs roles to reference, not a closed list.
 
-| Role | Steps | From disciplines |
-|---|---|---|
-| `supply-chain` | 78 | `inventory`, `setup` — suppliers, MOQ, cartons, HS codes, freight, packaging spec |
-| `ppc-manager` | 77 | `ppc`, `rank`, `traffic` — campaign structure, launch keyword strategy, spend |
-| `category-manager` | 65 | `strategy`, `price` — product selection gates, price ladder, competitive position |
-| `listing-specialist` | 39 | `listing` — flat files, browse paths, variation families |
-| `finance-lead` | 36 | `finance` — CM1/CM2/CM3, landed cost, fee tiers |
-| `creative-lead` | 26 | `creative` — photography, A+, packaging artwork, CTR assets |
-| `customer-service` | 22 | `customer` — reviews, feedback, 1-star response |
-| `marketing` | 15 | `external` — email, influencers, affiliates, off-Amazon |
-| `manager` | — | maps to no discipline; the cross-cutting **confirmer** role |
+**A role's identifier is a slug, chosen once and never changed; its title is
+editable.** This differs deliberately from a member, whose identifier is a
+generated `uuid4` precisely so it can never be re-pointed at a different human.
+A role is vocabulary rather than a person: the slug is what steps store and what
+the vendored file names, so it must be stable *and* nameable in advance — a
+`uuid4` generated at seed time is neither. Steps carry meaningful string
+identifiers (`lp.strategy.001`) for the same reason. Renaming *Financial
+Controller* to *Head of Finance* is therefore free and rewrites nothing.
+
+**A role is retired, never deleted, and cannot be left without a default.**
+Both mirror rules the member directory already carries. Deleting a role that
+steps reference would strand them, exactly as deleting a person would — so
+`roster`'s *deactivated, never deleted* applies unchanged. And an active role
+whose default holder is removed resolves to nobody, which silently breaks every
+step assigned to it; removing the last holder of an active role is refused the
+way the last active admin already is. A retired role takes no new assignments,
+and the steps still naming one are reported rather than failing a load — the
+shape *What blocks a step from being activated is reported* already uses.
+
+**The seed is the member directory's bootstrap, not the playbook's.** Roles must
+exist before steps can reference them, and the container chain already runs
+`seed_admin` before `seed_playbook`. So seeding the nine roles and pointing every
+default at the bootstrap admin belongs there — one step with one concern, that
+the member directory is usable, rather than a new link in the chain.
+
+Each role is a position a marketplace company actually staffs, so the directory
+reads as an org chart rather than as a re-spelling of the discipline enum. The
+identifier is a short slug and the display name is the full title. Every one of
+the 358 steps is covered and none is counted twice:
+
+| Identifier | Position | Steps | From disciplines |
+|---|---|---|---|
+| `supply-chain` | Supply Chain Manager | 78 | `inventory`, `setup` — suppliers, MOQ, cartons, HS codes, freight, packaging spec |
+| `ppc` | PPC Manager | 77 | `ppc`, `rank`, `traffic` — campaign structure, launch keyword strategy, spend |
+| `brand` | Brand Manager | 65 | `strategy`, `price` — product selection gates, price ladder, competitive position |
+| `catalog` | Catalog Manager | 39 | `listing` — flat files, browse paths, variation families |
+| `controller` | Financial Controller | 36 | `finance` — CM1/CM2/CM3, landed cost, fee tiers |
+| `creative` | Creative Manager | 26 | `creative` — photography, A+, packaging artwork, CTR assets |
+| `customer-service` | Customer Service Manager | 22 | `customer` — reviews, feedback, 1-star response |
+| `marketing` | Marketing Manager | 15 | `external` — email, influencers, affiliates, off-Amazon |
+| `operations` | Operations Manager | — | maps to no discipline; the cross-cutting **confirmer** role |
+
+Two naming choices worth keeping. **Brand Manager**, not Category Manager: both
+are real titles, but in a private-label marketplace business the person clearing
+the demand and revenue gates owns a brand's P&L, which is what a brand manager
+does. **Financial Controller**, giving the identifier `controller` — a
+distinct word for free, where `finance` would read ambiguously against the
+`finance` discipline. `ppc` and `creative` do overlap with their disciplines;
+that is accepted rather than fixed, since the alternative is a worse job title
+and the two vocabularies are separate namespaces.
 
 Three merges carry the reasoning and are the ones to revisit first if they feel
-wrong. `rank` folds into `ppc-manager` because launch ranking here *is* ad
+wrong. `rank` folds into `ppc` because launch ranking here *is* ad
 strategy — keyword families, never-keywords, Titan Tools — not a separate craft;
 `traffic` is one step. `setup` folds into `supply-chain` because its steps are
 packaging and production spec (shrink wrap, in-box inserts, batch codes), which
 the sourcing owner decides with the supplier. `price` folds into
-`category-manager` because whoever clears the demand and revenue gates sets the
+`brand` because whoever clears the demand and revenue gates sets the
 price those gates were computed from — though at 31 steps it is the most
 plausible candidate to split out later.
 
-`manager` exists because a confirmer is often not the discipline owner: it is
-the role that accepts someone else's work, and it maps to no discipline
-deliberately.
+`operations` exists because a confirmer is often not the discipline owner: it
+is the role that accepts someone else's work, and it maps to no discipline
+deliberately. **Open:** whether capital commitments want a tenth role —
+*Managing Director* — rather than being confirmed by the Operations Manager.
+The company head confirms some steps and is not an employee, which is one of
+the reasons the directory is `members` rather than `employees`.
 
 **`LifecycleStage` is renamed `LifecycleState`.** A product is in a *state*; a
 playbook has *stages*. The rename exists solely to free the word.
@@ -329,7 +372,7 @@ if the three above prove insufficient.
 
 ### 1. `rebuild-the-member-directory`
 
-The people directory, done properly — one module (`access`), one concept, three
+The people directory, done properly — one module (`access`), one concept, four
 commits.
 
 - **Rename** `roster` to `members` throughout: the `roster` and `roster-admin`
@@ -340,10 +383,16 @@ commits.
 - **Roles**, as `move-principals-to-roster` predicted: it put "roles /
   information-kind access" out of scope explicitly, to be added by "a later
   change **when there is behavior to hang on it**". Steps assigned by role is
-  that behaviour. A role carries holders, exactly one of them the default; the
-  `admin` boolean stays exactly where it is, because permission and
-  work-ownership are different axes and `roster`'s last-active-admin invariant
-  is built on the boolean.
+  that behaviour. A role carries an immutable slug, an editable title and its
+  holders, exactly one of them the default; the `admin` boolean stays exactly
+  where it is, because permission and work-ownership are different axes and
+  `roster`'s last-active-admin invariant is built on the boolean.
+- **Managing roles**, since the nine seeded are a starting guess rather than a
+  known answer: create, rename and retire them from the admin, with holders
+  added and the default moved. Carries three rules that mirror ones the member
+  directory already has — retired never deleted, an active role may not lose its
+  last holder, and a retired role takes no new assignments while the steps still
+  naming it are reported rather than failing a load.
 - **The admin page**, rebuilt to the pattern `move-step-actions-into-step-pages`
   already shipped and specified for steps. Today the page opens with a
   full-width *Add a person* form, and its `actions` column holds two `<form>`s
@@ -352,10 +401,15 @@ commits.
   it. Target: a **Team** page that is a read-only list whose name column links
   to the member's own page; adding moves to its own page as `/steps/new` did;
   editing, deactivating and reactivating move onto the member's page as step
-  status did.
+  status did. Roles get the same treatment — a list, and a role's own page —
+  rather than being edited inline in a cell, which is the mistake this change
+  exists to undo.
 
 *First*, because it depends on nothing, and Changes 2 and 3 both need roles to
-exist.
+exist. It is the largest of the three preceding changes and the one whose scope
+is most worth watching: rename, roles, role management and a page rebuild are
+four commits, and if it stops being reviewable in one sitting the role-management
+half is what splits out.
 
 ### 2. `assign-steps-by-role`
 
@@ -366,8 +420,8 @@ the two groups described below.
 **The one spec consequence.** `launch-playbook:513` rejects a step whose *only*
 assignee is also its confirmer — "a single actor confirming their own work is
 not a second opinion" — and it is a **load-time** rule today precisely because
-it is a pure function of the step set. Roles break that purity: `finance-lead`
-and `manager` are plainly different references, yet resolve to the same person
+it is a pure function of the step set. Roles break that purity: `controller`
+and `operations` are plainly different references, yet resolve to the same person
 if one member holds both. The check splits — references differing stays
 load-time and pure; resolved people colliding becomes a roster-dependent fault,
 reported the way a deactivated confirmer already is (`launch-playbook:509`),
@@ -379,13 +433,13 @@ flag would not:
 
 ```
   ── By role ──  follows whoever holds it
-     default manager (Helen)
-     default finance-lead (Sven)
+     default Operations Manager (Helen)
+     default Financial Controller (Sven)
 
   ── By person ──  always this person
-     Helen (manager)
-     Marko (manager)
-     Sven (finance-lead)
+     Helen (Operations Manager)
+     Marko (Operations Manager)
+     Sven (Financial Controller)
 ```
 
 A member appearing in both groups is the point, not a defect: the parenthetical
