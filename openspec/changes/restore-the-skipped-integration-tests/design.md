@@ -235,27 +235,58 @@ produced that database is in `AGENTS.md` and `README.md`, both of which say "cre
 and migrate" and stop. A change about the gate not lying about what it ran is the
 right place to stop the setup instructions lying about what a prepared database is.
 
-### Decision 5: `AGENTS.md` gains worktree rules, in the workflow document rather than the README
+### Decision 5: `AGENTS.md` gains worktree rules — a rule states an action, and a defect appears only as the reason an action matters
 
 The rules are addressed to whoever is *working* — including an agent session — not to
 someone setting a machine up once. `AGENTS.md` is where this project states
 obligations of that kind; `README.md` keeps the setup recipe.
+
+**The selection principle, because two candidates turned on it.** A rule earns its
+place by telling the reader what to *do*. A defect earns a place only as the reason
+some action matters — never as a standing entry of its own, because an entry that
+merely describes a broken thing asks nothing of the reader, competes with fixing it,
+and has no natural moment of deletion. `docs/deferred-work.md` is where a
+known-and-unfixed thing belongs; it is read by whoever is choosing what to work on,
+which is a different reader from this one.
 
 Five rules, each traceable to an observed failure rather than invented:
 
 | rule | observed as |
 | --- | --- |
 | The Postgres container runs continuously. Check it (`docker ps`) before concluding a database or Docker is unavailable. | *"Docker isn't available in this WSL setup"*, while `commerce-ops-postgres-1` was up |
-| A worktree does not inherit `.env.test` — it is gitignored. Configure one before relying on the tier. | 2 of 4 checkouts on this machine are unconfigured right now, this one included at creation |
+| A worktree does not inherit `.env.test` — it is gitignored, so it exists only in the clone it was written into. Configure one before relying on the integration tier. **Until you do, the tier skips in its entirety and `pre-push` reports it as `Passed`** — the green is not evidence anything ran. | 2 of 4 checkouts on this machine are unconfigured right now, this one included at creation; and a merged PR whose body claimed a tier that had skipped |
 | Migrated is not seeded. `alembic upgrade head`, then `python -m commerce_ops.seed_playbook`. | 4 tests failing, read as "pre-existing" |
 | Read a failing test's assertion message before concluding the failure is pre-existing. | same incident |
-| The `_test` requirement is a **suffix**, not a name. `commerce_ops_x_test` runs; `commerce_ops_test_x` silently loses five tests. | the skip message says "Create `commerce_ops_test`", which reads as a literal name |
+| Put `_test` **last** in a test database's name. The check is a suffix check, so `commerce_ops_x_test` is a test database and `commerce_ops_test_x` is not. | the skip message says "Create `commerce_ops_test`", which reads as a literal name |
 
-The sixth candidate — *"`pre-push` printing `Passed` for the integration tier is not
-evidence it ran"* — is deliberately **not** written down. It is true today and change
-C makes it false, and a rule that documents a defect competes with fixing it. The
-defect is recorded in `docs/deferred-work.md`, which is where a known-and-unfixed
-thing belongs.
+**Two candidates were weighed against the principle and resolved in opposite
+directions. They look symmetric and are not.**
+
+*The `pre-push`-reports-`Passed` warning is kept — folded into rule 2 rather than
+standing alone.* A first draft excluded it outright, reasoning that change C makes it
+false and that documenting a defect competes with fixing it. Half right. The exclusion
+was wrong because the warning is not competing with anything when it is attached to
+the action that prevents it: rule 2 already tells the reader to configure `.env.test`,
+and *why* is that a false pass rather than merely fewer tests. A reader who follows
+rule 2 never meets the defect; a reader who does not is exactly who needs the sentence,
+at exactly the moment they would otherwise trust the green. What C changes is one
+clause of a reason, not a rule — `pre-push` will refuse the push instead of reporting
+a pass — and the rule above it stands untouched.
+
+*The suffix rule is kept, and a first draft was wrong about why that was even in
+question.* The doubt was that change B would obsolete it. B does the opposite: it moves
+the `endswith("_test")` check from two test modules to the resolver, so a name with
+`_test` anywhere but the end goes from *running with five tests silently missing* to
+*refused at the door*. The instruction — put `_test` last — is unchanged and enforced
+harder. Only the consequence goes stale, which is why the rule above states the check's
+**shape** ("the check is a suffix check") rather than today's damage; B updates where it
+is enforced, in the same change that deletes those two guards, and edits no rule.
+
+The general form, worth stating because it is what the two cases share: **write the
+rule so the durable half is the instruction and the perishable half is the
+consequence.** A rule phrased around today's damage needs rewriting every time the
+damage changes. A rule phrased around the obligation survives its own enforcement
+moving.
 
 ### Decision 6: An expected failure is not a skip, and the spec says so
 

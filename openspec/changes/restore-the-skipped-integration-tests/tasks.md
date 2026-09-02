@@ -54,7 +54,7 @@ it.
 
 ## 6. Documentation
 
-- [ ] 6.1 Add worktree rules to `AGENTS.md` — the five in `design.md` Decision 5's table, and not the sixth. Place them where the project's other working obligations live, phrased as obligations rather than as tips.
+- [ ] 6.1 Add worktree rules to `AGENTS.md` — the five in `design.md` Decision 5's table, verbatim as to substance. Place them where the project's other working obligations live, phrased as obligations rather than as tips. Keep each rule's instruction separable from its consequence clause: change B updates rule 5's enforcement point and change C updates rule 2's, and neither should have to rewrite a rule to do it.
 - [ ] 6.2 Correct `AGENTS.md`'s own Testing Strategy sentence, which tells a reader to "create and migrate `commerce_ops_test`" and stops. It is the recipe that produces the state 6.1's third rule warns about; leaving both would have the file state the rule and the violation.
 - [ ] 6.3 Correct `README.md`'s Local Postgres section: add `python -m commerce_ops.seed_playbook` to the test-database recipe, say that the `_test` requirement is a suffix rather than a literal name, and fix the stale reference to `tests/integration/products/`, a directory that no longer exists.
 - [ ] 6.4 Update `docs/deferred-work.md`'s entry *The integration tier's local setup is per-clone, and fails open*: mark the first of its three gaps — `pre-push` reporting a tier that never ran — as closed **for the gate** by this change and still open for `pre-push`, and record that accumulated debris was measured inert (a `TEMPLATE` copy of the shared `commerce_ops_test` passes 137/1 with 1325 retired rows), so no cleanup is owed by any of the three.
