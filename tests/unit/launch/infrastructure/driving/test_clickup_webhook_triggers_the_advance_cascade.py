@@ -113,7 +113,6 @@ from fastapi.testclient import TestClient
 import commerce_ops.launch.infrastructure.driving.clickup_webhook as webhook_module
 from commerce_ops.launch.domain.launch_playbook import (
     Gate,
-    GateOpening,
     Hazard,
     LaunchPlaybook,
     OffsetAnchor,
@@ -132,6 +131,7 @@ from commerce_ops.launch.domain.launch_run import (
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
 from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
+from tests.support.playbook import opening_for as _opening_for
 
 WEBHOOK_SECRET: Final = "test-clickup-webhook-secret-not-a-real-credential"
 SIGNATURE_HEADER: Final = "X-Signature"
@@ -157,12 +157,6 @@ _TRIGGER_NAMES: Final = (
 # ---------------------------------------------------------------------------
 # Domain fixtures — transcribed from `test_clickup_webhook.py`
 # ---------------------------------------------------------------------------
-
-
-def _opening_for(identifier: str) -> GateOpening:
-    if identifier in CONFIRMATION_GATES:
-        return GateOpening.REQUIRES_CONFIRMATION
-    return GateOpening.AUTOMATIC
 
 
 def _step(**overrides: Any) -> StepDefinition:

@@ -46,7 +46,6 @@ import pytest
 
 from commerce_ops.launch.domain.launch_playbook import (
     Gate,
-    GateOpening,
     Hazard,
     LaunchPlaybook,
     OffsetAnchor,
@@ -66,6 +65,7 @@ from commerce_ops.launch.domain.launch_run import (
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
 from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
+from tests.support.playbook import opening_for as _opening_for
 
 RECORDED_AT: Final = datetime(2027, 1, 5, 12, 0, tzinfo=UTC)
 APPROVED_AT: Final = datetime(2027, 1, 6, 9, 30, tzinfo=UTC)
@@ -73,12 +73,6 @@ APPROVED_AT: Final = datetime(2027, 1, 6, 9, 30, tzinfo=UTC)
 
 def _any_discipline() -> Discipline:
     return next(iter(Discipline))
-
-
-def _opening_for(identifier: str) -> GateOpening:
-    if identifier in CONFIRMATION_GATES:
-        return GateOpening.REQUIRES_CONFIRMATION
-    return GateOpening.AUTOMATIC
 
 
 def _gates() -> tuple[Gate, ...]:

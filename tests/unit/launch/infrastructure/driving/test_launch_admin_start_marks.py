@@ -76,7 +76,6 @@ from commerce_ops.access.application import create_member
 from commerce_ops.catalog.domain.product import Product
 from commerce_ops.launch.domain.launch_playbook import (
     Gate,
-    GateOpening,
     Hazard,
     LaunchPlaybook,
     OffsetAnchor,
@@ -89,7 +88,8 @@ from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import MarketplaceId, ProductId, Sku
 from commerce_ops.shared.domain.lifecycle_stage import Launching
-from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
+from tests.support.playbook import SPECIFIED_GATE_ORDER
+from tests.support.playbook import opening_for as _opening_for
 
 _PAGE_MODULE_NAME: Final = "commerce_ops.launch.infrastructure.driving.launch_admin"
 
@@ -153,12 +153,6 @@ _VOID_TAGS: Final = (
 # ---------------------------------------------------------------------------
 # Domain builders
 # ---------------------------------------------------------------------------
-
-
-def _opening_for(identifier: str) -> GateOpening:
-    if identifier in CONFIRMATION_GATES:
-        return GateOpening.REQUIRES_CONFIRMATION
-    return GateOpening.AUTOMATIC
 
 
 def _gates() -> tuple[Gate, ...]:

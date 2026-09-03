@@ -79,7 +79,6 @@ import pytest
 
 from commerce_ops.launch.domain.launch_playbook import (
     Gate,
-    GateOpening,
     Hazard,
     LaunchPlaybook,
     OffsetAnchor,
@@ -99,6 +98,7 @@ from commerce_ops.launch.domain.launch_run import (
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
 from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
+from tests.support.playbook import opening_for as _opening_for
 
 FINAL_GATE: Final = SPECIFIED_GATE_ORDER[-1]
 
@@ -112,12 +112,6 @@ LAUNCH_DATE: Final = date(2027, 4, 15)
 # ---------------------------------------------------------------------------
 # Builders
 # ---------------------------------------------------------------------------
-
-
-def _opening_for(identifier: str) -> GateOpening:
-    if identifier in CONFIRMATION_GATES:
-        return GateOpening.REQUIRES_CONFIRMATION
-    return GateOpening.AUTOMATIC
 
 
 def _gates() -> tuple[Gate, ...]:

@@ -35,7 +35,6 @@ from typing import Any, Final
 
 from commerce_ops.launch.domain.launch_playbook import (
     Gate,
-    GateOpening,
     Hazard,
     LaunchPlaybook,
     OffsetAnchor,
@@ -45,19 +44,14 @@ from commerce_ops.launch.domain.launch_playbook import (
     StepStatus,
 )
 from commerce_ops.shared.domain.discipline import Discipline
-from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
+from tests.support.playbook import SPECIFIED_GATE_ORDER
+from tests.support.playbook import opening_for as _opening_for
 
 MEMBER_A: Final = "prs_01HQ8Z6M4A"
 
 
 def _any_discipline() -> Discipline:
     return next(iter(Discipline))
-
-
-def _opening_for(identifier: str) -> GateOpening:
-    if identifier in CONFIRMATION_GATES:
-        return GateOpening.REQUIRES_CONFIRMATION
-    return GateOpening.AUTOMATIC
 
 
 def _gates() -> tuple[Gate, ...]:

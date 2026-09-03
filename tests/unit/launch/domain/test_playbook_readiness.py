@@ -89,7 +89,6 @@ import pytest
 from commerce_ops.launch.domain import launch_playbook as playbook_module
 from commerce_ops.launch.domain.launch_playbook import (
     Gate,
-    GateOpening,
     Hazard,
     InvalidPlaybookError,
     LaunchPlaybook,
@@ -100,17 +99,12 @@ from commerce_ops.launch.domain.launch_playbook import (
     StepStatus,
 )
 from commerce_ops.shared.domain.discipline import Discipline
-from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
+from tests.support.playbook import SPECIFIED_GATE_ORDER
+from tests.support.playbook import opening_for as _opening_for
 
 # ---------------------------------------------------------------------------
 # Domain fixtures
 # ---------------------------------------------------------------------------
-
-
-def _opening_for(identifier: str) -> GateOpening:
-    if identifier in CONFIRMATION_GATES:
-        return GateOpening.REQUIRES_CONFIRMATION
-    return GateOpening.AUTOMATIC
 
 
 def _gates() -> tuple[Gate, ...]:

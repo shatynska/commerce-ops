@@ -134,7 +134,6 @@ from commerce_ops.catalog.domain.product import Product
 from commerce_ops.launch.domain.launch_playbook import (
     Blocked,
     Gate,
-    GateOpening,
     Hazard,
     InProgress,
     LaunchPlaybook,
@@ -155,7 +154,8 @@ from commerce_ops.launch.domain.launch_run import (
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import MarketplaceId, ProductId, Sku
 from commerce_ops.shared.domain.lifecycle_stage import Launching
-from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
+from tests.support.playbook import SPECIFIED_GATE_ORDER
+from tests.support.playbook import opening_for as _opening_for
 
 # ---------------------------------------------------------------------------
 # The module under test, resolved by name
@@ -270,12 +270,6 @@ _TIME_TOKEN: Final = re.compile(r"\b\d{1,2}:\d{2}(?::\d{2})?\b")
 # ---------------------------------------------------------------------------
 # Domain builders
 # ---------------------------------------------------------------------------
-
-
-def _opening_for(identifier: str) -> GateOpening:
-    if identifier in CONFIRMATION_GATES:
-        return GateOpening.REQUIRES_CONFIRMATION
-    return GateOpening.AUTOMATIC
 
 
 def _gates() -> tuple[Gate, ...]:

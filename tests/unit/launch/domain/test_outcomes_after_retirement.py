@@ -56,7 +56,6 @@ import pytest
 
 from commerce_ops.launch.domain.launch_playbook import (
     Gate,
-    GateOpening,
     Hazard,
     LaunchPlaybook,
     OffsetAnchor,
@@ -69,7 +68,8 @@ from commerce_ops.launch.domain.launch_playbook import (
 from commerce_ops.launch.domain.launch_run import Launch, LaunchError, Provenance
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
-from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
+from tests.support.playbook import SPECIFIED_GATE_ORDER
+from tests.support.playbook import opening_for as _opening_for
 
 PRODUCT_ID: Final = ProductId(str(uuid.uuid4()))
 RECORDED_AT: Final = datetime(2027, 1, 5, 12, 0, tzinfo=UTC)
@@ -77,12 +77,6 @@ RECORDED_AT: Final = datetime(2027, 1, 5, 12, 0, tzinfo=UTC)
 # The step that will be "retired": present in the first served playbook,
 # absent from the second.
 RETIRED_STEP_ID: Final = "listing.title-conforms"
-
-
-def _opening_for(identifier: str) -> GateOpening:
-    if identifier in CONFIRMATION_GATES:
-        return GateOpening.REQUIRES_CONFIRMATION
-    return GateOpening.AUTOMATIC
 
 
 def _gates() -> tuple[Gate, ...]:

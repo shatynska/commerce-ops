@@ -91,7 +91,6 @@ from commerce_ops.launch.application import StepResolution
 from commerce_ops.launch.domain.launch_playbook import (
     Blocked,
     Gate,
-    GateOpening,
     Hazard,
     LaunchPlaybook,
     OffsetAnchor,
@@ -106,7 +105,8 @@ from commerce_ops.launch.infrastructure.driving import automation_pass
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId, Sku
 from commerce_ops.shared.domain.result import Success
-from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
+from tests.support.playbook import SPECIFIED_GATE_ORDER
+from tests.support.playbook import opening_for as _opening_for
 
 pytestmark = pytest.mark.anyio
 
@@ -144,12 +144,6 @@ def anyio_backend() -> str:
 # ---------------------------------------------------------------------------
 # Domain fixtures — duplicated from test_automation_pass_kept_finding.py
 # ---------------------------------------------------------------------------
-
-
-def _opening_for(identifier: str) -> GateOpening:
-    if identifier in CONFIRMATION_GATES:
-        return GateOpening.REQUIRES_CONFIRMATION
-    return GateOpening.AUTOMATIC
 
 
 def _gates() -> tuple[Gate, ...]:

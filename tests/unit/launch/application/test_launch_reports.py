@@ -76,7 +76,6 @@ import pytest
 from commerce_ops.launch.application import read_launches
 from commerce_ops.launch.domain.launch_playbook import (
     Gate,
-    GateOpening,
     Hazard,
     LaunchPlaybook,
     OffsetAnchor,
@@ -96,6 +95,7 @@ from commerce_ops.shared.domain.access_scope import AccessScope
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
 from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
+from tests.support.playbook import opening_for as _opening_for
 
 pytestmark = pytest.mark.anyio
 
@@ -128,12 +128,6 @@ def anyio_backend() -> str:
 # Builders -- the shapes `test_launch_dates.py` and `test_graduation.py`
 # already record for this aggregate.
 # ---------------------------------------------------------------------------
-
-
-def _opening_for(identifier: str) -> GateOpening:
-    if identifier in CONFIRMATION_GATES:
-        return GateOpening.REQUIRES_CONFIRMATION
-    return GateOpening.AUTOMATIC
 
 
 def _gates() -> tuple[Gate, ...]:

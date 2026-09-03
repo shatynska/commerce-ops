@@ -98,7 +98,6 @@ import commerce_ops.step_handlers.strategy.compliance_screen as screen
 from commerce_ops.launch.application import HANDLERS, StepContext
 from commerce_ops.launch.domain.launch_playbook import (
     Gate,
-    GateOpening,
     Hazard,
     LaunchPlaybook,
     OffsetAnchor,
@@ -110,7 +109,8 @@ from commerce_ops.launch.domain.launch_playbook import (
 from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import MarketplaceId, ProductId, Sku
-from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
+from tests.support.playbook import SPECIFIED_GATE_ORDER
+from tests.support.playbook import opening_for as _opening_for
 
 #: Fixed by `tasks.md` 4.1, not by any delta scenario: the wire schema's
 #: three field names after this change.
@@ -219,12 +219,6 @@ class _CatalogProduct:
         self.marketplace_id = MarketplaceId("ATVPDKIKX0DER")
         self.sub_category: str | None = None
         self.hazard_categories: Any = None
-
-
-def _opening_for(identifier: str) -> GateOpening:
-    if identifier in CONFIRMATION_GATES:
-        return GateOpening.REQUIRES_CONFIRMATION
-    return GateOpening.AUTOMATIC
 
 
 def _gates() -> tuple[Gate, ...]:

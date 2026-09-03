@@ -112,7 +112,6 @@ from commerce_ops.access.infrastructure.driving import members_admin as members_
 from commerce_ops.catalog.domain.product import Product
 from commerce_ops.launch.domain.launch_playbook import (
     Gate,
-    GateOpening,
     Hazard,
     LaunchPlaybook,
     NotStarted,
@@ -138,6 +137,7 @@ from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import MarketplaceId, ProductId, Sku
 from commerce_ops.shared.domain.lifecycle_stage import Launching
 from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
+from tests.support.playbook import opening_for as _opening_for
 
 # ---------------------------------------------------------------------------
 # The modules under test, resolved by name
@@ -290,12 +290,6 @@ _HIDDEN_CLASSES: Final = ("hidden", "is-hidden", "d-none", "sr-only", "visually-
 # ---------------------------------------------------------------------------
 # Domain builders
 # ---------------------------------------------------------------------------
-
-
-def _opening_for(identifier: str) -> GateOpening:
-    if identifier in CONFIRMATION_GATES:
-        return GateOpening.REQUIRES_CONFIRMATION
-    return GateOpening.AUTOMATIC
 
 
 def _gates() -> tuple[Gate, ...]:

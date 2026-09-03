@@ -76,7 +76,6 @@ import pytest
 from commerce_ops.launch.domain.launch_playbook import (
     Blocked,
     Gate,
-    GateOpening,
     Hazard,
     InProgress,
     LaunchPlaybook,
@@ -101,6 +100,7 @@ from commerce_ops.launch.domain.launch_run import (
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
 from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
+from tests.support.playbook import opening_for as _opening_for
 
 PRODUCT_ID: Final = ProductId(str(uuid.uuid4()))
 
@@ -111,12 +111,6 @@ APPROVED_AT: Final = datetime(2027, 1, 6, 9, 30, tzinfo=UTC)
 def _any_discipline() -> Discipline:
     """Return some `Discipline` member, asserting nothing about which."""
     return next(iter(Discipline))
-
-
-def _opening_for(identifier: str) -> GateOpening:
-    if identifier in CONFIRMATION_GATES:
-        return GateOpening.REQUIRES_CONFIRMATION
-    return GateOpening.AUTOMATIC
 
 
 def _gates() -> tuple[Gate, ...]:

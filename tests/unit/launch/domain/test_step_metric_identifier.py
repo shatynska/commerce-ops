@@ -68,7 +68,6 @@ from typing import Any, Final
 
 from commerce_ops.launch.domain.launch_playbook import (
     Gate,
-    GateOpening,
     Hazard,
     LaunchPlaybook,
     OffsetAnchor,
@@ -88,6 +87,7 @@ from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import MetricId, ProductId
 from commerce_ops.shared.domain.lifecycle_stage import Posture
 from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
+from tests.support.playbook import opening_for as _opening_for
 
 PRODUCT_ID: Final = ProductId(str(uuid.uuid4()))
 RECORDED_AT: Final = datetime(2027, 1, 5, 12, 0, tzinfo=UTC)
@@ -107,12 +107,6 @@ STOCK_THRESHOLD: Final = (
 
 def _any_discipline() -> Discipline:
     return next(iter(Discipline))
-
-
-def _opening_for(identifier: str) -> GateOpening:
-    if identifier in CONFIRMATION_GATES:
-        return GateOpening.REQUIRES_CONFIRMATION
-    return GateOpening.AUTOMATIC
 
 
 def _gates() -> tuple[Gate, ...]:

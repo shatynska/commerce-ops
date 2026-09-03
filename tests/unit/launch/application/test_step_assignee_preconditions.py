@@ -58,7 +58,6 @@ import commerce_ops.launch.application as launch_application
 from commerce_ops.launch.application import create_step, update_step
 from commerce_ops.launch.domain.launch_playbook import (
     Gate,
-    GateOpening,
     Hazard,
     InvalidPlaybookError,
     LaunchPlaybook,
@@ -69,7 +68,8 @@ from commerce_ops.launch.domain.launch_playbook import (
     StepStatus,
 )
 from commerce_ops.shared.domain.discipline import Discipline
-from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
+from tests.support.playbook import SPECIFIED_GATE_ORDER
+from tests.support.playbook import opening_for as _opening_for
 
 pytestmark = pytest.mark.anyio
 
@@ -331,12 +331,6 @@ async def _set_status(
                 handlers=_FakeHandlerRegistry(),
             )
     return await _update(store, step_id, status=status, members=members)
-
-
-def _opening_for(identifier: str) -> GateOpening:
-    if identifier in CONFIRMATION_GATES:
-        return GateOpening.REQUIRES_CONFIRMATION
-    return GateOpening.AUTOMATIC
 
 
 def _load(store: _FakeStepStore) -> LaunchPlaybook:

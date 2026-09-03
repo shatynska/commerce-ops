@@ -130,7 +130,7 @@ The largest single cluster: 159 files. Mechanical; no test body may change.
       import. Verify no line at or after each file's first test changed.
 - [x] 2.3 Migrate the 128 files declaring `CONFIRMATION_GATES`, including the one
       formatting variant.
-- [ ] 2.4 Migrate the 120 files declaring `_opening_for`.
+- [x] 2.4 Migrate the 120 files declaring `_opening_for`.
 - [ ] 2.5 Migrate the 93 files declaring `_gates`. Six variants: confirm the
       83-file dominant variant is the one hoisted; record the other five as
       migrated or deliberately left.

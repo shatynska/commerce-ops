@@ -87,7 +87,6 @@ import commerce_ops.launch.infrastructure.driving.clickup_webhook as webhook_mod
 import commerce_ops.worker  # noqa: F401 -- importing a root registers its work
 from commerce_ops.launch.domain.launch_playbook import (
     Gate,
-    GateOpening,
     Hazard,
     LaunchPlaybook,
     OffsetAnchor,
@@ -101,7 +100,8 @@ from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.launch.infrastructure.driven.clickup_sync import ClickUpSyncError
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
-from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
+from tests.support.playbook import SPECIFIED_GATE_ORDER
+from tests.support.playbook import opening_for as _opening_for
 
 JOB_PACKAGE: Final = "commerce_ops.launch.infrastructure.driving"
 
@@ -125,12 +125,6 @@ LAUNCH_DATE: Final = datetime.date(2027, 3, 2)
 # ---------------------------------------------------------------------------
 # Domain fixtures -- transcribed from `test_clickup_webhook.py`
 # ---------------------------------------------------------------------------
-
-
-def _opening_for(identifier: str) -> GateOpening:
-    if identifier in CONFIRMATION_GATES:
-        return GateOpening.REQUIRES_CONFIRMATION
-    return GateOpening.AUTOMATIC
 
 
 def _step(**overrides: Any) -> StepDefinition:

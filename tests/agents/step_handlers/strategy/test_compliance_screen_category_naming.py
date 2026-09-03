@@ -105,7 +105,6 @@ from commerce_ops.launch.application import HANDLERS, StepContext
 from commerce_ops.launch.domain.launch_playbook import (
     Blocked,
     Gate,
-    GateOpening,
     Hazard,
     LaunchPlaybook,
     OffsetAnchor,
@@ -118,7 +117,8 @@ from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import MarketplaceId, ProductId, Sku
 from commerce_ops.shared.domain.result import Success
-from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
+from tests.support.playbook import SPECIFIED_GATE_ORDER
+from tests.support.playbook import opening_for as _opening_for
 
 pytestmark = pytest.mark.anyio
 
@@ -251,12 +251,6 @@ class _CatalogProduct:
         self.marketplace_id = MarketplaceId("ATVPDKIKX0DER")
         self.sub_category: str | None = None
         self.hazard_categories: Any = None
-
-
-def _opening_for(identifier: str) -> GateOpening:
-    if identifier in CONFIRMATION_GATES:
-        return GateOpening.REQUIRES_CONFIRMATION
-    return GateOpening.AUTOMATIC
 
 
 def _gates() -> tuple[Gate, ...]:

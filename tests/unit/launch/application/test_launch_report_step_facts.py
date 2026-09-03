@@ -127,7 +127,6 @@ from commerce_ops.launch.application import (
 from commerce_ops.launch.domain.launch_playbook import (
     Cadence,
     Gate,
-    GateOpening,
     Hazard,
     LaunchPlaybook,
     NotStarted,
@@ -150,6 +149,7 @@ from commerce_ops.shared.domain.access_scope import AccessScope
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
 from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
+from tests.support.playbook import opening_for as _opening_for
 
 pytestmark = pytest.mark.anyio
 
@@ -179,12 +179,6 @@ def anyio_backend() -> str:
 # ---------------------------------------------------------------------------
 # Builders — the shapes `test_launch_reports.py` records for this aggregate
 # ---------------------------------------------------------------------------
-
-
-def _opening_for(identifier: str) -> GateOpening:
-    if identifier in CONFIRMATION_GATES:
-        return GateOpening.REQUIRES_CONFIRMATION
-    return GateOpening.AUTOMATIC
 
 
 def _gates() -> tuple[Gate, ...]:

@@ -768,9 +768,29 @@ The shared modules export public names (`tree`, not `_tree`), because a
 module-private name imported across modules is a contradiction; the alias at the
 call site preserves the existing local spelling so no test body changes.
 
-Ruff's isort rules are not configured in this repository — no `select` is set —
-so the ~300 new first-party imports cannot trigger the `I001` classification
-churn `docs/deferred-work.md` records as having cost a commit two attempts.
+**`I001` is enforced here, contrary to an earlier reading of this design.** No
+`select` is set in `pyproject.toml` and there is no `ruff.toml`, from which a
+plan-review round concluded that isort rules were inactive and the `I001`
+classification churn `docs/deferred-work.md` records could not bite. Measured
+instead of inferred (ruff 0.16.3): `ruff check --show-settings` lists
+`unsorted-imports (I001)` among the enabled rules, and
+`linter.isort.combine_as_imports = false`.
+
+That second setting decides the shape of every migrated import. An aliased
+import is placed on its own `from` line rather than combined with a plain one,
+so a file taking two symbols from `tests.support.playbook` — one aliased, one
+not — correctly ends up with:
+
+```python
+from tests.support.playbook import SPECIFIED_GATE_ORDER
+from tests.support.playbook import opening_for as _opening_for
+```
+
+Combining those into one line is an `I001` violation and `ruff check --fix`
+splits it straight back. Each migration therefore runs `ruff check --fix` and
+`ruff format` before verification, which keeps the churn from ever reaching a
+commit — the trap is real, and it is handled by running the linter rather than
+by assuming it is asleep.
 
 *Alternative considered:* renaming call sites to the public name. Rejected for
 Population A — it converts a mechanically checkable diff into a reviewed one, at

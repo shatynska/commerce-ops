@@ -58,7 +58,6 @@ import pytest
 
 from commerce_ops.launch.domain.launch_playbook import (
     Gate,
-    GateOpening,
     Hazard,
     InProgress,
     LaunchPlaybook,
@@ -76,7 +75,8 @@ from commerce_ops.launch.infrastructure.driven.clickup_sync import (
 from commerce_ops.shared.domain.clickup import ClickUpListState
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId, Sku
-from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
+from tests.support.playbook import SPECIFIED_GATE_ORDER
+from tests.support.playbook import opening_for as _opening_for
 
 pytestmark = pytest.mark.anyio
 
@@ -93,12 +93,6 @@ LAUNCH_DATE: Final = date(2027, 3, 2)
 STEP_ID: Final = "lp.creative.008"
 STEP_DESCRIPTION: Final = "Main image designed to be scroll-stopping"
 COMPOSED_NAME: Final = f"{STEP_DESCRIPTION} · {STEP_ID}"
-
-
-def _opening_for(identifier: str) -> GateOpening:
-    if identifier in CONFIRMATION_GATES:
-        return GateOpening.REQUIRES_CONFIRMATION
-    return GateOpening.AUTOMATIC
 
 
 def _gates() -> tuple[Gate, ...]:

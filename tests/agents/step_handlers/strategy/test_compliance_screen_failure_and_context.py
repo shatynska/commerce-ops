@@ -107,7 +107,6 @@ from commerce_ops.launch.application import HANDLERS, StepContext
 from commerce_ops.launch.domain.launch_playbook import (
     Blocked,
     Gate,
-    GateOpening,
     Hazard,
     LaunchPlaybook,
     OffsetAnchor,
@@ -120,7 +119,8 @@ from commerce_ops.launch.domain.launch_playbook import (
 from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import MarketplaceId, ProductId, Sku
-from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
+from tests.support.playbook import SPECIFIED_GATE_ORDER
+from tests.support.playbook import opening_for as _opening_for
 
 PRODUCT_NAME: Final = "Bamboo Cutting Board with Juice Groove"
 OTHER_PRODUCT_NAME: Final = "Stainless Steel Insulated Water Bottle, 750 ml"
@@ -333,12 +333,6 @@ class _CatalogProduct:
         self.sku = Sku(SKU_VALUE)
         self.marketplace_id = MarketplaceId(MARKETPLACE_VALUE)
         self.sub_category: str | None = None
-
-
-def _opening_for(identifier: str) -> GateOpening:
-    if identifier in CONFIRMATION_GATES:
-        return GateOpening.REQUIRES_CONFIRMATION
-    return GateOpening.AUTOMATIC
 
 
 def _gates() -> tuple[Gate, ...]:

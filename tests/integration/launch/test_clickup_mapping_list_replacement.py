@@ -107,7 +107,6 @@ from commerce_ops.catalog.infrastructure.driven.product_repository import (
 )
 from commerce_ops.launch.domain.launch_playbook import (
     Gate,
-    GateOpening,
     Hazard,
     LaunchPlaybook,
     OffsetAnchor,
@@ -123,7 +122,8 @@ from commerce_ops.launch.infrastructure.driven.clickup_mapping import (
 from commerce_ops.launch.infrastructure.driven.launch_repository import LaunchRepository
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import MarketplaceId, ProductId, Sku
-from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
+from tests.support.playbook import SPECIFIED_GATE_ORDER
+from tests.support.playbook import opening_for as _opening_for
 
 pytestmark = pytest.mark.anyio
 
@@ -244,12 +244,6 @@ def _unique_sku() -> Sku:
 
 def _unique_clickup_id(prefix: str) -> str:
     return f"{prefix}-{uuid.uuid4().hex[:12]}"
-
-
-def _opening_for(identifier: str) -> GateOpening:
-    if identifier in CONFIRMATION_GATES:
-        return GateOpening.REQUIRES_CONFIRMATION
-    return GateOpening.AUTOMATIC
 
 
 def _step(**overrides: Any) -> StepDefinition:

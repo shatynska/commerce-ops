@@ -61,7 +61,6 @@ import pytest
 
 from commerce_ops.launch.domain.launch_playbook import (
     Gate,
-    GateOpening,
     Hazard,
     InvalidPlaybookError,
     LaunchPlaybook,
@@ -74,7 +73,8 @@ from commerce_ops.launch.domain.launch_playbook import (
 from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
-from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
+from tests.support.playbook import SPECIFIED_GATE_ORDER
+from tests.support.playbook import opening_for as _opening_for
 
 #: SPECIFIED: "the final gate", the one every consumer stands down at.
 FINAL_GATE: Final = SPECIFIED_GATE_ORDER[-1]
@@ -82,12 +82,6 @@ FINAL_GATE: Final = SPECIFIED_GATE_ORDER[-1]
 A_DISCIPLINE: Final = next(iter(Discipline))
 LAUNCH_DATE: Final = date(2027, 4, 15)
 RECORDED_AT: Final = datetime(2027, 1, 5, 12, 0, tzinfo=UTC)
-
-
-def _opening_for(identifier: str) -> GateOpening:
-    if identifier in CONFIRMATION_GATES:
-        return GateOpening.REQUIRES_CONFIRMATION
-    return GateOpening.AUTOMATIC
 
 
 def _gates() -> tuple[Gate, ...]:

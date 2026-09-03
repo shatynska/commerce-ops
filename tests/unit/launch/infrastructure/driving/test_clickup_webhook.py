@@ -86,7 +86,6 @@ from fastapi.testclient import TestClient
 
 from commerce_ops.launch.domain.launch_playbook import (
     Gate,
-    GateOpening,
     Hazard,
     InProgress,
     LaunchPlaybook,
@@ -107,6 +106,7 @@ from commerce_ops.launch.infrastructure.driving import clickup_webhook as webhoo
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
 from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
+from tests.support.playbook import opening_for as _opening_for
 
 WEBHOOK_SECRET: Final = "test-clickup-webhook-secret-not-a-real-credential"
 SIGNATURE_HEADER: Final = "X-Signature"
@@ -134,12 +134,6 @@ ACTOR_ID: Final = "183"
 
 def _any_discipline() -> Discipline:
     return next(iter(Discipline))
-
-
-def _opening_for(identifier: str) -> GateOpening:
-    if identifier in CONFIRMATION_GATES:
-        return GateOpening.REQUIRES_CONFIRMATION
-    return GateOpening.AUTOMATIC
 
 
 def _step(**overrides: Any) -> StepDefinition:
