@@ -304,7 +304,8 @@ contains `delete`, `remove` or `purge`:
 
 ```python
 offending = [
-    name for name in exported
+    name
+    for name in exported
     if any(verb in name.lower() for verb in ("delete", "remove", "purge"))
 ]
 assert offending == []
