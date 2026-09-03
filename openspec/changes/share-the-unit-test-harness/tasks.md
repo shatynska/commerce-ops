@@ -98,7 +98,7 @@ possible — see task 6.10, which is its worst case.
       `@pytest.mark.parametrize` decorators (172). Kinds 3 and 4 are not
       optional — an `assert_called_with` is not an `ast.Assert`, and a
       parametrize table is where expected values hide.
-- [ ] 1.3 Add `pythonpath = ["."]` to `[tool.pytest.ini_options]`. **Commit
+- [x] 1.3 Add `pythonpath = ["."]` to `[tool.pytest.ini_options]`. **Commit
       alone**, with no other change, and confirm the 1.1 baseline is unmoved
       (`design.md` — Decision 1).
 - [x] 1.4 Create `tests/support/__init__.py` — empty, exporting nothing. Modules
@@ -131,7 +131,7 @@ The largest single cluster: 159 files. Mechanical; no test body may change.
 - [x] 2.3 Migrate the 128 files declaring `CONFIRMATION_GATES`, including the one
       formatting variant.
 - [x] 2.4 Migrate the 120 files declaring `_opening_for`.
-- [ ] 2.5 Migrate the 93 files declaring `_gates`. Six variants: confirm the
+- [x] 2.5 Migrate the 93 files declaring `_gates`. Six variants: confirm the
       83-file dominant variant is the one hoisted; record the other five as
       migrated or deliberately left.
 - [ ] 2.6 Confirm the 15 files that *assert* on `SPECIFIED_GATE_ORDER` still

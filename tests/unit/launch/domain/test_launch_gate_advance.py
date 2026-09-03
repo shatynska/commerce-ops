@@ -52,7 +52,6 @@ from typing import Any, Final
 import pytest
 
 from commerce_ops.launch.domain.launch_playbook import (
-    Gate,
     Hazard,
     LaunchPlaybook,
     OffsetAnchor,
@@ -76,7 +75,7 @@ from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
 from commerce_ops.shared.domain.lifecycle_stage import Posture
 from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
-from tests.support.playbook import opening_for as _opening_for
+from tests.support.playbook import gates as _gates
 
 PRODUCT_ID: Final = ProductId(str(uuid.uuid4()))
 
@@ -90,23 +89,6 @@ REJECTED: Final = (LaunchError, ValueError)
 
 def _any_discipline() -> Discipline:
     return next(iter(Discipline))
-
-
-def _gates() -> tuple[Gate, ...]:
-    """The eight gates in the specified order.
-
-    A gate carries its identifier, position and opening mode and nothing
-    else since `replace-metric-conditions-with-steps`: what it waits on
-    is stated by the steps attached to it.
-    """
-    return tuple(
-        Gate(
-            identifier=identifier,
-            position=position,
-            opening=_opening_for(identifier),
-        )
-        for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1)
-    )
 
 
 def _step(**overrides: Any) -> StepDefinition:

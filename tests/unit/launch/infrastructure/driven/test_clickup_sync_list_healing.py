@@ -138,7 +138,6 @@ from typing import Any, Final
 import pytest
 
 from commerce_ops.launch.domain.launch_playbook import (
-    Gate,
     Hazard,
     LaunchPlaybook,
     NotApplicable,
@@ -162,7 +161,7 @@ from commerce_ops.launch.infrastructure.driven.clickup_sync import (
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId, Sku
 from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
-from tests.support.playbook import opening_for as _opening_for
+from tests.support.playbook import gates as _gates
 
 pytestmark = pytest.mark.anyio
 
@@ -211,13 +210,6 @@ def anyio_backend() -> str:
 # ---------------------------------------------------------------------------
 # Domain fixtures -- transcribed from `test_clickup_sync_tags.py`
 # ---------------------------------------------------------------------------
-
-
-def _gates() -> tuple[Gate, ...]:
-    return tuple(
-        Gate(identifier=identifier, position=position, opening=_opening_for(identifier))
-        for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1)
-    )
 
 
 def _step(**overrides: Any) -> StepDefinition:

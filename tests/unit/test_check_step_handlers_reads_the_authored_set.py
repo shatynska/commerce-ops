@@ -75,7 +75,6 @@ import pytest
 
 from commerce_ops.launch.domain import launch_playbook as playbook_module
 from commerce_ops.launch.domain.launch_playbook import (
-    Gate,
     Hazard,
     LaunchPlaybook,
     OffsetAnchor,
@@ -86,7 +85,7 @@ from commerce_ops.launch.domain.launch_playbook import (
 )
 from commerce_ops.shared.domain.discipline import Discipline
 from tests.support.playbook import SPECIFIED_GATE_ORDER
-from tests.support.playbook import opening_for as _opening_for
+from tests.support.playbook import gates as _gates
 
 CHECK_MODULE: Final = "commerce_ops.check_step_handlers"
 
@@ -101,13 +100,6 @@ _ENTRY_NAMES: Final = ("main", "check", "run", "check_step_handlers")
 # ---------------------------------------------------------------------------
 # Domain fixtures
 # ---------------------------------------------------------------------------
-
-
-def _gates() -> tuple[Gate, ...]:
-    return tuple(
-        Gate(identifier=identifier, position=position, opening=_opening_for(identifier))
-        for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1)
-    )
 
 
 def _step(**overrides: Any) -> StepDefinition:

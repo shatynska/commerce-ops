@@ -103,8 +103,6 @@ from commerce_ops.access.application import create_member
 from commerce_ops.access.infrastructure.driving import members_admin as members_module
 from commerce_ops.catalog.domain.product import Product
 from commerce_ops.launch.domain.launch_playbook import (
-    Gate,
-    GateOpening,
     Hazard,
     LaunchPlaybook,
     OffsetAnchor,
@@ -124,7 +122,7 @@ from commerce_ops.shared.domain.access_scope import AccessScope
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import MarketplaceId, ProductId, Sku
 from commerce_ops.shared.domain.lifecycle_stage import Launching
-from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
+from tests.support.playbook import gates as _gates
 
 _LAUNCH_MODULE_NAME: Final = "commerce_ops.launch.infrastructure.driving.launch_admin"
 _ASSETS_MODULE_NAME: Final = "commerce_ops.shared.infrastructure.driving.admin_assets"
@@ -236,21 +234,6 @@ def _step(identifier: str, **overrides: Any) -> StepDefinition:
     }
     attributes.update(overrides)
     return StepDefinition(**attributes)
-
-
-def _gates() -> tuple[Gate, ...]:
-    return tuple(
-        Gate(
-            identifier=identifier,
-            position=position,
-            opening=(
-                GateOpening.REQUIRES_CONFIRMATION
-                if identifier in CONFIRMATION_GATES
-                else GateOpening.AUTOMATIC
-            ),
-        )
-        for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1)
-    )
 
 
 PLAYBOOK: Final = LaunchPlaybook(

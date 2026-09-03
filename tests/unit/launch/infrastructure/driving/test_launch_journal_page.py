@@ -123,7 +123,6 @@ from commerce_ops.access.application import create_member
 from commerce_ops.access.infrastructure.driving import members_admin as members_module
 from commerce_ops.catalog.domain.product import Product
 from commerce_ops.launch.domain.launch_playbook import (
-    Gate,
     LaunchPlaybook,
     OffsetAnchor,
     Scope,
@@ -142,8 +141,7 @@ from commerce_ops.shared.domain.access_scope import AccessScope
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import MarketplaceId, ProductId, Sku
 from commerce_ops.shared.domain.lifecycle_stage import Launching
-from tests.support.playbook import SPECIFIED_GATE_ORDER
-from tests.support.playbook import opening_for as _opening_for
+from tests.support.playbook import gates as _gates
 
 _ASSETS_MODULE_NAME: Final = "commerce_ops.shared.infrastructure.driving.admin_assets"
 
@@ -200,13 +198,6 @@ _VOID_TAGS: Final = (
 # ---------------------------------------------------------------------------
 # Domain builders
 # ---------------------------------------------------------------------------
-
-
-def _gates() -> tuple[Gate, ...]:
-    return tuple(
-        Gate(identifier=identifier, position=position, opening=_opening_for(identifier))
-        for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1)
-    )
 
 
 def _step(identifier: str, **overrides: Any) -> StepDefinition:

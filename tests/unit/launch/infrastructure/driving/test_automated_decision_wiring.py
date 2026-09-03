@@ -159,7 +159,6 @@ import commerce_ops.launch.application as launch_application
 import commerce_ops.main as composition_root
 from commerce_ops.access.application import create_member
 from commerce_ops.launch.domain.launch_playbook import (
-    Gate,
     Hazard,
     LaunchPlaybook,
     OffsetAnchor,
@@ -174,7 +173,7 @@ from commerce_ops.launch.infrastructure.driving import automation_confirmation
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
 from tests.support.playbook import SPECIFIED_GATE_ORDER
-from tests.support.playbook import opening_for as _opening_for
+from tests.support.playbook import gates as _gates
 
 pytestmark = pytest.mark.anyio
 
@@ -298,13 +297,6 @@ def sessionless(monkeypatch: pytest.MonkeyPatch) -> None:
 # ---------------------------------------------------------------------------
 # Domain fixtures (the shape `test_automated_result_decisions.py` records)
 # ---------------------------------------------------------------------------
-
-
-def _gates() -> tuple[Gate, ...]:
-    return tuple(
-        Gate(identifier=identifier, position=position, opening=_opening_for(identifier))
-        for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1)
-    )
 
 
 def _step(**overrides: Any) -> StepDefinition:

@@ -79,7 +79,6 @@ import pytest
 from commerce_ops.briefing.application import assemble_daily_briefing
 from commerce_ops.launch.application import read_launches
 from commerce_ops.launch.domain.launch_playbook import (
-    Gate,
     Hazard,
     LaunchPlaybook,
     OffsetAnchor,
@@ -106,7 +105,7 @@ from commerce_ops.shared.domain.lifecycle_stage import (
 )
 from commerce_ops.shared.domain.severity import Severity
 from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
-from tests.support.playbook import opening_for as _opening_for
+from tests.support.playbook import gates as _gates
 
 pytestmark = pytest.mark.anyio
 
@@ -135,13 +134,6 @@ def anyio_backend() -> str:
 # Launch-side builders -- the shapes `test_launch_dates.py` and
 # `test_graduation.py` already record for this aggregate.
 # ---------------------------------------------------------------------------
-
-
-def _gates() -> tuple[Gate, ...]:
-    return tuple(
-        Gate(identifier=identifier, position=position, opening=_opening_for(identifier))
-        for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1)
-    )
 
 
 def _step(**overrides: Any) -> StepDefinition:

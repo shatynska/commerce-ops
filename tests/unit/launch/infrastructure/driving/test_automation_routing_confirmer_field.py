@@ -57,7 +57,6 @@ import commerce_ops.launch.application as launch_application
 from commerce_ops.launch.application import StepResolution
 from commerce_ops.launch.domain.launch_playbook import (
     Blocked,
-    Gate,
     Hazard,
     LaunchPlaybook,
     OffsetAnchor,
@@ -73,7 +72,7 @@ from commerce_ops.shared.domain.access_scope import AccessScope
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId, Sku
 from tests.support.playbook import SPECIFIED_GATE_ORDER
-from tests.support.playbook import opening_for as _opening_for
+from tests.support.playbook import gates as _gates
 
 pytestmark = pytest.mark.anyio
 
@@ -106,13 +105,6 @@ def anyio_backend() -> str:
 # ---------------------------------------------------------------------------
 # Domain fixtures
 # ---------------------------------------------------------------------------
-
-
-def _gates() -> tuple[Gate, ...]:
-    return tuple(
-        Gate(identifier=identifier, position=position, opening=_opening_for(identifier))
-        for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1)
-    )
 
 
 def _step(**overrides: Any) -> StepDefinition:

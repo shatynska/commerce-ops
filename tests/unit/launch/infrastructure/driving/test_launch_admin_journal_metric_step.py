@@ -83,14 +83,12 @@ from fastapi.testclient import TestClient
 from commerce_ops.access.application import create_member
 from commerce_ops.catalog.domain.product import Product
 from commerce_ops.launch.domain.launch_playbook import (
-    Gate,
-    GateOpening,
     LaunchPlaybook,
 )
 from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.shared.domain.identity import MarketplaceId, ProductId, Sku
 from commerce_ops.shared.domain.lifecycle_stage import Launching
-from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
+from tests.support.playbook import gates as _gates
 
 _PAGE_MODULE_NAME: Final = "commerce_ops.launch.infrastructure.driving.launch_admin"
 
@@ -132,21 +130,6 @@ T_REGISTERED: Final = datetime(2026, 8, 23, 9, 0, tzinfo=UTC)
 METRIC_STEP_NAME: Final = (
     "INVENTORY GATE: 60-80+ units fulfillable, uniquely-marked-metric-step"
 )
-
-
-def _gates() -> tuple[Gate, ...]:
-    return tuple(
-        Gate(
-            identifier=identifier,
-            position=position,
-            opening=(
-                GateOpening.REQUIRES_CONFIRMATION
-                if identifier in CONFIRMATION_GATES
-                else GateOpening.AUTOMATIC
-            ),
-        )
-        for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1)
-    )
 
 
 PLAYBOOK: Final = LaunchPlaybook(version="journal-metric-v1", gates=_gates(), steps=())

@@ -55,7 +55,6 @@ from typing import Any, Final
 import pytest
 
 from commerce_ops.launch.domain.launch_playbook import (
-    Gate,
     Hazard,
     LaunchPlaybook,
     OffsetAnchor,
@@ -69,7 +68,7 @@ from commerce_ops.launch.domain.launch_run import Launch, LaunchError, Provenanc
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
 from tests.support.playbook import SPECIFIED_GATE_ORDER
-from tests.support.playbook import opening_for as _opening_for
+from tests.support.playbook import gates as _gates
 
 PRODUCT_ID: Final = ProductId(str(uuid.uuid4()))
 RECORDED_AT: Final = datetime(2027, 1, 5, 12, 0, tzinfo=UTC)
@@ -77,13 +76,6 @@ RECORDED_AT: Final = datetime(2027, 1, 5, 12, 0, tzinfo=UTC)
 # The step that will be "retired": present in the first served playbook,
 # absent from the second.
 RETIRED_STEP_ID: Final = "listing.title-conforms"
-
-
-def _gates() -> tuple[Gate, ...]:
-    return tuple(
-        Gate(identifier=identifier, position=position, opening=_opening_for(identifier))
-        for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1)
-    )
 
 
 def _step(**overrides: Any) -> StepDefinition:

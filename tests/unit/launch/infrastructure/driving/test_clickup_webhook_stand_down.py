@@ -92,7 +92,6 @@ from fastapi.testclient import TestClient
 
 from commerce_ops.launch.domain import launch_playbook as playbook_module
 from commerce_ops.launch.domain.launch_playbook import (
-    Gate,
     Hazard,
     LaunchPlaybook,
     OffsetAnchor,
@@ -108,7 +107,7 @@ from commerce_ops.launch.infrastructure.driving import clickup_webhook as webhoo
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
 from tests.support.playbook import SPECIFIED_GATE_ORDER
-from tests.support.playbook import opening_for as _opening_for
+from tests.support.playbook import gates as _gates
 
 WEBHOOK_SECRET: Final = "test-clickup-webhook-secret-not-a-real-credential"
 SIGNATURE_HEADER: Final = "X-Signature"
@@ -132,13 +131,6 @@ UNHELD_GATE: Final = "graduated"
 # ---------------------------------------------------------------------------
 # Domain fixtures
 # ---------------------------------------------------------------------------
-
-
-def _gates() -> tuple[Gate, ...]:
-    return tuple(
-        Gate(identifier=identifier, position=position, opening=_opening_for(identifier))
-        for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1)
-    )
 
 
 def _step(**overrides: Any) -> StepDefinition:

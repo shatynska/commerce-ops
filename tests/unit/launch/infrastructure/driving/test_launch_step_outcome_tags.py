@@ -140,7 +140,6 @@ from commerce_ops.access.application import create_member
 from commerce_ops.catalog.domain.product import Product
 from commerce_ops.launch.domain.launch_playbook import (
     Blocked,
-    Gate,
     Hazard,
     InProgress,
     LaunchPlaybook,
@@ -159,7 +158,7 @@ from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import MarketplaceId, ProductId, Sku
 from commerce_ops.shared.domain.lifecycle_stage import Launching
 from tests.support.playbook import SPECIFIED_GATE_ORDER
-from tests.support.playbook import opening_for as _opening_for
+from tests.support.playbook import gates as _gates
 
 # ---------------------------------------------------------------------------
 # The module under test, resolved by name
@@ -339,13 +338,6 @@ class _Postponed:
 # ---------------------------------------------------------------------------
 # Domain builders
 # ---------------------------------------------------------------------------
-
-
-def _gates() -> tuple[Gate, ...]:
-    return tuple(
-        Gate(identifier=identifier, position=position, opening=_opening_for(identifier))
-        for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1)
-    )
 
 
 def _step(identifier: str, **overrides: Any) -> StepDefinition:

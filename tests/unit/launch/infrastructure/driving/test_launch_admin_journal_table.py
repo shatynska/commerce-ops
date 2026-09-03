@@ -111,14 +111,12 @@ from fastapi.testclient import TestClient
 from commerce_ops.access.application import create_member, list_members
 from commerce_ops.catalog.domain.product import Product
 from commerce_ops.launch.domain.launch_playbook import (
-    Gate,
-    GateOpening,
     LaunchPlaybook,
 )
 from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.shared.domain.identity import MarketplaceId, ProductId, Sku
 from commerce_ops.shared.domain.lifecycle_stage import Launching
-from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
+from tests.support.playbook import gates as _gates
 
 # ---------------------------------------------------------------------------
 # The module under test, resolved by name
@@ -170,21 +168,6 @@ CATEGORY_MARKERS: Final[dict[str, str]] = {
     "blocked": "category-blocked",
     "admin": "category-admin",
 }
-
-
-def _gates() -> tuple[Gate, ...]:
-    return tuple(
-        Gate(
-            identifier=identifier,
-            position=position,
-            opening=(
-                GateOpening.REQUIRES_CONFIRMATION
-                if identifier in CONFIRMATION_GATES
-                else GateOpening.AUTOMATIC
-            ),
-        )
-        for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1)
-    )
 
 
 #: A playbook holding the eight specified gates and no step at all — the
