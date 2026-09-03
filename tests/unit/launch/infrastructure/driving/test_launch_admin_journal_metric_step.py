@@ -69,10 +69,8 @@ from __future__ import annotations
 
 import asyncio
 import importlib
-from collections.abc import Iterator
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import UTC, date, datetime
-from html.parser import HTMLParser
 from types import ModuleType
 from typing import Any, Final
 
@@ -88,6 +86,10 @@ from commerce_ops.launch.domain.launch_playbook import (
 from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.shared.domain.identity import MarketplaceId, ProductId, Sku
 from commerce_ops.shared.domain.lifecycle_stage import Launching
+from tests.support.html import Node as _Node
+from tests.support.html import all_text as _all_text
+from tests.support.html import elements as _elements
+from tests.support.html import tree as _tree
 from tests.support.playbook import gates as _gates
 
 _PAGE_MODULE_NAME: Final = "commerce_ops.launch.infrastructure.driving.launch_admin"
@@ -355,92 +357,6 @@ def _journal_html(surface: _Surface, product_id: ProductId) -> str:
 # ---------------------------------------------------------------------------
 # An HTML tree (INVENTED, reused verbatim)
 # ---------------------------------------------------------------------------
-
-
-@dataclass
-class _Text:
-    text: str
-
-
-@dataclass
-class _Node:
-    tag: str
-    attrs: dict[str, str]
-    parent: _Node | None
-    children: list[_Node | _Text] = field(default_factory=list)
-
-
-_VOID_TAGS: Final = (
-    "area",
-    "base",
-    "br",
-    "col",
-    "embed",
-    "hr",
-    "img",
-    "input",
-    "link",
-    "meta",
-    "param",
-    "source",
-    "track",
-    "wbr",
-)
-
-
-def _flat(text: str) -> str:
-    return " ".join(text.split())
-
-
-class _TreeParser(HTMLParser):
-    def __init__(self) -> None:
-        super().__init__(convert_charrefs=True)
-        self.root = _Node("#document", {}, None)
-        self._stack: list[_Node] = [self.root]
-
-    def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        self._stack[-1].children.append(
-            _Node(tag, {k: v or "" for k, v in attrs}, self._stack[-1])
-        )
-
-    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        node = _Node(tag, {k: v or "" for k, v in attrs}, self._stack[-1])
-        self._stack[-1].children.append(node)
-        if tag not in _VOID_TAGS:
-            self._stack.append(node)
-
-    def handle_endtag(self, tag: str) -> None:
-        for index in range(len(self._stack) - 1, 0, -1):
-            if self._stack[index].tag == tag:
-                del self._stack[index:]
-                return
-
-    def handle_data(self, data: str) -> None:
-        if data.strip():
-            self._stack[-1].children.append(_Text(_flat(data)))
-
-
-def _tree(html: str) -> _Node:
-    parser = _TreeParser()
-    parser.feed(html)
-    return parser.root
-
-
-def _elements(node: _Node) -> Iterator[_Node]:
-    for child in node.children:
-        if isinstance(child, _Node):
-            yield child
-            yield from _elements(child)
-
-
-def _all_text(node: _Node) -> str:
-    found: list[str] = []
-    for child in node.children:
-        if isinstance(child, _Text):
-            found.append(child.text)
-        else:
-            found.append(_all_text(child))
-    return " ".join(part for part in found if part).lower()
 
 
 def _holds(node: _Node, needle: str) -> bool:

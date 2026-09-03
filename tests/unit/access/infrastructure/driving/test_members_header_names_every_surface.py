@@ -65,9 +65,7 @@ from __future__ import annotations
 
 import asyncio
 import importlib
-from collections.abc import Callable, Iterator
-from dataclasses import dataclass, field
-from html.parser import HTMLParser
+from dataclasses import dataclass
 from types import ModuleType
 from typing import Any, Final
 from urllib.parse import urlsplit
@@ -86,6 +84,17 @@ from commerce_ops.launch.domain.launch_playbook import (
 from commerce_ops.launch.infrastructure.driving import (
     playbook_admin as playbook_module,
 )
+from tests.support.html import Node as _Node
+from tests.support.html import all_text as _all_text
+from tests.support.html import ancestors as _ancestors
+from tests.support.html import classes as _classes
+from tests.support.html import element_disabled as _element_disabled
+from tests.support.html import element_hidden as _element_hidden
+from tests.support.html import elements as _elements
+from tests.support.html import flat as _flat
+from tests.support.html import inherited as _inherited
+from tests.support.html import size as _size
+from tests.support.html import tree as _tree
 from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
 
 _LAUNCH_MODULE_NAME: Final = "commerce_ops.launch.infrastructure.driving.launch_admin"
@@ -123,23 +132,6 @@ _LAUNCH_WORDS: Final = ("launch", "launches", "product")
 _CURRENT_ATTRIBUTES: Final = ("aria-current", "data-current")
 _CURRENT_CLASSES: Final = ("current", "active", "here", "is-current", "is-active")
 
-_VOID_TAGS: Final = (
-    "area",
-    "base",
-    "br",
-    "col",
-    "embed",
-    "hr",
-    "img",
-    "input",
-    "link",
-    "meta",
-    "param",
-    "source",
-    "track",
-    "wbr",
-)
-_HIDDEN_CLASSES: Final = ("hidden", "is-hidden", "d-none", "sr-only", "visually-hidden")
 
 _LAUNCH_SEAMS: Final[dict[str, tuple[str, ...]]] = {
     "verify": ("verify_admin_session",),
@@ -357,119 +349,6 @@ def _members_html(surfaces: _Surfaces) -> str:
 # ---------------------------------------------------------------------------
 # An HTML tree
 # ---------------------------------------------------------------------------
-
-
-@dataclass
-class _Text:
-    text: str
-
-
-@dataclass
-class _Node:
-    tag: str
-    attrs: dict[str, str]
-    parent: _Node | None
-    children: list[_Node | _Text] = field(default_factory=list)
-
-
-class _TreeParser(HTMLParser):
-    def __init__(self) -> None:
-        super().__init__(convert_charrefs=True)
-        self.root = _Node("#document", {}, None)
-        self._stack: list[_Node] = [self.root]
-
-    def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        self._stack[-1].children.append(
-            _Node(tag, {k: v or "" for k, v in attrs}, self._stack[-1])
-        )
-
-    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        node = _Node(tag, {k: v or "" for k, v in attrs}, self._stack[-1])
-        self._stack[-1].children.append(node)
-        if tag not in _VOID_TAGS:
-            self._stack.append(node)
-
-    def handle_endtag(self, tag: str) -> None:
-        for index in range(len(self._stack) - 1, 0, -1):
-            if self._stack[index].tag == tag:
-                del self._stack[index:]
-                return
-
-    def handle_data(self, data: str) -> None:
-        if data.strip():
-            self._stack[-1].children.append(_Text(_flat(data)))
-
-
-def _flat(text: str) -> str:
-    return " ".join(text.split())
-
-
-def _tree(html: str) -> _Node:
-    parser = _TreeParser()
-    parser.feed(html)
-    return parser.root
-
-
-def _elements(node: _Node) -> Iterator[_Node]:
-    for child in node.children:
-        if isinstance(child, _Node):
-            yield child
-            yield from _elements(child)
-
-
-def _all_text(node: _Node) -> str:
-    found: list[str] = []
-    for child in node.children:
-        if isinstance(child, _Text):
-            found.append(child.text)
-        else:
-            found.append(_all_text(child))
-    return " ".join(part for part in found if part).lower()
-
-
-def _classes(node: _Node) -> set[str]:
-    return set(node.attrs.get("class", "").split())
-
-
-def _element_hidden(node: _Node) -> bool:
-    attrs = node.attrs
-    if "hidden" in attrs and attrs["hidden"].lower() != "false":
-        return True
-    if attrs.get("aria-hidden", "").lower() == "true":
-        return True
-    style = attrs.get("style", "").replace(" ", "").lower()
-    if "display:none" in style or "visibility:hidden" in style:
-        return True
-    return any(
-        name in _HIDDEN_CLASSES for name in attrs.get("class", "").lower().split()
-    )
-
-
-def _element_disabled(node: _Node) -> bool:
-    return (
-        "disabled" in node.attrs
-        or node.attrs.get("aria-disabled", "").lower() == "true"
-    )
-
-
-def _inherited(node: _Node, predicate: Callable[[_Node], bool]) -> bool:
-    walker: _Node | None = node
-    while walker is not None and walker.tag != "#document":
-        if predicate(walker):
-            return True
-        walker = walker.parent
-    return False
-
-
-def _ancestors(node: _Node) -> Iterator[_Node]:
-    walker = node.parent
-    while walker is not None and walker.tag != "#document":
-        yield walker
-        walker = walker.parent
-
-
-def _size(node: _Node) -> int:
-    return 1 + sum(1 for _ in _elements(node))
 
 
 def _links_to(root: _Node, path: str) -> list[_Node]:

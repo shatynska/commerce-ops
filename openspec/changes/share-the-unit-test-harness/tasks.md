@@ -163,15 +163,55 @@ The largest single cluster: 159 files. Mechanical; no test body may change.
 
 37 files carry a hand-rolled HTML parser and its query helpers.
 
-- [ ] 3.1 Read all 8 `_TreeParser` variants and establish whether they differ in
+- [x] 3.1 Read all 8 `_TreeParser` variants and establish whether they differ in
       behaviour or only in formatting and docstrings. Any that differs in
       behaviour is not Population A — record it and leave those files to §6.
-- [ ] 3.2 Write `tests/support/html.py`: `TreeParser`, `Node`, `Text`, `tree`,
+
+      **They differ in behaviour, and the difference is in the data model the
+      parser builds rather than in the parser.** Three models exist:
+
+      | model | shape | files |
+      |---|---|---|
+      | STANDARD | `Node(tag, attrs, parent, children)` + `Text(text)` | 25 |
+      | ORDERED | `Node(…, order, children)` + `Text(text)` | 8 |
+      | ORDINAL | `Node(tag, attrs, parent, children)` + `Text(ordinal, text)` | 4 |
+
+      ORDERED and ORDINAL track document order, which the shared queries do not
+      model; those 12 keep their own parser. Of the 25 STANDARD files, 20 have a
+      core (`Node`/`Text`/`TreeParser`/`tree`/`VOID_TAGS`/`flat`) matching the
+      shared form exactly and are migrated; 5 differ in `_flat` or the parser's
+      `handle_data` and are left.
+
+      One accepted equivalence: `_Text(_flat(data))` and
+      `_Text(" ".join(data.split()))` are the same operation, since `_flat` is
+      `" ".join(text.split())` in all 22 files that declare it.
+
+      **A second name collision, like 2.7's `_tree`:** `_flat` is two different
+      functions — `_flat(text: str) -> str` in 22 files, and `_flat(node:
+      _Node) -> str` in 2 others, where it joins a node's texts. Matching on the
+      identifier would have conflated them.
+- [x] 3.2 Write `tests/support/html.py`: `TreeParser`, `Node`, `Text`, `tree`,
       `elements`, `texts`, `all_text`, `attribute_text`, `classes`, `carries`,
       `element_hidden`, `element_disabled`, `inherited`, `ancestors`, `nearest`,
       `size`, `flat`, plus `VOID_TAGS`, `HX_VERBS`, `HIDDEN_CLASSES`.
-- [ ] 3.3 Migrate the 37 files to aliased imports preserving the local
-      `_`-prefixed spellings. Verify no test body changed.
+- [x] 3.3 Migrate the **20** qualifying files to aliased imports preserving the
+      local `_`-prefixed spellings. Verify no test body changed.
+
+      **The leaf helpers are not independent of the core, contrary to this
+      task's first attempt.** A version of the migration moved `texts`,
+      `classes` and `elements` into files whose `Node`/`Text` stayed local, on
+      the reasoning that a leaf only reads whatever node it is handed. It does
+      not: `texts()` asks `isinstance(child, Text)`, so a shared leaf handed a
+      *local* `_Text` matches nothing and returns silently wrong results — the
+      suite would have stayed green. `mypy` caught it as `Argument 1 to "texts"
+      has incompatible type "_Node"; expected "Node"`, which is the "fails at
+      the seam" property of Decision 6 doing exactly its job. A leaf now
+      migrates only when the core migrates with it.
+
+      That attempt also left **orphaned `@dataclass` decorators**: a decorated
+      class's `lineno` points at `class`, not at the decorator, so removing
+      `_Node` left its `@dataclass` behind to attach to the next declaration.
+      Spans are now anchored on `decorator_list[0]`.
 
 ## 4. Phase A — the admin-session harness and fixed domain literals
 

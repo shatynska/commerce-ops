@@ -73,10 +73,9 @@ from __future__ import annotations
 import asyncio
 import importlib
 import uuid
-from collections.abc import Callable, Iterator
-from dataclasses import dataclass, field
+from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import UTC, datetime
-from html.parser import HTMLParser
 from types import ModuleType
 from typing import Any, Final
 from urllib.parse import urljoin, urlsplit
@@ -87,6 +86,13 @@ from fastapi.testclient import TestClient
 
 import commerce_ops.access.application as access_application
 from commerce_ops.access.application import create_member
+from tests.support.html import HX_VERBS as _HX_VERBS
+from tests.support.html import Node as _Node
+from tests.support.html import Text as _Text
+from tests.support.html import elements as _elements
+from tests.support.html import nearest as _nearest
+from tests.support.html import size as _size
+from tests.support.html import tree as _tree
 
 _PAGE_MODULE_NAME: Final = "commerce_ops.access.infrastructure.driving.roles_admin"
 
@@ -145,7 +151,6 @@ _ACTION_HINTS: Final[dict[str, tuple[str, ...]]] = {
     "rename": ("title", "rename"),
 }
 
-_HX_VERBS: Final = ("hx-get", "hx-post", "hx-put", "hx-patch", "hx-delete")
 
 #: Structures a row never encloses. Used to tell a row from a
 #: whole-page wrapper that happens to name one role.
@@ -162,23 +167,6 @@ _NOT_A_ROW: Final = (
     "h2",
     "link",
     "style",
-)
-
-_VOID_TAGS: Final = (
-    "area",
-    "base",
-    "br",
-    "col",
-    "embed",
-    "hr",
-    "img",
-    "input",
-    "link",
-    "meta",
-    "param",
-    "source",
-    "track",
-    "wbr",
 )
 
 
@@ -526,60 +514,6 @@ def _collections() -> _Collections:
 # ---------------------------------------------------------------------------
 
 
-@dataclass
-class _Text:
-    text: str
-
-
-@dataclass
-class _Node:
-    tag: str
-    attrs: dict[str, str]
-    parent: _Node | None
-    children: list[_Node | _Text] = field(default_factory=list)
-
-
-class _TreeParser(HTMLParser):
-    def __init__(self) -> None:
-        super().__init__(convert_charrefs=True)
-        self.root = _Node("#document", {}, None)
-        self._stack: list[_Node] = [self.root]
-
-    def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        self._stack[-1].children.append(
-            _Node(tag, {k: v or "" for k, v in attrs}, self._stack[-1])
-        )
-
-    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        node = _Node(tag, {k: v or "" for k, v in attrs}, self._stack[-1])
-        self._stack[-1].children.append(node)
-        if tag not in _VOID_TAGS:
-            self._stack.append(node)
-
-    def handle_endtag(self, tag: str) -> None:
-        for index in range(len(self._stack) - 1, 0, -1):
-            if self._stack[index].tag == tag:
-                del self._stack[index:]
-                return
-
-    def handle_data(self, data: str) -> None:
-        if data.strip():
-            self._stack[-1].children.append(_Text(" ".join(data.split())))
-
-
-def _tree(html: str) -> _Node:
-    parser = _TreeParser()
-    parser.feed(html)
-    return parser.root
-
-
-def _elements(node: _Node) -> Iterator[_Node]:
-    for child in node.children:
-        if isinstance(child, _Node):
-            yield child
-            yield from _elements(child)
-
-
 def _all_text(node: _Node) -> str:
     parts: list[str] = []
     for child in node.children:
@@ -607,25 +541,6 @@ def _attribute_text(node: _Node) -> str:
     for element in [node, *_elements(node)]:
         parts.extend(element.attrs.values())
     return " ".join(parts).lower()
-
-
-def _size(node: _Node) -> int:
-    return 1 + sum(1 for _ in _elements(node))
-
-
-def _ancestors(node: _Node) -> Iterator[_Node]:
-    walker = node.parent
-    while walker is not None and walker.tag != "#document":
-        yield walker
-        walker = walker.parent
-
-
-def _nearest(node: _Node, tag: str) -> _Node | None:
-    return next((a for a in _ancestors(node) if a.tag == tag), None)
-
-
-def _classes(node: _Node) -> set[str]:
-    return set(node.attrs.get("class", "").split())
 
 
 def _is_action_control(node: _Node) -> bool:
