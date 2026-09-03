@@ -57,6 +57,22 @@ async def record_sub_category(
     await store.save(product)
 
 
+async def record_hazard_categories(
+    store: CatalogStore, product_id: ProductId, categories: Sequence[str]
+) -> None:
+    """Record what a compliance screening found against a product.
+
+    Shaped like `record_sub_category`, and empty is meaningful: an empty
+    sequence records that the product was screened and fell in none of
+    the categories screened against, which is a different fact from never
+    having been screened. A caller establishing nothing calls this not at
+    all rather than calling it with nothing.
+    """
+    product = await _existing(store, product_id)
+    product.record_hazard_categories(categories)
+    await store.save(product)
+
+
 async def change_stage(
     store: CatalogStore,
     product_id: ProductId,

@@ -787,11 +787,32 @@ def _product(sku: str = SKU, name: str = NAME) -> Product:
     )
 
 
+#: The two catalog-written facts the dossier's automation region renders.
+#: A non-empty hazard set rather than an empty one, so that "fully
+#: populated" means a value is present rather than a screening merely
+#: having run.
+SUB_CATEGORY: Final = "Home & Kitchen > Kitchen & Dining > Cutting Boards"
+HAZARD_CATEGORIES: Final = ("supplements",)
+
+
 def _fully_populated() -> Product:
     """Every field the dossier renders, populated: an ASIN, a stage
-    entered by a human decision, and therefore a stage confirmer."""
+    entered by a human decision, and therefore a stage confirmer, and the
+    two facts automated steps write to the catalog.
+
+    The last two were added by `screen-for-hazard-categories`, which gave
+    the dossier a region rendering the product's recorded sub-category and
+    hazard categories. This fixture's name is its contract, and the
+    page-wide `not-recorded` assertion in
+    `test_a_products_identity_is_rendered_whole` depends on it: leaving
+    either field unrecorded would make that assertion fail for a reason
+    that has nothing to do with identity, and scoping the assertion
+    instead would weaken it.
+    """
     product = _product()
     product.change_stage(Launching(phase=1), confirmed_by=CONFIRMER, at=T_MOVED)
+    product.record_sub_category(SUB_CATEGORY)
+    product.record_hazard_categories(HAZARD_CATEGORIES)
     store = _AsinStore(product)
     # `_AsinStore` carries only the two membership `record_asin` reaches
     # for; the cast keeps the rest of `CatalogStore` out of a fixture

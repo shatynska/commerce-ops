@@ -93,11 +93,25 @@ class FindingSink:
     reads_as: str | None = None
 
 
-class SubCategoryRecorder(Protocol):
-    """Records a product's sub-category finding — `record_sub_category`'s
-    shape minus the store, so the launch module never sees catalog
-    internals. Satisfied by a partial application of
-    `catalog.application.record_sub_category`, wired at the composition
-    root the same way `SteadyStateStamper` is."""
+class FindingRecorder(Protocol):
+    """Records a handler's supported finding against a product — the
+    recording use case's shape minus the store, so the launch module never
+    sees catalog internals. Satisfied by a partial application of whichever
+    `catalog.application` use case the sink writes through, wired at the
+    composition root the same way `SteadyStateStamper` is.
 
-    async def __call__(self, product_id: ProductId, sub_category: str) -> object: ...
+    **The value is deliberately untyped, and that is the honest
+    declaration rather than a gap.** This one port stands for every sink,
+    and what a sink writes is a property of the sink: `lp.listing.007`
+    writes a sub-category string, `lp.strategy.006` a sequence of hazard
+    categories, and a third would write a third thing. There is no type
+    that is true of all of them and narrower than this one.
+
+    It replaces `SubCategoryRecorder`, which named one field in its own
+    signature. That was accurate while one sink existed;
+    `separate-the-result-from-the-comment` left it deliberately, recording
+    that widening it belonged to the change adding a second sink with a
+    different value type. This is that port.
+    """
+
+    async def __call__(self, product_id: ProductId, value: Any) -> object: ...

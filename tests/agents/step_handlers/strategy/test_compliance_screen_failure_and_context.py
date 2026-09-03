@@ -669,41 +669,23 @@ async def test_a_value_reaching_the_model_is_the_value_not_its_rendering(
     )
 
 
-@pytest.mark.anyio
-@pytest.mark.parametrize(
-    ("verdict", "comment"),
-    [
-        ("clear", CLEAR_COMMENT),
-        ("flagged", FLAGGED_COMMENT),
-        ("undetermined", UNDETERMINED_COMMENT),
-    ],
-)
-async def test_no_finding_accompanies_the_outcome(
-    verdict: str, comment: str, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Scenario: No finding accompanies the outcome.
-
-    WHEN the screen resolves a step with any verdict
-    THEN it reports an outcome and the text a member reads, and no typed
-    finding.
-
-    SPECIFIED: `finding` is absent for every verdict, including the
-    satisfying one — which is the row where the sibling handler *does*
-    report one, and so the row an implementation copied from it gets wrong.
-    `StepResolution.finding` has one sink today (`Product.sub_category`)
-    and a compliance verdict is not it; reporting a finding no sink accepts
-    would record nothing while implying something was recorded.
-    """
-    resolution, _ = await _screen_with(_Answer(verdict, comment), monkeypatch)
-
-    assert getattr(resolution, "finding", None) is None, (
-        f"a {verdict!r} verdict reported a typed finding: "
-        f"{getattr(resolution, 'finding', None)!r}"
-    )
-    text = getattr(resolution, "result", None)
-    assert isinstance(text, str) and text.strip(), (
-        f"the screen reported no text a member could read: {resolution!r}"
-    )
+# REMOVED by `screen-for-hazard-categories`: `test_no_finding_accompanies_
+# the_outcome` stood here, deriving from the scenario *No finding
+# accompanies the outcome* of the requirement *The screen reads only what
+# it is given, and reports no finding*. That requirement is REMOVED by that
+# change's delta, with its Reason and Migration recorded there: the screen
+# now reports a finding on the two routes that establish something about
+# the product, so the test asserted the opposite of the specification for
+# its `clear` and `flagged` rows.
+#
+# Its `undetermined` row remains true and is covered by
+# `test_an_undetermined_verdict_establishes_nothing`; the two rows that
+# changed are covered by `test_a_clear_verdict_establishes_an_empty_set_of_
+# categories` and `test_a_flagged_verdict_establishes_the_categories_it_
+# named`, and the flagged-naming-nothing case by
+# `test_a_flagged_verdict_naming_nothing_is_not_recorded_as_flagged` -- all
+# four in `test_compliance_screen_hazard_finding.py`. Nothing it asserted
+# is now unasserted.
 
 
 @pytest.mark.anyio

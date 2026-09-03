@@ -14,6 +14,7 @@ from commerce_ops.catalog.application.use_cases import (
     get_product_by_sku,
     list_products,
     record_asin,
+    record_hazard_categories,
     record_sub_category,
     register_product,
 )
@@ -34,6 +35,7 @@ __all__ = [
     "get_product_by_sku",
     "list_products",
     "record_asin",
+    "record_hazard_categories",
     "record_sub_category",
     "register_product",
 ]

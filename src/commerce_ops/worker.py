@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Sequence
 from datetime import date
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -41,7 +42,11 @@ configure_logging()
 from commerce_ops.briefing.application import LaunchReportsUnavailableError
 from commerce_ops.briefing.infrastructure.driven import slack_notifier
 from commerce_ops.briefing.infrastructure.driving import daily_briefing_job
-from commerce_ops.catalog.application import get_product_by_id, record_sub_category
+from commerce_ops.catalog.application import (
+    get_product_by_id,
+    record_hazard_categories,
+    record_sub_category,
+)
 from commerce_ops.catalog.infrastructure.driven.product_repository import (
     CatalogProductRepository,
 )
@@ -121,7 +126,7 @@ async def _record_sub_category(product_id: ProductId, sub_category: str) -> None
     """The sub-category advisor's recording capability for `lp.listing.007`.
 
     Injected here for the same reason `_read_catalog_product` is: `launch`
-    may not import catalog's store (`SubCategoryRecorder`,
+    may not import catalog's store (`FindingRecorder`,
     `launch/application/ports.py`), and only this module sits outside
     `.importlinter`'s containers. Its own session, opened per call, for
     the same reason the catalog reader's is: the pass may resolve many
@@ -133,19 +138,52 @@ async def _record_sub_category(product_id: ProductId, sub_category: str) -> None
         )
 
 
-# Wired for `lp.listing.007` specifically, not for every automated step —
-# `launch-step-automation`'s recording capability is per-step, and this is
-# the only step this deployment writes a finding for today.
-# The sink names both where the value goes and how that field reads. The
+async def _record_hazard_categories(
+    product_id: ProductId, categories: Sequence[str]
+) -> None:
+    """The compliance screen's recording capability for `lp.strategy.006`.
+
+    The second sink, and the first whose value is not a scalar. Injected
+    here for the reason `_record_sub_category` gives, with its own session
+    for the same reason.
+
+    **An empty sequence is passed through, not filtered out.** `()` is the
+    screen's assertion that the product was screened and fell in none of
+    the named categories, and dropping it here would leave the product
+    reporting the question as open when it has been answered -- the one
+    confusion `product-catalog`'s three-state rule exists to prevent. The
+    screen reports no finding at all where it established nothing, so an
+    empty value reaching this function always means "screened and clear".
+    """
+    async with session() as db_session:
+        await record_hazard_categories(
+            CatalogProductRepository(db_session), product_id, categories
+        )
+
+
+# Wired per step, not for every automated step —
+# `launch-step-automation`'s recording capability is per-step, and these
+# are the two steps this deployment writes a finding for today.
+# Each sink names both where the value goes and how that field reads. The
 # wording travels onto the recording with the finding rather than being
 # resolved by whoever renders it: this root registers it, and the admin
 # surface is served by another (`launch-instance`).
+#
+# Only this root, deliberately. Sinks are read by the automation pass, and
+# the pass runs here; `main.py` registers handlers through `register_all()`
+# and assigns no pass dependency at all. A handler must resolve in every
+# process consulting the registry, and a sink need not.
 automation_pass.recorders = {
     "lp.listing.007": FindingSink(
         record=_record_sub_category,
         field="sub_category",
         reads_as="Sub-category",
-    )
+    ),
+    "lp.strategy.006": FindingSink(
+        record=_record_hazard_categories,
+        field="hazard_categories",
+        reads_as="Hazard categories",
+    ),
 }
 
 # The gate-progression pass asks about a gate by naming the product, so the

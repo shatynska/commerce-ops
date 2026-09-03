@@ -53,8 +53,10 @@ successor, not a reversal of it.
   all establish nothing about the product and SHALL report no finding at all — leaving
   what the product already carries untouched, including a prior flag.
 
-- **The wire schema gains the categories, and gains two structural contradictions with
-  them.** The model answers with a verdict *and* the categories it is answering about.
+- **The wire schema gains a categories field, and two structural contradictions come
+  with it.** The model answers with a verdict *and* the categories it is answering about.
+  The schema requirement governing that wire is not itself changed — see *Modified
+  Capabilities* below for why adding a field does not modify it.
   A `flagged` verdict naming no category, and a `clear` verdict naming one, are responses
   that contradict themselves in the same way `screen-a-product-for-compliance`'s
   comment-veto catches — but structurally, so no prose is inspected to find them. Each
@@ -126,8 +128,14 @@ None.
   unchanged and stays; what it says about reporting no finding is replaced by a
   requirement that the screen reports a typed finding on exactly the two routes that
   establish something about the product, and none on the routes that do not. The
-  wire schema requirement gains the categories field, and two new structural
-  contradictions join the comment-veto that already exists, each with its own reason.
+  Two new structural contradictions join the comment-veto that already exists, each with
+  its own reason, and the requirement that resolves a blank comment gains a stated
+  precedence over both. The wire schema requirement itself is **not** modified: it
+  already demands that acceptance be established by the provider's own conversion at the
+  call site's schema, and that every combination the wire can express have a defined
+  destination. Adding a field widens that combination space and changes nothing about
+  what the requirement asks, so the new destinations are supplied by the contradiction
+  requirements rather than by editing it (`design.md`, Decision 2).
 - `product-catalog`: gains hazard categories as a recordable, three-state fact about a
   product — recorded independently of lifecycle stage as the sub-category already is,
   replaced wholesale by a later screening, reported back in a way that distinguishes

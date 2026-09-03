@@ -49,6 +49,37 @@
     </dl>
   </section>
 
+  {# What automated steps have established about the product and written
+     to the catalog. Neither identity — nobody registered these, a handler
+     established them — nor a retained result, which is a proposal held
+     for a decision. A fact written to the product outlives the result
+     that produced it and survives a launch's graduation, which is why it
+     belongs on the page that turns on the product.
+
+     Each fact is one element carrying its own marker, label and value
+     together, rather than a `<dt>`/`<dd>` pair: the marker qualifies the
+     whole fact, and a label split into its own element would carry the
+     field's name with none of the state that qualifies it. #}
+  <section class="established-by-automation">
+    <h2>Established by automation</h2>
+    <p class="region-note">What automated steps found and wrote to this
+      product. These are the screens' own results; no member confirmed
+      them. What a member decided is in the record below.</p>
+
+    <p class="established-fact{% if not dossier.established.sub_category %} not-recorded{% endif %}">Sub-category:
+      {% if dossier.established.sub_category %}<span class="fact-value">{{ dossier.established.sub_category }}</span>
+      {% else %}<span class="fact-value">Not recorded</span>{% endif %}</p>
+
+    {# Three states, never two. `not-recorded` and `screened-clear` are
+       different facts — an open question and an answered one — and the
+       state is resolved in Python because `None` and `()` are both falsy
+       here and mean opposite things. #}
+    <p class="established-fact {{ dossier.established.hazard_state }}">Hazard categories:
+      {% if dossier.established.hazard_state == 'not-recorded' %}<span class="fact-value">Not screened</span>
+      {% elif dossier.established.hazard_state == 'screened-clear' %}<span class="fact-value">Screened, no category found</span>
+      {% else %}<span class="fact-value">Screened; found in {{ dossier.established.hazard_categories | join(', ') }}</span>{% endif %}</p>
+  </section>
+
   {# The container names what this record holds. Only a terminal proposal
      on a step naming a confirmer is retained; everything else is
      recorded against the launch and never reaches here. A page offering

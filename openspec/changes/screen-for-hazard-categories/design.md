@@ -88,10 +88,30 @@ flat required field, with the coupling to the verdict expressed in the field's o
 description, which the model reads, and enforced afterwards by the two contradiction
 routes.
 
-**Required rather than optional**, because under strict structured output every property
-is required anyway; a model with nothing to put in it emits `[]`. That is the same
-reasoning `_blank` already encodes for `comment`, and it is why `[]` is the ordinary
-`clear` answer rather than a special case.
+**Required of the model, defaulted in Python — two different senses of "required", and
+only the first is this decision's.** Under strict structured output every property is
+required, so the model must send `categories` whatever the Python declaration says; a
+model with nothing to put in it emits `[]`, which is why `[]` is the ordinary `clear`
+answer rather than a special case. That is the same reasoning `_blank` already encodes
+for `comment`.
+
+Established by running the conversion rather than by argument, which is what this
+capability's own schema requirement demands of exactly this kind of claim:
+
+```
+convert_to_openai_tool(ScreenResponse, strict=True)
+  required: ['verdict', 'categories', 'comment']        # every property, defaults included
+  categories: {"type": "array", "items": {"type": "string"}, "description": …}
+  oneOf anywhere: False
+ScreenResponse.model_json_schema()                       # without strict
+  required: ['verdict']
+```
+
+So the field is declared `default_factory=list`. Declaring it with no default would
+change nothing about what the provider requires and would additionally oblige every
+*caller* to pass it — breaking roughly sixty existing tests that script the wire model
+as `(verdict=…, comment=…)`, and forcing edits to tests this change has no business
+editing. `comment` is already declared this way for the same reason.
 
 `compliance-screen`'s existing schema requirement already demands that the conversion be
 exercised against the provider's own adapter, at the call site's schema, and that every
@@ -209,6 +229,7 @@ actively misleading the moment a second sink carries a list. It becomes:
 ```python
 class FindingRecorder(Protocol):
     """Records a handler's supported finding against a product …"""
+
     async def __call__(self, product_id: ProductId, value: Any) -> object: ...
 ```
 

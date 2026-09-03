@@ -21,7 +21,7 @@ from datetime import datetime
 from typing import Final
 
 from sqlalchemy import CheckConstraint, DateTime, SmallInteger, String
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import ARRAY, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 
@@ -61,6 +61,14 @@ class CatalogProduct(Base):
     )
     stage_confirmed_by: Mapped[str | None] = mapped_column(String, nullable=True)
     sub_category: Mapped[str | None] = mapped_column(String, nullable=True)
+    # Nullable with no default, and the nullability is load-bearing:
+    # `NULL` is "never screened", `{}` is "screened and nothing found".
+    # A default of `'{}'` would declare the whole catalog screened and
+    # clear (`product-catalog`, *A product reports its hazard categories
+    # in three states, never two*).
+    hazard_categories: Mapped[list[str] | None] = mapped_column(
+        ARRAY(String), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

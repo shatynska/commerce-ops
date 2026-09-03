@@ -87,6 +87,12 @@ def _to_domain(row: CatalogProduct) -> Product:
         stage_entered_at=row.stage_entered_at,
         stage_confirmed_by=row.stage_confirmed_by,
         sub_category=row.sub_category,
+        # `None` stays `None` and `[]` stays empty. `row.hazard_categories
+        # or None` would collapse the two states this field exists to keep
+        # apart, and would do it silently.
+        hazard_categories=(
+            None if row.hazard_categories is None else tuple(row.hazard_categories)
+        ),
     )
 
 
@@ -108,6 +114,11 @@ class CatalogProductRepository:
             stage_entered_at=product.stage_entered_at,
             stage_confirmed_by=product.stage_confirmed_by,
             sub_category=product.sub_category,
+            hazard_categories=(
+                None
+                if product.hazard_categories is None
+                else list(product.hazard_categories)
+            ),
         )
         self._session.add(row)
         try:
@@ -154,4 +165,9 @@ class CatalogProductRepository:
         row.stage_entered_at = product.stage_entered_at
         row.stage_confirmed_by = product.stage_confirmed_by
         row.sub_category = product.sub_category
+        row.hazard_categories = (
+            None
+            if product.hazard_categories is None
+            else list(product.hazard_categories)
+        )
         await self._session.commit()
