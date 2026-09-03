@@ -148,13 +148,10 @@
              fact the page rendered before is still rendered, the recorder,
              the source and the recording time included -- never dropped.
 
-             Clamped to two lines by default and opened on click via
-             `<details>`/`<summary>` -- native disclosure, so a long
-             evidence text doesn't stretch every row to its height, and
-             no JS is needed to expand the one row a reader wants. The
-             clamped text and the chevron are separate elements so the
-             chevron itself is never counted into the clamp's line
-             budget. #}
+             The whole outcome is bounded to two lines and opened by one
+             `<details>`/`<summary>` control: a reader pressing it expects
+             the cell to open, not a portion of it. Native disclosure, so
+             no JS, and only the row a reader wants grows. #}
           <td class="evidence">
             {%- if step.recorded %}
             <details class="evidence-disclosure">
@@ -173,14 +170,27 @@
                     clipped. The result is the point of the column and is
                     never clipped; the comment carries its own clamp, over
                     inline content, which is what that mechanism is for. -#}
-                {%- if step.finding_reads %}
-                <div class="finding-result">{{ step.finding_reads }}: {{ step.finding_value }}</div>
-                <div class="finding-divide" aria-hidden="true"></div>
-                {%- if step.finding_comment %}
-                <div class="finding-comment">{{ step.finding_comment }}</div>
-                {%- endif %}
-                {%- endif %}
                 <span class="evidence-clamp">
+                  {#- The established fact, then the model's account of
+                      it: two blocks, one below the other, with no rule
+                      between them -- the break is the separation.
+
+                      Both are spans carried to block by the stylesheet,
+                      not `<p>`: this container is a span inside a
+                      `<summary>`, so a paragraph child is invalid and a
+                      block container would be invalid one level up. The
+                      requirement is stated over block-level elements and
+                      fixes no tag, for exactly that reason.
+
+                      Inside the container, so one bound holds the fact,
+                      the account, the verbatim evidence and the
+                      provenance, and one control opens all four. -#}
+                  {%- if step.finding_reads %}
+                  <span class="finding-result">{{ step.finding_reads }}: {{ step.finding_value }}</span>
+                  {%- if step.finding_comment %}
+                  <span class="finding-comment">{{ step.finding_comment }}</span>
+                  {%- endif %}
+                  {%- endif %}
                   {#- The verbatim evidence still follows: it is the record
                       of what a member was shown, and a tidier rendering
                       must not replace it. -#}

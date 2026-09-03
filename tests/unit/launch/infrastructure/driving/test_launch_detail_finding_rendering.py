@@ -35,12 +35,18 @@ only path a test may be written to.
 Four of the clauses below were written because a weaker test would pass a
 wrong implementation, and each is asserted in the shape that excludes it:
 
-- **Ordering by position, not by presence** (1.15, 1.18). The result, the
-  divide and the comment are located as elements and compared by their
-  place in the row's document order, with a check that none is nested
-  inside another. Asserting only that two class names appear would pass a
+- **Ordering by position, not by presence** (1.15, 1.18). The result and
+  the comment are located as elements and compared by their place in the
+  row's document order, with a check that neither is nested inside the
+  other. Asserting only that two class names appear would pass a
   rendering whose only difference is a `color` declaration — which is
   exactly what the requirement forbids.
+- **The stylesheet, not only the markup** (`read-a-finding-as-two-paragraphs`).
+  Block-level markup does not entail stacked layout: three block-level
+  children of a flex row rendered as three narrow columns in production
+  while every markup assertion here passed. The layout obligation, the
+  block-ness of the two parts, and the file's own brace balance are
+  therefore asserted over the served stylesheet.
 - **Visible text, not an element** (1.17). An empty value's result must
   carry readable characters beyond the field's own wording. "An element
   carrying a class and no text" is the failure the clause names by name.
@@ -55,7 +61,7 @@ wrong implementation, and each is asserted in the shape that excludes it:
 ## What is fixed, and what is INVENTED
 
 Fixed by the delta: the two literal markers `finding-result` and
-`finding-comment`; the separating element's marker `finding-divide`; that
+`finding-comment`; the bounded container's marker `evidence-clamp`; that
 the result leads with the field and the value and nothing else; that the
 field renders as an admin's words and, where a sink supplies none, as the
 field's own name; that an empty value renders as visible text; that the
@@ -119,6 +125,7 @@ from __future__ import annotations
 import asyncio
 import importlib
 import inspect
+import pathlib
 import re
 from collections.abc import Iterator
 from dataclasses import dataclass, field
@@ -279,7 +286,6 @@ _BLOCK_TAGS: Final = frozenset(
 
 RESULT_MARKER: Final = "finding-result"
 COMMENT_MARKER: Final = "finding-comment"
-DIVIDE_MARKER: Final = "finding-divide"
 
 
 # ---------------------------------------------------------------------------
@@ -1173,62 +1179,101 @@ def test_an_empty_value_is_distinguishable_from_no_finding_at_all(
 
 def test_the_distinction_survives_without_colour(rendered: _Rendered) -> None:
     """WHEN a carried finding's result and comment are rendered THEN they
-    are separate block-level elements with a separating element carrying
-    `finding-divide` between them, so that a rendering whose only
-    difference is a colour declaration does not satisfy this.
+    are separate block-level elements, neither containing the other, so
+    that a rendering whose only difference is a colour declaration does
+    not satisfy this.
 
-    The divide's *position* is asserted, not merely its presence: an
-    element carrying the marker but sitting before both, or after both,
-    separates nothing.
+    The separating element this scenario used to require is gone with
+    `read-a-finding-as-two-paragraphs`: the break between two blocks is
+    the separation. What is asserted is therefore the break itself --
+    two distinct elements, ordered, neither nested in the other -- which
+    a single element carrying two colours cannot satisfy.
     """
-    row = rendered.row(WORDED_STEP)
-    result = _require_marked(row, RESULT_MARKER)
-    comment = _require_marked(row, COMMENT_MARKER)
-    divide = _require_marked(row, DIVIDE_MARKER)
-
-    at_result = _position(row, result)
-    at_divide = _position(row, divide)
-    at_comment = _position(row, comment)
-    assert at_result < at_divide < at_comment, (
-        f"the divide sits at {at_divide} with the result at {at_result} and "
-        f"the comment at {at_comment}; it separates nothing"
-    )
-    assert not _is_inside(divide, result)
-    assert not _is_inside(divide, comment)
-    # And the inverse. Added during implementation, after `/code-review`
-    # found a `</span>` where a `</div>` belonged: an unclosed divide
-    # swallows the comment, the evidence and the provenance, and being
-    # `aria-hidden` it hides them from assistive technology. Every
-    # assertion above passed against that markup, because this file's
-    # parser pops through an unmatched end tag where a browser discards
-    # it -- so the tree under test was flat and the real one nested.
-    assert not _is_inside(comment, divide), (
-        "the comment is nested inside the divide, which means the divide "
-        "was never closed; it is aria-hidden, so the comment, the evidence "
-        "and the provenance are all hidden from assistive technology"
-    )
-    assert not _is_inside(result, divide)
-
-
-def test_the_result_and_comment_are_separate_block_level_elements(
-    rendered: _Rendered,
-) -> None:
-    """The same requirement's first half, asserted on its own so a
-    rendering that got the divide right and the blocks wrong is readable
-    from the failure."""
     row = rendered.row(WORDED_STEP)
     result = _require_marked(row, RESULT_MARKER)
     comment = _require_marked(row, COMMENT_MARKER)
 
     assert result is not comment
-    assert result.tag in _BLOCK_TAGS, (
-        f"the result is a <{result.tag}>, which is not block-level; "
-        "structure is what carries the distinction for a reader who cannot "
-        "distinguish the colours"
+    assert _position(row, result) < _position(row, comment)
+    assert not _is_inside(comment, result)
+    assert not _is_inside(result, comment)
+
+
+def test_no_separating_element_is_required(rendered: _Rendered) -> None:
+    """WHEN a carried finding's result and comment are rendered with no
+    element between them THEN the rendering satisfies this requirement,
+    the break between the two blocks being the separation.
+
+    This is the assertion that fails against the superseded spec, which
+    required an element carrying `finding-divide` to sit between them.
+    Written to fail against the live markup before being kept.
+    """
+    row = rendered.row(WORDED_STEP)
+    result = _require_marked(row, RESULT_MARKER)
+    comment = _require_marked(row, COMMENT_MARKER)
+
+    parent = result.parent
+    assert parent is not None and parent is comment.parent, (
+        "the result and the comment do not share a parent, so nothing can "
+        "be said about what sits between them"
     )
-    assert comment.tag in _BLOCK_TAGS, (
-        f"the comment is a <{comment.tag}>, which is not block-level"
+    siblings = [child for child in parent.children if isinstance(child, _Node)]
+    between = siblings[siblings.index(result) + 1 : siblings.index(comment)]
+    assert between == [], (
+        "an element sits between the result and the comment; the separation "
+        f"is the block break and needs no element: {[n.tag for n in between]}"
     )
+
+
+def test_the_whole_outcome_is_bounded_together(rendered: _Rendered) -> None:
+    """WHEN the detail page renders a step whose recording carries a
+    finding THEN the result, the comment, the verbatim evidence and the
+    provenance are all within one container carrying `evidence-clamp`,
+    none of them bounded independently of the others.
+
+    A reader pressing the control expects the cell to open, not a portion
+    of it. Written to fail against the live markup, where the two parts
+    sit outside that container entirely.
+    """
+    row = rendered.row(WORDED_STEP)
+    clamp = _marked(row, "evidence-clamp")
+    assert clamp is not None, (
+        "the row carries no element marked `evidence-clamp`, so nothing "
+        "bounds the outcome"
+    )
+    for marker in (
+        RESULT_MARKER,
+        COMMENT_MARKER,
+        "evidence-text",
+        "outcome-provenance",
+    ):
+        part = _require_marked(row, marker)
+        assert _is_inside(part, clamp), (
+            f"{marker!r} sits outside the bounded container, so the "
+            "disclosure opens a portion of the cell rather than the cell"
+        )
+
+
+def test_the_result_and_comment_are_separate_block_level_elements(
+    rendered: _Rendered,
+) -> None:
+    """The same requirement's first half, asserted on its own.
+
+    **No tag is asserted.** The delta fixes no tag literal for these two,
+    deliberately: `<p>` is invalid inside the `<span>` that bounds them
+    and a `<div>` container would be invalid inside `<summary>`, so both
+    are spans carried to block by the stylesheet. A test demanding a tag
+    would enforce more than the requirement supports. That the two are
+    laid out one below the other is asserted over the stylesheet instead,
+    which is where the failure actually lives -- see
+    `test_no_rule_lays_the_finding_out_in_a_row`.
+    """
+    row = rendered.row(WORDED_STEP)
+    result = _require_marked(row, RESULT_MARKER)
+    comment = _require_marked(row, COMMENT_MARKER)
+
+    assert result is not comment
+    assert result.parent is comment.parent
 
 
 def test_the_two_markers_are_carried_by_different_elements(
@@ -1373,7 +1418,7 @@ def test_a_recording_with_no_carried_finding_carries_no_finding_markers(
     unrelated change to the cell's markup, and the pin does not."""
     row = rendered_without_findings.row(PLAIN_STEP)
 
-    for marker in (RESULT_MARKER, COMMENT_MARKER, DIVIDE_MARKER):
+    for marker in (RESULT_MARKER, COMMENT_MARKER):
         assert _marked(row, marker) is None, (
             f"a recording carrying no finding rendered a {marker!r} element"
         )
@@ -1391,3 +1436,111 @@ def test_the_common_path_is_undisturbed_on_a_page_that_also_carries_findings(
     actual = _cell_html(rendered.html, PLAIN_STEP, rendered.served)
 
     assert actual == PINNED_OUTCOME_CELL
+
+
+# ---------------------------------------------------------------------------
+# Scenarios: No rule lays the two out in a row · The bound is not a count of
+# lines (tasks.md 1.3a)
+#
+# Asserted over the served stylesheet, in the idiom this capability already
+# uses for stylesheet obligations. These are the assertions that would have
+# caught the columns defect: block-level markup does not entail stacked
+# layout, and every markup-level assertion in this file passed against a
+# rendering that read as three narrow columns.
+# ---------------------------------------------------------------------------
+
+_VOCABULARY = (
+    pathlib.Path(__file__).resolve().parents[5]
+    / "src/commerce_ops/shared/infrastructure/driving/static/vocabulary.css"
+)
+
+
+def _rules_reaching(css: str, selector_fragment: str) -> list[str]:
+    """Every rule block whose selector mentions the fragment."""
+    blocks = re.findall(r"([^{}]+)\{([^{}]*)\}", css)
+    return [body for selector, body in blocks if selector_fragment in selector]
+
+
+def test_no_rule_lays_the_finding_out_in_a_row() -> None:
+    """WHEN the served stylesheet is read THEN no rule reaching the
+    container of a carried finding's result and comment lays its children
+    out in a row.
+    """
+    css = _VOCABULARY.read_text()
+    for body in _rules_reaching(css, "evidence-clamp"):
+        # Flex and grid put children in a row by different defaults, so
+        # they are asked different questions. Corrected after
+        # `/code-review`: one branch had been written for both, which
+        # accepted `grid-auto-flow: column` -- grid's *side by side* --
+        # and rejected a plain `display: grid`, which stacks.
+        if re.search(r"display:\s*(inline-)?flex", body):
+            assert re.search(r"flex-direction:\s*column", body), (
+                "a rule reaching the bounded container makes it a flex "
+                "container with no column direction, which lays its "
+                "children out in a row -- how a carried finding's parts "
+                f"came to render as three narrow columns: {body.strip()[:120]!r}"
+            )
+        if re.search(r"display:\s*(inline-)?grid", body):
+            assert not re.search(r"grid-auto-flow:\s*column", body), (
+                "a rule reaching the bounded container flows its grid "
+                "items by column, which places them side by side: "
+                f"{body.strip()[:120]!r}"
+            )
+
+
+def test_the_bound_is_not_a_count_of_lines() -> None:
+    """WHEN the served stylesheet is read THEN the rule bounding the
+    container carrying `evidence-clamp` does not bound it by a count of
+    lines.
+
+    A line-count bound is defined over inline content; the parts of a
+    carried finding are blocks, and bounding blocks that way is undefined
+    across browsers.
+    """
+    css = _VOCABULARY.read_text()
+    for body in _rules_reaching(css, "evidence-clamp"):
+        assert "line-clamp" not in body, (
+            "the bounded container is bounded by a count of lines, which "
+            "is defined over inline content and not over the blocks it "
+            f"now holds: {body.strip()[:120]!r}"
+        )
+
+
+def test_a_rule_makes_the_finding_s_two_parts_blocks() -> None:
+    """The stylesheet half of *The distinction survives without colour*.
+
+    The delta states the two are separate **block-level** elements, and
+    both are spans — so the block-ness lives entirely in the stylesheet,
+    and nothing in this file asserted it. Added after `/code-review`,
+    which found an unclosed rule earlier in the file that nested these
+    two: they still matched by accident, and would have been discarded
+    outright by any engine without relaxed nesting, leaving the fact and
+    the account run together on one line with the distinction carried by
+    nothing at all. Every other assertion here passed against that.
+    """
+    css = _VOCABULARY.read_text()
+    for marker in (RESULT_MARKER, COMMENT_MARKER):
+        bodies = _rules_reaching(css, marker)
+        assert bodies, f"no rule in the served stylesheet reaches .{marker}"
+        assert any(re.search(r"display:\s*block", body) for body in bodies), (
+            f".{marker} is never made block-level by the served stylesheet, "
+            "so the two run together on one line and the distinction rests "
+            "on colour alone"
+        )
+
+
+def test_the_served_stylesheet_is_brace_balanced() -> None:
+    """Not a scenario: a guard on the file the two tests above read.
+
+    An unclosed rule silently nests everything after it, so a rule can be
+    present, matched by these tests, and still not apply. That is what
+    happened — a merge resolution dropped one closing brace, and it
+    reached production. Cheap to assert, and it fails at the file rather
+    than at whichever rule happens to be downstream of the break.
+    """
+    css = re.sub(r"/\*.*?\*/", "", _VOCABULARY.read_text(), flags=re.DOTALL)
+    depth = css.count("{") - css.count("}")
+    assert depth == 0, (
+        f"the served stylesheet has {depth} unclosed rule(s); everything "
+        "after the break is nested inside it and may not apply at all"
+    )
