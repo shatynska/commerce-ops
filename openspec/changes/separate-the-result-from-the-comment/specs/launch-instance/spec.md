@@ -2,7 +2,11 @@
 
 ### Requirement: A recording may carry the finding that produced it
 
-A recorded step outcome SHALL be able to carry, in addition to its evidence and its provenance, the **finding** that produced it: the name of the field the finding's value was written to, that value, and the finding's comment.
+A recorded step outcome SHALL be able to carry, in addition to its evidence and its provenance, the **finding** that produced it: the name of the field the finding's value was written to, the wording that field reads as, that value, and the finding's comment.
+
+**The wording travels with the finding rather than being looked up.** It originates at the sink registration, which lives in the composition root of the process that runs the automation pass — a different process from the one serving the admin surface. A page resolving a wording through a registry that only the worker's root populates would render nothing, or would need a second registry kept in step with the first, which is the drift `registrations.py` exists to prevent elsewhere. Carrying it on the recording removes the question: a consumer needs no registry at all, which is the same reasoning that puts the finding on the report.
+
+The consequence is stated rather than hidden: **re-wording a sink does not change how recordings already made read.** A recording renders with the wording in force when it was made. That is defensible for a historical record and is the accepted cost of having no second registry; where a wording must be corrected retroactively, that is a migration and not a rendering change.
 
 *"Carries" rather than "retains":* `launch-step-automation` already uses **retained** for a result held awaiting a member's decision, which is a different record from this one.
 
@@ -16,6 +20,8 @@ This is additive in the strict sense. What a recording already carries — its o
 
 **The value's own emptiness SHALL be represented one way only.** Where a finding is present, its value SHALL be the value written; a value that is absent, or null, SHALL NOT be stored or read as a present finding. A finding whose value cannot be established is not a finding, and admitting a second spelling of "empty" would give the distinction above two answers.
 
+**The wording MAY be absent**, and a finding carrying none is not thereby incomplete — the field's own name is what such a finding reads as.
+
 **The comment MAY be absent.** A supported finding is not obliged to carry one, so a finding whose comment is absent SHALL be storable and readable as such, distinct from one whose comment is empty text.
 
 **A recording whose stored finding cannot be read SHALL be reported as carrying none, and SHALL NOT fail the read.** One unreadable row must not deny a reader every other fact about the launch — the surface that consumes this exists to prevent facts going missing, and failing the read would lose all of them to save one.
@@ -24,8 +30,8 @@ A later recording for the same step SHALL replace the carried finding along with
 
 #### Scenario: A recording carries the finding that produced it
 
-- **WHEN** an outcome is recorded together with a finding's field, value and comment
-- **THEN** the recording carries all three, readable back alongside its outcome, evidence and provenance
+- **WHEN** an outcome is recorded together with a finding's field, wording, value and comment
+- **THEN** the recording carries all four, readable back alongside its outcome, evidence and provenance
 
 #### Scenario: A carried finding reaches the launch report
 

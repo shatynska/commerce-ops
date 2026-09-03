@@ -12,7 +12,8 @@ crosses the module boundary only through catalog's public surface.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Protocol
+from dataclasses import dataclass
+from typing import Any, Protocol
 
 from commerce_ops.launch.application.journal import JournalOccurrence
 from commerce_ops.launch.domain.launch_playbook import LaunchPlaybook
@@ -68,6 +69,28 @@ class SteadyStateStamper(Protocol):
     async def __call__(
         self, product_id: ProductId, stage: LifecycleStage, *, confirmed_by: str
     ) -> object: ...
+
+
+@dataclass(frozen=True, slots=True)
+class FindingSink:
+    """Where a step's supported finding is written, and how that field
+    reads once it is.
+
+    One value rather than two mappings keyed by the same step: a step
+    could otherwise acquire a sink and no field name, or a field name and
+    no sink, and neither is a state worth being able to represent.
+
+    `reads_as` travels with the finding onto the recording rather than
+    being resolved by whoever renders it. The registration lives in the
+    composition root of the process running the automation pass, and the
+    surface that renders it is served by another; a second registry on
+    that side is the drift `registrations.py` exists to prevent
+    (`launch-instance`).
+    """
+
+    record: Any
+    field: str
+    reads_as: str | None = None
 
 
 class SubCategoryRecorder(Protocol):

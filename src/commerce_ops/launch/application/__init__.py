@@ -50,6 +50,7 @@ from commerce_ops.launch.application.playbook_authoring import (
     update_step,
 )
 from commerce_ops.launch.application.ports import (
+    FindingSink,
     LaunchJournal,
     LaunchStore,
     Playbooks,
@@ -90,6 +91,7 @@ __all__ = [
     "ActivationBlocker",
     "Blocked",
     "Decision",
+    "FindingSink",
     "GateDecision",
     "GraduationStampError",
     "InProgress",

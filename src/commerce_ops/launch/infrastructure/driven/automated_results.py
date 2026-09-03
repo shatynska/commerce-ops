@@ -23,6 +23,7 @@ Two things it does decide, because both are properties of storage:
 from __future__ import annotations
 
 import uuid
+from collections.abc import Mapping
 from datetime import datetime
 from typing import Any
 
@@ -53,6 +54,41 @@ def _outcome_name(outcome: Any) -> str:
     return str(getattr(kind, "__name__", outcome))
 
 
+def _finding_to_row(finding: Any) -> dict[str, Any] | None:
+    """The stored payload for a finding held with a pending result.
+
+    The same four keys the recording stores, so that carrying it onto the
+    recording at acceptance is a read and a pass-through rather than a
+    second shape to keep in step.
+    """
+    if finding is None:
+        return None
+    # A `CarriedFinding` from the pass, or a mapping from a caller that
+    # built one itself. Both are accepted because the column is the
+    # store's contract and not the pass's: reading the payload back at
+    # acceptance goes through one shape either way.
+    if isinstance(finding, Mapping):
+        field = finding.get("field")
+        reads_as = finding.get("reads_as")
+        value = finding.get("value")
+        comment = finding.get("comment")
+    else:
+        field = getattr(finding, "field", None)
+        reads_as = getattr(finding, "reads_as", None)
+        value = getattr(finding, "value", None)
+        comment = getattr(finding, "comment", None)
+    if field is None or value is None:
+        # No field, or no value, is no finding: `launch-instance` admits
+        # one spelling of empty and neither of these is it.
+        return None
+    return {
+        "field": field,
+        "reads_as": reads_as,
+        "value": value,
+        "comment": comment,
+    }
+
+
 class AutomatedResultRepository:
     """Reads and writes pending results on the caller's session."""
 
@@ -68,6 +104,7 @@ class AutomatedResultRepository:
         proposed_outcome: Any,
         result_text: str,
         produced_at: datetime,
+        finding: Any = None,
     ) -> AutomatedStepResult:
         row = AutomatedStepResult(
             id=uuid.uuid4(),
@@ -76,6 +113,7 @@ class AutomatedResultRepository:
             handler=handler,
             proposed_outcome=_outcome_name(proposed_outcome),
             result_text=result_text,
+            finding=_finding_to_row(finding),
             produced_at=produced_at,
             state=PENDING,
         )

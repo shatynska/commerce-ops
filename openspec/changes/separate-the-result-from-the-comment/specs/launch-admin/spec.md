@@ -6,7 +6,7 @@ Where a step's recording carries a finding, the launch detail page SHALL render 
 
 **The result SHALL lead with the field and the value and nothing else.** No introductory sentence, no restatement of the step, no label narrating what is about to be shown — the field's name and its value are the whole of it. What the page is reporting is a fact the launch now asserts, and a reader scanning a column of them must be able to read the fact itself rather than a sentence containing it.
 
-**The field SHALL be rendered as the words an admin uses, not as its storage identifier.** This capability already requires the outcome vocabulary be rendered as an admin's words rather than as its tokens, and a field name is the same kind of thing: `sub_category` is how a column is spelled, not how a person reads. The wording SHALL be supplied alongside the sink registration that names the field, so that naming a sink and naming how it reads are one act. Where a sink supplies no wording, the field's own name SHALL be rendered rather than nothing — an unrendered fact is the failure this surface exists to prevent.
+**The field SHALL be rendered as the words an admin uses, not as its storage identifier.** This capability already requires the outcome vocabulary be rendered as an admin's words rather than as its tokens, and a field name is the same kind of thing: `sub_category` is how a column is spelled, not how a person reads. The wording SHALL be supplied alongside the sink registration that names the field, so that naming a sink and naming how it reads are one act, and SHALL reach the page **on the carried finding itself** — the page SHALL NOT resolve it through a registry of its own. Where the carried finding has no wording, the field's own name SHALL be rendered rather than nothing — an unrendered fact is the failure this surface exists to prevent.
 
 **An empty value SHALL be rendered as visible text standing for emptiness, inside the result itself, and that text counts as the value rather than as a label.** An empty value is a result — something was established and it was empty — and it is exactly the state a reader most needs distinguished from a step that established nothing. Rendering it as blank, as whitespace, as an element carrying a class and no text, or by omitting the result SHALL NOT satisfy this: a reader must be able to see that the answer was "none", not infer it from an absence.
 
@@ -36,12 +36,12 @@ Weight, spacing and which token is used are not fixed here. They are visual judg
 
 #### Scenario: The field reads as an admin's words
 
-- **WHEN** the detail page renders a carried finding whose sink supplies a wording for its field
+- **WHEN** the detail page renders a carried finding that carries a wording for its field
 - **THEN** that wording is rendered rather than the storage identifier
 
 #### Scenario: A field with no supplied wording still renders
 
-- **WHEN** the detail page renders a carried finding whose sink supplies no wording
+- **WHEN** the detail page renders a carried finding that carries no wording
 - **THEN** the field's own name is rendered rather than nothing
 
 #### Scenario: An empty value renders as readable text

@@ -48,7 +48,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date, datetime
 from enum import Enum
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from commerce_ops.launch.domain.launch_playbook import (
     GATE_SEQUENCE,
@@ -121,11 +121,52 @@ class Provenance:
 
 
 @dataclass(frozen=True, slots=True)
+class CarriedFinding:
+    """The finding a recording carries: the fact it established, beside
+    the evidence rather than instead of it.
+
+    `field` is where the value was written and is what a later step would
+    match on; `reads_as` is how that field is shown to a person, and is
+    carried here rather than looked up because the sink that names both
+    is registered in the worker's composition root and the surface that
+    renders them is served by another (`launch-instance`). `value` is
+    what was written — an empty value is a *result*, and is why this is a
+    value object rather than an optional pair of columns. `comment` is
+    the account that came with it, and may be absent.
+
+    A finding with no value is not a finding: `launch-instance` admits
+    one spelling of empty, and `None` is not it.
+    """
+
+    field: str
+    value: Any
+    comment: str | None = None
+    reads_as: str | None = None
+
+    def __post_init__(self) -> None:
+        if not self.field or not self.field.strip():
+            raise LaunchError("a carried finding requires a non-empty field")
+        if self.value is None:
+            raise LaunchError(
+                "a carried finding requires a value; an absent value is not "
+                "an empty one"
+            )
+
+    @property
+    def reads(self) -> str:
+        """How the field is shown. Falls back to the field's own name — a
+        fact rendered awkwardly beats a fact not rendered."""
+        return self.reads_as or self.field
+
+
+@dataclass(frozen=True, slots=True)
 class StepProgress:
-    """A step's recorded outcome together with its recording provenance."""
+    """A step's recorded outcome together with its recording provenance,
+    and — where one was established — the finding that produced it."""
 
     outcome: StepOutcomeValue
     provenance: Provenance
+    finding: CarriedFinding | None = None
 
 
 class ApprovalDecision(Enum):
@@ -354,6 +395,7 @@ class Launch:
         step_id: str,
         outcome: StepOutcomeValue,
         provenance: Provenance,
+        finding: CarriedFinding | None = None,
     ) -> tuple[LaunchEvent, ...]:
         """Record an outcome for a step the pinned playbook defines.
 
@@ -366,6 +408,17 @@ class Launch:
         """
         step = self._defined_step(playbook, step_id)
 
+        # A finding reaches the domain already validated or not at all.
+        # Coercing a mapping here would put the one spelling of "empty"
+        # in two places -- an adapter reading a stored payload builds the
+        # value object, and a payload it cannot build one from is a
+        # recording that carries nothing (`launch-instance`).
+        if finding is not None and not isinstance(finding, CarriedFinding):
+            raise LaunchError(
+                "a carried finding must be a CarriedFinding; "
+                f"got {type(finding).__name__}"
+            )
+
         kind = _outcome_type(outcome)
         if kind in (Satisfied, NotApplicable, Refused):
             permitted = permissible_terminal_outcomes(step.hazard)
@@ -376,7 +429,7 @@ class Launch:
                 )
 
         self._step_progress[step_id] = StepProgress(
-            outcome=outcome, provenance=provenance
+            outcome=outcome, provenance=provenance, finding=finding
         )
 
         if kind is Satisfied:

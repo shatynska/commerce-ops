@@ -36,9 +36,9 @@ from typing import Any
 
 from commerce_ops.launch.application import (
     HANDLERS,
+    FindingSink,
     StepContext,
     StepResolution,
-    SubCategoryRecorder,
     record_step_outcome,
 )
 from commerce_ops.launch.domain.launch_playbook import (
@@ -49,7 +49,11 @@ from commerce_ops.launch.domain.launch_playbook import (
     StepStatus,
     permissible_terminal_outcomes,
 )
-from commerce_ops.launch.domain.launch_run import Launch, Provenance
+from commerce_ops.launch.domain.launch_run import (
+    CarriedFinding,
+    Launch,
+    Provenance,
+)
 from commerce_ops.launch.infrastructure.driven.automated_results import (
     AutomatedResultRepository,
 )
@@ -153,7 +157,7 @@ notifier: MonitoringNotifier | None = None
 # handler's own name says nothing about which step invoked it. Empty by
 # default, and a step absent from this mapping is not an error — most
 # steps carry no recording capability at all.
-recorders: Mapping[str, SubCategoryRecorder] = {}
+recorders: Mapping[str, FindingSink] = {}
 
 
 def _is_terminal_for(step: StepDefinition, outcome: Any) -> bool:
@@ -815,10 +819,15 @@ async def _record_finding(
     launch: Launch,
     handler_name: str,
     finding: Any,
-) -> bool:
+) -> tuple[bool, CarriedFinding | None]:
     """Invoke the step's recording capability for a supported finding.
 
-    Returns whether `_settle` may go on to record the step's own outcome.
+    Answers whether `_settle` may go on to record the step's own outcome,
+    and — where a value was actually written — the finding to carry onto
+    that recording. The second half is deliberately produced *here* and
+    nowhere else: keeping follows the write, so the only place that knows
+    a finding may be carried is the place that saw the write succeed
+    (`launch-step-automation`).
     A `Failure` finding, and a `Success` finding for a step no recorder is
     supplied for, both leave the step's own recording untouched — neither
     is this function's concern. A recorder that fails is treated exactly
@@ -826,12 +835,17 @@ async def _record_finding(
     this pass, and the pass walks on to the next one.
     """
     if not isinstance(finding, Success):
-        return True
-    recorder = recorders.get(step.identifier)
-    if recorder is None:
-        return True
+        return True, None
+    sink = recorders.get(step.identifier)
+    if sink is None:
+        return True, None
+    # A bare callable is still accepted, so that a deployment registering
+    # one keeps working -- it simply carries no field and so nothing is
+    # kept, which is the correct reading of a sink that names no field.
+    record = getattr(sink, "record", sink)
+    field = getattr(sink, "field", None)
     try:
-        await recorder(launch.product_id, finding.value)
+        await record(launch.product_id, finding.value)
     except Exception:
         _logger.warning(
             "automation pass: the recording capability for step '%s' on "
@@ -842,8 +856,15 @@ async def _record_finding(
             handler_name,
             exc_info=True,
         )
-        return False
-    return True
+        return False, None
+    if field is None:
+        return True, None
+    return True, CarriedFinding(
+        field=field,
+        value=finding.value,
+        comment=getattr(finding, "comment", None),
+        reads_as=getattr(sink, "reads_as", None),
+    )
 
 
 async def _settle(
@@ -887,13 +908,14 @@ async def _settle(
     # handler returned (`_invoke` does not enforce `StepResolution`), and
     # `test_a_smuggled_provenance_does_not_displace_the_constructed_one`
     # deliberately exercises a resolution-shaped double without the field.
-    if not await _record_finding(
+    written, carried = await _record_finding(
         recorders=recorders,
         step=step,
         launch=launch,
         handler_name=handler_name,
         finding=getattr(resolution, "finding", None),
-    ):
+    )
+    if not written:
         return
 
     if terminal and step.confirmer is not None:
@@ -904,6 +926,7 @@ async def _settle(
             proposed_outcome=outcome,
             result_text=resolution.result,
             produced_at=now,
+            finding=carried,
         )
         return
 
@@ -917,6 +940,7 @@ async def _settle(
             when=now,
             evidence=resolution.result,
         ),
+        finding=carried,
     )
 
 

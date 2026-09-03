@@ -70,6 +70,16 @@ They are separate because they answer to different readers and change for differ
 
 Where a sink supplies no wording the field's own name is rendered — a fact rendered awkwardly beats a fact not rendered, which is this surface's standing rule.
 
+### The wording travels on the finding, not through a registry
+
+The gap this closes was found by the test author, not by either review round, and it is worth recording why it was easy to miss: the wording is registered in `worker.py`, and the page that must render it is served by `main.py`. Two composition roots. The registration reaches the pass; it does not reach the page.
+
+Three routes were available. A second registry on the admin side duplicates the first and can drift from it — the failure `registrations.py` exists to prevent, and one that would show as a field silently rendering under its storage name. Moving the wording into the presentation layer contradicts the delta's own reasoning that naming a sink and naming how it reads are one act. Carrying it on the finding removes the question: the page reads what the report gave it and resolves nothing.
+
+So the stored payload is four keys, not three: `{"field", "reads_as", "value", "comment"}`.
+
+The cost is that a recording renders with the wording in force when it was made, so re-wording a sink does not reach recordings already written. For a historical record that is arguably the right answer, and where it is not, it is a migration rather than a rendering change. Stated in the delta so it is a known consequence rather than a surprise.
+
 ### The split leads the cell; the evidence stays under it
 
 The summary renders the result and the comment; the disclosure keeps the verbatim evidence and the provenance line it already has.

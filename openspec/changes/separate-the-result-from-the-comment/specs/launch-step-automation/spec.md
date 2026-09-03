@@ -2,7 +2,7 @@
 
 ### Requirement: A written finding is kept on the recording it produced
 
-Where a handler reports a supported finding and the step names a sink for it, the system SHALL keep on that step's recording the name of the field the sink writes, the value written, and the finding's comment — as `launch-instance` provides for.
+Where a handler reports a supported finding and the step names a sink for it, the system SHALL keep on that step's recording the name of the field the sink writes, the wording that sink gives it, the value written, and the finding's comment — as `launch-instance` provides for.
 
 *"Kept" here is deliberately not "retained".* This capability already uses **retained** for a result held awaiting a member's decision (*A retained result is kept and stays readable as the product's record*), and that is a different record from the one this requirement adds to. The two are related below, and must not be read as one.
 
@@ -20,7 +20,7 @@ So the finding SHALL travel with the pending result: stored alongside the propos
 
 **A non-terminal outcome carrying a finding SHALL keep it.** Where a handler writes a finding and proposes a non-terminal outcome, that outcome is recorded directly, and the finding is kept on it. Nothing about keeping a finding is conditional on the outcome being a satisfying one — a fact established about a product is established whether or not the step it came from is resolved.
 
-**The field's name SHALL come from the sink's registration and never from the handler.** A handler reports a value and a comment; where that value goes is the composition root's knowledge, registered alongside the sink itself. A handler SHALL NOT name a field, and SHALL NOT be given a way to. This is the rule `subcategory-advisor` states as "nothing outside this capability ever needs to know this step in particular has a sub-category field", read in the other direction: the capability does not get to know either.
+**The field's name and its wording SHALL both come from the sink's registration and never from the handler.** They are kept together on the recording, so that the surface rendering them needs no registry of its own — see `launch-instance`, which states why. A handler reports a value and a comment; where that value goes is the composition root's knowledge, registered alongside the sink itself. A handler SHALL NOT name a field, and SHALL NOT be given a way to. This is the rule `subcategory-advisor` states as "nothing outside this capability ever needs to know this step in particular has a sub-category field", read in the other direction: the capability does not get to know either.
 
 **Keeping a finding changes nothing about the outcome or the result.** The existing requirement that a reported finding leaves both exactly as they would be for a handler reporting none continues to hold in full. This requirement adds what is kept *beside* them; it does not qualify that one. A handler's produced text is still stored as evidence, unchanged and unabridged.
 
@@ -29,7 +29,7 @@ A handler reporting a `Failure` finding, and a handler reporting none, SHALL cau
 #### Scenario: A written finding is kept with the field it was written to
 
 - **WHEN** a handler reports a supported finding for a step naming a sink and no confirmer, and the value is written
-- **THEN** the recording the pass makes carries that sink's field name, the value written, and the finding's comment
+- **THEN** the recording the pass makes carries that sink's field name and wording, the value written, and the finding's comment
 
 #### Scenario: A confirmable step's finding survives until the result is accepted
 
