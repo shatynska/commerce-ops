@@ -1,0 +1,37 @@
+## Context
+
+See `proposal.md` — Why, for the defect and its evidence.
+
+`automation_pass.py`'s `notifier` global is annotated `MonitoringNotifier | None` (`shared.application.ports.MonitoringNotifier`, `post_monitoring_message(self, message: str) -> None`) — the message-only shape `overdue_check` and `clickup_sync_job` both call correctly (`notifier.post_monitoring_message(message)`, one positional argument). `_report_stuck_step` calls a different shape entirely — `post_monitoring_message(channel=..., text=..., thread_ts=...)` — which is what `launch`'s own `slack_notifier.py` module provides, and which `gate_confirmation.py` and `automation_confirmation.py` already call correctly by importing `post_monitoring_message` directly from that module at the top of the file, no injection involved.
+
+So there are two separate mistakes stacked on each other: `worker.py` injects the wrong module (briefing's, message-only) into `automation_pass.notifier`, and even the *type declared* for that global (`MonitoringNotifier`) is the wrong shape for what the call site actually does — it happens to go uncaught only because the value passes through four `notifier: Any` parameters (`run_automation_pass:260` → `_walk_launch:376` → `_note_repeat:503` → `_report_stuck_step:599`) before reaching the call, erasing the declared type at the first hop.
+
+## Goals / Non-Goals
+
+**Goals:**
+- The worker process delivers a stuck-step report through a notifier that can actually accept the call `_report_stuck_step` makes.
+- A future mismatch between what `worker.py` injects and what `_report_stuck_step` calls is a `mypy --strict` failure, not a swallowed `TypeError`.
+
+**Non-Goals:**
+- Removing the injection pattern in favor of `gate_confirmation.py`/`automation_confirmation.py`'s direct-import style. That would drop the "collaborators arrive as arguments" property `automation_pass.py`'s own module docstring names as what lets the whole pass be exercised without a database, and would widen this from a small, isolated fix into a rework of the module's test surface. Worth considering on its own terms later; not here.
+- Correcting `MonitoringNotifier`'s consumers (`overdue_check`, `clickup_sync_job`) — both already call the message-only shape correctly and are unaffected.
+- The `post_monitoring_message` naming ambiguity `docs/deferred-work.md` records separately ("`post_monitoring_message` is misnamed") — that entry already says it becomes tractable once this defect is fixed, and explicitly scopes the rename to a later change.
+
+## Decisions
+
+**D1 — Fix the injection site, not the call site.** `worker.py` injects `commerce_ops.launch.infrastructure.driven.slack_notifier` (aliased on import, since `briefing`'s module of the same name is already imported there) into `automation_pass.notifier`, in place of `briefing`'s. Alternative considered: change `_report_stuck_step` to call the message-only shape instead. Rejected — the call already carries `channel`, a mention tag folded into `text`, and `thread_ts` for the threaded reply `launch-step-automation` requires; collapsing those into one string would mean composing the channel and thread routing into the message body, which the launches channel and thread machinery elsewhere in `launch` never does.
+
+**D2 — A new Protocol, not a widened `MonitoringNotifier`.** `MonitoringNotifier`'s one-`message` shape is a real, independently-used contract (`overdue_check`, `clickup_sync_job`) — widening it to also accept `channel`/`text`/`thread_ts` would make every implementer support both call shapes for no reason either caller has. A new Protocol — `ThreadReplyNotifier`, `async def post_monitoring_message(self, *, channel: str, text: str, thread_ts: str | None = None) -> None` — is added to `launch/application/ports.py`, alongside `LaunchStore` and the module's other consumer-owned ports. `launch`'s own `slack_notifier` module satisfies it structurally, the same way `briefing`'s module satisfies `MonitoringNotifier` — a Protocol declaring a method is satisfied by any object carrying it, module included. `blocks` is left off the Protocol: `_report_stuck_step` never passes it, and a Protocol needs only the subset of the real signature a caller actually uses.
+
+**D3 — Narrow all four `notifier: Any` signatures to `ThreadReplyNotifier`.** The module global (`automation_pass.py:146`) changes from `MonitoringNotifier | None` to `ThreadReplyNotifier | None`, and the three intermediate parameters it is threaded through (`run_automation_pass`, `_walk_launch`, `_note_repeat`) plus `_report_stuck_step` itself change from `Any` to `ThreadReplyNotifier`. This is what turns a future re-introduction of this defect — someone injecting the wrong object again — into a `mypy --strict` failure at the assignment or call site, rather than a runtime one three layers down.
+
+**D4 — Tighten the test doubles, not just the production types.** Three fakes stand in for this call site, and all three are permissive enough to accept a call shape the real collaborator injected in production cannot: `test_stuck_step_report_to_thread_reply.py` and `test_stuck_step_report_submitter_fallback.py`'s `_CapturingNotifier` (`post_monitoring_message(self, **kwargs: Any)`), and — the sharpest instance — `test_automation_pass_repeat_backoff.py`'s `_FakeNotifier`, whose `post_monitoring_message` explicitly accepts *both* the message-only positional call and the channel/text/thread_ts keyword call, reading its own tolerance as a feature ("this double's own docstring says it is satisfied structurally and pins no call shape"). This is *Production code carries tolerances for incomplete test doubles* (`docs/deferred-work.md`) arriving as a missed defect: a double that accepts every shape a caller might use can never notice which one it was actually given. All three are narrowed to `ThreadReplyNotifier`'s actual shape (`channel`, `text`, `thread_ts` only), so a future call-shape drift fails the test's own call, not just production's.
+
+## Risks / Trade-offs
+
+- **A backlog of stuck-step reports fires on the first pass after deploy.** Already named in `proposal.md` — Impact. Every step that has been silently stuck since the defect shipped has never had its backoff record stamped as reported, so the first correctly-wired pass delivers all of them at once. This is the report finally doing what it always should have; not a regression to guard against, but worth naming so a burst of Slack messages right after deploy is not mistaken for a new problem.
+- **Narrowing four `Any` signatures could surface an unrelated latent type error along the same call chain.** `run_automation_pass`, `_walk_launch` and `_note_repeat` each pass `notifier` straight through without touching it, so this is unlikely, but `mypy --strict` (already a pre-commit gate per `AGENTS.md`) is the check that would catch it before it reaches review.
+
+## Migration Plan
+
+No schema change, no new runtime variable, no data migration. Ships through the normal PR path (`AGENTS.md` — every change reaches the server through a pull request). Rollback is reverting the merge commit; nothing persisted changes shape.
