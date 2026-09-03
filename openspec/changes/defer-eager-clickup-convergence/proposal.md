@@ -248,3 +248,120 @@ latency half of the problem and not the pool half.
 3. **Does the latency difference matter?** ~1 minute (B) versus near-instant
    (A). That depends on what someone does immediately after a gate crosses,
    which the code cannot answer.
+
+---
+
+## Production observation — 2026-09-03
+
+A real, reproduced production delay that lands squarely on the fork above.
+Recorded here rather than as its own change because it does not describe a
+*second* problem: it is evidence about which of A and B answers the one this
+change already carries. Every timestamp below is from the production
+database and the ClickUp API, not from reading the code.
+
+### What happened
+
+Launch `82312079-728c-4bb0-be91-72674241c61a` ("Disposable food trays 1"),
+standing at `commit`. Its ClickUp task for `lp.finance.001` appeared **1 h
+34 m after the step became eligible for one.**
+
+```
+04:23:36  launch started (Slack)
+04:23:38  ┐ eager convergence (slack_entry) creates four tasks:
+04:23:39  │   lp.strategy.003   869eutxv5
+04:23:40  │   lp.finance.010    869eutxva
+04:23:40  │   lp.creative.008   869eutxvf
+04:23:41  ┘   lp.inventory.019  869eutxvg
+          └── lp.finance.001    not released — after_steps: [lp.strategy.003]
+
+04:25:33  lp.strategy.003 closed in ClickUp
+04:25:34  webhook records the outcome; lp.finance.001 is now RELEASED
+          ── and nothing projects it ──
+04:30 … 05:50   gate_progression_pass runs eight times, converges nothing
+06:00:03  launch.clickup.completion_pass creates 869euucau
+06:56:24  closed → 06:56:38 commit gate opened
+```
+
+### Why
+
+`has_released` (`launch_run.py:691`) turns on **two** authored facts — the
+launch has reached `starts_at_gate`, *and* every `after_steps` dependency is
+resolved. `lp.finance.001` declares both: `starts_at_gate: commit` and
+`after_steps: ["lp.strategy.003"]`.
+
+The four eager triggers this change is about are wired to **one** of those
+two axes. Each fires on a launch starting or a gate crossing, and on nothing
+else:
+
+| site | condition |
+|---|---|
+| `slack_entry.py:631` | launch started |
+| `gate_confirmation.py:488` | gate approved |
+| `clickup_webhook.py:194` | `if launch.current_gate == gate_before: return` |
+| `gate_progression_job.py:216` | `if _crossed(progressed)` |
+
+The webhook *did* run at 04:25:34. But `lp.strategy.003` is
+`blocking: false` while `lp.finance.001` is `blocking: true`, so resolving
+the first could not open the `commit` gate, the gate was unchanged, and the
+guard returned before converging.
+
+**A step released by its `after_steps` resolving, without a gate crossing,
+has no trigger at all.** It falls through to `clickup_sync_job`'s twice-daily
+pass — here 1 h 34 m, worst case ~12 h.
+
+Two things made it reachable. `let-a-step-say-when-it-starts` added the
+`after_steps` axis on 2026-08-29;
+`trigger-clickup-projection-on-launch-events` added the four triggers on
+2026-08-31, the same day the cadence was widened from `*/10` to
+`0 6,18 * * *`. The triggers were written to compensate for that widening and
+covered the gate axis only. The two changes never met.
+
+And the asymmetry is sharp. `automation_pass` (`*/15`) walks **every** active
+launch and asks `has_released` directly, with no trigger at all
+(`automation_pass.py:279,396`). So an *automated* step unblocked in exactly
+this way is picked up within 15 minutes, while a *human* step waits up to 12
+hours. One predicate, two consumers, latencies differing by ~48×.
+
+### What it settles, and what it does not
+
+**It does not settle A vs B, but it costs A something the table above did not
+charge it.** A relocates the four triggers; it does not add one. A launch
+delayed this way is delayed identically under A — the enqueue never happens,
+because the condition that would enqueue it is `_crossed`, and nothing
+crossed. The row reading *"Lost trigger: same ≤12 h window as today"*
+understates it: there is a whole class of releases for which there is no
+trigger to lose, and A leaves that class where it is.
+
+**It is direct evidence for B's central claim.** B rests on staleness being
+derivable — *"a launch is behind exactly when it carries a released `active`
+`human` step with no row in `launch_clickup_tasks`"* — which this proposal
+flagged as *"reasoned from the schema, not verified against the release logic
+and `ClickUpMappingRepository`. Verify it before B is costed."* This launch is
+that case, observed: between 04:25:34 and 06:00:03 `lp.finance.001` was
+released, `active`, `human`, and had no `launch_clickup_tasks` row, and the
+predicate would have selected it on the first pass after 04:25:34. That is
+one instance, not a verification — the claim still needs checking against
+`has_released`'s full surface, the `graduated` early return, and a step whose
+task was deleted rather than never created. But it is no longer only reasoned
+from the schema.
+
+**It sharpens question 3.** The latency the open questions weigh — ~1 minute
+(B) against near-instant (A) — is the wrong comparison for this class. Here
+the real comparison is ~1 minute against 12 hours, because A's near-instant
+path does not fire.
+
+### An open question this raises
+
+Whether the trigger gap is in scope here at all. Two readings, and this
+observation does not choose between them:
+
+- It is **B's to close for free.** Under B there are no triggers, so there is
+  no gap; choosing B fixes this without a line of scope added, and saying so
+  is part of costing B honestly.
+- It is a **separate defect.** The gap exists today, on `main`, and A does not
+  remove it. If A is chosen, this needs its own change, and framing it as
+  something B happens to absorb would leave it unrecorded should the fork go
+  the other way.
+
+Either way it should be decided in `design.md` rather than defaulted into,
+because the two readings differ in what happens if A wins.
