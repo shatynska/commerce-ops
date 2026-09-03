@@ -12,6 +12,12 @@ Where a step's recording carries a finding, the launch detail page SHALL render 
 
 *"Text", not "marker", deliberately.* This capability uses **marker** for a literal class name, and the class names this requirement fixes are named below; what an empty value needs is something a person reads.
 
+**A value carrying several members SHALL be rendered as those members, each readable and separated from the next.** A finding's value is whatever its handler established, and it is not required to be a scalar; the first such value is a set of compliance categories. Rendering SHALL NOT present a multi-member value in a programming language's own notation for a collection — brackets, quotation marks around each member, or a type name — because the result element is prose an admin reads, and the surrounding requirement that it lead with the value and nothing else forbids decoration around it just as it forbids a label before it. Every member the finding carries SHALL appear; none SHALL be elided, summarised or truncated away, since a category omitted from a compliance result is the one a reader most needs.
+
+**A textual value SHALL NOT be rendered as a collection of its characters.** A string is one member, not a sequence of them, and this is stated because the two are the same kind of thing to most languages and not to a reader — a sub-category rendered as its letters, separated, would satisfy a naive reading of the clause above.
+
+**Emptiness outranks member rendering**: a value carrying no members is governed by the empty-value clause above and renders as text standing for emptiness, never as nothing at all.
+
 **The result and the comment SHALL carry distinct literal markers in the rendered response.** The result element SHALL carry `finding-result` and the comment element `finding-comment`. The markers are given because they are what a test is derived from, exactly as this capability's outcome-tag requirement already does — and they are a **necessary and not a sufficient** condition: carrying them satisfies this clause and does not by itself satisfy the ones below.
 
 **The distinction SHALL be carried by structure, not only by colour.** The result and the comment SHALL be **separate block-level elements, one following the other**, neither containing the other.
@@ -58,6 +64,16 @@ Weight, spacing and which token is used are not fixed here. They are visual judg
 
 - **WHEN** the detail page renders a step whose carried finding has an empty value
 - **THEN** the result carries visible text standing for emptiness, distinguishable from a step whose recording carries no finding at all
+
+#### Scenario: A value of several members renders as those members
+
+- **WHEN** the detail page renders a step whose carried finding has a value carrying several members
+- **THEN** every member appears in the result, each readable and separated from the next, with no bracket, quotation mark or type name from a collection's programming notation around them
+
+#### Scenario: A textual value is not rendered as its characters
+
+- **WHEN** the detail page renders a step whose carried finding has a textual value
+- **THEN** that text is rendered as one value, not as its characters separated from one another
 
 #### Scenario: The distinction survives without colour
 
