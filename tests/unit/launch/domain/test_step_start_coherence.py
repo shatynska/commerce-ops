@@ -74,11 +74,8 @@ from commerce_ops.launch.domain.launch_playbook import (
 from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
-from tests.support.playbook import SPECIFIED_GATE_ORDER
+from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
 
-CONFIRMATION_GATES: Final = frozenset(
-    {"commit", "order", "phase-one-complete", "graduated"}
-)
 #: SPECIFIED: "the final gate", the one every consumer stands down at.
 FINAL_GATE: Final = SPECIFIED_GATE_ORDER[-1]
 

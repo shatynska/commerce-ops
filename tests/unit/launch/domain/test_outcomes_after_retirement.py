@@ -69,11 +69,7 @@ from commerce_ops.launch.domain.launch_playbook import (
 from commerce_ops.launch.domain.launch_run import Launch, LaunchError, Provenance
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
-from tests.support.playbook import SPECIFIED_GATE_ORDER
-
-CONFIRMATION_GATES: Final = frozenset(
-    {"commit", "order", "phase-one-complete", "graduated"}
-)
+from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
 
 PRODUCT_ID: Final = ProductId(str(uuid.uuid4()))
 RECORDED_AT: Final = datetime(2027, 1, 5, 12, 0, tzinfo=UTC)

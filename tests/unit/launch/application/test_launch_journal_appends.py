@@ -120,13 +120,9 @@ from commerce_ops.launch.domain.launch_run import (
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import MetricId, ProductId
 from commerce_ops.shared.domain.lifecycle_stage import Posture
-from tests.support.playbook import SPECIFIED_GATE_ORDER
+from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
 
 pytestmark = pytest.mark.anyio
-
-CONFIRMATION_GATES: Final = frozenset(
-    {"commit", "order", "phase-one-complete", "graduated"}
-)
 
 # SPECIFIED (design.md Decision 4 / tasks.md 2.2): the kind vocabulary.
 KIND_LAUNCH_STARTED: Final = "launch-started"

@@ -145,15 +145,11 @@ from commerce_ops.launch.domain.launch_run import (
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import MetricId, ProductId
 from commerce_ops.shared.domain.lifecycle_stage import Posture
-from tests.support.playbook import SPECIFIED_GATE_ORDER
+from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
 
 pytestmark = pytest.mark.anyio
 
 FINAL_GATE: Final = SPECIFIED_GATE_ORDER[-1]
-
-CONFIRMATION_GATES: Final = frozenset(
-    {"commit", "order", "phase-one-complete", "graduated"}
-)
 
 #: The journal kinds this change wires for the first time
 #: (`proposal.md` — Impact), spelled as

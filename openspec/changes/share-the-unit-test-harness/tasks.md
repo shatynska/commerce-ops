@@ -128,7 +128,7 @@ The largest single cluster: 159 files. Mechanical; no test body may change.
       and task 2.6's human read is otherwise the only guard.
 - [x] 2.2 Migrate the 159 files declaring `SPECIFIED_GATE_ORDER` to an aliased
       import. Verify no line at or after each file's first test changed.
-- [ ] 2.3 Migrate the 128 files declaring `CONFIRMATION_GATES`, including the one
+- [x] 2.3 Migrate the 128 files declaring `CONFIRMATION_GATES`, including the one
       formatting variant.
 - [ ] 2.4 Migrate the 120 files declaring `_opening_for`.
 - [ ] 2.5 Migrate the 93 files declaring `_gates`. Six variants: confirm the

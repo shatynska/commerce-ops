@@ -119,13 +119,9 @@ from commerce_ops.launch.infrastructure.driven.models import (
 )
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
-from tests.support.playbook import SPECIFIED_GATE_ORDER
+from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
 
 pytestmark = pytest.mark.anyio
-
-CONFIRMATION_GATES: Final = frozenset(
-    {"commit", "order", "phase-one-complete", "graduated"}
-)
 
 ROW_ID: Final = uuid.uuid4()
 PRODUCT_ID: Final = ProductId(str(ROW_ID))

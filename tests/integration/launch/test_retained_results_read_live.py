@@ -128,13 +128,9 @@ from commerce_ops.launch.infrastructure.driven.launch_repository import LaunchRe
 from commerce_ops.shared.domain.access_scope import AccessScope
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import MarketplaceId, ProductId, Sku
-from tests.support.playbook import SPECIFIED_GATE_ORDER
+from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
 
 pytestmark = pytest.mark.anyio
-
-CONFIRMATION_GATES: Final = frozenset(
-    {"commit", "order", "phase-one-complete", "graduated"}
-)
 
 MARKETPLACE: Final = MarketplaceId("ATVPDKIKX0DER")
 FIRST_STEP: Final = "listing.sub-category"

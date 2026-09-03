@@ -94,11 +94,7 @@ from commerce_ops.launch.domain.launch_playbook import (
 from commerce_ops.launch.domain.launch_run import Launch, Provenance
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId, Sku
-from tests.support.playbook import SPECIFIED_GATE_ORDER
-
-CONFIRMATION_GATES: Final = frozenset(
-    {"commit", "order", "phase-one-complete", "graduated"}
-)
+from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
 
 PRODUCT_ID: Final = ProductId(str(uuid.uuid4()))
 STEP_ID: Final = "listing.sub-category"

@@ -124,7 +124,7 @@ from commerce_ops.shared.domain.access_scope import AccessScope
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import MarketplaceId, ProductId, Sku
 from commerce_ops.shared.domain.lifecycle_stage import Launching
-from tests.support.playbook import SPECIFIED_GATE_ORDER
+from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
 
 _LAUNCH_MODULE_NAME: Final = "commerce_ops.launch.infrastructure.driving.launch_admin"
 _ASSETS_MODULE_NAME: Final = "commerce_ops.shared.infrastructure.driving.admin_assets"
@@ -145,10 +145,6 @@ REUSED_NAMES: Final = ("gate", "empty")
 
 ASSIGNEES: Final = "assignees"
 AFTER_STEPS: Final = "after_steps"
-
-CONFIRMATION_GATES: Final = frozenset(
-    {"commit", "order", "phase-one-complete", "graduated"}
-)
 
 LISTING: Final = Discipline("listing")
 INVENTORY: Final = Discipline("inventory")

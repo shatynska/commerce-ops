@@ -87,13 +87,9 @@ from commerce_ops.launch.infrastructure.driven.clickup_sync import (
 from commerce_ops.shared.domain.clickup import ClickUpListState
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId, Sku
-from tests.support.playbook import SPECIFIED_GATE_ORDER
+from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
 
 pytestmark = pytest.mark.anyio
-
-CONFIRMATION_GATES: Final = frozenset(
-    {"commit", "order", "phase-one-complete", "graduated"}
-)
 
 PRODUCT_ID: Final = ProductId("6f1d5b1c-6f0e-4d0f-9d84-6b0a1f1d5b1c")
 PRODUCT_NAME: Final = "Bamboo Cutting Board"

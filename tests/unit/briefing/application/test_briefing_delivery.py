@@ -91,13 +91,9 @@ from commerce_ops.shared.domain.access_scope import AccessScope
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId, Sku
 from commerce_ops.shared.domain.lifecycle_stage import Launching
-from tests.support.playbook import SPECIFIED_GATE_ORDER
+from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
 
 pytestmark = pytest.mark.anyio
-
-CONFIRMATION_GATES: Final = frozenset(
-    {"commit", "order", "phase-one-complete", "graduated"}
-)
 
 APPROVED_AT: Final = datetime(2027, 1, 6, 9, 0, tzinfo=UTC)
 APPROVER: Final = "Helen"

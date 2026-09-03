@@ -144,13 +144,9 @@ from commerce_ops.launch.infrastructure.driven.launch_repository import (
 from commerce_ops.shared.domain.clickup import ClickUpListState
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import MarketplaceId, ProductId, Sku
-from tests.support.playbook import SPECIFIED_GATE_ORDER
+from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
 
 pytestmark = pytest.mark.anyio
-
-CONFIRMATION_GATES: Final = frozenset(
-    {"commit", "order", "phase-one-complete", "graduated"}
-)
 
 MARKETPLACE: Final = MarketplaceId("ATVPDKIKX0DER")
 LAUNCH_DATE: Final = date(2027, 3, 2)

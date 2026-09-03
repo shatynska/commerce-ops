@@ -170,7 +170,7 @@ from commerce_ops.shared.domain.lifecycle_stage import (
     Retired,
     SteadyState,
 )
-from tests.support.playbook import SPECIFIED_GATE_ORDER
+from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
 
 # ---------------------------------------------------------------------------
 # The module under test, resolved by name
@@ -205,10 +205,6 @@ QUIET: Final = "quiet"
 GATE_PARAM: Final = "gate"
 ATTENTION_PARAM: Final = "attention"
 ATTENTION_VALUE: Final = "1"
-
-CONFIRMATION_GATES: Final = frozenset(
-    {"commit", "order", "phase-one-complete", "graduated"}
-)
 
 A_DISCIPLINE: Final = Discipline("listing")
 MARKETPLACE: Final = MarketplaceId("ATVPDKIKX0DER")

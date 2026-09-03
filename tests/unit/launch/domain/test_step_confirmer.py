@@ -80,11 +80,7 @@ from commerce_ops.launch.domain.launch_playbook import (
     StepStatus,
 )
 from commerce_ops.shared.domain.discipline import Discipline
-from tests.support.playbook import SPECIFIED_GATE_ORDER
-
-CONFIRMATION_GATES: Final = frozenset(
-    {"commit", "order", "phase-one-complete", "graduated"}
-)
+from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
 
 # DERIVED sample identifiers, matching this suite's convention elsewhere.
 ALICE: Final = "prs_01HQ8Z6M4A"

@@ -90,7 +90,7 @@ from commerce_ops.launch.domain.launch_playbook import (
 from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.shared.domain.identity import MarketplaceId, ProductId, Sku
 from commerce_ops.shared.domain.lifecycle_stage import Launching
-from tests.support.playbook import SPECIFIED_GATE_ORDER
+from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
 
 _PAGE_MODULE_NAME: Final = "commerce_ops.launch.infrastructure.driving.launch_admin"
 
@@ -116,10 +116,6 @@ def _journal_seam(module: ModuleType) -> str:
         f"{_JOURNAL_SEAM_NAMES}"
     )
 
-
-CONFIRMATION_GATES: Final = frozenset(
-    {"commit", "order", "phase-one-complete", "graduated"}
-)
 
 MARKETPLACE: Final = MarketplaceId("ATVPDKIKX0DER")
 PRINCIPAL: Final = "U01ALICE"

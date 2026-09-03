@@ -94,13 +94,9 @@ from commerce_ops.launch.domain.launch_run import Launch, Provenance
 from commerce_ops.shared.domain.access_scope import AccessScope
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
-from tests.support.playbook import SPECIFIED_GATE_ORDER
+from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
 
 pytestmark = pytest.mark.anyio
-
-CONFIRMATION_GATES: Final = frozenset(
-    {"commit", "order", "phase-one-complete", "graduated"}
-)
 
 PRODUCT_ID: Final = ProductId(str(uuid.uuid4()))
 STEP_ID: Final = "listing.sub-category"

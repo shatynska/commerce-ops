@@ -115,13 +115,9 @@ from commerce_ops.shared.domain.identity import (
     ProductId,
     Sku,
 )
-from tests.support.playbook import SPECIFIED_GATE_ORDER
+from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
 
 pytestmark = pytest.mark.anyio
-
-CONFIRMATION_GATES: Final = frozenset(
-    {"commit", "order", "phase-one-complete", "graduated"}
-)
 
 NOT_A_GATE: Final = "not-a-real-gate"
 

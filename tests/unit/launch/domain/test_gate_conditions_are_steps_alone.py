@@ -67,7 +67,7 @@ throughout: no database is configured here).
 
 from __future__ import annotations
 
-from typing import Any, Final
+from typing import Any
 
 from commerce_ops.launch.domain.launch_playbook import (
     Gate,
@@ -83,12 +83,7 @@ from commerce_ops.launch.domain.launch_playbook import (
     framework_gates,
 )
 from commerce_ops.shared.domain.discipline import Discipline
-from tests.support.playbook import SPECIFIED_GATE_ORDER
-
-# SPECIFIED (main spec, unchanged): the four confirmation gates.
-CONFIRMATION_GATES: Final = frozenset(
-    {"commit", "order", "phase-one-complete", "graduated"}
-)
+from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
 
 
 def _any_discipline() -> Discipline:

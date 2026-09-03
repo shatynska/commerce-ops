@@ -118,7 +118,7 @@ from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import MarketplaceId, ProductId, Sku
 from commerce_ops.shared.domain.result import Success
-from tests.support.playbook import SPECIFIED_GATE_ORDER
+from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
 
 pytestmark = pytest.mark.anyio
 
@@ -235,10 +235,6 @@ def _fresh_graph() -> Any:
 # ---------------------------------------------------------------------------
 # The context the handler is invoked with
 # ---------------------------------------------------------------------------
-
-CONFIRMATION_GATES: Final = frozenset(
-    {"commit", "order", "phase-one-complete", "graduated"}
-)
 
 STEP_ID: Final = "lp.strategy.006"
 ALICE: Final = "prs_01HQ8Z6M4A"

@@ -86,7 +86,7 @@ from commerce_ops.launch.domain.launch_playbook import (
 from commerce_ops.launch.infrastructure.driving import (
     playbook_admin as playbook_module,
 )
-from tests.support.playbook import SPECIFIED_GATE_ORDER
+from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
 
 _LAUNCH_MODULE_NAME: Final = "commerce_ops.launch.infrastructure.driving.launch_admin"
 
@@ -102,10 +102,6 @@ def _launch_module() -> ModuleType:
             "in this test"
         )
 
-
-CONFIRMATION_GATES: Final = frozenset(
-    {"commit", "order", "phase-one-complete", "graduated"}
-)
 
 PRINCIPAL: Final = "U01ALICE"
 _SESSION_COOKIE: Final = "admin_session"

@@ -118,7 +118,7 @@ from commerce_ops.launch.domain.launch_playbook import (
 from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.shared.domain.identity import MarketplaceId, ProductId, Sku
 from commerce_ops.shared.domain.lifecycle_stage import Launching
-from tests.support.playbook import SPECIFIED_GATE_ORDER
+from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
 
 # ---------------------------------------------------------------------------
 # The module under test, resolved by name
@@ -170,13 +170,6 @@ CATEGORY_MARKERS: Final[dict[str, str]] = {
     "blocked": "category-blocked",
     "admin": "category-admin",
 }
-
-
-#: Gates whose coherence rule requires human confirmation to open
-#: (`launch-playbook`) — the same set every sibling test file fixes.
-CONFIRMATION_GATES: Final = frozenset(
-    {"commit", "order", "phase-one-complete", "graduated"}
-)
 
 
 def _gates() -> tuple[Gate, ...]:

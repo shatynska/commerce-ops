@@ -26,7 +26,7 @@ message renamed) — an unrecognised discipline needs no playbook context.
 
 from __future__ import annotations
 
-from typing import Any, Final
+from typing import Any
 
 import pytest
 
@@ -44,11 +44,7 @@ from commerce_ops.launch.domain.launch_playbook import (
     WindowAnchor,
 )
 from commerce_ops.shared.domain.discipline import Discipline
-from tests.support.playbook import SPECIFIED_GATE_ORDER
-
-CONFIRMATION_GATES: Final = frozenset(
-    {"commit", "order", "phase-one-complete", "graduated"}
-)
+from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
 
 
 def _any_discipline() -> Discipline:

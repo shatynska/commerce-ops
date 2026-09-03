@@ -102,15 +102,11 @@ from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
 from commerce_ops.shared.infrastructure.driven.job_runner import app as runner_app
-from tests.support.playbook import SPECIFIED_GATE_ORDER
+from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
 
 pytestmark = pytest.mark.anyio
 
 JOB_PACKAGE: Final = "commerce_ops.launch.infrastructure.driving"
-
-CONFIRMATION_GATES: Final = frozenset(
-    {"commit", "order", "phase-one-complete", "graduated"}
-)
 
 UNHELD_GATE: Final = "graduated"
 PRODUCT_ID: Final = ProductId(str(uuid.uuid4()))
