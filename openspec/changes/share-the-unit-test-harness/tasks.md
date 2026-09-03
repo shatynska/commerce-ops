@@ -134,12 +134,30 @@ The largest single cluster: 159 files. Mechanical; no test body may change.
 - [x] 2.5 Migrate the 93 files declaring `_gates`. Six variants: confirm the
       83-file dominant variant is the one hoisted; record the other five as
       migrated or deliberately left.
-- [ ] 2.6 Confirm the 15 files that *assert* on `SPECIFIED_GATE_ORDER` still
+- [x] 2.6 Confirm the 15 files that *assert* on `SPECIFIED_GATE_ORDER` still
       assert against the literal, not against production
       (`test_playbook_coherence_by_status.py:472` is the reference case).
-- [ ] 2.7 Record any file whose Population A symbol is declared **below** its
+
+      **Confirmed two ways.** The AST deny-list check reports
+      `tests/support/playbook.py` imports no `GATE_SEQUENCE`, `gate_position`,
+      `_SPECIFIED_GATES`, `_SPECIFIED_GATE_IDS`, `_GATE_POSITION` or
+      `_FINAL_GATE`. And the assertions were shown to still *bite*: mutating the
+      shared literal (`"ignition"` → `"ignition-MUTATED"`) turned **18 tests
+      red**, production rejecting the sequence with `InvalidPlaybookError: gate
+      sequence: unexpected gate 'ignition-MUTATED'; missing gate 'ignition'`.
+      Restored, 31 passed. A vacuous assertion would have stayed green — this is
+      the check that the whole of Decision 2 exists for, and it passes.
+- [x] 2.7 Record any file whose Population A symbol is declared **below** its
       first test. Those are not migrated here — they go to §6's procedure
       (Decision 7a). The A rule is never relaxed to fit a file.
+
+      **None.** Two near-misses, both rejected on reading rather than on name:
+      `test_commit_time_tier_skip_guard.py:263` and
+      `test_integration_tier_skip_guard.py:318` declare a `_tree` below their
+      first test, but it builds a synthetic **filesystem** tree for the
+      skip-guard's own tests and has nothing to do with the HTML cluster's
+      `_tree(html) -> _Node`. A name-matching migration would have clobbered
+      both; §3 must match on the cluster, not on the identifier.
 
 ## 3. Phase A — the HTML assertion helpers
 
