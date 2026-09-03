@@ -75,6 +75,7 @@ from commerce_ops.launch.domain.launch_playbook import (
 from commerce_ops.shared.domain.discipline import Discipline
 from tests.support.fixtures import ALICE, ALICE_NAME, BOHDAN, PRINCIPAL
 from tests.support.playbook import SPECIFIED_GATE_ORDER
+from tests.support.steps import step as _build_step
 
 pytestmark = pytest.mark.anyio
 
@@ -93,25 +94,18 @@ def anyio_backend() -> str:
 
 
 def _step(**overrides: Any) -> StepDefinition:
-    attributes: dict[str, Any] = {
-        "identifier": "price.buy-box-check",
-        "name": "Watch the Buy Box",
-        "description": None,
-        "gate": "live",
-        "discipline": A_DISCIPLINE,
-        "scope": Scope.PRODUCT,
-        "timing_anchor": OffsetAnchor(days=-3),
-        "blocking": False,
-        "kind": StepKind.AUTOMATED,
-        "status": StepStatus.ACTIVE,
-        "hazard": Hazard.NONE,
-        "assignees": (),
-        "confirmer": None,
-        "handler": HANDLER_NAME,
-        "provenance": None,
-    }
-    attributes.update(overrides)
-    return StepDefinition(**attributes)
+    return _build_step(
+        **{
+            "identifier": "price.buy-box-check",
+            "name": "Watch the Buy Box",
+            "gate": "live",
+            "timing_anchor": OffsetAnchor(days=-3),
+            "kind": StepKind.AUTOMATED,
+            "confirmer": None,
+            "handler": HANDLER_NAME,
+            **overrides,
+        }
+    )
 
 
 def _holding_step(gate: str) -> StepDefinition:

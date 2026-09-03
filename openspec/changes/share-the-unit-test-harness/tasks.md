@@ -276,14 +276,14 @@ add the builder and prove equivalence against the local variant at every call
 site, then delete the local variant. A variant the builder cannot reproduce
 leaves its file **unmigrated and recorded** (task 8.3) — never forced.
 
-- [ ] 6.1 Write `tests/support/steps.py::step(**overrides)` with the canonical
+- [x] 6.1 Write `tests/support/steps.py::step(**overrides)` with the canonical
       default set from Decision 4's table, derived over the **121**
       `**overrides`-only declarations. Four keys are unanimous (`scope`,
       `status`, `hazard`, `provenance`); the three canonicalised partially-set
       keys (`description`, `assignees`, `handler`) carry values identical to
       `StepDefinition`'s own dataclass defaults; `confirmer`, `starts_at_gate`,
       `after_steps` and `metric_id` are omitted, not defaulted.
-- [ ] 6.2 Add `hold(gate, **overrides)` to the same module with **exactly three**
+- [x] 6.2 Add `hold(gate, **overrides)` to the same module with **exactly three**
       defaults — `blocking=True`, `identifier=f"hold.{gate}"`,
       `name=f"Blocking work holding the {gate} gate"`. Everything else inherits
       `step()`'s canonical value. Derive by counting an omitted keyword as the
@@ -291,13 +291,13 @@ leaves its file **unmigrated and recorded** (task 8.3) — never forced.
       passers reverses `kind`, `handler`, `assignees`, `timing_anchor` and
       `discipline` against the real majority, which is how two earlier drafts of
       this table got it wrong in opposite directions (Decision 5).
-- [ ] 6.3 Add `playbook(*steps, version, gates, fill_unheld, filler,
+- [x] 6.3 Add `playbook(*steps, version, gates, fill_unheld, filler,
       held_must_be_active)` to `tests/support/playbook.py` (Decision 5).
       `held_must_be_active` defaults `False` because 85 of 95 variants omit the
       status check; `fill_unheld` defaults `True` because 69 of 95 fill. **`filler`
       takes no canonical default** — of those 69, 36 fill with an automated filler
       and 33 with a human one, so a file passes its own `_hold` partial.
-- [ ] 6.4 Migrate the **121** `**overrides`-only `_step` files as
+- [x] 6.4 Migrate the **121** `**overrides`-only `_step` files as
       `_step = functools.partial(step, **deltas)`. 69 of the 121 need two
       overrides or fewer; 94 need four or fewer. Proof 7(b1) per file.
 - [ ] 6.5 Migrate the **14** `_step` files whose local signature is

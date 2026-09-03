@@ -108,13 +108,10 @@ from pydantic import BaseModel
 import commerce_ops.step_handlers.strategy.compliance_screen as screen
 from commerce_ops.launch.application import HANDLERS, StepContext
 from commerce_ops.launch.domain.launch_playbook import (
-    Hazard,
     LaunchPlaybook,
     OffsetAnchor,
-    Scope,
     StepDefinition,
     StepKind,
-    StepStatus,
 )
 from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.shared.domain.discipline import Discipline
@@ -122,6 +119,7 @@ from commerce_ops.shared.domain.identity import MarketplaceId, Sku
 from tests.support.fixtures import ALICE, LAUNCH_DATE, product_id
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
+from tests.support.steps import step as _build_step
 
 # Fixed by `tasks.md` 2.3, not by any delta scenario. `categories` was
 # added by `screen-for-hazard-categories` (`tasks.md` 4.1): the wire gained
@@ -261,25 +259,20 @@ class _CatalogProduct:
 
 
 def _step(**overrides: Any) -> StepDefinition:
-    attributes: dict[str, Any] = {
-        "identifier": STEP_ID,
-        "name": "Screen for prohibited and high-compliance categories",
-        "description": DESCRIPTION,
-        "gate": "commit",
-        "discipline": Discipline.STRATEGY,
-        "scope": Scope.PRODUCT,
-        "timing_anchor": OffsetAnchor(days=-90),
-        "blocking": False,
-        "kind": StepKind.AUTOMATED,
-        "confirmer": ALICE,
-        "status": StepStatus.ACTIVE,
-        "hazard": Hazard.NONE,
-        "assignees": (),
-        "handler": "strategy.compliance_screen",
-        "provenance": None,
-    }
-    attributes.update(overrides)
-    return StepDefinition(**attributes)
+    return _build_step(
+        **{
+            "identifier": STEP_ID,
+            "name": "Screen for prohibited and high-compliance categories",
+            "description": DESCRIPTION,
+            "gate": "commit",
+            "discipline": Discipline.STRATEGY,
+            "timing_anchor": OffsetAnchor(days=-90),
+            "kind": StepKind.AUTOMATED,
+            "confirmer": ALICE,
+            "handler": "strategy.compliance_screen",
+            **overrides,
+        }
+    )
 
 
 def _hold(gate: str) -> StepDefinition:

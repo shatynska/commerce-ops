@@ -80,11 +80,8 @@ import pytest
 from commerce_ops.launch.domain.launch_playbook import (
     Hazard,
     LaunchPlaybook,
-    OffsetAnchor,
     Satisfied,
-    Scope,
     StepDefinition,
-    StepKind,
     StepStatus,
 )
 from commerce_ops.launch.domain.launch_run import (
@@ -98,6 +95,7 @@ from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
 from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
+from tests.support.steps import step as _build_step
 
 FINAL_GATE: Final = SPECIFIED_GATE_ORDER[-1]
 
@@ -114,30 +112,7 @@ LAUNCH_DATE: Final = date(2027, 4, 15)
 
 
 def _step(**overrides: Any) -> StepDefinition:
-    """A valid step definition, overriding named attributes.
-
-    INVENTED: `starts_at_gate` and `after_steps` as constructor keywords.
-    Both are omitted from the baseline deliberately, so that the "author
-    said nothing" case exercises the defaults rather than restating them.
-    """
-    attributes: dict[str, Any] = {
-        "identifier": "listing.title-conforms",
-        "name": "Work this step asks for",
-        "description": None,
-        "gate": "listable",
-        "discipline": A_DISCIPLINE,
-        "scope": Scope.PRODUCT,
-        "timing_anchor": OffsetAnchor(days=-7),
-        "blocking": False,
-        "kind": StepKind.HUMAN,
-        "status": StepStatus.ACTIVE,
-        "hazard": Hazard.NONE,
-        "assignees": (),
-        "handler": None,
-        "provenance": None,
-    }
-    attributes.update(overrides)
-    return StepDefinition(**attributes)
+    return _build_step(**overrides)
 
 
 def _hold(gate: str) -> StepDefinition:

@@ -132,12 +132,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from commerce_ops.launch.domain.launch_playbook import (
-    Hazard,
-    OffsetAnchor,
-    Scope,
     StepDefinition,
-    StepKind,
-    StepStatus,
 )
 from commerce_ops.launch.infrastructure.driving import (
     playbook_admin as page_module,
@@ -155,6 +150,7 @@ from tests.support.html import flat as _flat
 from tests.support.html import texts as _texts
 from tests.support.html import tree as _tree
 from tests.support.playbook import SPECIFIED_GATE_ORDER
+from tests.support.steps import step as _build_step
 
 # ---------------------------------------------------------------------------
 # The delta's two literal markers, and the three events it binds
@@ -238,24 +234,7 @@ _CREATE_HINTS: Final = ("new", "create", "add")
 
 
 def _step(**overrides: Any) -> StepDefinition:
-    attributes: dict[str, Any] = {
-        "identifier": EDITED,
-        "name": "Work this step asks for",
-        "description": None,
-        "gate": "listable",
-        "discipline": A_DISCIPLINE,
-        "scope": Scope.PRODUCT,
-        "timing_anchor": OffsetAnchor(days=-7),
-        "blocking": False,
-        "kind": StepKind.HUMAN,
-        "status": StepStatus.ACTIVE,
-        "hazard": Hazard.NONE,
-        "assignees": (ALICE,),
-        "handler": None,
-        "provenance": None,
-    }
-    attributes.update(overrides)
-    return StepDefinition(**attributes)
+    return _build_step(**{"identifier": EDITED, "assignees": (ALICE,), **overrides})
 
 
 class _Record:

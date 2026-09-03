@@ -190,13 +190,10 @@ from sqlalchemy.exc import PendingRollbackError
 from commerce_ops.launch.application import StepResolution
 from commerce_ops.launch.domain.launch_playbook import (
     Blocked,
-    Hazard,
     InProgress,
     LaunchPlaybook,
     NotStarted,
-    OffsetAnchor,
     Satisfied,
-    Scope,
     StepDefinition,
     StepKind,
     StepStatus,
@@ -218,6 +215,7 @@ from tests.support.fixtures import (
 )
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
+from tests.support.steps import step as _build_step
 
 pytestmark = pytest.mark.anyio
 
@@ -278,24 +276,14 @@ def _any_discipline() -> Discipline:
 
 
 def _step(**overrides: Any) -> StepDefinition:
-    attributes: dict[str, Any] = {
-        "identifier": AUTOMATED_STEP_ID,
-        "name": "Choose the sub-category node",
-        "description": None,
-        "gate": "listable",
-        "discipline": _any_discipline(),
-        "scope": Scope.PRODUCT,
-        "timing_anchor": OffsetAnchor(days=-7),
-        "blocking": False,
-        "kind": StepKind.HUMAN,
-        "status": StepStatus.ACTIVE,
-        "hazard": Hazard.NONE,
-        "assignees": (ALICE,),
-        "handler": None,
-        "provenance": None,
-    }
-    attributes.update(overrides)
-    return StepDefinition(**attributes)
+    return _build_step(
+        **{
+            "identifier": AUTOMATED_STEP_ID,
+            "name": "Choose the sub-category node",
+            "assignees": (ALICE,),
+            **overrides,
+        }
+    )
 
 
 def _automated(**overrides: Any) -> StepDefinition:

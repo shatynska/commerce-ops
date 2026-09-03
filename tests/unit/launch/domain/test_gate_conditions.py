@@ -38,10 +38,7 @@ from typing import Any, Final
 
 from commerce_ops.launch.domain.launch_playbook import (
     Gate,
-    Hazard,
     LaunchPlaybook,
-    OffsetAnchor,
-    Scope,
     StepDefinition,
     StepKind,
     StepObligation,
@@ -50,6 +47,7 @@ from commerce_ops.launch.domain.launch_playbook import (
 from commerce_ops.shared.domain.discipline import Discipline
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import opening_for as _opening_for
+from tests.support.steps import step as _build_step
 
 
 def _any_discipline() -> Discipline:
@@ -81,22 +79,13 @@ def specified_gates() -> tuple[Gate, ...]:
 
 
 def _step(**overrides: Any) -> StepDefinition:
-    """Build a valid `StepDefinition`, overriding named attributes."""
-    attributes: dict[str, Any] = {
-        "identifier": "inventory.fulfillable-units",
-        "name": "Work this step asks for",
-        "gate": "stock-ready",
-        "discipline": _any_discipline(),
-        "scope": Scope.PRODUCT,
-        "timing_anchor": OffsetAnchor(days=-7),
-        "blocking": False,
-        "kind": StepKind.HUMAN,
-        "status": StepStatus.ACTIVE,
-        "hazard": Hazard.NONE,
-        "provenance": None,
-    }
-    attributes.update(overrides)
-    return StepDefinition(**attributes)
+    return _build_step(
+        **{
+            "identifier": "inventory.fulfillable-units",
+            "gate": "stock-ready",
+            **overrides,
+        }
+    )
 
 
 def _hold(gate: str) -> StepDefinition:

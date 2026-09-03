@@ -124,9 +124,6 @@ from fastapi.testclient import TestClient
 
 from commerce_ops.launch.application import reorder_step
 from commerce_ops.launch.domain.launch_playbook import (
-    Hazard,
-    OffsetAnchor,
-    Scope,
     StepDefinition,
     StepKind,
     StepStatus,
@@ -140,6 +137,7 @@ from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
 from tests.support.admin import fake_verify
 from tests.support.fixtures import PRINCIPAL
 from tests.support.playbook import SPECIFIED_GATE_ORDER
+from tests.support.steps import step as _build_step
 
 DISCIPLINES: Final = tuple(Discipline)
 #: `_step`'s default discipline, which the seeded holding steps carry —
@@ -177,22 +175,9 @@ _REORDER_WORDS: Final = ("reorder", "re-order", "move", "moving", "ordering")
 
 
 def _step(**overrides: Any) -> StepDefinition:
-    attributes: dict[str, Any] = {
-        "identifier": "listing.title-conforms",
-        "name": "Work this step asks for",
-        "gate": "listable",
-        "discipline": HIDDEN_DISCIPLINE,
-        "scope": Scope.PRODUCT,
-        "timing_anchor": OffsetAnchor(days=-7),
-        "blocking": False,
-        "kind": StepKind.HUMAN,
-        "assignees": (ASSIGNEE,),
-        "status": StepStatus.ACTIVE,
-        "hazard": Hazard.NONE,
-        "provenance": None,
-    }
-    attributes.update(overrides)
-    return StepDefinition(**attributes)
+    return _build_step(
+        **{"discipline": HIDDEN_DISCIPLINE, "assignees": (ASSIGNEE,), **overrides}
+    )
 
 
 class _Record:

@@ -71,12 +71,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from commerce_ops.launch.domain.launch_playbook import (
-    Hazard,
-    OffsetAnchor,
-    Scope,
     StepDefinition,
-    StepKind,
-    StepStatus,
 )
 from commerce_ops.launch.infrastructure.driving import (
     playbook_admin as page_module,
@@ -91,6 +86,7 @@ from tests.support.html import Text as _Text
 from tests.support.html import elements as _elements
 from tests.support.html import flat as _flat
 from tests.support.html import tree as _tree
+from tests.support.steps import step as _build_step
 
 A_DISCIPLINE: Final = next(iter(Discipline))
 ASSIGNEE: Final = "prs_01HQ8Z6M4A"
@@ -101,24 +97,14 @@ STEP_NAME: Final = "Title conforms to marketplace policy"
 
 
 def _step(**overrides: Any) -> StepDefinition:
-    attributes: dict[str, Any] = {
-        "identifier": STEP_ID,
-        "name": STEP_NAME,
-        "description": None,
-        "gate": "listable",
-        "discipline": A_DISCIPLINE,
-        "scope": Scope.PRODUCT,
-        "timing_anchor": OffsetAnchor(days=-7),
-        "blocking": False,
-        "kind": StepKind.HUMAN,
-        "assignees": (ASSIGNEE,),
-        "status": StepStatus.ACTIVE,
-        "hazard": Hazard.NONE,
-        "handler": None,
-        "provenance": None,
-    }
-    attributes.update(overrides)
-    return StepDefinition(**attributes)
+    return _build_step(
+        **{
+            "identifier": STEP_ID,
+            "name": STEP_NAME,
+            "assignees": (ASSIGNEE,),
+            **overrides,
+        }
+    )
 
 
 class _Record:

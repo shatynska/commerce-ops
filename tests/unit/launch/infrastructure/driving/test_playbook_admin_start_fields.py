@@ -89,10 +89,7 @@ from fastapi.testclient import TestClient
 
 from commerce_ops.launch.domain.launch_playbook import (
     Hazard,
-    OffsetAnchor,
-    Scope,
     StepDefinition,
-    StepKind,
     StepStatus,
 )
 from commerce_ops.shared.domain.discipline import Discipline
@@ -106,6 +103,7 @@ from tests.support.html import Text as _Text
 from tests.support.html import elements as _elements
 from tests.support.html import tree as _tree
 from tests.support.playbook import SPECIFIED_GATE_ORDER
+from tests.support.steps import step as _build_step
 
 #: Resolved by name rather than imported, matching
 #: `test_launch_admin_detail.py`.
@@ -157,24 +155,14 @@ _REFERENCE_ATTRIBUTES: Final = (
 
 
 def _step(**overrides: Any) -> StepDefinition:
-    attributes: dict[str, Any] = {
-        "identifier": EDITED,
-        "name": EDITED_NAME,
-        "description": None,
-        "gate": "listable",
-        "discipline": A_DISCIPLINE,
-        "scope": Scope.PRODUCT,
-        "timing_anchor": OffsetAnchor(days=-7),
-        "blocking": False,
-        "kind": StepKind.HUMAN,
-        "status": StepStatus.ACTIVE,
-        "hazard": Hazard.NONE,
-        "assignees": (ALICE,),
-        "handler": None,
-        "provenance": None,
-    }
-    attributes.update(overrides)
-    return StepDefinition(**attributes)
+    return _build_step(
+        **{
+            "identifier": EDITED,
+            "name": EDITED_NAME,
+            "assignees": (ALICE,),
+            **overrides,
+        }
+    )
 
 
 class _Record:

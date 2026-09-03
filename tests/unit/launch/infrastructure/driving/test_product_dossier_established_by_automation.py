@@ -121,24 +121,20 @@ from fastapi.testclient import TestClient
 from commerce_ops.catalog.application import record_asin
 from commerce_ops.catalog.domain.product import Product
 from commerce_ops.launch.domain.launch_playbook import (
-    Hazard,
-    OffsetAnchor,
-    Scope,
     StepDefinition,
     StepKind,
-    StepStatus,
 )
 from commerce_ops.launch.infrastructure.driving import (
     product_dossier as page_module,
 )
 from commerce_ops.shared.domain.access_scope import AccessScope
-from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import Asin, ProductId, Sku
 from commerce_ops.shared.domain.lifecycle_stage import Launching
 from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
 from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
 from tests.support.admin import fake_verify
 from tests.support.fixtures import MARKETPLACE, PRINCIPAL
+from tests.support.steps import step as _build_step
 
 T_REGISTERED: Final = datetime(2026, 8, 23, 9, 0, tzinfo=UTC)
 T_MOVED: Final = datetime(2026, 8, 24, 10, 30, tzinfo=UTC)
@@ -370,24 +366,16 @@ class _RetainedResult:
 
 
 def _step(**overrides: Any) -> StepDefinition:
-    attributes: dict[str, Any] = {
-        "identifier": SERVED_STEP,
-        "name": SERVED_STEP_NAME,
-        "gate": "listable",
-        "discipline": next(iter(Discipline)),
-        "scope": Scope.PRODUCT,
-        "timing_anchor": OffsetAnchor(days=-7),
-        "blocking": False,
-        "kind": StepKind.AUTOMATED,
-        "status": StepStatus.ACTIVE,
-        "confirmer": "prs_confirmer",
-        "hazard": Hazard.NONE,
-        "assignees": (),
-        "handler": HANDLER,
-        "provenance": None,
-    }
-    attributes.update(overrides)
-    return StepDefinition(**attributes)
+    return _build_step(
+        **{
+            "identifier": SERVED_STEP,
+            "name": SERVED_STEP_NAME,
+            "kind": StepKind.AUTOMATED,
+            "confirmer": "prs_confirmer",
+            "handler": HANDLER,
+            **overrides,
+        }
+    )
 
 
 class _StepRecord:

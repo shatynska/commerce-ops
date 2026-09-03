@@ -87,15 +87,10 @@ from typing import Any, Final
 import pytest
 
 from commerce_ops.launch.domain.launch_playbook import (
-    Hazard,
     LaunchPlaybook,
-    OffsetAnchor,
     Satisfied,
-    Scope,
     StepDefinition,
-    StepKind,
     StepObligation,
-    StepStatus,
 )
 from commerce_ops.launch.domain.launch_run import (
     ApprovalDecision,
@@ -108,6 +103,7 @@ from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
 from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
+from tests.support.steps import step as _build_step
 
 #: The gate under evaluation, and the one after it in the sequence.
 GATE: Final = "listable"
@@ -140,31 +136,7 @@ PRODUCT_ID: Final = ProductId("3f6c1b52-7d2a-4a1e-9c47-5b0f8e2d1a90")
 
 
 def _step(**overrides: Any) -> StepDefinition:
-    """A valid step definition, overriding named attributes.
-
-    INVENTED: `starts_at_gate` and `after_steps` as constructor
-    keywords. Both are omitted from the baseline deliberately, so that
-    a control step exercises the "author said nothing" defaults rather
-    than restating them.
-    """
-    attributes: dict[str, Any] = {
-        "identifier": BLOCKING_DECLARER,
-        "name": "Work this step asks for",
-        "description": None,
-        "gate": GATE,
-        "discipline": A_DISCIPLINE,
-        "scope": Scope.PRODUCT,
-        "timing_anchor": OffsetAnchor(days=-7),
-        "blocking": False,
-        "kind": StepKind.HUMAN,
-        "status": StepStatus.ACTIVE,
-        "hazard": Hazard.NONE,
-        "assignees": (),
-        "handler": None,
-        "provenance": None,
-    }
-    attributes.update(overrides)
-    return StepDefinition(**attributes)
+    return _build_step(**{"identifier": BLOCKING_DECLARER, "gate": GATE, **overrides})
 
 
 def _hold(gate: str) -> StepDefinition:

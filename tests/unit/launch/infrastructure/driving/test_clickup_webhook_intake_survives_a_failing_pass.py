@@ -87,21 +87,18 @@ import commerce_ops.launch.infrastructure.driving.clickup_webhook as webhook_mod
 import commerce_ops.worker  # noqa: F401 -- importing a root registers its work
 from commerce_ops.launch.domain.launch_playbook import (
     Gate,
-    Hazard,
     LaunchPlaybook,
-    OffsetAnchor,
     Satisfied,
-    Scope,
     StepDefinition,
     StepKind,
     StepStatus,
 )
 from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.launch.infrastructure.driven.clickup_sync import ClickUpSyncError
-from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import opening_for as _opening_for
+from tests.support.steps import step as _build_step
 
 JOB_PACKAGE: Final = "commerce_ops.launch.infrastructure.driving"
 
@@ -128,21 +125,7 @@ LAUNCH_DATE: Final = datetime.date(2027, 3, 2)
 
 
 def _step(**overrides: Any) -> StepDefinition:
-    attributes: dict[str, Any] = {
-        "identifier": STEP_ID,
-        "name": "Work this step asks for",
-        "gate": "listable",
-        "discipline": next(iter(Discipline)),
-        "scope": Scope.PRODUCT,
-        "timing_anchor": OffsetAnchor(days=-7),
-        "blocking": False,
-        "kind": StepKind.HUMAN,
-        "status": StepStatus.ACTIVE,
-        "hazard": Hazard.NONE,
-        "provenance": None,
-    }
-    attributes.update(overrides)
-    return StepDefinition(**attributes)
+    return _build_step(**{"identifier": STEP_ID, **overrides})
 
 
 def _hold(gate: str) -> StepDefinition:

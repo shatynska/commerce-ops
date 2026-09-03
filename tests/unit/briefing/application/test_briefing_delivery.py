@@ -70,11 +70,9 @@ import pytest
 from commerce_ops.briefing.application import run_daily_briefing
 from commerce_ops.launch.application import read_launches
 from commerce_ops.launch.domain.launch_playbook import (
-    Hazard,
     LaunchPlaybook,
     OffsetAnchor,
     Satisfied,
-    Scope,
     StepDefinition,
     StepKind,
     StepStatus,
@@ -91,6 +89,7 @@ from commerce_ops.shared.domain.identity import ProductId, Sku
 from commerce_ops.shared.domain.lifecycle_stage import Launching
 from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
+from tests.support.steps import step as _build_step
 
 pytestmark = pytest.mark.anyio
 
@@ -116,21 +115,14 @@ def anyio_backend() -> str:
 
 
 def _step(**overrides: Any) -> StepDefinition:
-    attributes: dict[str, Any] = {
-        "identifier": "listing.title-conforms",
-        "name": "Work this step asks for",
-        "gate": "live",
-        "discipline": Discipline("listing"),
-        "scope": Scope.PRODUCT,
-        "timing_anchor": OffsetAnchor(days=-30),
-        "blocking": False,
-        "kind": StepKind.HUMAN,
-        "status": StepStatus.ACTIVE,
-        "hazard": Hazard.NONE,
-        "provenance": None,
-    }
-    attributes.update(overrides)
-    return StepDefinition(**attributes)
+    return _build_step(
+        **{
+            "gate": "live",
+            "discipline": Discipline("listing"),
+            "timing_anchor": OffsetAnchor(days=-30),
+            **overrides,
+        }
+    )
 
 
 def _hold(gate: str) -> StepDefinition:

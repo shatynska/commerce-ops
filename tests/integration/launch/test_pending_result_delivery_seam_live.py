@@ -109,21 +109,17 @@ from commerce_ops.catalog.infrastructure.driven.product_repository import (
 )
 from commerce_ops.launch.domain.launch_playbook import (
     Gate,
-    Hazard,
     LaunchPlaybook,
-    OffsetAnchor,
-    Scope,
     StepDefinition,
     StepKind,
-    StepStatus,
 )
 from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.launch.infrastructure.driven.launch_repository import LaunchRepository
-from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId, Sku
 from tests.support.fixtures import HANDLER_NAME, LAUNCH_DATE, MARKETPLACE, STEP_ID
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import opening_for as _opening_for
+from tests.support.steps import step as _build_step
 
 pytestmark = pytest.mark.anyio
 
@@ -324,25 +320,16 @@ def _unique_sku() -> Sku:
 
 
 def _step(**overrides: Any) -> StepDefinition:
-    attributes: dict[str, Any] = {
-        "identifier": STEP_ID,
-        "name": STEP_NAME,
-        "description": None,
-        "gate": "listable",
-        "discipline": next(iter(Discipline)),
-        "scope": Scope.PRODUCT,
-        "timing_anchor": OffsetAnchor(days=-7),
-        "blocking": False,
-        "kind": StepKind.AUTOMATED,
-        "status": StepStatus.ACTIVE,
-        "confirmer": CONFIRMER_MEMBER_ID,
-        "hazard": Hazard.NONE,
-        "assignees": (),
-        "handler": HANDLER_NAME,
-        "provenance": None,
-    }
-    attributes.update(overrides)
-    return StepDefinition(**attributes)
+    return _build_step(
+        **{
+            "identifier": STEP_ID,
+            "name": STEP_NAME,
+            "kind": StepKind.AUTOMATED,
+            "confirmer": CONFIRMER_MEMBER_ID,
+            "handler": HANDLER_NAME,
+            **overrides,
+        }
+    )
 
 
 def _hold(gate: str) -> StepDefinition:
