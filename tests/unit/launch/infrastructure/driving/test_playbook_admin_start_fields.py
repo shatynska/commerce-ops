@@ -96,6 +96,9 @@ from commerce_ops.launch.domain.launch_playbook import (
     StepStatus,
 )
 from commerce_ops.shared.domain.discipline import Discipline
+from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
+from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
+from tests.support.admin import fake_verify
 from tests.support.html import HX_VERBS as _HX_VERBS
 from tests.support.html import Node as _Node
 from tests.support.html import Text as _Text
@@ -112,9 +115,6 @@ page_module: ModuleType = importlib.import_module(
 FINAL_GATE: Final = SPECIFIED_GATE_ORDER[-1]
 
 PRINCIPAL: Final = "helen"
-_SESSION_COOKIE: Final = "admin_session"
-_SESSION_VALUE: Final = "a-verified-admin-session"
-
 A_DISCIPLINE: Final = next(iter(Discipline))
 
 ALICE: Final = "prs_01HQ8Z6M4A"
@@ -461,9 +461,7 @@ def _blocking_field(fields: dict[str, str]) -> str:
 # ---------------------------------------------------------------------------
 
 
-async def _fake_verify(*args: Any, **kwargs: Any) -> str | None:
-    haystack = " ".join(str(value) for value in (*args, *kwargs.values()))
-    return PRINCIPAL if _SESSION_VALUE in haystack else None
+_fake_verify = fake_verify(PRINCIPAL)
 
 
 _MEMBERS_ATTRIBUTES: Final = ("members", "read_members", "members_reader")

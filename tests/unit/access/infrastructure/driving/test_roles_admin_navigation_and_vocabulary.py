@@ -83,6 +83,9 @@ from commerce_ops.access.infrastructure.driving import (
 from commerce_ops.launch.infrastructure.driving import (
     playbook_admin as playbook_surface,
 )
+from tests.support.admin import ADMIN_IDENTITY, fake_verify
+from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
+from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
 from tests.support.html import HX_VERBS as _HX_VERBS
 from tests.support.html import Node as _Node
 from tests.support.html import Text as _Text
@@ -103,7 +106,6 @@ _ASSETS_MODULE_NAME: Final = "commerce_ops.shared.infrastructure.driving.admin_a
 ROW_ACTION: Final = "row-action"
 DANGER: Final = "danger"
 
-ADMIN_IDENTITY: Final = "U01ALICE"
 SECOND_IDENTITY: Final = "U02BOB"
 ADMIN_NAME: Final = "Alice Admin"
 SECOND_NAME: Final = "Bob Deputy"
@@ -111,9 +113,6 @@ SECOND_NAME: Final = "Bob Deputy"
 PRINCIPAL: Final = "helen"
 THE_CREATING_ADMIN: Final = "the-creating-admin"
 THE_EDITING_ADMIN: Final = "the-editing-admin"
-
-_SESSION_COOKIE: Final = "admin_session"
-_SESSION_VALUE: Final = "a-verified-admin-session"
 
 DRAFT: Final = "draft"
 ACTIVE: Final = "active"
@@ -629,9 +628,7 @@ def _style_blocks(root: _Node) -> list[_Node]:
 # ---------------------------------------------------------------------------
 
 
-async def _fake_verify(*args: Any, **kwargs: Any) -> str | None:
-    haystack = " ".join(str(value) for value in (*args, *kwargs.values()))
-    return PRINCIPAL if _SESSION_VALUE in haystack else None
+_fake_verify = fake_verify(PRINCIPAL)
 
 
 def _client(monkeypatch: pytest.MonkeyPatch, collections: _Collections) -> TestClient:

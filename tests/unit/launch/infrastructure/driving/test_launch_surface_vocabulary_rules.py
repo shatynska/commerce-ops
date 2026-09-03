@@ -167,6 +167,9 @@ from commerce_ops.shared.domain.lifecycle_stage import (
     Retired,
     SteadyState,
 )
+from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
+from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
+from tests.support.admin import fake_verify
 from tests.support.html import Node as _Node
 from tests.support.html import all_text as _all_text
 from tests.support.html import ancestors as _ancestors
@@ -230,9 +233,6 @@ INVENTORY: Final = Discipline("inventory")
 MARKETPLACE: Final = MarketplaceId("ATVPDKIKX0DER")
 
 PRINCIPAL: Final = "U01ALICE"
-_SESSION_COOKIE: Final = "admin_session"
-_SESSION_VALUE: Final = "a-verified-admin-session"
-
 RECORDED_AT: Final = datetime(2027, 1, 5, 12, 0, tzinfo=UTC)
 APPROVED_AT: Final = datetime(2027, 1, 6, 9, 0, tzinfo=UTC)
 RECORDER: Final = "Nadia Recorder"
@@ -724,9 +724,7 @@ def _install_any(
     )
 
 
-async def _fake_verify(*args: Any, **kwargs: Any) -> str | None:
-    haystack = " ".join(str(value) for value in (*args, *kwargs.values()))
-    return PRINCIPAL if _SESSION_VALUE in haystack else None
+_fake_verify = fake_verify(PRINCIPAL)
 
 
 class _StubDate(date):

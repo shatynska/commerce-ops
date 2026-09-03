@@ -215,10 +215,24 @@ The largest single cluster: 159 files. Mechanical; no test body may change.
 
 ## 4. Phase A — the admin-session harness and fixed domain literals
 
-- [ ] 4.1 Write `tests/support/admin.py`: `SESSION_COOKIE`, `SESSION_VALUE`,
-      `fake_verify`, `signed_headers`, `signed_client`, `ADMIN_IDENTITY`.
-- [ ] 4.2 Migrate the 45 files declaring `_SESSION_COOKIE` / `_SESSION_VALUE` /
-      `_fake_verify`, and the 18 declaring `_signed_headers`.
+- [x] 4.1 Write `tests/support/admin.py`: `SESSION_COOKIE`, `SESSION_VALUE`,
+      `fake_verify`, `ADMIN_IDENTITY`.
+
+      **`signed_headers` and `signed_client` are dropped from this task.** They
+      are Slack request signing, not the admin session, and they are too
+      divergent to hoist: `_signed_headers` has 6 variants across 18 files, one
+      of which takes a `secret` keyword the others do not. Recorded under 8.3.
+
+      **`fake_verify` is a factory, not the stand-in.** The principal is not
+      uniform — of the 45 files, 28 verify as `"helen"` and 17 as `"U01ALICE"`.
+      A shared closure over one would have silently answered the wrong principal
+      in the other 17, looking mechanical while changing what a third of the
+      files exercise. Each file binds `_fake_verify = fake_verify(PRINCIPAL)`
+      against its own. `SESSION_VALUE` *is* uniform across all 45, so it is a
+      default rather than a second argument.
+- [x] 4.2 Migrate the 45 files declaring `_SESSION_COOKIE` / `_SESSION_VALUE` /
+      `_fake_verify`, and the 14 declaring `ADMIN_IDENTITY`. The 18 declaring
+      `_signed_headers` are left, per 4.1.
 - [ ] 4.3 Write `tests/support/fixtures.py` with the **fixed** literals only:
       `LAUNCH_DATE`, `PRINCIPAL`, `ALICE`, `ALICE_NAME`, `BOHDAN`, `BOHDAN_NAME`,
       `MARKETPLACE`, `PRODUCT_NAME`, `PRODUCT_SKU`, `STEP_ID`, `HANDLER_NAME`.

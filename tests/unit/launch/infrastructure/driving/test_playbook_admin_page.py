@@ -90,12 +90,12 @@ from commerce_ops.launch.infrastructure.driving import (
     playbook_admin as page_module,
 )
 from commerce_ops.shared.domain.discipline import Discipline
+from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
+from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
+from tests.support.admin import fake_verify
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 
 PRINCIPAL: Final = "helen"
-_SESSION_COOKIE: Final = "admin_session"
-_SESSION_VALUE: Final = "a-verified-admin-session"
-
 DISCIPLINES: Final = tuple(Discipline)
 A_DISCIPLINE: Final = DISCIPLINES[0]
 ANOTHER_DISCIPLINE: Final = DISCIPLINES[1]
@@ -399,11 +399,7 @@ class _FakeMembers:
         return (_FakeMember(ASSIGNEE, ASSIGNEE_NAME),)
 
 
-async def _fake_verify(*args: Any, **kwargs: Any) -> str | None:
-    """Answers the principal only for the one known session value,
-    whatever the verification call shape is."""
-    haystack = " ".join(str(value) for value in (*args, *kwargs.values()))
-    return PRINCIPAL if _SESSION_VALUE in haystack else None
+_fake_verify = fake_verify(PRINCIPAL)
 
 
 def _app(monkeypatch: pytest.MonkeyPatch, store: _FakeStepStore) -> TestClient:

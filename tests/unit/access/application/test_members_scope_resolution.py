@@ -65,11 +65,10 @@ from commerce_ops.access.application import (
     resolve_scope,
 )
 from commerce_ops.shared.domain.identity import ProductId
+from tests.support.admin import ADMIN_IDENTITY
 
 pytestmark = pytest.mark.anyio
 
-# DERIVED sample values; no artifact fixes example identities.
-ADMIN_IDENTITY: Final = "U01ALICE"
 MEMBER_IDENTITY: Final = "U03CAROL"
 STRANGER_IDENTITY: Final = "U99STRANGER"
 

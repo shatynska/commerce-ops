@@ -101,6 +101,9 @@ from commerce_ops.access.infrastructure.driving import members_admin as page_mod
 from commerce_ops.launch.infrastructure.driving import (
     playbook_admin as playbook_surface,
 )
+from tests.support.admin import ADMIN_IDENTITY, fake_verify
+from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
+from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
 from tests.support.html import HX_VERBS as _HX_VERBS
 from tests.support.html import Node as _Node
 from tests.support.html import Text as _Text
@@ -121,7 +124,6 @@ _ROLES_MODULE_NAME: Final = "commerce_ops.access.infrastructure.driving.roles_ad
 ROW_ACTION: Final = "row-action"
 DANGER: Final = "danger"
 
-ADMIN_IDENTITY: Final = "U01ALICE"
 SECOND_ADMIN_IDENTITY: Final = "U02BOB"
 MEMBER_IDENTITY: Final = "U03CAROL"
 RETIRED_IDENTITY: Final = "U04DAVE"
@@ -142,9 +144,6 @@ EVERY_NAME: Final = (ADMIN_NAME, SECOND_ADMIN_NAME, MEMBER_NAME, RETIRED_NAME)
 PRINCIPAL: Final = "helen"
 THE_CREATING_ADMIN: Final = "the-creating-admin"
 THE_EDITING_ADMIN: Final = "the-editing-admin"
-
-_SESSION_COOKIE: Final = "admin_session"
-_SESSION_VALUE: Final = "a-verified-admin-session"
 
 _DEACTIVATE_HINTS: Final = ("deactivat",)
 _REACTIVATE_HINTS: Final = ("reactivat", "restore", "reinstate")
@@ -510,9 +509,7 @@ def _member_row(root: _Node, identity: str, name: str) -> _Node:
 # ---------------------------------------------------------------------------
 
 
-async def _fake_verify(*args: Any, **kwargs: Any) -> str | None:
-    haystack = " ".join(str(value) for value in (*args, *kwargs.values()))
-    return PRINCIPAL if _SESSION_VALUE in haystack else None
+_fake_verify = fake_verify(PRINCIPAL)
 
 
 def _client(monkeypatch: pytest.MonkeyPatch, store: _FakeMembersStore) -> TestClient:

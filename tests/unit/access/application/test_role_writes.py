@@ -106,11 +106,10 @@ import pytest
 
 import commerce_ops.access.application as access_application
 from commerce_ops.access.application import create_member, deactivate_member
+from tests.support.admin import ADMIN_IDENTITY
 
 pytestmark = pytest.mark.anyio
 
-# DERIVED sample values; no artifact fixes example identities or names.
-ADMIN_IDENTITY: Final = "U01ALICE"
 SECOND_ADMIN_IDENTITY: Final = "U02BOB"
 MEMBER_IDENTITY: Final = "U03CAROL"
 THIRD_IDENTITY: Final = "U04DAVE"

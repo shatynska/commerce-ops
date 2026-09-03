@@ -84,9 +84,10 @@ from fastapi.testclient import TestClient
 
 from commerce_ops.access.application import create_member, deactivate_member
 from commerce_ops.access.infrastructure.driving import members_admin as page_module
+from tests.support.admin import ADMIN_IDENTITY, fake_verify
+from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
+from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
 
-# DERIVED sample values; no artifact fixes example identities or names.
-ADMIN_IDENTITY: Final = "U01ALICE"
 SECOND_ADMIN_IDENTITY: Final = "U02BOB"
 MEMBER_IDENTITY: Final = "U03CAROL"
 RETIRED_IDENTITY: Final = "U04DAVE"
@@ -101,9 +102,6 @@ NEWCOMER_NAME: Final = "Erin Newcomer"
 PRINCIPAL: Final = "helen"
 THE_CREATING_ADMIN: Final = "the-creating-admin"
 THE_EDITING_ADMIN: Final = "the-editing-admin"
-
-_SESSION_COOKIE: Final = "admin_session"
-_SESSION_VALUE: Final = "a-verified-admin-session"
 
 _YEAR: Final = str(datetime.now(UTC).year)
 
@@ -542,11 +540,7 @@ def _distinctive_words(segment: str, handles: tuple[str, ...]) -> set[str]:
 # ---------------------------------------------------------------------------
 
 
-async def _fake_verify(*args: Any, **kwargs: Any) -> str | None:
-    """Answers the principal only for the one known session value,
-    whatever the verification call shape is."""
-    haystack = " ".join(str(value) for value in (*args, *kwargs.values()))
-    return PRINCIPAL if _SESSION_VALUE in haystack else None
+_fake_verify = fake_verify(PRINCIPAL)
 
 
 def _app(monkeypatch: pytest.MonkeyPatch, store: _FakeMembersStore) -> TestClient:

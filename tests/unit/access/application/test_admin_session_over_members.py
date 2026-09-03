@@ -75,11 +75,10 @@ from commerce_ops.access.application import (
     update_member,
     verify_admin_session,
 )
+from tests.support.admin import ADMIN_IDENTITY
 
 pytestmark = pytest.mark.anyio
 
-# DERIVED sample values; no artifact fixes example identities.
-ADMIN_IDENTITY: Final = "U01ALICE"
 SECOND_ADMIN_IDENTITY: Final = "U02BOB"
 MEMBER_IDENTITY: Final = "U03CAROL"
 STRANGER_IDENTITY: Final = "U99STRANGER"

@@ -89,10 +89,10 @@ from commerce_ops.access.application import (
     mint_admin_link,
     verify_admin_session,
 )
+from tests.support.admin import ADMIN_IDENTITY
 
 pytestmark = pytest.mark.anyio
 
-ADMIN_IDENTITY: Final = "U01ALICE"
 VISIBILITY_ONLY_IDENTITY: Final = "U02BOB"
 STRANGER_IDENTITY: Final = "U99STRANGER"
 

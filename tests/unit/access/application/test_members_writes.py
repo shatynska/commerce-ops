@@ -104,11 +104,10 @@ from commerce_ops.access.application import (
 )
 from commerce_ops.access.domain.members import InvalidMembersError
 from commerce_ops.shared.domain.identity import ProductId
+from tests.support.admin import ADMIN_IDENTITY
 
 pytestmark = pytest.mark.anyio
 
-# DERIVED sample values; no artifact fixes example identities or names.
-ADMIN_IDENTITY: Final = "U01ALICE"
 SECOND_ADMIN_IDENTITY: Final = "U02BOB"
 MEMBER_IDENTITY: Final = "U03CAROL"
 NEWCOMER_IDENTITY: Final = "U04DAVE"

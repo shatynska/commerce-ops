@@ -84,6 +84,9 @@ from commerce_ops.launch.domain.launch_playbook import (
 from commerce_ops.launch.infrastructure.driving import (
     playbook_admin as playbook_module,
 )
+from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
+from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
+from tests.support.admin import fake_verify
 from tests.support.html import Node as _Node
 from tests.support.html import all_text as _all_text
 from tests.support.html import ancestors as _ancestors
@@ -113,9 +116,6 @@ def _launch_module() -> ModuleType:
 
 
 PRINCIPAL: Final = "U01ALICE"
-_SESSION_COOKIE: Final = "admin_session"
-_SESSION_VALUE: Final = "a-verified-admin-session"
-
 #: INVENTED: how each admin surface is named in a header.
 # A LOCATOR, not a prohibition: these are the words by which the header's
 # entry for this surface is found, and it can still fail -- so it is renamed,
@@ -262,9 +262,7 @@ class _EmptyCatalog:
         return None
 
 
-async def _fake_verify(*args: Any, **kwargs: Any) -> str | None:
-    haystack = " ".join(str(value) for value in (*args, *kwargs.values()))
-    return PRINCIPAL if _SESSION_VALUE in haystack else None
+_fake_verify = fake_verify(PRINCIPAL)
 
 
 def _install_launch_seam(

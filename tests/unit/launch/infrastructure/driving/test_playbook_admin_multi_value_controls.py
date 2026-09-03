@@ -145,6 +145,9 @@ from commerce_ops.launch.domain.launch_playbook import (
     StepStatus,
 )
 from commerce_ops.shared.domain.discipline import Discipline
+from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
+from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
+from tests.support.admin import fake_verify
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 
 page_module: ModuleType = importlib.import_module(
@@ -175,9 +178,6 @@ _NAMES_OF_FIELD: Final[dict[str, tuple[str, ...]]] = {
 _VALUE_INPUT_TYPES: Final = ("checkbox",)
 
 PRINCIPAL: Final = "helen"
-_SESSION_COOKIE: Final = "admin_session"
-_SESSION_VALUE: Final = "a-verified-admin-session"
-
 LISTING: Final = Discipline("listing")
 INVENTORY: Final = Discipline("inventory")
 
@@ -803,9 +803,7 @@ def _fault_texts(form: _Form, name: str) -> list[tuple[_Node, str]]:
 # ---------------------------------------------------------------------------
 
 
-async def _fake_verify(*args: Any, **kwargs: Any) -> str | None:
-    haystack = " ".join(str(value) for value in (*args, *kwargs.values()))
-    return PRINCIPAL if _SESSION_VALUE in haystack else None
+_fake_verify = fake_verify(PRINCIPAL)
 
 
 _MEMBERS_ATTRIBUTES: Final = ("members", "read_members", "members_reader")

@@ -100,11 +100,11 @@ from commerce_ops.launch.infrastructure.driving import (
 from commerce_ops.shared.domain.access_scope import AccessScope
 from commerce_ops.shared.domain.identity import MarketplaceId, ProductId, Sku
 from commerce_ops.shared.domain.lifecycle_stage import Launching, Retired
+from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
+from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
+from tests.support.admin import fake_verify
 
 PRINCIPAL: Final = "helen"
-_SESSION_COOKIE: Final = "admin_session"
-_SESSION_VALUE: Final = "a-verified-admin-session"
-
 MARKETPLACE: Final = MarketplaceId("ATVPDKIKX0DER")
 T_REGISTERED: Final = datetime(2026, 8, 23, 9, 0, tzinfo=UTC)
 T_MOVED: Final = datetime(2026, 8, 24, 10, 30, tzinfo=UTC)
@@ -371,11 +371,7 @@ def _install(
     )
 
 
-async def _fake_verify(*args: Any, **kwargs: Any) -> str | None:
-    """Answers the principal only for the one known session value,
-    whatever the verification call shape is."""
-    haystack = " ".join(str(value) for value in (*args, *kwargs.values()))
-    return PRINCIPAL if _SESSION_VALUE in haystack else None
+_fake_verify = fake_verify(PRINCIPAL)
 
 
 def _scope_in(args: tuple[Any, ...], kwargs: dict[str, Any]) -> AccessScope:
