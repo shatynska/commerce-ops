@@ -585,6 +585,12 @@ def _existing_surfaces(monkeypatch: pytest.MonkeyPatch) -> None:
         _PlaybookMembers(),
         "members",
     )
+    # The Team list reads the role collection for a member's roles column.
+    # `main.py` binds the real Postgres store to this module at import and
+    # that outlives the test that imported it, so it is pinned here to a
+    # store this test controls. `None` renders the column empty, which is
+    # right for a test that asserts nothing about roles.
+    monkeypatch.setattr(members_module, "roles", None, raising=False)
     monkeypatch.setattr(members_module, "members", asyncio.run(_build_members_store()))
     monkeypatch.setattr(members_module, "verify_admin_session", _fake_verify)
 

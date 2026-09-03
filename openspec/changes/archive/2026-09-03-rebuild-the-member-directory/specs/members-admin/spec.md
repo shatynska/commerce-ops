@@ -1,9 +1,4 @@
-# members-admin Specification
-
-## Purpose
-The admin surface's Team page: members are listed, created, edited, deactivated and reactivated from the browser, on the same authenticated admin surface the playbook page rides.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: The Team page shows the membership whole
 
@@ -93,61 +88,6 @@ There are now two refusals to surface, and both are the membership's own: the la
 
 - **WHEN** an admin attempts to deactivate a member who is the default holder of several active roles
 - **THEN** the page shows the refusal naming all of those roles, and the member remains on the active membership
-
-### Requirement: The page carries a header from which the other admin surface is reachable
-
-Every page of the Team surface — the list, the create page and each
-member's own page — SHALL carry the same header every other admin
-surface carries, naming the admin surfaces the session can reach, and
-from it each of those other surfaces SHALL be reachable in one action.
-The header SHALL identify the membership as the surface currently being
-viewed.
-
-The requirement was written when the Team surface was a single page, and
-said "The Team page". It is now three, and the guarantee was never about
-one page in particular: an admin who reaches any admin surface can reach
-the others from it without knowing a URL. A create page or a member's
-page rendered without the header would be a page from which the rest of
-the admin is unreachable — which is precisely the gap this requirement
-exists to close, reopened on the two pages the rebuild adds.
-
-The requirement was also written when there were two admin surfaces and
-named the playbook page as "the other" one. There are more than two now.
-The header SHALL name every surface the session can reach, so that a
-surface added later is added to one partial rather than left unreachable
-from the pages that predate it. The roles pages are **not** such a
-surface: they are a section of the Team surface and render this header
-identifying Team as current, reached from the heading of the members
-list's roles column rather than from here.
-
-Reachability SHALL NOT depend on scripting.
-
-#### Scenario: The playbook page is reachable from the membership
-
-- **WHEN** the Team page is rendered
-- **THEN** its header offers the playbook page in one action
-- **AND** identifies the membership as the surface currently viewed
-
-#### Scenario: Every other admin surface is reachable from the membership
-
-- **WHEN** the Team page is rendered
-- **THEN** its header offers each admin surface the session can reach, other than the membership itself, in one action
-
-#### Scenario: The header is rendered on a membership holding nobody
-
-- **WHEN** the Team page is rendered holding no members at all
-- **THEN** the header is still rendered and still offers the other admin
-  surfaces
-
-#### Scenario: A surface added later is named by the header
-
-- **WHEN** an admin surface beyond the playbook and membership pages is reachable by the session
-- **THEN** the Team page's header names it and offers it in one action
-
-#### Scenario: The create page and a member's page carry the header too
-
-- **WHEN** the create page or a member's own page is rendered
-- **THEN** it carries the same header, offering the other admin surfaces in one action
 
 ### Requirement: The page's presentation comes from the shared admin vocabulary
 
@@ -244,6 +184,63 @@ carried the workaround.
 
 - **WHEN** the shared admin stylesheet is served
 - **THEN** it carries no rule selecting a form inside a table's actions cell at all, whatever that rule declares
+
+### Requirement: The page carries a header from which the other admin surface is reachable
+
+Every page of the Team surface — the list, the create page and each
+member's own page — SHALL carry the same header every other admin
+surface carries, naming the admin surfaces the session can reach, and
+from it each of those other surfaces SHALL be reachable in one action.
+The header SHALL identify the membership as the surface currently being
+viewed.
+
+The requirement was written when the Team surface was a single page, and
+said "The Team page". It is now three, and the guarantee was never about
+one page in particular: an admin who reaches any admin surface can reach
+the others from it without knowing a URL. A create page or a member's
+page rendered without the header would be a page from which the rest of
+the admin is unreachable — which is precisely the gap this requirement
+exists to close, reopened on the two pages the rebuild adds.
+
+The requirement was also written when there were two admin surfaces and
+named the playbook page as "the other" one. There are more than two now.
+The header SHALL name every surface the session can reach, so that a
+surface added later is added to one partial rather than left unreachable
+from the pages that predate it. The roles pages this change adds are
+**not** such a surface: they are a section of the Team surface and
+render this header identifying Team as current, reached from Team's
+own secondary navigation rather than from here.
+
+Reachability SHALL NOT depend on scripting.
+
+#### Scenario: The playbook page is reachable from the membership
+
+- **WHEN** the Team page is rendered
+- **THEN** its header offers the playbook page in one action
+- **AND** identifies the membership as the surface currently viewed
+
+#### Scenario: Every other admin surface is reachable from the membership
+
+- **WHEN** the Team page is rendered
+- **THEN** its header offers each admin surface the session can reach, other than the membership itself, in one action
+
+#### Scenario: The header is rendered on a membership holding nobody
+
+- **WHEN** the Team page is rendered holding no members at all
+- **THEN** the header is still rendered and still offers the other admin
+  surfaces
+
+#### Scenario: A surface added later is named by the header
+
+- **WHEN** an admin surface beyond the playbook and membership pages is reachable by the session
+- **THEN** the Team page's header names it and offers it in one action
+
+#### Scenario: The create page and a member's page carry the header too
+
+- **WHEN** the create page or a member's own page is rendered
+- **THEN** it carries the same header, offering the other admin surfaces in one action
+
+## ADDED Requirements
 
 ### Requirement: The create page and a member's own page carry a breadcrumb back to the list
 

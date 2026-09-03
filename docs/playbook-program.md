@@ -191,11 +191,19 @@ with active steps in one order, so the served set must stay visually
 distinguishable — today it is separated into two tables, which no longer
 expresses the ordering.
 
-**Roles are a managed collection, seeded with nine.** They are created, renamed
-and retired in the admin like any other content — nobody can guess today which
-roles this company will actually need, and a vocabulary fixed in code would have
-to be guessed correctly the first time. What the nine below are is a *starting
-set*, seeded because step seeding needs roles to reference, not a closed list.
+**Roles are a managed collection, seeded with eleven.** They are created,
+renamed and retired in the admin like any other content — nobody can guess today
+which roles this company will actually need, and a vocabulary fixed in code would
+have to be guessed correctly the first time. What the eleven below are is a
+*starting set*, seeded because step seeding needs roles to reference, not a
+closed list.
+
+They are seeded with a status, not all alike: **active** where
+`activate-the-seeded-step-set` assigns steps to them, and **draft** where the
+position owns no step. A draft role need not name a holder, which is what lets
+the seed record a position the company intends to staff without asserting it is
+filled. (`rebuild-the-member-directory`, which also settled that a member may
+hold several roles.)
 
 **A role's identifier is a slug, chosen once and never changed; its title is
 editable.** This differs deliberately from a member, whose identifier is a
@@ -215,29 +223,62 @@ step assigned to it; removing the last holder of an active role is refused the
 way the last active admin already is. A retired role takes no new assignments,
 and the steps still naming one are reported rather than failing a load — the
 shape *What blocks a step from being activated is reported* already uses.
+Both halves of that last sentence belong to `assign-steps-by-role`, not to
+`rebuild-the-member-directory`: nothing can be assigned to a role until a step
+can reference one, so neither the refusal nor the reporting has a subject
+before then.
 
 **The seed is the member directory's bootstrap, not the playbook's.** Roles must
 exist before steps can reference them, and the container chain already runs
-`seed_admin` before `seed_playbook`. So seeding the nine roles and pointing every
-default at the bootstrap admin belongs there — one step with one concern, that
-the member directory is usable, rather than a new link in the chain.
+`seed_admin` before `seed_playbook`. So seeding the eleven roles belongs there —
+one step with one concern, that the member directory is usable, rather than a new
+link in the chain. The eight seeded active point their default at the **seeding
+administrator**, and the three seeded draft point at nobody. Not "the bootstrap
+admin": `members` has the admin seeding alter nothing where the membership
+already holds an active admin, so on that branch — the one every
+already-administered deployment takes — that phrase names no one. The seeding
+administrator is the member the admin seeding established on this run, else the
+earliest-created active admin.
 
 Each role is a position a marketplace company actually staffs, so the directory
 reads as an org chart rather than as a re-spelling of the discipline enum. The
 identifier is a short slug and the display name is the full title. Every one of
 the 358 steps is covered and none is counted twice:
 
-| Identifier | Position | Steps | From disciplines |
-|---|---|---|---|
-| `supply-chain` | Supply Chain Manager | 78 | `inventory`, `setup` — suppliers, MOQ, cartons, HS codes, freight, packaging spec |
-| `ppc` | PPC Manager | 77 | `ppc`, `rank`, `traffic` — campaign structure, launch keyword strategy, spend |
-| `brand` | Brand Manager | 65 | `strategy`, `price` — product selection gates, price ladder, competitive position |
-| `catalog` | Catalog Manager | 39 | `listing` — flat files, browse paths, variation families |
-| `controller` | Financial Controller | 36 | `finance` — CM1/CM2/CM3, landed cost, fee tiers |
-| `creative` | Creative Manager | 26 | `creative` — photography, A+, packaging artwork, CTR assets |
-| `customer-service` | Customer Service Manager | 22 | `customer` — reviews, feedback, 1-star response |
-| `marketing` | Marketing Manager | 15 | `external` — email, influencers, affiliates, off-Amazon |
-| `operations` | Operations Manager | — | maps to no discipline; the cross-cutting **confirmer** role |
+**The positions seeded.** Eleven, with the status each is seeded in:
+
+| Identifier | Position | Seeded |
+|---|---|---|
+| `supply-chain` | Supply Chain Manager | `active` |
+| `ppc` | PPC Manager | `active` |
+| `brand` | Brand Manager | `active` |
+| `catalog` | Catalog Manager | `active` |
+| `controller` | Financial Controller | `active` |
+| `creative` | Creative Manager | `active` |
+| `customer-service` | Customer Service Manager | `active` |
+| `marketing` | Marketing Manager | `active` |
+| `operations` | Operations Manager | `draft` — the cross-cutting **confirmer** role, which owns no step while no step names a confirmer |
+| `managing-director` | Managing Director | `draft` — the tenth role this section once left open |
+| `it` | IT Manager | `draft` — a position the company may not have staffed |
+
+**The discipline-to-role seed map.** A separate thing from the list above, and
+the one `activate-the-seeded-step-set` reads. Roles are their own vocabulary, so
+only the eight that own steps appear here. Every one of the 358 steps is covered
+and none is counted twice:
+
+| Role | Steps | From disciplines |
+|---|---|---|
+| `supply-chain` | 78 | `inventory`, `setup` — suppliers, MOQ, cartons, HS codes, freight, packaging spec |
+| `ppc` | 77 | `ppc`, `rank`, `traffic` — campaign structure, launch keyword strategy, spend |
+| `brand` | 65 | `strategy`, `price` — product selection gates, price ladder, competitive position |
+| `catalog` | 39 | `listing` — flat files, browse paths, variation families |
+| `controller` | 36 | `finance` — CM1/CM2/CM3, landed cost, fee tiers |
+| `creative` | 26 | `creative` — photography, A+, packaging artwork, CTR assets |
+| `customer-service` | 22 | `customer` — reviews, feedback, 1-star response |
+| `marketing` | 15 | `external` — email, influencers, affiliates, off-Amazon |
+
+The three seeded `draft` map to no discipline and own no step, which is why they
+are seeded draft rather than active.
 
 Two naming choices worth keeping. **Brand Manager**, not Category Manager: both
 are real titles, but in a private-label marketplace business the member clearing
@@ -260,8 +301,9 @@ plausible candidate to split out later.
 
 `operations` exists because a confirmer is often not the discipline owner: it
 is the role that accepts someone else's work, and it maps to no discipline
-deliberately. **Open:** whether capital commitments want a tenth role —
-*Managing Director* — rather than being confirmed by the Operations Manager.
+deliberately. **Decided** (`rebuild-the-member-directory`): capital commitments
+get their own role. *Managing Director* is seeded, with *IT Manager* alongside
+it, both `draft` — positions the company staffs rather than roles the steps use.
 The company head confirms some steps and is not an employee, which is one of
 the reasons the directory is `members` rather than `employees`.
 
@@ -377,9 +419,8 @@ Four commits when proposed; the rename has since landed as its own change,
 leaving three.
 
 - **Rename** — split out as its own change, `rename-the-roster-to-members`,
-  which is implemented and awaiting merge (this bullet becomes "done" when it
-  lands, not before). Split rather than landing as this change's first
-  commit: measured, the rename reaches 13 capabilities and 219 files, while
+  which **landed** as PR #152 on 2026-09-02. Split rather than landing as this
+  change's first commit: measured, the rename reaches 13 capabilities and 219 files, while
   the rest of this change reaches two capabilities, so bundling them would
   have put ~90% of the diff and none of the risk in front of one reviewer. It
   renamed the two specs, the two tables and every reference `launch` makes to
@@ -392,7 +433,7 @@ leaving three.
   holders, exactly one of them the default; the `admin` boolean stays exactly
   where it is, because permission and work-ownership are different axes and
   `members`'s last-active-admin invariant is built on the boolean.
-- **Managing roles**, since the nine seeded are a starting guess rather than a
+- **Managing roles**, since the eleven seeded are a starting guess rather than a
   known answer: create, rename and retire them from the admin, with holders
   added and the default moved. Carries three rules that mirror ones the member
   directory already has — retired never deleted, an active role may not lose its
@@ -402,7 +443,7 @@ leaving three.
   already shipped and specified for steps. Today the page opens with a
   full-width *Add a member* form, and its `actions` column holds two `<form>`s
   containing three unlabelled `<input>`s — an edit-in-place crammed into a table
-  cell, with a `td.actions form { display: contents }` CSS hack working around
+  cell, with a `td.actions form` CSS hack working around
   it. Target: a **Team** page that is a read-only list whose name column links
   to the member's own page; adding moves to its own page as `/steps/new` did;
   editing, deactivating and reactivating move onto the member's page as step
@@ -422,7 +463,7 @@ reviewable in one sitting, the role-management half is what splits out next.
 the union above. Resolution at projection and display; the step picker renders
 the two groups described below.
 
-**The one spec consequence.** `launch-playbook:513` rejects a step whose *only*
+**The one spec consequence.** `launch-playbook:414` rejects a step whose *only*
 assignee is also its confirmer — "a single actor confirming their own work is
 not a second opinion" — and it is a **load-time** rule today precisely because
 it is a pure function of the step set. Roles break that purity: `controller`
@@ -565,7 +606,7 @@ is. Those below survive.
 | H4 | **Prompt fatigue.** The first clone makes every subsequent edit to any shared step prompt. Mitigated by defaulting the prompt to *change everywhere* as a single click, not a modal requiring thought. | 7 |
 | H5 | **Is `status` per step or per placement?** See the field table above. `assignees` is settled by roles. | 5 |
 | H6 | **The served set must stay distinguishable** now that a draft holds a slot and the listing interleaves them. Today the admin separates served from not-served into two tables, which no longer expresses one order. | 3 |
-| H7 | **May one member hold several roles?** Likely yes for a small team — and if the same member is the default for both a step's assignee role and its confirmer role, that step resolves to one member confirming their own work, reported as a resolution fault rather than a load failure. | 2 |
+| H7 | ~~**May one member hold several roles?**~~ **Resolved** (`rebuild-the-member-directory`): yes — a role carries a set of holders, one of them the default, and a member may hold any number. The consequence stands and belongs to Change 2: where one member is the default of both a step's assignee role and its confirmer role, that step resolves to one member confirming their own work, reported as a resolution fault rather than a load failure. | 2 |
 
 ## Conflicts with the working queue
 

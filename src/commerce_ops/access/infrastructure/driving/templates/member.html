@@ -1,0 +1,126 @@
+{#
+  One member's own page: editing, deactivating and reactivating all happen
+  here, and the entry's attribution is read here.
+
+  `Deactivate` is this surface's destructive action and the only control
+  carrying `danger`. Reactivating is not destructive, and neither is saving an
+  edit.
+
+  Two independent refusals can land on this page and they compose: the
+  last-active-admin refusal, and the refusal to deactivate a member who is the
+  default holder of an active role. The second names every blocking role, and
+  all of them are shown — a refusal listing one of eight would be read as the
+  only obstacle.
+#}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ record.member.display_name }}</title>
+  <link rel="stylesheet" href="/admin/assets/pico.min.css">
+  <link rel="stylesheet" href="/admin/assets/vocabulary.css">
+</head>
+<body>
+{% with current = "team" %}{% include "_admin_header.html" %}{% endwith %}
+<main class="container">
+  <div class="page-head">
+    {% with breadcrumb = [("Team", page_path), (record.member.display_name, None)] %}
+      {% include "_breadcrumb.html" %}
+    {% endwith %}
+  </div>
+
+{% if faults %}
+  <article class="faults">
+    <p>The write was rejected and nothing was saved:</p>
+    <ul>{% for fault in faults %}<li>{{ fault }}</li>{% endfor %}</ul>
+  </article>
+{% endif %}
+{% if notice %}
+  <article class="notice"><p>{{ notice }}</p></article>
+{% endif %}
+
+  <dl class="member-facts">
+    {# Presented as values, never as inputs: `members` states that neither the
+       generated identifier nor the Slack identity is updatable. #}
+    <dt>Slack identity</dt><dd><code>{{ record.member.slack_identity }}</code></dd>
+    <dt>Status</dt>
+    <dd class="member-status">{% if record.member.active %}active{% else %}deactivated{% endif %}</dd>
+  </dl>
+
+  <h2>Details</h2>
+  <form method="post" action="{{ page_path }}/{{ record.member.identifier }}/edit">
+    <label>Display name
+      <input name="display_name"
+             value="{{ submitted.get('display_name', record.member.display_name) }}">
+    </label>
+    <label>ClickUp user id
+      <input name="clickup_user_id"
+             value="{{ submitted.get('clickup_user_id', record.member.clickup_user_id or '') }}">
+    </label>
+    <label>
+      {# `submitted` is empty on a fresh render and holds the posted form
+         after a rejection. An unchecked box posts NOTHING, so falling back to
+         the stored value would re-render it checked after an admin unchecked
+         it — and re-submitting the form as displayed would silently re-confer
+         admin. `resubmitted` tells the two states apart, so the box shows what
+         was sent rather than what is stored. #}
+      <input type="checkbox" name="admin" value="true"
+             {% if (submitted.get('admin') if resubmitted else record.member.admin) %}checked{% endif %}>
+      Admin
+    </label>
+    <button type="submit" class="row-action">Save member</button>
+  </form>
+
+  <h2>Roles</h2>
+  {# What a member holds is read here as well as on the Roles pages: holding
+     an active role's default is what refuses their deactivation, so the page
+     carrying that refusal carries its cause too. #}
+  {% if held %}
+  <ul class="member-roles">
+    {% for entry in held %}
+    <li>
+      <a href="{{ roles_path }}/{{ entry.slug }}">{{ entry.title }}</a>
+      <span class="role-status role-status-{{ entry.status }}">{{ entry.status }}</span>
+      {% if entry.is_default %}<span class="role-default">default holder</span>{% endif %}
+      {# Held here as well as on the role's own page. Taking a role off
+         somebody is a thing you do while looking at the person, and having to
+         open each role to do it is the same errand this change removed from
+         the members list. The write is the roles capability's own use case, so
+         the refusal for an active role's default lands here unchanged. #}
+      <form method="post"
+            action="{{ page_path }}/{{ record.member.identifier }}/roles/remove">
+        <input type="hidden" name="slug" value="{{ entry.slug }}">
+        <button type="submit" class="row-action">Remove</button>
+      </form>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="muted">Holds no role.</p>
+  {% endif %}
+
+  <h2>Membership</h2>
+  {% if record.member.active %}
+  <form method="post" action="{{ page_path }}/{{ record.member.identifier }}/deactivate">
+    <button type="submit" class="row-action danger">Retire</button>
+  </form>
+  {% else %}
+  <form method="post" action="{{ page_path }}/{{ record.member.identifier }}/reactivate">
+    <button type="submit" class="row-action">Un-retire</button>
+  </form>
+  {% endif %}
+
+  <h2>History</h2>
+  {# The audit that replaces the deleted directory file's git trail. What
+     changed with the rebuild is only where it is read. #}
+  <dl class="attribution">
+    <dt>Created</dt>
+    <dd>{% if record.created_by %}{{ record.created_by }} — {{ record.created_on }}{% else %}<span class="muted">—</span>{% endif %}</dd>
+    {% if record.updated_by %}<dt>Last updated</dt><dd>{{ record.updated_by }} — {{ record.updated_on }}</dd>{% endif %}
+    {% if record.deactivated_by %}<dt>Deactivated</dt><dd>{{ record.deactivated_by }} — {{ record.deactivated_on }}</dd>{% endif %}
+    {% if record.reactivated_by %}<dt>Reactivated</dt><dd>{{ record.reactivated_by }} — {{ record.reactivated_on }}</dd>{% endif %}
+  </dl>
+</main>
+</body>
+</html>

@@ -353,24 +353,15 @@ samp,
  * ------------------------------------------------------------------------ */
 
 /*
- * The action cell keeps its controls on one line.
+ * There is deliberately no rule here for a form inside an actions cell.
  *
- * `display: contents` on the forms was the first approach — it collapses
- * each single-action form so its button becomes a direct flex item of a
- * flex cell. It is not taken, and `design.md` — Risks names this fallback
- * for when it has to go: the forms go inline and their buttons are the
- * inline items. The markup is identical either way.
- *
- * The reason it had to go is that `display: flex` on a `<td>` replaces
- * `display: table-cell`. The cell leaves the table's column model, so it
- * no longer sizes with its column — and any attempt to give it a width
- * back is a guess the table used to make correctly. Inline layout keeps
- * the cell a cell.
+ * `td.actions form` existed to keep an action cell's controls on one line —
+ * an edit-in-place crammed into a table cell needed propping up.
+ * `rebuild-the-member-directory` moved every action onto the record's own
+ * page, so no admin table has an actions cell any more. The rule is removed
+ * with the thing it worked around rather than left behind matching nothing,
+ * where it would only invite someone to put the actions back.
  */
-td.actions form {
-  display: inline;
-  margin: 0;
-}
 
 /* One floor width for every worded action, so `edit` and `retire` are the
    same size rather than sized by how long their words happen to be. A
@@ -603,6 +594,21 @@ main.container h1 {
 main.container h2 {
   font-size: 1.15rem;
   font-weight: 600;
+
+  /* Space ABOVE the heading rather than below the thing before it: a section
+     is introduced by its heading, so the gap belongs to the heading and
+     travels with it wherever a section is added. Set on the shared rule so
+     every admin page gets the same rhythm — the Team page's active/retired
+     pair, the playbook's gates, and anything added later — rather than one
+     page being spaced by hand and the rest drifting. */
+  margin-top: calc(var(--space-loose) * 2.5);
+}
+
+/* ...except the first section on a page, which is already spaced by the
+   page head above it and would otherwise start a long way down. */
+main.container > h2:first-of-type,
+main.container > section:first-of-type > h2 {
+  margin-top: var(--space-loose);
 }
 
 /* A gate's own name, heading the steps served there on the playbook
@@ -719,7 +725,10 @@ main.container h2 {
   border-radius: var(--pico-border-radius);
   font-size: var(--size-small);
   font-weight: 600;
-  line-height: 1.2;
+  /* See the form-submit rule below: the flex box centres the glyphs, and a
+     line-height above 1 pushes them off it. The two controls carry the same
+     value so they cannot drift apart. */
+  line-height: 1;
   white-space: nowrap;
 }
 
@@ -1886,4 +1895,282 @@ section.finished .empty,
 
 .control-group .hidden-chosen-notice.hidden-chosen {
   color: var(--mark-flag-ink);
+}
+
+
+/* --------------------------------------------------------------------------
+ * Admin forms have a reading width.
+ *
+ * A form's inputs stretched to the full container otherwise — a display name
+ * given the same 60-plus characters as a page of prose, which is both hard to
+ * aim at and hard to read back. The constraint is one rule on the form rather
+ * than a width per field, so a form added later inherits it instead of being
+ * measured by hand.
+ *
+ * `max-width`, not `width`: on a narrow viewport the form still uses what it
+ * has rather than being pinned wider than the screen.
+ * ------------------------------------------------------------------------ */
+main.container form {
+  max-width: 32rem;
+}
+
+/* A member's roles, read on their own page. Laid out as a list rather than a
+   table: it carries one fact per row and a table's header would outweigh it. */
+ul.member-roles {
+  list-style: none;
+  padding-left: 0;
+}
+
+ul.member-roles li {
+  display: flex;
+  gap: 0.5rem;
+  align-items: baseline;
+  padding: 0.25rem 0;
+}
+
+
+/* --------------------------------------------------------------------------
+ * The Team list's columns, and the role chips in its last one.
+ *
+ * The widths are declared so the active and retired tables agree. They are two
+ * separate `<table>`s over the same shape, and a browser sizes each to its own
+ * content — so the same column landed in a different place in each, which
+ * reads as two unrelated tables rather than one set split in two.
+ *
+ * `table-layout: fixed` makes the declared widths authoritative rather than
+ * advisory, which is what makes the two agree rather than merely start from
+ * the same suggestion.
+ * ------------------------------------------------------------------------ */
+table.members-table {
+  table-layout: fixed;
+}
+
+table.members-table .col-name {
+  width: 22%;
+}
+
+table.members-table .col-slack {
+  width: 18%;
+}
+
+table.members-table .col-clickup {
+  width: 16%;
+}
+
+table.members-table .col-admin {
+  width: 8%;
+}
+
+/* Last, and given the remainder: it is the column that grows with how many
+   roles a member holds, so it is the one that should absorb the slack. */
+table.members-table .col-roles {
+  width: auto;
+}
+
+/* The chips are laid out on a wrapper INSIDE the cell, never on the cell.
+ *
+ * `display: flex` on a `<td>` replaces `display: table-cell`: the cell leaves
+ * the table's column model, stops sizing with its column, and takes the row's
+ * borders with it — which is what tore the horizontal rules and made the two
+ * tables disagree. The same trap is recorded above for `td.actions`; this is
+ * the same mistake and the same fix. */
+.role-slugs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+a.role-slug {
+  font-family: var(--pico-font-family-monospace);
+  font-size: 0.85em;
+  text-decoration: none;
+  border-radius: 0.25rem;
+  padding: 0.05rem 0.35rem;
+  white-space: nowrap;
+
+  /* Blue, but well back from the link colour. A row can carry six of these,
+     and anywhere near full contrast a wall of them outweighs the member's
+     name — which is the row's actual subject. Mixed off Pico's own primary
+     rather than hardcoded, so they stay in the same family as every other
+     link on the page and follow the theme; the wash is gone entirely, since
+     a tinted fill behind six chips reads as a band across the row. */
+  color: color-mix(in srgb, var(--pico-primary) 20%, var(--ink-quiet));
+  border: 1px solid var(--rule);
+  background: transparent;
+}
+
+a.role-slug:hover {
+  color: var(--pico-primary);
+  border-color: color-mix(in srgb, var(--pico-primary) 45%, var(--rule));
+}
+
+/* The one a member is default of carries the full hue and the heavier weight:
+   it is the one that refuses their retirement, so it is the one worth
+   picking out of the row. */
+a.role-slug-default {
+  color: color-mix(in srgb, var(--pico-primary) 45%, var(--ink-quiet));
+  border-color: color-mix(in srgb, var(--pico-primary) 25%, var(--rule));
+  font-weight: 600;
+}
+
+
+
+/* --------------------------------------------------------------------------
+ * Admin forms: the label is the quiet part, the value is the loud one.
+ *
+ * A run of fields read as a wall before this: every label at body size and
+ * full ink, so a label and the value under it carried the same weight and
+ * nothing said which belonged to which. The fix is contrast, not decoration —
+ * the label steps back in size and colour so the values it introduces are what
+ * the eye lands on, and the fields are pushed apart so a pair reads as a pair.
+ *
+ * Scoped to `main.container form` so it reaches every admin form — the two
+ * create pages, both record pages, and any added later — rather than being
+ * set per page and drifting.
+ * ------------------------------------------------------------------------ */
+main.container form label {
+  display: block;
+  margin-bottom: calc(var(--space-loose) * 1.35);
+  font-size: var(--size-small);
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--ink-quiet);
+  letter-spacing: 0.01em;
+}
+
+/* The control itself reads at full strength: it carries the content, and it
+   is what an admin is actually reading back. */
+main.container form label input:not([type="checkbox"]),
+main.container form label select,
+main.container form label textarea {
+  margin-top: var(--space-tight);
+  margin-bottom: 0;
+  font-size: 1rem;
+  font-weight: 400;
+  color: var(--ink);
+}
+
+/* A checkbox and its word are one line, not a label stacked over a control. */
+main.container form label:has(> input[type="checkbox"]) {
+  display: flex;
+  align-items: center;
+  gap: var(--space-snug);
+}
+
+main.container form label > input[type="checkbox"] {
+  margin: 0;
+}
+
+/* The hint under a field is quieter still, and tucked to the control it
+   explains rather than floating between two of them. */
+main.container form label small {
+  display: block;
+  margin-top: var(--space-tight);
+  font-weight: 400;
+  color: var(--ink-faint);
+}
+
+/* --------------------------------------------------------------------------
+ * A form's own submit reads as the primary action of that form.
+ *
+ * `.row-action` is sized for a control sitting in a row among others. A form's
+ * submit is the one thing the form is for, so inside a form it takes the
+ * accent treatment and a larger box — the same relationship the page head's
+ * `Add member` has to the list it sits over.
+ *
+ * The markers are untouched: `row-action` still names an action control and
+ * `danger` still names the destructive one. Only their painting changes.
+ * ------------------------------------------------------------------------ */
+main.container form button.row-action.row-action {
+  margin-top: var(--space-snug);
+
+  /* Every value below is `.page-head-action`'s, so a form's submit and the
+     `Add member` control over the list are one control at one size, not two
+     that happen to be blue. Kept as literal duplicates of that rule rather
+     than as a shared class because the two are reached by different
+     selectors — `a[role=button]` there, `button[type=submit]` here — and
+     Pico's own width and font rules only match the second. */
+  padding: var(--space-tight) var(--space-loose);
+  border-radius: var(--pico-border-radius);
+  font-size: var(--size-small);
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  color: var(--pico-primary-inverse);
+  background: var(--pico-primary-background);
+  border-color: var(--pico-primary-background);
+
+  /* Centred by the box, not by the font. A `<button>`'s text sits on the
+     font's own baseline inside whatever line box it is given, so a bare
+     `line-height` leaves it a fraction high or low depending on the face.
+     Zeroing the line height and letting the flex box do the centring puts
+     the glyphs in the middle of the control regardless. */
+  line-height: 1;
+  align-items: center;
+  justify-content: center;
+}
+
+main.container form button.row-action.row-action:hover:not(:disabled) {
+  background: var(--pico-primary-hover-background, var(--pico-primary-hover));
+  border-color: var(--pico-primary-hover-background, var(--pico-primary-hover));
+}
+
+/* The destructive one stays told apart, and by more than a word: filling it
+   in the accent alongside every Save would make retiring somebody look like
+   the ordinary thing to do on the page. It keeps the outline treatment and
+   takes the warning hue. */
+main.container form button.row-action.danger.danger {
+  color: var(--pico-del-color, #b3261e);
+  background: transparent;
+  border-color: color-mix(in srgb, var(--pico-del-color, #b3261e) 45%, transparent);
+}
+
+main.container form button.row-action.danger.danger:hover:not(:disabled) {
+  color: var(--pico-primary-inverse);
+  background: var(--pico-del-color, #b3261e);
+  border-color: var(--pico-del-color, #b3261e);
+}
+
+/* Removing a role from a member sits in a list beside the role it removes, not
+   under a form of its own — so it keeps the compact row treatment rather than
+   becoming a primary button per line. */
+ul.member-roles form button.row-action.row-action {
+  margin-top: 0;
+  padding: var(--space-hair) var(--space-snug);
+  font-size: var(--size-small);
+  font-weight: 400;
+  color: var(--ink-quiet);
+  background: var(--field);
+  border-color: var(--rule);
+}
+
+ul.member-roles form button.row-action.row-action:hover:not(:disabled) {
+  color: var(--ink);
+  border-color: var(--ink-quiet);
+  background: var(--surface);
+}
+
+ul.member-roles form {
+  display: inline;
+  max-width: none;
+}
+
+
+/* --------------------------------------------------------------------------
+ * A table row's cells align to their top edge.
+ *
+ * Browsers default `<td>` to `vertical-align: middle`, which is right only
+ * while every cell in a row is one line. As soon as one is not — a wrapped
+ * name, a column of role chips, a stacked pair of controls — every other cell
+ * in that row floats to the middle of the tall one and the row stops reading
+ * as a line of related facts. Top-aligning keeps the first line of every cell
+ * on the same baseline, so the eye can still cross a row.
+ *
+ * Applied to every admin table rather than to the ones that happen to have a
+ * tall column today: a column that wraps is not a property of a page, and the
+ * table that grows one next should already be right.
+ * ------------------------------------------------------------------------ */
+main.container table th,
+main.container table td {
+  vertical-align: top;
 }

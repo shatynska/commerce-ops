@@ -47,7 +47,11 @@ from commerce_ops.access.application.members import StaleMembersError
 from commerce_ops.access.infrastructure.driven.members_repository import (
     MembersRepository,
 )
-from commerce_ops.access.infrastructure.driven.models import MemberRow
+from commerce_ops.access.infrastructure.driven.models import (
+    MemberRow,
+    RoleHolderRow,
+    RoleRow,
+)
 
 pytestmark = pytest.mark.anyio
 
@@ -99,12 +103,25 @@ async def members(database_url: str) -> AsyncIterator[_SessionScopedMembers]:
     gate: no database configured means skip here, fail in CI.
     """
     async with _session(database_url) as session:
-        await session.execute(delete(MemberRow))
-        await session.commit()
+        await _clear(session)
     yield _SessionScopedMembers(database_url)
     async with _session(database_url) as session:
-        await session.execute(delete(MemberRow))
-        await session.commit()
+        await _clear(session)
+
+
+async def _clear(session: Any) -> None:
+    """Empty the membership, and the rows that reference it.
+
+    `role_holders.member_id` points at `members.identifier`, so clearing the
+    membership alone leaves any holder row dangling and the foreign key rejects
+    the delete — turning every test in this file into an error until the table
+    is cleaned by hand. Deleting holders and roles first is what makes this
+    fixture independent of whatever else has run against the database.
+    """
+    await session.execute(delete(RoleHolderRow))
+    await session.execute(delete(RoleRow))
+    await session.execute(delete(MemberRow))
+    await session.commit()
 
 
 def _identity() -> str:

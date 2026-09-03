@@ -1,0 +1,69 @@
+{#
+  Creating a role, on a page of its own rather than in a form at the top of the
+  list — the pattern `move-step-actions-into-step-pages` shipped for steps.
+
+  The slug, the title, the initial status and — where that status is active —
+  the default holder are taken in ONE submission. A role is never persisted in
+  a state its own status forbids and then corrected: composing an active role
+  as create-draft, add-holder, activate would record an activation in the
+  attribution trail that no admin performed.
+#}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>New role</title>
+  <link rel="stylesheet" href="/admin/assets/pico.min.css">
+  <link rel="stylesheet" href="/admin/assets/vocabulary.css">
+</head>
+<body>
+{% with current = "team" %}{% include "_admin_header.html" %}{% endwith %}
+<main class="container">
+  <div class="page-head">
+    {% with breadcrumb = [("Team", team_path), ("Roles", page_path), ("New role", None)] %}
+      {% include "_breadcrumb.html" %}
+    {% endwith %}
+  </div>
+
+{% if faults %}
+  <article class="faults">
+    <p>The write was rejected and nothing was saved:</p>
+    <ul>{% for fault in faults %}<li>{{ fault }}</li>{% endfor %}</ul>
+  </article>
+{% endif %}
+
+<form method="post" action="{{ page_path }}/new">
+  <label>Slug
+    <input name="slug" value="{{ submitted.get('slug', '') }}"
+           placeholder="head-of-finance">
+    <small>Lowercase letters and digits in hyphen-separated runs. Chosen once
+      and never changed — a step stores the slug.</small>
+  </label>
+  <label>Title
+    <input name="title" value="{{ submitted.get('title', '') }}"
+           placeholder="Head of Finance">
+    <small>Free to correct at any time; nothing stores a role by title.</small>
+  </label>
+  <label>Status
+    <select name="status">
+      <option value="draft" {% if submitted.get('status', 'draft') == 'draft' %}selected{% endif %}>Draft — recorded, not yet in play</option>
+      <option value="active" {% if submitted.get('status') == 'active' %}selected{% endif %}>Active — needs a default holder</option>
+    </select>
+  </label>
+  <label>Default holder
+    <select name="default_holder">
+      <option value="">— nobody (draft roles only) —</option>
+      {% for member in candidates %}
+      <option value="{{ member.identifier }}"
+              {% if submitted.get('default_holder') == member.identifier %}selected{% endif %}>{{ member.display_name }}</option>
+      {% endfor %}
+    </select>
+    <small>Required when the status is active: an active role always has a
+      default holder, so that a step assigned to it resolves to somebody.</small>
+  </label>
+  <button type="submit" class="row-action">Create role</button>
+</form>
+</main>
+</body>
+</html>
