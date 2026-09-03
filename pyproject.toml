@@ -60,6 +60,12 @@ dev = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests/unit", "tests/agents", "tests/integration"]
+# `tests/support/` is imported as `tests.support.*` by all three tiers. That
+# resolves today only because `tests/__init__.py` exists, so pytest's `prepend`
+# import mode inserts the repository root when it imports the root conftest --
+# a derived consequence of a file that exists for other reasons, which ~300
+# test files would then depend on. Pinned here instead of relied upon.
+pythonpath = ["."]
 # `-rs` because the default `-r fE` hides skip reasons, and this suite's
 # skips carry the instructions for acting on them -- which is how a run
 # reporting "64 skipped" was once read as a passing integration tier.
