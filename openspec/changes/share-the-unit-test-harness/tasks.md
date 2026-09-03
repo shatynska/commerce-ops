@@ -258,13 +258,13 @@ The largest single cluster: 159 files. Mechanical; no test body may change.
 
 ## 5. Phase A — hoist the Slack listener-draining wrapper
 
-- [ ] 5.1 Move `_DrainsDeferredListeners` to `tests/support/slack.py`, carrying the
+- [x] 5.1 Move `_DrainsDeferredListeners` to `tests/support/slack.py`, carrying the
       omni_agent conftest's full docstring argument (the launch conftest's own
       docstring says it is a mirror and defers to it).
-- [ ] 5.2 Reduce both driving conftests to a thin `slack_asgi_app` fixture calling
+- [x] 5.2 Reduce both driving conftests to a thin `slack_asgi_app` fixture calling
       it. `tests/conftest.py` and `tests/integration/conftest.py` are not touched
       (Decision 10).
-- [ ] 5.3 **Phase A checkpoint.** Full gate green, test count unchanged, line
+- [x] 5.3 **Phase A checkpoint.** Full gate green, test count unchanged, line
       reduction recorded against the ~6,640-line floor. This is the last Phase A
       task, and everything through it is a coherent, independently mergeable unit
       (Decision 11).
