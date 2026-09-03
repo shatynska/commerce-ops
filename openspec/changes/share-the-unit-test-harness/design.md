@@ -426,6 +426,13 @@ Each is added by the task that adds its fake, not up front — the shape is
 established by reading the variants, so authoring the protocol first would be
 guessing. A module docstring records that the successor change replaces them.
 
+**Completeness carries the same-value invariant with it.** Modelling every
+attribute a probe reads is only safe if the added spellings agree with the one
+they displace — otherwise completeness silently redirects the probe, which is
+risk 4 in Decision 7(b2). The invariant is stated there in full; it belongs
+beside the `_conforms` rule because the two are one obligation: a fake models
+its subject fully **and** its added spellings carry the displaced value.
+
 **Builders return fresh instances.** No module-level singleton, no shared mutable
 default. A builder that hands two tests the same list produces order-dependent
 failures, which is a worse defect than the one being fixed.
@@ -465,13 +472,23 @@ kinds 1–3 *and* to the collected-count check. Population A's stronger rule
 covers this; Population B's per-file judgement does not, which is exactly where
 it would bite.
 
-**One assertion this check cannot see, by construction.** Decision 2's
-prohibition — sourcing `SPECIFIED_GATE_ORDER` from `GATE_SEQUENCE` — leaves
-`assert [g.identifier for g in playbook.gates] == list(SPECIFIED_GATE_ORDER)`
-unparsing identically either way, so the change's own headline failure mode
-passes every mechanical check here. It is mechanised separately and trivially:
-**`tests/support/playbook.py` must contain no import from
-`commerce_ops.launch.domain.launch_playbook`**, checked by grep in task 2.1.
+**What this check cannot see, by construction: the *value* an assertion compares
+against.** `assert x == CONFIRMATION_GATES` unparses identically whether that
+name holds the file's old literal or a different shared one — and the
+declaration sits *before* the first test, inside the very preamble this change
+rewrites, so Population A's stronger rule does not reach it either. Decision 2's
+prohibition is one instance of this class, not the whole of it.
+
+The verbatim symbols are safe by measurement (`SPECIFIED_GATE_ORDER` 159 copies
+and 1 variant; `_opening_for` 120 and 1). The exposure is the **multi-variant**
+symbols the tasks permit migrating: `_gates` (6 variants, 83 dominant) and
+`_TreeParser` (8 variants).
+
+So the check is closed per *symbol*, not per file — 27 symbols rather than 300
+files. The scratchpad checker evaluates each deleted local declaration and the
+shared one and asserts equality. That subsumes Decision 2's grep as a special
+case and closes the class instead of the instance; the grep stays anyway,
+because it is one line and it fails with a clearer message.
 
 For **Population A** the rule is stronger and simpler: no line at or after the
 file's first test may change at all. Where a Population A symbol is declared
@@ -584,25 +601,65 @@ not the same risk:
    Production probes by shape at five sites. `gate_progression_job._awaiting_gate`
    is the clearest: it returns the **first** of
    `("awaiting_gate", "gate_id", "current_gate")` that is a non-empty string.
-   Measured across `tests/`, the local doubles model those attributes very
-   unevenly — `current_gate` in 111 files, `gate_id` in 53, `awaiting_gate` in
-   **10**. So today the overwhelming majority of doubles fall through to
-   `current_gate`. Decision 6 requires the shared `LaunchProgressed` double to
-   model all five attributes, so it will match on `awaiting_gate` instead —
-   **returning a different gate, in up to ~100 files, by design**.
+   Measured across `tests/` — file counts of `*.py`, not grep hits, which
+   double through `__pycache__` — the local doubles model those attributes very
+   unevenly: `current_gate` in **55** files, `gate_id` in **26**,
+   `awaiting_gate` in **5**, `awaiting_confirmation` in **11**. So today almost
+   every double falls through to `current_gate`. Decision 6 requires the shared
+   `LaunchProgressed` double to model all five attributes, so it would match on
+   `awaiting_gate` instead — **returning a different gate**. (An identifier
+   count is an upper bound on "a double models it", so the affected population
+   is at most 55 and in truth smaller.)
 
    `mypy` passes: the fake models *more*, not less. No spelling is dropped, so
    risk 2's search finds nothing. 7(a) passes. The suite may well stay green
-   while every one of those tests exercises a different branch than it did.
+   while those tests exercise a different branch than they did.
 
-   *Mitigation.* Where a shared fake is a superset of the dominant local
-   variant, its surface-and-behaviour note **names the production probe sites
-   that read the added attributes, and states which branch each population took
-   before and after**. For `LaunchProgressed` that is `_awaiting_gate` and
-   `_crossed` in `gate_progression_job.py`; for the members fakes,
-   `clickup_sync._members` and the two `member_identifier` probes. This is the
-   one place where the change must read `src/` to migrate `tests/` safely, and
-   it does not contradict "no change to `src/`" — reading is not editing.
+   ***Mitigation: make the branch indifferent, do not analyse it.*** The three
+   names are three spellings of **one value**, not three data.
+   `_awaiting_gate` runs only under `if not getattr(progressed,
+   "awaiting_confirmation", False): return None`, and under that guard the gate
+   awaited and the current gate are the same gate; `docs/deferred-work.md:1076`
+   records the probe as reading those three names "for one value", and
+   production's own comment agrees. So which branch fires need not be
+   *established* per file — it must be made not to matter:
+
+   > **Same-value invariant.** Where a shared double adds a spelling a
+   > production probe reads *earlier* in its branch order than the spelling the
+   > local variants populated, the added spelling carries the same value as the
+   > one it displaces. An added attribute the probe reads as a guard or as a
+   > sequence defaults to the value the fall-through produced.
+
+   For `LaunchProgressed`: `awaiting_gate` and `gate_id` derive from the same
+   argument as `current_gate` unless a test sets them apart; `crossed` defaults
+   `()`, because `getattr(progressed, "crossed", None) or ()` produced `()` when
+   absent; `awaiting_confirmation` defaults `False`, because `getattr(...,
+   False)` did. Every branch then returns the same string and `_crossed` the
+   same tuple, for all 55 files, **without reading any of them**. It generalises
+   to the other four sites: `FakeMembers.list_members()` returns what
+   `tuple(members)` returned for a plain-iterable local, and `Member.identifier`
+   carries the string a local `id` or `member_id` carried, so
+   `clickup_sync._member_identifier:139` and
+   `playbook_authoring.member_identifier:266` are indifferent too.
+
+   The invariant also closes a case per-file branch analysis would not have
+   asked about: a double defaulting `awaiting_confirmation` to `True` where the
+   locals omitted it flips the *guard*, taking `_awaiting_gate` from returning
+   `None` in every such file to returning a gate.
+
+   *Alternatives.* Scoping the double's completeness down to what each local
+   modelled satisfies every test but forfeits the tolerance deletion, which is
+   this change's stated warrant — rejected. Establishing the branch per file
+   preserves the warrant but costs `src/`-reading judgement on up to 55 files in
+   the one task that reads production, and misses the guard case — rejected. The
+   invariant is checked once per builder, keeps Decision 6 whole, and
+   *strengthens* the thesis, since "these probes read one value under several
+   names" is precisely the premise `unify-launch-adapter-dependencies` needs in
+   order to delete them.
+
+   The surface-and-behaviour note still records any genuine superset, because a
+   double that adds an attribute *no* probe reads is a different matter from one
+   that displaces a spelling.
 
 The **surface-and-behaviour note** is what stands in for (b1) here. Per fake, in
 the task's own notes, the migrator records:
@@ -818,4 +875,13 @@ checked.
   is the most that is available where `==` is identity.
 
   They live in **`tests/unit/support/`**, which is collected, not in
-  `tests/support/`, which is not.
+  `tests/support/`, which is not. That directory names no bounded context and so
+  fits none of `AGENTS.md`'s `tests/unit/<module>/<layer>/` rules; task 7.1
+  records the departure in the same edit that adds the other rules, so the next
+  reader does not find a tier directory answering to nothing.
+
+  **Writing these does not conflict with the specs-exempt routing.** `AGENTS.md`
+  says a change carrying no deltas *owes* no new tests — not that it may not
+  write any. These derive from the fakes' own behaviour rather than from
+  specification deltas, so no independent test author is owed for them either;
+  the exemption is about what the change is held to, and it is unchanged.

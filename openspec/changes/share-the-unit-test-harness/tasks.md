@@ -1,9 +1,17 @@
 Every task below is verified the same way unless it says otherwise: `uv run
 ruff check`, `uv run ruff format --check`, `uv run mypy`, `uv run lint-imports`,
 and `uv run pytest tests/unit tests/agents` green, **with the collected test
-count unchanged from the commit before it**. A task that changes the test count
-has changed the suite, not migrated it. **Task 6.15 is the one exception** — it
-adds behaviour tests for the stateful fakes deliberately, and re-baselines.
+count of the three tiers excluding `tests/unit/support/` unchanged from the 1.1
+baseline at every commit**. A task that changes that count has changed the
+suite, not migrated it.
+
+The exclusion is how task 6.15 adds its fake-behaviour tests without weakening
+the invariant into "unchanged unless a task says otherwise" — under an
+exception, a silently dropped test nets against a newly added one and the
+invariant stops catching what it exists to catch. Two numbers are tracked
+instead of one re-baselined: the pre-existing tree, which never moves, and
+`tests/unit/support/`, which has its own expected count. Run 6.15 last within
+§6 so the two populations never mix.
 
 Every task from §2 onward also runs the AST assertion-identity check
 (`design.md` — Decision 7a) over the files it touches. For a two-commit
@@ -228,16 +236,20 @@ leaves its file **unmigrated and recorded** (task 8.3) — never forced.
 - [ ] 6.10 The `LaunchProgressed` double models `crossed`,
       `awaiting_confirmation`, `awaiting_gate`, `gate_id` and `current_gate` —
       every attribute `gate_progression_job.py:256-279` probes for (Decision 6).
-      **This is risk 4's worst case and needs its own reading before any file
-      is migrated.** `_awaiting_gate:267` returns the *first* of
-      `("awaiting_gate", "gate_id", "current_gate")` that is a non-empty string,
-      and the local doubles model them unevenly — `current_gate` in 111 files,
-      `gate_id` in 53, `awaiting_gate` in **10**. A complete double matches on
-      `awaiting_gate` where ~100 files currently fall through to `current_gate`,
-      returning a different gate with `mypy`, 7(a), the search and the suite all
-      passing. Establish per file whether the two agree; where they do not, the
-      file's note records it and the file is a candidate for 8.3 rather than a
-      silent migration.
+      **This is risk 4's worst case.** `_awaiting_gate:267` returns the *first*
+      of `("awaiting_gate", "gate_id", "current_gate")` that is a non-empty
+      string, and the local doubles model them unevenly — `current_gate` in
+      **55** files, `gate_id` in 26, `awaiting_gate` in **5**. A complete double
+      would match on `awaiting_gate` where almost all of them fall through to
+      `current_gate`, returning a different gate with `mypy`, 7(a), the search
+      and the suite all passing.
+      **State and verify the same-value invariant, once, rather than analysing
+      55 files:** `awaiting_gate` and `gate_id` derive from the same argument as
+      `current_gate` unless a caller sets them apart; `crossed` defaults `()`
+      and `awaiting_confirmation` defaults `False`, matching what each
+      `getattr` fall-through produced. Record the invariant in the double's
+      surface-and-behaviour note. A caller that deliberately sets two spellings
+      apart is the case the note exists for.
 - [ ] 6.11 `FakeStepStore`, `FakePlaybooks`, `FakeHandlerRegistry` (37 / 32 / 12).
 - [ ] 6.12 `tests/support/slack.py`: `RecordingSlackApi`, `FakeSlackResponse` — 12
       declarations, 12 variants, no two alike. Expect this to be the slowest and
@@ -252,8 +264,10 @@ leaves its file **unmigrated and recorded** (task 8.3) — never forced.
       `FakeSession`. These do not close risk 3 — they pin the shared fake
       without comparing it to the local one — but they make half of each
       surface-and-behaviour note executable rather than asserted, which is the
-      most available where `==` is identity. They add to the collected count by
-      design; record the new baseline when they land.
+      most available where `==` is identity. **Run this last within §6.** These
+      tests sit outside the preamble's count invariant by *exclusion*, not by
+      exception: record `tests/unit/support/`'s own expected count, and leave
+      the pre-existing tree's count untouched.
 - [ ] 6.16 Every fake task in 6.8–6.14 records a **surface-and-behaviour note**
       (Decision 7b2) in three parts: what the shared fake **drops**, searched
       across `src/` **and** `tests/` because the callers are production probes
@@ -272,7 +286,12 @@ leaves its file **unmigrated and recorded** (task 8.3) — never forced.
       `tests/support/`; a new bespoke fake means a builder is missing, not that a
       thirteenth `_FakeSession` is warranted; a spec-restating constant is a
       literal in `tests/support/` and is never sourced from production; a fake
-      carries a `_conforms` assignment against its protocol.
+      carries a `_conforms` assignment against its protocol, and its added
+      spellings carry the value they displace (the same-value invariant).
+      **Record the directory departure in the same edit**: `tests/unit/support/`
+      names no bounded context, so it fits none of the Testing Strategy's
+      `tests/unit/<module>/<layer>/` rules; say that it holds the shared
+      harness's own behaviour tests and why it must be collected.
 - [ ] 7.2 Note in the same section that `tests/support/` exports public names and
       call sites alias them where they keep a local `_`-prefixed spelling.
 
