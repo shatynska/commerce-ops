@@ -15,6 +15,7 @@ Decision 5).
 from __future__ import annotations
 
 import uuid
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -80,6 +81,7 @@ class Product:
         stage_entered_at: datetime,
         stage_confirmed_by: str | None,
         sub_category: str | None = None,
+        hazard_categories: Sequence[str] | None = None,
     ) -> None:
         self.id = id
         self.sku = sku
@@ -90,6 +92,13 @@ class Product:
         self.stage_entered_at = stage_entered_at
         self.stage_confirmed_by = stage_confirmed_by
         self.sub_category = sub_category
+        # `None` and `()` are different facts and the default is `None`:
+        # a product nobody has screened has an open question, not an
+        # answered one (`product-catalog`, *A product reports its hazard
+        # categories in three states, never two*).
+        self.hazard_categories = (
+            None if hazard_categories is None else tuple(hazard_categories)
+        )
 
     @classmethod
     def register(
@@ -123,6 +132,42 @@ class Product:
         no confirmer tracked, recordable in any stage — mirrors
         `record_asin` exactly."""
         self.sub_category = sub_category
+
+    def record_hazard_categories(self, categories: Sequence[str]) -> None:
+        """What a compliance screening found — replacing wholesale, never
+        merging, and recordable in any stage. Shaped like
+        `record_sub_category`, with one difference that carries the whole
+        point of the field.
+
+        **An empty sequence is a recording, not a way of clearing this.**
+        `()` asserts that the product was screened and fell in none of the
+        categories screened against; `None` asserts that nothing has
+        screened it. A caller with nothing to assert records nothing at
+        all rather than recording `()`, and this method has no way to put
+        the field back to `None` because reverting an answered question to
+        an open one is not something any screening establishes.
+
+        Stored as a `tuple` so that a caller mutating what it passed in
+        cannot reach through and change what the aggregate holds.
+
+        **A bare string is refused rather than accepted as a sequence.**
+        `str` satisfies `Sequence[str]`, so the annotation cannot catch it
+        and neither can `mypy`: `record_hazard_categories("supplements")`
+        would otherwise store eleven single-character categories, and the
+        dossier would render "Screened; found in s, u, p, ...". The sink
+        that feeds this is typed `value: Any` -- deliberately, since sinks
+        write different value types -- so nothing between a handler and
+        this method would notice. A handler returning a scalar `Success`
+        value, which is exactly the shape the sub-category advisor uses,
+        is the way in.
+        """
+        if isinstance(categories, str):
+            raise TypeError(
+                "hazard categories must be a sequence of category names, "
+                f"not a single string: {categories!r} would be recorded as "
+                "its individual characters"
+            )
+        self.hazard_categories = tuple(categories)
 
     def change_stage(
         self,

@@ -169,6 +169,14 @@ class _WrongSeam(AssertionError):
 class _Answer:
     verdict: str
     comment: str | None
+    #: Added by `screen-for-hazard-categories`, which gave the wire schema a
+    #: third field. Without it every `flagged` row here scripted an empty
+    #: `categories` and so routed to the flagged-naming-nothing shortfall
+    #: rather than to the flagged route -- silently, because both renderers
+    #: cite the description and the assertion below only checks the
+    #: citation. The row went on passing while covering a different route
+    #: from the one it names.
+    categories: tuple[str, ...] = ()
 
 
 class _ScriptedStructuredRunnable:
@@ -192,7 +200,9 @@ class _ScriptedStructuredRunnable:
         return {
             "raw": AIMessage(content="structured response"),
             "parsed": self._schema(
-                verdict=self._script.verdict, comment=self._script.comment
+                verdict=self._script.verdict,
+                comment=self._script.comment,
+                categories=list(self._script.categories),
             ),
             "parsing_error": None,
         }
@@ -564,15 +574,18 @@ async def test_both_halves_of_the_description_reach_the_prompt_and_the_citation(
 
 @pytest.mark.anyio
 @pytest.mark.parametrize(
-    ("verdict", "comment"),
+    ("verdict", "comment", "categories"),
     [
-        ("clear", CLEAR_COMMENT),
-        ("flagged", FLAGGED_COMMENT),
-        ("undetermined", UNDETERMINED_COMMENT),
+        ("clear", CLEAR_COMMENT, ()),
+        ("flagged", FLAGGED_COMMENT, ("supplements",)),
+        ("undetermined", UNDETERMINED_COMMENT, ()),
     ],
 )
 async def test_the_produced_text_cites_what_was_screened_against(
-    verdict: str, comment: str, monkeypatch: pytest.MonkeyPatch
+    verdict: str,
+    comment: str,
+    categories: tuple[str, ...],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Scenario: The produced text cites what was screened against.
 

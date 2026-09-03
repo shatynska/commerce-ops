@@ -99,6 +99,7 @@ from __future__ import annotations
 
 import functools
 import re
+from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any, Literal, TypedDict
 
 from pydantic import BaseModel, Field
@@ -110,6 +111,7 @@ from commerce_ops.launch.application import (
     StepResolution,
     register_step_handler,
 )
+from commerce_ops.shared.domain.result import Success
 
 if TYPE_CHECKING:
     from langchain_core.language_models import BaseChatModel
@@ -189,6 +191,14 @@ Answer with one of three verdicts.
   contains a lithium battery, a pressurised gas, a liquid over a volume
   threshold, a magnet, something ingestible - cannot be read off a product
   name. Where that is what is missing, say so rather than guessing.
+
+For "flagged", also list the categories the product falls in. Name each
+category using the wording the list above uses for it, so that the same
+category is named the same way every time it is found. List every
+category it falls in, and list nothing else. For "clear" and for
+"undetermined", leave that list empty - a "clear" verdict that names a
+category, and a "flagged" verdict that names none, contradict themselves
+and are discarded.
 
 In your comment: for "clear", name the categories you considered and why
 none applies; for "flagged", name which categories it falls in and what
@@ -286,6 +296,71 @@ def _contradiction_reason(product_name: str) -> str:
     )
 
 
+def _flagged_naming_nothing_reason(product_name: str) -> str:
+    """A flagged verdict that named no category.
+
+    Its own sentence, and neither of its neighbours' -- the flagged reason
+    would put "this product is flagged" on the launch's record with no
+    category behind it, and the undetermined reason would say the screen
+    could not settle a question the response says it did settle.
+    """
+    return (
+        "the compliance screen reported that "
+        f"'{product_name}' falls in at least one category the step names "
+        "and named none of them, so nothing was established about it"
+    )
+
+
+def _named_contradiction_reason(product_name: str) -> str:
+    """A clear verdict that named categories the product falls in.
+
+    Distinct from `_contradiction_reason`, which is the prose veto's: that
+    one is a response withholding its verdict in words, this one is a
+    response contradicting it in its own structure, and this capability
+    requires two different things that happened to read as two different
+    sentences.
+    """
+    return (
+        "the compliance screen reported that "
+        f"'{product_name}' falls in none of the categories the step names "
+        "and named ones it falls in, so no clear verdict was accepted"
+    )
+
+
+def _normalised_categories(named: Sequence[str]) -> list[str]:
+    """The categories as a *set*, in the order they were first named.
+
+    Three transformations and no more, because `product-catalog` records a
+    set and the delta forbids altering a name otherwise:
+
+    - surrounding whitespace stripped, inner whitespace left alone;
+    - names normalising to nothing dropped;
+    - names equal under casefolding collapsed to their first occurrence,
+      **keeping that occurrence's own casing**.
+
+    Not sorted. Sorting would be a transformation the carry-it-through
+    rule forbids for no gain, since replacement is wholesale and nothing
+    compares two recordings for equality (`design.md` Decision 4).
+
+    Nothing here consults the step's description. A name the description
+    does not contain is reported exactly as a name it does -- validating
+    against that prose would mean parsing it, which this module refuses
+    for the reasons its own docstring gives at length.
+    """
+    reported: list[str] = []
+    seen: set[str] = set()
+    for name in named:
+        stripped = name.strip()
+        if not stripped:
+            continue
+        key = stripped.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        reported.append(stripped)
+    return reported
+
+
 def _render(categories: str, verdict: str, comment: str) -> str:
     """The text a member reads: three parts, in this order.
 
@@ -323,6 +398,50 @@ def _render_contradiction(categories: str, comment: str) -> str:
         f"Screened against, as the step names them:\n{categories}\n\n"
         "The compliance screen reported a clear verdict and, in the same "
         f"response, why it could not screen the product:\n\n{comment}"
+    )
+
+
+def _render_flagged_naming_nothing(categories: str, reason: str, comment: str) -> str:
+    """What a reader sees for a flagged verdict that named no category.
+
+    **The comment is carried, and dropping it was a defect.** This route
+    reaches a verdict with a valid comment, so *A verdict distinguishes
+    clear, flagged and undetermined* applies to it in full -- "that comment
+    SHALL be carried into the text a member reads". That requirement is not
+    one this change modifies, and it does not exempt a route for having a
+    shortfall in its structure.
+
+    It matters most precisely here. The model has asserted that the product
+    falls in a category and failed to fill the field naming which; the
+    comment is then the only place the reason survives -- "contains a
+    lithium-ion cell above the watt-hour threshold" is the whole of what
+    the screen produced, and a member who cannot see it has been told a
+    flag exists and nothing about it.
+
+    Not `_render_shortfall`, which is for the routes that reach no readable
+    verdict at all and so have no comment to carry.
+    """
+    return (
+        f"Screened against, as the step names them:\n{categories}\n\n"
+        f"{reason}\n\n{comment}"
+    )
+
+
+def _render_named_contradiction(
+    categories: str, named: Sequence[str], comment: str
+) -> str:
+    """What a reader sees for a clear verdict that named categories.
+
+    Both halves of the contradiction, never one: a bare "clear" would show
+    a reader a judgement the same response took back, and the named
+    categories alone would read as a flag the response never proposed.
+    """
+    joined = ", ".join(named)
+    return (
+        f"Screened against, as the step names them:\n{categories}\n\n"
+        "The compliance screen reported a clear verdict and, in the same "
+        f"response, named categories the product falls in: {joined}"
+        f"\n\n{comment}"
     )
 
 
@@ -364,6 +483,17 @@ class ScreenResponse(BaseModel):
             "'flagged' if it falls in at least one; 'undetermined' if what "
             "you were given does not settle which. Always populated."
         )
+    )
+    categories: list[str] = Field(
+        default_factory=list,
+        description=(
+            "The categories the product falls in, named using the wording "
+            "the list above uses for them. Populate this only for "
+            "'flagged', and name every category it falls in. Leave it "
+            "empty for 'clear' and for 'undetermined' - a 'clear' verdict "
+            "naming a category, and a 'flagged' verdict naming none, are "
+            "both discarded as self-contradicting."
+        ),
     )
     comment: str | None = Field(
         default=None,
@@ -528,6 +658,14 @@ async def propose(
         )
     assert comment is not None
 
+    # Normalised here, before any route is chosen, because whether a
+    # flagged verdict named a category is a question about the *normalised*
+    # names: a response naming only whitespace has named none. Deciding the
+    # route first and normalising afterwards would send such a response
+    # down the flagged route and then report an empty finding from it --
+    # asserting on the product that a screening found nothing.
+    named = _normalised_categories(parsed.categories)
+
     if parsed.verdict == "clear":
         # Route 3: the one direction in which prose may still act. A clear
         # verdict whose own comment says the screen could not do its work
@@ -539,21 +677,53 @@ async def propose(
                 outcome=Blocked(reason=_contradiction_reason(product_name)),
                 result=_render_contradiction(categories, comment),
             )
+        # Route 4: the same prohibition reached structurally rather than
+        # through prose. Kept beside the veto above and deliberately not
+        # folded into it: that one matches a sentence and carries a
+        # documented history of over-matching, this one reads two fields
+        # and cannot. Do not unify them.
+        if named:
+            return StepResolution(
+                outcome=Blocked(reason=_named_contradiction_reason(product_name)),
+                result=_render_named_contradiction(categories, named, comment),
+            )
+        # A clear verdict establishes that the product falls in none of the
+        # categories screened against -- an *empty* finding, which is a
+        # present value and not an absent one. It is the whole of what
+        # distinguishes a screened product from an unscreened one.
         return StepResolution(
             outcome=Satisfied,
             result=_render(categories, parsed.verdict, comment),
+            finding=Success(value=[], comment=comment),
         )
 
-    # Routes 4 and 5: flagged is a finding about the product, undetermined
-    # a statement about what the screen was given. Two reasons, because
-    # they are two different things that happened.
-    reason = (
-        _flagged_reason(product_name)
-        if parsed.verdict == "flagged"
-        else _undetermined_reason(product_name)
-    )
+    if parsed.verdict == "flagged":
+        # Route 5: a flagged verdict naming nothing asserts that the
+        # product falls in at least one category and produces no fact to
+        # record. Its own reason, because the flagged reason would put
+        # "flagged" on the record with no category behind it and the
+        # undetermined reason would deny a question the response settled.
+        if not named:
+            reason = _flagged_naming_nothing_reason(product_name)
+            return StepResolution(
+                outcome=Blocked(reason=reason),
+                # The comment rides along: this route reached a verdict, so
+                # the standing requirement that a verdict's comment reaches
+                # the reader binds here too. See the renderer's docstring.
+                result=_render_flagged_naming_nothing(categories, reason, comment),
+            )
+        return StepResolution(
+            outcome=Blocked(reason=_flagged_reason(product_name)),
+            result=_render(categories, parsed.verdict, comment),
+            finding=Success(value=named, comment=comment),
+        )
+
+    # Route 6: undetermined is a statement about what the screen was given,
+    # and establishes nothing about the product. No finding -- and in
+    # particular not an empty one, which would assert that a screening
+    # found nothing and would erase a flag an earlier screening recorded.
     return StepResolution(
-        outcome=Blocked(reason=reason),
+        outcome=Blocked(reason=_undetermined_reason(product_name)),
         result=_render(categories, parsed.verdict, comment),
     )
 

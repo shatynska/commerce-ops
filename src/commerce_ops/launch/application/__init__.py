@@ -50,12 +50,12 @@ from commerce_ops.launch.application.playbook_authoring import (
     update_step,
 )
 from commerce_ops.launch.application.ports import (
+    FindingRecorder,
     FindingSink,
     LaunchJournal,
     LaunchStore,
     Playbooks,
     SteadyStateStamper,
-    SubCategoryRecorder,
 )
 from commerce_ops.launch.application.retained_results import (
     RetainedResult,
@@ -91,6 +91,7 @@ __all__ = [
     "ActivationBlocker",
     "Blocked",
     "Decision",
+    "FindingRecorder",
     "FindingSink",
     "GateDecision",
     "GraduationStampError",
@@ -120,7 +121,6 @@ __all__ = [
     "StepRecord",
     "StepResolution",
     "StepSetStore",
-    "SubCategoryRecorder",
     "UnreadableMembersError",
     "UnregisteredHandler",
     "accept_automated_result",

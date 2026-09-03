@@ -2223,3 +2223,54 @@ main.container table td {
   display: block;
   color: var(--ink);
 }
+
+/* What automated steps established about a product, on its dossier
+   (`product-dossier`). The region sits between the product's identity and
+   the record of results retained for a decision, and reads as neither:
+   nobody registered these facts and no member accepted them. */
+.established-by-automation .region-note {
+  color: var(--ink-quiet);
+}
+
+.established-fact {
+  margin: 0.2rem 0;
+}
+
+.established-fact .fact-value {
+  color: var(--fact-ink);
+  font-weight: 600;
+}
+
+/* Three states, and `screened-clear` is deliberately not a shade of
+   `not-recorded`. "Screened, nothing found" is a positive finding whose
+   content happens to be empty; "not screened" is an open question. The
+   page's absence vocabulary is quiet because an absence is not news, and
+   this state is news -- a product that has been through the screen -- so
+   it reads as an established fact rather than as a blank. Colouring the
+   two alike would say on the only surface showing the field that a
+   screened product is unscreened, which is the confusion the storage was
+   extended to prevent. */
+.established-fact.not-recorded .fact-value {
+  color: var(--ink-quiet);
+  font-weight: 400;
+}
+
+/* `screened-clear` takes the established-fact treatment unchanged -- it is
+   the base rule, and is not repeated here.
+
+   `flagged` must not. Without a rule of its own it inherited that same
+   green, so "Screened; found in supplements" and "Screened, no category
+   found" rendered identically on the only surface that shows the field --
+   a compliance failure wearing the colour this stylesheet uses for a fact
+   that is fine. The three states are distinguishable by marker in the
+   markup, which is what the tests assert, and were not distinguishable by
+   eye, which is what an admin has.
+
+   Danger rather than amber: amber is already claimed for a gate awaiting
+   someone, and this is not a wait. Colour never carries it alone -- the
+   value's own words say "found in", which is what a reader who cannot
+   distinguish the two colours has. */
+.established-fact.flagged .fact-value {
+  color: var(--danger-ink);
+  font-weight: 600;
+}

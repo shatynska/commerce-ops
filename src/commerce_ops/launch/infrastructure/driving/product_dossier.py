@@ -263,10 +263,36 @@ class RecordEntry:
 
 
 @dataclass(frozen=True, slots=True)
+class Established:
+    """What automated steps have established about the product and written
+    to the catalog — neither identity nor a retained result.
+
+    `hazard_state` is resolved to one of three words here rather than left
+    to the template to infer from a value, because the middle state cannot
+    be inferred from truthiness: `None` and `()` are both falsy and are
+    opposite facts. A template branching on the value would render a
+    screened-and-clear product as an unscreened one, which is the single
+    confusion this whole field exists to prevent.
+    """
+
+    sub_category: str | None
+    hazard_categories: tuple[str, ...] | None
+
+    @property
+    def hazard_state(self) -> str:
+        if self.hazard_categories is None:
+            return "not-recorded"
+        if not self.hazard_categories:
+            return "screened-clear"
+        return "flagged"
+
+
+@dataclass(frozen=True, slots=True)
 class Dossier:
     """One product's page."""
 
     identity: Identity
+    established: Established
     entries: tuple[RecordEntry, ...]
 
 
@@ -318,6 +344,22 @@ def _identity_for(product: Any) -> Identity:
         stage=_stage_label(product.stage),
         stage_entered_at=getattr(product, "stage_entered_at", None),
         stage_confirmed_by=getattr(product, "stage_confirmed_by", None),
+    )
+
+
+def _established_for(product: Any) -> Established:
+    """What the catalog holds that a handler wrote.
+
+    Read through `getattr` with a `None` default for the same reason the
+    identity builder does: this module is handed whatever the catalog read
+    answers, and a product predating either field reports it as never
+    recorded — which is the correct reading, not a fallback.
+    """
+    categories = getattr(product, "hazard_categories", None)
+    return Established(
+        sub_category=getattr(product, "sub_category", None),
+        # `None` stays `None`; an empty sequence stays empty and present.
+        hazard_categories=None if categories is None else tuple(categories),
     )
 
 
@@ -426,7 +468,11 @@ async def product_dossier(request: Request, product_id: str) -> HTMLResponse:
     return HTMLResponse(
         template.render(
             page_path=PAGE_PATH,
-            dossier=Dossier(identity=identity, entries=entries),
+            dossier=Dossier(
+                identity=identity,
+                established=_established_for(product),
+                entries=entries,
+            ),
             breadcrumb=[("Products", PAGE_PATH), (identity.name, None)],
         )
     )

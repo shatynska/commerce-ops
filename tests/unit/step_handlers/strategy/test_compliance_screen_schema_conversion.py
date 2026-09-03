@@ -123,8 +123,12 @@ from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import MarketplaceId, ProductId, Sku
 
-# Fixed by `tasks.md` 2.3, not by any delta scenario.
-WIRE_FIELDS: Final = ("verdict", "comment")
+# Fixed by `tasks.md` 2.3, not by any delta scenario. `categories` was
+# added by `screen-for-hazard-categories` (`tasks.md` 4.1): the wire gained
+# a third field, so the set this test compares against gained one too. The
+# assertion is unchanged and is still set equality -- a fourth field
+# appearing unannounced still fails it.
+WIRE_FIELDS: Final = ("verdict", "categories", "comment")
 DISCRIMINANT_FIELD: Final = "verdict"
 VERDICT_VALUES: Final = frozenset({"clear", "flagged", "undetermined"})
 

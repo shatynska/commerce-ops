@@ -158,6 +158,14 @@ FLAGGED_COMMENT: Final = (
     "which Amazon gates behind a supplement compliance review before it may "
     "be sold."
 )
+#: A category for the flagged rows below. `screen-for-hazard-categories`
+#: narrows *A flagged verdict proposes a non-terminal outcome* to a response
+#: naming at least one category, so a flagged row scripting none no longer
+#: reaches the flagged route at all. Every row here that means "flagged"
+#: names one; the naming-nothing route has its own tests in
+#: `test_compliance_screen_hazard_finding.py`.
+FLAGGED_CATEGORIES: Final = ("supplements",)
+
 UNDETERMINED_COMMENT: Final = (
     "Whether this falls under the hazmat list turns on whether the unit "
     "contains a lithium battery, which the product name does not say."
@@ -226,12 +234,20 @@ class _Answer:
 
     The wire model's class name is deliberately not imported: the runnable
     instantiates whatever class the screen handed to
-    `with_structured_output(...)`, so this file names only the two field
-    names `tasks.md` 2.3 fixes.
+    `with_structured_output(...)`, so this file names only the field names
+    `tasks.md` fixes -- `verdict` and `comment` from 2.3, and `categories`
+    from `screen-for-hazard-categories`'s 4.1.
+
+    `categories` defaults to none named, which is what every scenario in
+    this file scripted before that field existed. Where a test needs a
+    flagged verdict to route *as flagged*, it now names one: a flagged
+    verdict naming no category reaches its own route, because a response
+    asserting a flag while naming nothing has established no fact.
     """
 
     verdict: str
     comment: str | None
+    categories: tuple[str, ...] = ()
 
 
 #: Script value meaning "the structured call completed and validated
@@ -254,7 +270,9 @@ class _ScriptedStructuredRunnable:
             }
         assert isinstance(self._script, _Answer)
         parsed = self._schema(
-            verdict=self._script.verdict, comment=self._script.comment
+            verdict=self._script.verdict,
+            comment=self._script.comment,
+            categories=list(self._script.categories),
         )
         return {
             "raw": AIMessage(content="structured response"),
@@ -595,10 +613,21 @@ async def test_a_flagged_verdict_proposes_a_non_terminal_outcome(
 ) -> None:
     """Scenario: A flagged verdict proposes a non-terminal outcome.
 
-    WHEN the screen's verdict is flagged
+    WHEN the screen's verdict is flagged and its response names at least
+    one category
     THEN it proposes a non-terminal outcome whose reason names the product
     and states that the screen flagged it, and the text a member reads
     carries the comment.
+
+    NARROWED by `screen-for-hazard-categories`, which modifies this
+    scenario's WHEN: a flagged verdict naming *no* category now reaches its
+    own route with its own reason, because a response asserting a flag
+    while naming nothing has established no fact. The scenario keeps its
+    name; only its condition narrowed. So this test now scripts a named
+    category, and the un-named case is covered by
+    `test_a_flagged_verdict_naming_nothing_is_not_recorded_as_flagged` in
+    `test_compliance_screen_hazard_finding.py`. Nothing asserted below is
+    weakened -- the reason keywords and the comment check are unchanged.
 
     SPECIFIED: that the reason **names the product** and **states the
     screen flagged it** — asserted rather than settling for "the outcome is
@@ -610,7 +639,12 @@ async def test_a_flagged_verdict_proposes_a_non_terminal_outcome(
     flagged it". No artifact fixes the wording.
     """
     resolution, _ = await _screen_with(
-        _Answer(verdict="flagged", comment=FLAGGED_COMMENT), monkeypatch
+        _Answer(
+            verdict="flagged",
+            comment=FLAGGED_COMMENT,
+            categories=("supplements",),
+        ),
+        monkeypatch,
     )
 
     reason = _reason(resolution)
@@ -644,7 +678,12 @@ async def test_an_undetermined_verdict_proposes_a_non_terminal_outcome(
         _Answer(verdict="undetermined", comment=UNDETERMINED_COMMENT), monkeypatch
     )
     flagged, _ = await _screen_with(
-        _Answer(verdict="flagged", comment=FLAGGED_COMMENT), monkeypatch
+        _Answer(
+            verdict="flagged",
+            comment=FLAGGED_COMMENT,
+            categories=("supplements",),
+        ),
+        monkeypatch,
     )
 
     reason = _reason(resolution)
@@ -696,7 +735,12 @@ async def test_an_unreadable_verdict_is_not_a_judgement_about_the_product(
     """
     resolution, _ = await _screen_with(_NO_PARSE, monkeypatch)
     flagged, _ = await _screen_with(
-        _Answer(verdict="flagged", comment=FLAGGED_COMMENT), monkeypatch
+        _Answer(
+            verdict="flagged",
+            comment=FLAGGED_COMMENT,
+            categories=("supplements",),
+        ),
+        monkeypatch,
     )
     undetermined, _ = await _screen_with(
         _Answer(verdict="undetermined", comment=UNDETERMINED_COMMENT), monkeypatch
@@ -834,15 +878,19 @@ async def test_a_verdict_is_read_from_the_discriminant_not_the_prose(
 
 @pytest.mark.anyio
 @pytest.mark.parametrize(
-    ("verdict", "comment", "satisfies"),
+    ("verdict", "comment", "categories", "satisfies"),
     [
-        ("clear", CONTENTLESS_CLEAR_COMMENT, True),
-        ("flagged", CONTENTLESS_FLAGGED_COMMENT, False),
-        ("undetermined", CONTENTLESS_FLAGGED_COMMENT, False),
+        ("clear", CONTENTLESS_CLEAR_COMMENT, (), True),
+        ("flagged", CONTENTLESS_FLAGGED_COMMENT, FLAGGED_CATEGORIES, False),
+        ("undetermined", CONTENTLESS_FLAGGED_COMMENT, (), False),
     ],
 )
 async def test_a_comments_content_is_never_checked_by_code(
-    verdict: str, comment: str, satisfies: bool, monkeypatch: pytest.MonkeyPatch
+    verdict: str,
+    comment: str,
+    categories: tuple[str, ...],
+    satisfies: bool,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Scenario: A comment's content is never checked by code.
 
@@ -857,7 +905,9 @@ async def test_a_comments_content_is_never_checked_by_code(
     state, and routing must be unchanged. Detecting the omission would
     require parsing prose content, which this capability does not do.
     """
-    resolution, _ = await _screen_with(_Answer(verdict, comment), monkeypatch)
+    resolution, _ = await _screen_with(
+        _Answer(verdict, comment, categories), monkeypatch
+    )
 
     if satisfies:
         assert getattr(resolution, "outcome", None) is Satisfied, (
@@ -873,15 +923,31 @@ async def test_a_comments_content_is_never_checked_by_code(
 
 @pytest.mark.anyio
 @pytest.mark.parametrize(
-    ("verdict", "comment"),
+    ("verdict", "comment", "categories"),
     [
-        ("clear", CLEAR_COMMENT),
-        ("flagged", FLAGGED_COMMENT),
-        ("undetermined", UNDETERMINED_COMMENT),
+        ("clear", CLEAR_COMMENT, ()),
+        ("flagged", FLAGGED_COMMENT, FLAGGED_CATEGORIES),
+        ("undetermined", UNDETERMINED_COMMENT, ()),
+        # A flagged verdict naming no category still *reaches a verdict*,
+        # so this requirement binds on it exactly as on the three above:
+        # `compliance-screen`'s *A verdict distinguishes clear, flagged and
+        # undetermined* says every verdict's comment is carried into the
+        # text a member reads, and `screen-for-hazard-categories` does not
+        # modify that requirement. The route it takes is new, and code
+        # review found it dropping the comment; without this row the suite
+        # covered the requirement for every route but the one that got it
+        # wrong. It matters most here, where the comment is the only
+        # surviving account of a flag whose category the model failed to
+        # name.
+        ("flagged", FLAGGED_COMMENT, ()),
     ],
+    ids=["clear", "flagged", "undetermined", "flagged-naming-nothing"],
 )
 async def test_a_verdicts_comment_reaches_the_reader(
-    verdict: str, comment: str, monkeypatch: pytest.MonkeyPatch
+    verdict: str,
+    comment: str,
+    categories: tuple[str, ...],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Scenario: A verdict's comment reaches the reader.
 
@@ -893,16 +959,24 @@ async def test_a_verdicts_comment_reaches_the_reader(
     the scenario says "any verdict", and an implementation carrying the
     comment on the satisfying route alone would pass a single-row test.
     """
-    resolution, _ = await _screen_with(_Answer(verdict, comment), monkeypatch)
+    resolution, _ = await _screen_with(
+        _Answer(verdict, comment, categories), monkeypatch
+    )
     text = _text(resolution)
 
     assert comment in text, f"the comment does not reach the reader: {text!r}"
     assert DESCRIPTION in text, (
         f"the cited categories do not accompany the comment: {text!r}"
     )
-    assert verdict in text.lower(), (
-        f"the verdict does not accompany the comment: {text!r}"
-    )
+    if categories or verdict != "flagged":
+        # The naming-nothing route's text states what happened in a
+        # sentence rather than echoing the bare verdict word, so this
+        # clause is asserted for the rows it was written for. The comment
+        # and citation clauses above are asserted for every row, which is
+        # what this scenario is about.
+        assert verdict in text.lower(), (
+            f"the verdict does not accompany the comment: {text!r}"
+        )
 
 
 @pytest.mark.anyio
