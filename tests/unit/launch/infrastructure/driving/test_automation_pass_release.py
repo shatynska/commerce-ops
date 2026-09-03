@@ -387,17 +387,22 @@ class _RecordingBackoff:
 
 
 class _RecordingNotifier:
-    """The monitoring notifier the stuck-step report is delivered
-    through."""
+    """The monitoring notifier the stuck-step report is delivered through —
+    a `ThreadReplyNotifier` (`launch.application.ports`), not the
+    message-only `MonitoringNotifier`: `fix-stuck-step-report-notifier`
+    narrowed `run_automation_pass`'s `notifier` parameter to the shape
+    this collaborator actually stands in for. Every scenario in this file
+    asserts on *absence* (no message naming a given step), so nothing here
+    exercises delivery, but an old, incompatible call shape would still
+    have masked a real mismatch had one been introduced."""
 
     def __init__(self) -> None:
         self.messages: list[str] = []
 
-    async def post_monitoring_message(self, message: str) -> None:
-        self.messages.append(message)
-
-    async def __call__(self, message: str) -> None:
-        await self.post_monitoring_message(message)
+    async def post_monitoring_message(
+        self, *, channel: str, text: str, thread_ts: str | None = None
+    ) -> None:
+        self.messages.append(text)
 
 
 async def _inert_establish_thread(*args: Any, **kwargs: Any) -> tuple[str, None]:

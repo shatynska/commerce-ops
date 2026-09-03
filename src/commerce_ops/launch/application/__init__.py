@@ -56,6 +56,7 @@ from commerce_ops.launch.application.ports import (
     LaunchStore,
     Playbooks,
     SteadyStateStamper,
+    ThreadReplyNotifier,
 )
 from commerce_ops.launch.application.retained_results import (
     RetainedResult,
@@ -121,6 +122,7 @@ __all__ = [
     "StepRecord",
     "StepResolution",
     "StepSetStore",
+    "ThreadReplyNotifier",
     "UnreadableMembersError",
     "UnregisteredHandler",
     "accept_automated_result",
