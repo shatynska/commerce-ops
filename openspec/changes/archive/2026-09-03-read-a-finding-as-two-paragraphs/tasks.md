@@ -40,4 +40,4 @@ This is a `MODIFIED` requirement, so some existing tests are **obsolete** rather
 
 ## 4. Archive
 
-- [ ] 4.1 `openspec archive read-a-finding-as-two-paragraphs --yes`, in a follow-up commit or PR as this repository does.
+- [x] 4.1 `openspec archive read-a-finding-as-two-paragraphs --yes`, in a follow-up commit or PR as this repository does.
