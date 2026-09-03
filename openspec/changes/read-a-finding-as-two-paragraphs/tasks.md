@@ -34,8 +34,8 @@ This is a `MODIFIED` requirement, so some existing tests are **obsolete** rather
 - [x] 3.4 `uv run ruff check` and `uv run ruff format --check` clean.
 - [x] 3.5 `uv run lint-imports --config .importlinter` green.
 - [x] 3.6 `openspec validate read-a-finding-as-two-paragraphs --strict` passes.
-- [ ] 3.7 **Look at it.** Render the real page and read the Outcome column closed and open, in both themes. Two defects in this cell have now shipped past a green suite — a divider tag that hid the record from assistive technology, and three parts laid out as columns — and both were found by looking. Check in particular that the chevron sits beside the text, that the closed cell is two lines, and that opening it reveals the evidence and provenance too.
-- [ ] 3.7a **Look at a row carrying no finding**, closed and open, in both themes. The byte pin proves that path's markup unchanged and nothing more; the rules this change edits reach its bounding container as well, so the one path no assertion covers for *rendering* is the common one.
+- [x] 3.7 **Look at it.** Render the real page and read the Outcome column closed and open, in both themes. Two defects in this cell have now shipped past a green suite — a divider tag that hid the record from assistive technology, and three parts laid out as columns — and both were found by looking. Check in particular that the chevron sits beside the text, that the closed cell is two lines, and that opening it reveals the evidence and provenance too.
+- [x] 3.7a **Look at a row carrying no finding**, closed and open, in both themes. The byte pin proves that path's markup unchanged and nothing more; the rules this change edits reach its bounding container as well, so the one path no assertion covers for *rendering* is the common one.
 - [x] 3.8 `/code-review` over the change's diff, per `AGENTS.md`, *Independent review before completion*.
 
 ## 4. Archive
