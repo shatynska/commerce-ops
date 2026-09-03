@@ -91,14 +91,11 @@ from commerce_ops.shared.domain.identity import MetricId
 from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
 from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
 from tests.support.admin import fake_verify
+from tests.support.fixtures import ALICE, ALICE_NAME, PRINCIPAL
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 
-PRINCIPAL: Final = "helen"
 DISCIPLINES: Final = tuple(Discipline)
 A_DISCIPLINE: Final = DISCIPLINES[0]
-
-ALICE: Final = "prs_01HQ8Z6M4A"
-ALICE_NAME: Final = "Alice Admin"
 
 #: INVENTED — see the module docstring. The single correction point for
 #: how the metric identifier's input is addressed.

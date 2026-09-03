@@ -120,11 +120,9 @@ from __future__ import annotations
 import importlib
 import inspect
 import logging
-import uuid
 from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
-from datetime import date
 from types import ModuleType
 from typing import Any, Final
 
@@ -145,17 +143,14 @@ from commerce_ops.launch.infrastructure.driven.clickup_sync import converge_laun
 from commerce_ops.shared.domain.clickup import ClickUpListState
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId, Sku
+from tests.support.fixtures import LAUNCH_DATE, PRODUCT_NAME, PRODUCT_SKU, product_id
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import opening_for as _opening_for
 
 pytestmark = pytest.mark.anyio
 
-PRODUCT_ID: Final = ProductId(str(uuid.uuid4()))
-PRODUCT_NAME: Final = "Bamboo Cutting Board"
-PRODUCT_SKU: Final = Sku("BCB-2027-01")
+PRODUCT_ID: Final = product_id()
 FOLDER_ID: Final = "90110042424"
-LAUNCH_DATE: Final = date(2027, 3, 2)
-
 _MODULE_CANDIDATES: Final = (
     "commerce_ops.launch.infrastructure.driven.clickup_sync",
     "commerce_ops.launch.infrastructure.driving.gate_progression_job",

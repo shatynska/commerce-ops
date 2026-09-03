@@ -80,10 +80,8 @@ the worktree root — 729 passed, 68 skipped, 0 failed.
 from __future__ import annotations
 
 import logging
-import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from datetime import date
 from typing import Any, Final
 
 import pytest
@@ -102,24 +100,25 @@ from commerce_ops.launch.infrastructure.driven.clickup_sync import converge_laun
 from commerce_ops.shared.domain.clickup import ClickUpListState
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId, Sku
+from tests.support.fixtures import (
+    ALICE,
+    BOHDAN,
+    LAUNCH_DATE,
+    PRODUCT_NAME,
+    PRODUCT_SKU,
+    product_id,
+)
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
 
 pytestmark = pytest.mark.anyio
 
-PRODUCT_ID: Final = ProductId(str(uuid.uuid4()))
-PRODUCT_NAME: Final = "Bamboo Cutting Board"
-PRODUCT_SKU: Final = Sku("BCB-2027-01")
-
+PRODUCT_ID: Final = product_id()
 FOLDER_ID: Final = "90110042424"
 LIST_ID: Final = "901234002"
-LAUNCH_DATE: Final = date(2027, 3, 2)
-
 SEPARATOR: Final = " · "
 
-ALICE: Final = "prs_01HQ8Z6M4A"
 ALICE_CLICKUP: Final = "clickup-alice"
-BOHDAN: Final = "prs_01HQ8Z6M4B"
 BOHDAN_CLICKUP: Final = "clickup-bohdan"
 NO_ACCOUNT: Final = "prs_01HQ8Z6M4C"
 

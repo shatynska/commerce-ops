@@ -99,6 +99,7 @@ from commerce_ops.shared.domain.discipline import Discipline
 from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
 from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
 from tests.support.admin import fake_verify
+from tests.support.fixtures import ALICE, ALICE_NAME, PRINCIPAL
 from tests.support.html import HX_VERBS as _HX_VERBS
 from tests.support.html import Node as _Node
 from tests.support.html import Text as _Text
@@ -114,11 +115,7 @@ page_module: ModuleType = importlib.import_module(
 
 FINAL_GATE: Final = SPECIFIED_GATE_ORDER[-1]
 
-PRINCIPAL: Final = "helen"
 A_DISCIPLINE: Final = next(iter(Discipline))
-
-ALICE: Final = "prs_01HQ8Z6M4A"
-ALICE_NAME: Final = "Alice Admin"
 
 EDITED: Final = "listing.the-step-being-edited"
 EDITED_NAME: Final = "Work the author is editing"

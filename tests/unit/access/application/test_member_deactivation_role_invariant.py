@@ -67,6 +67,7 @@ import pytest
 import commerce_ops.access.application as access_application
 from commerce_ops.access.application import create_member, deactivate_member
 from tests.support.admin import ADMIN_IDENTITY
+from tests.support.fixtures import PRINCIPAL
 
 pytestmark = pytest.mark.anyio
 
@@ -79,8 +80,6 @@ _deactivate_member: Any = deactivate_member
 SECOND_ADMIN_IDENTITY: Final = "U02BOB"
 MEMBER_IDENTITY: Final = "U03CAROL"
 OTHER_IDENTITY: Final = "U04DAVE"
-
-PRINCIPAL: Final = "helen"
 
 DRAFT: Final = "draft"
 ACTIVE: Final = "active"

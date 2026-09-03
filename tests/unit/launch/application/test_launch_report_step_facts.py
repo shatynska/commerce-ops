@@ -147,6 +147,7 @@ from commerce_ops.launch.domain.launch_run import (
 from commerce_ops.shared.domain.access_scope import AccessScope
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
+from tests.support.fixtures import PRINCIPAL
 from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
 
@@ -155,7 +156,6 @@ pytestmark = pytest.mark.anyio
 A_DISCIPLINE: Final = Discipline("listing")
 ANOTHER_DISCIPLINE: Final = Discipline("inventory")
 
-PRINCIPAL: Final = "helen"
 APPROVER: Final = "Helen"
 RECORDED_AT: Final = datetime(2027, 1, 5, 12, 0, tzinfo=UTC)
 APPROVED_AT: Final = datetime(2027, 1, 6, 9, 0, tzinfo=UTC)

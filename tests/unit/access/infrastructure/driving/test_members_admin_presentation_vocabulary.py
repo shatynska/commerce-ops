@@ -112,6 +112,7 @@ from commerce_ops.launch.infrastructure.driving import (
 from tests.support.admin import ADMIN_IDENTITY, fake_verify
 from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
 from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
+from tests.support.fixtures import PRINCIPAL
 
 #: The shared asset route this change adds. Resolved by name so that its
 #: absence fails only the tests that actually drive it, rather than
@@ -149,7 +150,6 @@ SECOND_ADMIN_NAME: Final = "Bob Admin"
 MEMBER_NAME: Final = "Carol Member"
 RETIRED_NAME: Final = "Dave Departed"
 
-PRINCIPAL: Final = "helen"
 THE_CREATING_ADMIN: Final = "the-creating-admin"
 THE_EDITING_ADMIN: Final = "the-editing-admin"
 

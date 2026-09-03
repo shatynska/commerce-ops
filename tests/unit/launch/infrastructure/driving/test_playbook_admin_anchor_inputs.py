@@ -104,14 +104,11 @@ from commerce_ops.shared.domain.discipline import Discipline
 from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
 from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
 from tests.support.admin import fake_verify
+from tests.support.fixtures import ALICE, ALICE_NAME, PRINCIPAL
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 
-PRINCIPAL: Final = "helen"
 DISCIPLINES: Final = tuple(Discipline)
 A_DISCIPLINE: Final = DISCIPLINES[0]
-
-ALICE: Final = "prs_01HQ8Z6M4A"
-ALICE_NAME: Final = "Alice Admin"
 
 _CREATE_HINTS: Final = ("new", "create", "add")
 _A_HANDLER: Final = "no.such.registered.use-case"

@@ -98,6 +98,7 @@ from commerce_ops.shared.domain.discipline import Discipline
 from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
 from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
 from tests.support.admin import fake_verify
+from tests.support.fixtures import ALICE
 from tests.support.html import Node as _Node
 from tests.support.html import all_text as _all_text
 from tests.support.html import ancestors as _ancestors
@@ -129,8 +130,6 @@ def _launch_module() -> ModuleType:
 PRINCIPAL: Final = "U01ALICE"
 A_DISCIPLINE: Final = next(iter(Discipline))
 EDITED: Final = "listing.zeta"
-ALICE: Final = "prs_01HQ8Z6M4A"
-
 #: INVENTED: how each admin surface is named in a header. The delta fixes
 #: that each is named, not the wording.
 _PLAYBOOK_WORDS: Final = ("playbook", "step", "steps")

@@ -93,9 +93,9 @@ from commerce_ops.shared.domain.discipline import Discipline
 from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
 from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
 from tests.support.admin import fake_verify
+from tests.support.fixtures import PRINCIPAL
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 
-PRINCIPAL: Final = "helen"
 DISCIPLINES: Final = tuple(Discipline)
 A_DISCIPLINE: Final = DISCIPLINES[0]
 ANOTHER_DISCIPLINE: Final = DISCIPLINES[1]

@@ -73,16 +73,13 @@ from commerce_ops.launch.domain.launch_playbook import (
     StepStatus,
 )
 from commerce_ops.shared.domain.discipline import Discipline
+from tests.support.fixtures import ALICE, ALICE_NAME, BOHDAN, PRINCIPAL
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 
 pytestmark = pytest.mark.anyio
 
-PRINCIPAL: Final = "helen"
 A_DISCIPLINE: Final = next(iter(Discipline))
 
-ALICE: Final = "prs_01HQ8Z6M4A"
-ALICE_NAME: Final = "Alice Admin"
-BOHDAN: Final = "prs_01HQ8Z6M4B"
 NOBODY: Final = "prs_00000000NO"
 
 REJECTED: Final = (InvalidPlaybookError, ValueError, TypeError)

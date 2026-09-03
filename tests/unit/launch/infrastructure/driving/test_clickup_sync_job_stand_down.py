@@ -76,7 +76,6 @@ import datetime
 import inspect
 import sys
 import time
-import uuid
 from collections.abc import AsyncIterator, Iterator
 from contextlib import asynccontextmanager
 from types import ModuleType
@@ -98,8 +97,8 @@ from commerce_ops.launch.domain.launch_playbook import (
 )
 from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.shared.domain.discipline import Discipline
-from commerce_ops.shared.domain.identity import ProductId
 from commerce_ops.shared.infrastructure.driven.job_runner import app as runner_app
+from tests.support.fixtures import product_id
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
 
@@ -108,7 +107,7 @@ pytestmark = pytest.mark.anyio
 JOB_PACKAGE: Final = "commerce_ops.launch.infrastructure.driving"
 
 UNHELD_GATE: Final = "graduated"
-PRODUCT_ID: Final = ProductId(str(uuid.uuid4()))
+PRODUCT_ID: Final = product_id()
 
 # The two pass functions the job drives, as
 # `tests/unit/launch/infrastructure/driven/test_clickup_sync_reconciliation.py`

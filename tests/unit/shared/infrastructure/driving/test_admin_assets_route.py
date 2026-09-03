@@ -104,6 +104,7 @@ from fastapi.testclient import TestClient
 from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
 from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
 from tests.support.admin import fake_verify
+from tests.support.fixtures import PRINCIPAL
 
 #: The route under test. Resolved by name rather than imported, so that
 #: its absence fails each test here with its own message instead of
@@ -124,7 +125,6 @@ def _assets_module() -> ModuleType:
         )
 
 
-PRINCIPAL: Final = "helen"
 #: tests/unit/shared/infrastructure/driving/<this file>
 _REPO_ROOT: Final = Path(__file__).resolve().parents[5]
 _ASSET_DIR: Final = _REPO_ROOT / "src/commerce_ops/shared/infrastructure/driving/static"

@@ -97,7 +97,7 @@ import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from dataclasses import dataclass
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 from typing import Any, Final
 
 import pytest
@@ -120,7 +120,8 @@ from commerce_ops.launch.domain.launch_playbook import (
 from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.launch.infrastructure.driven.launch_repository import LaunchRepository
 from commerce_ops.shared.domain.discipline import Discipline
-from commerce_ops.shared.domain.identity import MarketplaceId, ProductId, Sku
+from commerce_ops.shared.domain.identity import ProductId, Sku
+from tests.support.fixtures import HANDLER_NAME, LAUNCH_DATE, MARKETPLACE, STEP_ID
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import opening_for as _opening_for
 
@@ -130,14 +131,10 @@ CONFIRMATION_MODULE: Final = (
     "commerce_ops.launch.infrastructure.driving.automation_confirmation"
 )
 
-MARKETPLACE: Final = MarketplaceId("ATVPDKIKX0DER")
-STEP_ID: Final = "listing.sub-category"
 STEP_NAME: Final = "Choose the sub-category node"
-HANDLER_NAME: Final = "listing.subcategory_advisor"
 CONFIRMER_MEMBER_ID: Final = "3f7c1a92-6b0e-4c7a-9d51-1e8a4b2c9f30"
 CONFIRMER_SLACK: Final = "U01ALICE"
 
-LAUNCH_DATE: Final = date(2027, 3, 2)
 PRODUCED_AT: Final = datetime(2027, 1, 6, 9, 30, tzinfo=UTC)
 SLACK_THREAD_TS: Final = "1700000000.000100"
 

@@ -90,9 +90,8 @@ failed, 0 skipped.
 from __future__ import annotations
 
 import inspect
-import uuid
 from dataclasses import dataclass
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any, Final
 
 import pytest
@@ -113,20 +112,17 @@ from commerce_ops.launch.domain.launch_playbook import (
 from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import MarketplaceId, ProductId, Sku
+from tests.support.fixtures import ALICE, ALICE_NAME, LAUNCH_DATE, product_id
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
 
 pytestmark = pytest.mark.anyio
 
-PRODUCT_ID: Final = ProductId(str(uuid.uuid4()))
+PRODUCT_ID: Final = product_id()
 STEP_ID: Final = "lp.strategy.006"
 HANDLER_NAME: Final = "strategy.compliance_screen"
 
-ALICE: Final = "prs_01HQ8Z6M4A"
 ALICE_SLACK: Final = "U01ALICE"
-ALICE_NAME: Final = "Alice Admin"
-
-LAUNCH_DATE: Final = date(2027, 3, 2)
 PRODUCED_AT: Final = datetime(2027, 1, 6, 9, 30, tzinfo=UTC)
 DECIDED_AT: Final = datetime(2027, 1, 6, 10, 0, tzinfo=UTC)
 T_REGISTERED: Final = datetime(2026, 8, 23, 9, 0, tzinfo=UTC)

@@ -96,7 +96,6 @@ from __future__ import annotations
 
 import inspect
 import logging
-import uuid
 from dataclasses import dataclass
 from datetime import date
 from typing import Any, Final
@@ -105,11 +104,11 @@ import pytest
 
 from commerce_ops.launch.application.thread_establishment import resolve_mention_target
 from commerce_ops.launch.domain.launch_run import Launch
-from commerce_ops.shared.domain.identity import ProductId
+from tests.support.fixtures import ALICE_NAME, STEP_ID, product_id
 
 pytestmark = pytest.mark.anyio
 
-PRODUCT_ID: Final = ProductId(str(uuid.uuid4()))
+PRODUCT_ID: Final = product_id()
 LAUNCH_DATE: Final = date(2027, 3, 1)
 
 #: The membership's own generated identifier for a member — `str(uuid.uuid4())`
@@ -117,8 +116,6 @@ LAUNCH_DATE: Final = date(2027, 3, 1)
 #: *not* Slack-shaped, so a test cannot pass by returning it.
 ALICE_MEMBER_ID: Final = "3f7c1a92-6b0e-4c7a-9d51-1e8a4b2c9f30"
 ALICE_SLACK: Final = "U01ALICE"
-ALICE_NAME: Final = "Alice Admin"
-
 BOHDAN_MEMBER_ID: Final = "9a2d4e18-77c3-4f16-8b90-2c5f7a1d6e44"
 BOHDAN_SLACK: Final = "U02BOHDAN"
 BOHDAN_NAME: Final = "Bohdan Deactivated"
@@ -132,8 +129,6 @@ CHLOE_NAME: Final = "Chloe NoSlack"
 STRANGER_MEMBER_ID: Final = "0e5c8b31-4a77-4d2e-b118-6f9c0a3d7e52"
 
 SUBMITTER_SLACK: Final = "U0SUBMITTER"
-
-STEP_ID: Final = "listing.sub-category"
 
 #: How the membership parameter may be spelled (INVENTED — see the module
 #: docstring). Correction point for the implemented name.

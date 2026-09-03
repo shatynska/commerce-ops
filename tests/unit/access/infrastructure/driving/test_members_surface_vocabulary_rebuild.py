@@ -104,6 +104,7 @@ from commerce_ops.launch.infrastructure.driving import (
 from tests.support.admin import ADMIN_IDENTITY, fake_verify
 from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
 from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
+from tests.support.fixtures import PRINCIPAL
 from tests.support.html import HX_VERBS as _HX_VERBS
 from tests.support.html import Node as _Node
 from tests.support.html import Text as _Text
@@ -141,7 +142,6 @@ EVERY_IDENTITY: Final = (
 )
 EVERY_NAME: Final = (ADMIN_NAME, SECOND_ADMIN_NAME, MEMBER_NAME, RETIRED_NAME)
 
-PRINCIPAL: Final = "helen"
 THE_CREATING_ADMIN: Final = "the-creating-admin"
 THE_EDITING_ADMIN: Final = "the-editing-admin"
 

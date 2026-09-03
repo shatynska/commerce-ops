@@ -96,12 +96,11 @@ from commerce_ops.launch.domain.launch_playbook import (
     StepStatus,
 )
 from commerce_ops.shared.domain.discipline import Discipline
+from tests.support.fixtures import PRINCIPAL
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
 
 pytestmark = pytest.mark.anyio
-
-PRINCIPAL: Final = "helen"
 
 # A discipline read from the shared vocabulary, plus a second, different
 # one for the discipline-change rejection.

@@ -85,13 +85,13 @@ from commerce_ops.shared.domain.discipline import Discipline
 from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
 from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
 from tests.support.admin import fake_verify
+from tests.support.fixtures import PRINCIPAL
 from tests.support.html import Node as _Node
 from tests.support.html import Text as _Text
 from tests.support.html import elements as _elements
 from tests.support.html import flat as _flat
 from tests.support.html import tree as _tree
 
-PRINCIPAL: Final = "helen"
 A_DISCIPLINE: Final = next(iter(Discipline))
 ASSIGNEE: Final = "prs_01HQ8Z6M4A"
 ASSIGNEE_NAME: Final = "Alice Admin"

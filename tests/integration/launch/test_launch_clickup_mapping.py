@@ -62,7 +62,7 @@ from __future__ import annotations
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 from typing import Any, Final
 
 import pytest
@@ -94,15 +94,14 @@ from commerce_ops.launch.infrastructure.driven.clickup_mapping import (
 )
 from commerce_ops.launch.infrastructure.driven.launch_repository import LaunchRepository
 from commerce_ops.shared.domain.discipline import Discipline
-from commerce_ops.shared.domain.identity import MarketplaceId, ProductId, Sku
+from commerce_ops.shared.domain.identity import ProductId, Sku
+from tests.support.fixtures import LAUNCH_DATE, MARKETPLACE
 from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
 from tests.support.playbook import opening_for as _opening_for
 
 pytestmark = pytest.mark.anyio
 
-MARKETPLACE: Final = MarketplaceId("ATVPDKIKX0DER")
 STEP_ID: Final = "listing.title-conforms"
-LAUNCH_DATE: Final = date(2027, 3, 2)
 APPROVED_AT: Final = datetime(2027, 1, 6, 9, 30, tzinfo=UTC)
 
 

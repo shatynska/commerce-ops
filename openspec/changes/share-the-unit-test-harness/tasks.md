@@ -233,10 +233,10 @@ The largest single cluster: 159 files. Mechanical; no test body may change.
 - [x] 4.2 Migrate the 45 files declaring `_SESSION_COOKIE` / `_SESSION_VALUE` /
       `_fake_verify`, and the 14 declaring `ADMIN_IDENTITY`. The 18 declaring
       `_signed_headers` are left, per 4.1.
-- [ ] 4.3 Write `tests/support/fixtures.py` with the **fixed** literals only:
+- [x] 4.3 Write `tests/support/fixtures.py` with the **fixed** literals only:
       `LAUNCH_DATE`, `PRINCIPAL`, `ALICE`, `ALICE_NAME`, `BOHDAN`, `BOHDAN_NAME`,
       `MARKETPLACE`, `PRODUCT_NAME`, `PRODUCT_SKU`, `STEP_ID`, `HANDLER_NAME`.
-- [ ] 4.3a `A_DISCIPLINE` is **not** a fixed literal and does not belong in 4.3.
+- [x] 4.3a `A_DISCIPLINE` is **not** a fixed literal and does not belong in 4.3.
       Its 42 declarations are `next(iter(Discipline))` (24), `DISCIPLINES[0]`
       (13), `Discipline("listing")` (3) and `Discipline("strategy")` (2) — the
       first two computed, the last two pinned. Provide `any_discipline()`
@@ -245,15 +245,15 @@ The largest single cluster: 159 files. Mechanical; no test body may change.
       The 5 pinned declarations are outliers and stay. Decide in the same task
       whether `_any_discipline` (40 files) joins Population A or stays local, and
       record which.
-- [ ] 4.4 Add `product_id()` as a **factory**, not a constant. The migrated file
+- [x] 4.4 Add `product_id()` as a **factory**, not a constant. The migrated file
       keeps a module-level `PRODUCT_ID: Final = product_id()` — one identifier per
       module, exactly as today; only the construction moves. 68 files currently
       evaluate `ProductId(str(uuid.uuid4()))` at module level, and a shared
       constant would give all 68 the same value (Decision 8).
-- [ ] 4.5 Migrate the files carrying the dominant variant of each 4.3/4.4 symbol.
+- [x] 4.5 Migrate the files carrying the dominant variant of each 4.3/4.4 symbol.
       **Leave every outlier in place** and list them in the commit message; an
       outlier differs on purpose until shown otherwise.
-- [ ] 4.6 Confirm no `uuid`, `datetime.now` or counter has been frozen into a
+- [x] 4.6 Confirm no `uuid`, `datetime.now` or counter has been frozen into a
       module-level name anywhere in `tests/support/`.
 
 ## 5. Phase A — hoist the Slack listener-draining wrapper

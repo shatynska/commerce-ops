@@ -78,12 +78,9 @@ from commerce_ops.launch.domain.launch_playbook import (
     StepStatus,
 )
 from commerce_ops.shared.domain.discipline import Discipline
+from tests.support.fixtures import ALICE, BOHDAN
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
-
-# DERIVED sample identifiers, matching this suite's convention elsewhere.
-ALICE: Final = "prs_01HQ8Z6M4A"
-BOHDAN: Final = "prs_01HQ8Z6M4B"
 
 HANDLER_NAME: Final = "price.buy_box_check"
 

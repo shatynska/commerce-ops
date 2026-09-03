@@ -160,7 +160,7 @@ from commerce_ops.launch.infrastructure.driving import (
 )
 from commerce_ops.shared.domain.access_scope import AccessScope
 from commerce_ops.shared.domain.discipline import Discipline
-from commerce_ops.shared.domain.identity import MarketplaceId, ProductId, Sku
+from commerce_ops.shared.domain.identity import ProductId, Sku
 from commerce_ops.shared.domain.lifecycle_stage import (
     Launching,
     Posture,
@@ -170,6 +170,7 @@ from commerce_ops.shared.domain.lifecycle_stage import (
 from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
 from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
 from tests.support.admin import fake_verify
+from tests.support.fixtures import MARKETPLACE
 from tests.support.html import Node as _Node
 from tests.support.html import all_text as _all_text
 from tests.support.html import ancestors as _ancestors
@@ -230,8 +231,6 @@ def _assets_module() -> ModuleType:
 
 LISTING: Final = Discipline("listing")
 INVENTORY: Final = Discipline("inventory")
-MARKETPLACE: Final = MarketplaceId("ATVPDKIKX0DER")
-
 PRINCIPAL: Final = "U01ALICE"
 RECORDED_AT: Final = datetime(2027, 1, 5, 12, 0, tzinfo=UTC)
 APPROVED_AT: Final = datetime(2027, 1, 6, 9, 0, tzinfo=UTC)

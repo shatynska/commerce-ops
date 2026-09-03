@@ -99,7 +99,6 @@ import importlib
 import inspect
 import json
 import logging
-import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
@@ -129,6 +128,7 @@ from commerce_ops.launch.domain.launch_run import (
 )
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
+from tests.support.fixtures import ALICE, product_id
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import opening_for as _opening_for
 
@@ -136,10 +136,9 @@ pytestmark = pytest.mark.anyio
 
 MODULE_PATH: Final = "commerce_ops.launch.infrastructure.driving.gate_confirmation"
 
-PRODUCT_ID: Final = ProductId(str(uuid.uuid4()))
+PRODUCT_ID: Final = product_id()
 GATE_ID: Final = "commit"
 
-ALICE: Final = "prs_01HQ8Z6M4A"
 ALICE_SLACK: Final = "U01ALICE"
 ALICE_NAME: Final = "Alice Ordinary"
 

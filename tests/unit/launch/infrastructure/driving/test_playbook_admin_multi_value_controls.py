@@ -148,6 +148,7 @@ from commerce_ops.shared.domain.discipline import Discipline
 from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
 from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
 from tests.support.admin import fake_verify
+from tests.support.fixtures import ALICE, ALICE_NAME, BOHDAN, PRINCIPAL
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 
 page_module: ModuleType = importlib.import_module(
@@ -177,13 +178,9 @@ _NAMES_OF_FIELD: Final[dict[str, tuple[str, ...]]] = {
 #: INVENTED. The element a "control per value" is taken to be.
 _VALUE_INPUT_TYPES: Final = ("checkbox",)
 
-PRINCIPAL: Final = "helen"
 LISTING: Final = Discipline("listing")
 INVENTORY: Final = Discipline("inventory")
 
-ALICE: Final = "prs_01HQ8Z6M4A"
-ALICE_NAME: Final = "Alice Admin"
-BOHDAN: Final = "prs_01HQ8Z6M4B"
 BOHDAN_NAME: Final = "Bohdan Builder"
 CHRIS: Final = "prs_01HQ8Z6M4C"
 CHRIS_NAME: Final = "Chris Departed"

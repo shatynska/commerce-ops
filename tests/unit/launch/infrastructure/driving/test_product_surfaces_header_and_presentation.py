@@ -116,25 +116,22 @@ from commerce_ops.launch.infrastructure.driving import (
 )
 from commerce_ops.shared.domain.access_scope import AccessScope
 from commerce_ops.shared.domain.discipline import Discipline
-from commerce_ops.shared.domain.identity import MarketplaceId, ProductId, Sku
+from commerce_ops.shared.domain.identity import ProductId, Sku
 from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
 from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
 from tests.support.admin import fake_verify
+from tests.support.fixtures import ALICE, ALICE_NAME, MARKETPLACE, PRINCIPAL
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 
-PRINCIPAL: Final = "helen"
 #: An unexpired session whose principal has since lost the admin
 #: declaration. It presents to the page exactly as any other refusal.
 _REVOKED_SESSION_VALUE: Final = "a-session-whose-principal-lost-admin"
 
-MARKETPLACE: Final = MarketplaceId("ATVPDKIKX0DER")
 T_REGISTERED: Final = datetime(2026, 8, 23, 9, 0, tzinfo=UTC)
 
 SKU: Final = "BCB-2027-01"
 NAME: Final = "Bamboo Cutting Board"
 
-ALICE: Final = "prs_01HQ8Z6M4A"
-ALICE_NAME: Final = "Alice Admin"
 MEMBER_ADMIN_IDENTITY: Final = "U01ALICE"
 
 _ASSETS_MODULE_NAME: Final = "commerce_ops.shared.infrastructure.driving.admin_assets"

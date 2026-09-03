@@ -129,10 +129,9 @@ configured here, so that tier's database-backed tests skip).
 from __future__ import annotations
 
 import contextlib
-import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 from typing import Any, Final
 
 import pytest
@@ -160,20 +159,23 @@ from commerce_ops.launch.infrastructure.driven.clickup_sync import (
 )
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId, Sku
+from tests.support.fixtures import (
+    ALICE,
+    LAUNCH_DATE,
+    PRODUCT_NAME,
+    PRODUCT_SKU,
+    product_id,
+)
 from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
 
 pytestmark = pytest.mark.anyio
 
-PRODUCT_ID: Final = ProductId(str(uuid.uuid4()))
-PRODUCT_NAME: Final = "Bamboo Cutting Board"
-PRODUCT_SKU: Final = Sku("BCB-2027-01")
-
+PRODUCT_ID: Final = product_id()
 FOLDER_ID: Final = "90110042424"
 #: The launch's recorded list -- the identifier `proposal.md` opens on.
 LIST_ID: Final = "901220624358"
 
-LAUNCH_DATE: Final = date(2027, 3, 2)
 RECORDED_AT: Final = datetime(2027, 1, 5, 12, 0, tzinfo=UTC)
 
 #: A projectable step whose work is unfinished: re-projects into the
@@ -198,7 +200,6 @@ OTHER_DEAD_TASK: Final = "task-in-the-dead-list-2"
 DONE_DEAD_TASK: Final = "task-for-finished-work"
 UNDEFINED_DEAD_TASK: Final = "task-for-an-undefined-step"
 
-ALICE: Final = "prs_01HQ8Z6M4A"
 ALICE_CLICKUP: Final = "clickup-alice"
 
 

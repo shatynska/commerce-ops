@@ -57,7 +57,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 from typing import Any, Final
 
 import pytest
@@ -85,18 +85,15 @@ from commerce_ops.launch.infrastructure.driven.clickup_sync import (
 from commerce_ops.shared.domain.clickup import ClickUpListState
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId, Sku
+from tests.support.fixtures import LAUNCH_DATE, PRODUCT_NAME, PRODUCT_SKU
 from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
 
 pytestmark = pytest.mark.anyio
 
 PRODUCT_ID: Final = ProductId("6f1d5b1c-6f0e-4d0f-9d84-6b0a1f1d5b1c")
-PRODUCT_NAME: Final = "Bamboo Cutting Board"
-PRODUCT_SKU: Final = Sku("BCB-2027-01")
-
 FOLDER_ID: Final = "90110042424"
 
-LAUNCH_DATE: Final = date(2027, 3, 2)
 RECORDED_AT: Final = datetime(2027, 1, 5, 12, 0, tzinfo=UTC)
 
 A_DISCIPLINE: Final = next(iter(Discipline))

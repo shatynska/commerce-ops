@@ -87,6 +87,7 @@ from commerce_ops.access.infrastructure.driving import members_admin as page_mod
 from tests.support.admin import ADMIN_IDENTITY, fake_verify
 from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
 from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
+from tests.support.fixtures import PRINCIPAL
 
 SECOND_ADMIN_IDENTITY: Final = "U02BOB"
 MEMBER_IDENTITY: Final = "U03CAROL"
@@ -99,7 +100,6 @@ MEMBER_NAME: Final = "Carol Member"
 RETIRED_NAME: Final = "Dave Departed"
 NEWCOMER_NAME: Final = "Erin Newcomer"
 
-PRINCIPAL: Final = "helen"
 THE_CREATING_ADMIN: Final = "the-creating-admin"
 THE_EDITING_ADMIN: Final = "the-editing-admin"
 

@@ -62,11 +62,9 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
-import uuid
 from collections.abc import AsyncIterator, Iterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from datetime import date
 from typing import Any, Final
 
 import pytest
@@ -87,19 +85,16 @@ from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.launch.infrastructure.driving import clickup_webhook as webhook_module
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
+from tests.support.fixtures import ALICE, HANDLER_NAME, LAUNCH_DATE, product_id
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import opening_for as _opening_for
 
 WEBHOOK_SECRET: Final = "test-clickup-webhook-secret-not-a-real-credential"
 SIGNATURE_HEADER: Final = "X-Signature"
 
-PRODUCT_ID: Final = ProductId(str(uuid.uuid4()))
+PRODUCT_ID: Final = product_id()
 STEP_ID: Final = "lp.listing.007"
 TASK_ID: Final = "8x2mapped"
-LAUNCH_DATE: Final = date(2027, 3, 2)
-
-HANDLER_NAME: Final = "listing.subcategory_advisor"
-ALICE: Final = "prs_01HQ8Z6M4A"
 ACTOR_USERNAME: Final = "helen.shatynska"
 
 

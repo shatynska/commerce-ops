@@ -159,7 +159,7 @@ from commerce_ops.launch.domain.launch_run import (
     Provenance,
 )
 from commerce_ops.shared.domain.discipline import Discipline
-from commerce_ops.shared.domain.identity import MarketplaceId, ProductId, Sku
+from commerce_ops.shared.domain.identity import ProductId, Sku
 from commerce_ops.shared.domain.lifecycle_stage import (
     Launching,
     Posture,
@@ -169,6 +169,7 @@ from commerce_ops.shared.domain.lifecycle_stage import (
 from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
 from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
 from tests.support.admin import fake_verify
+from tests.support.fixtures import MARKETPLACE
 from tests.support.html import HX_VERBS as _HX_VERBS
 from tests.support.html import Node as _Node
 from tests.support.html import all_text as _all_text
@@ -220,8 +221,6 @@ ATTENTION_PARAM: Final = "attention"
 ATTENTION_VALUE: Final = "1"
 
 A_DISCIPLINE: Final = Discipline("listing")
-MARKETPLACE: Final = MarketplaceId("ATVPDKIKX0DER")
-
 PRINCIPAL: Final = "U01ALICE"
 RECORDED_AT: Final = datetime(2027, 1, 5, 12, 0, tzinfo=UTC)
 APPROVED_AT: Final = datetime(2027, 1, 6, 9, 0, tzinfo=UTC)

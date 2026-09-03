@@ -181,7 +181,7 @@ import logging
 import uuid
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any, Final
 
 import pytest
@@ -208,6 +208,14 @@ from commerce_ops.launch.domain.launch_run import (
 from commerce_ops.launch.infrastructure.driving import automation_pass
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId, Sku
+from tests.support.fixtures import (
+    ALICE,
+    HANDLER_NAME,
+    LAUNCH_DATE,
+    PRODUCT_NAME,
+    PRODUCT_SKU,
+    product_id,
+)
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
 
@@ -219,24 +227,18 @@ pytestmark = pytest.mark.anyio
 # way every other file in this directory re-declares its fixtures.
 # ---------------------------------------------------------------------------
 
-PRODUCT_ID: Final = ProductId(str(uuid.uuid4()))
+PRODUCT_ID: Final = product_id()
 OTHER_PRODUCT_ID: Final = ProductId(str(uuid.uuid4()))
 
-PRODUCT_NAME: Final = "Bamboo Cutting Board"
-PRODUCT_SKU: Final = Sku("BCB-2027-01")
 OTHER_PRODUCT_NAME: Final = "Walnut Serving Tray"
 OTHER_PRODUCT_SKU: Final = Sku("WST-2027-02")
 
 AUTOMATED_STEP_ID: Final = "listing.sub-category"
 SECOND_STEP_ID: Final = "listing.bullet-points"
-HANDLER_NAME: Final = "listing.subcategory_advisor"
 SECOND_HANDLER_NAME: Final = "listing.bullet_advisor"
 THREAD_TS: Final = "1700000000.000100"
 LAUNCHES_CHANNEL_ID: Final = "C0LAUNCHES"  # not a real channel
 
-ALICE: Final = "prs_01HQ8Z6M4A"
-
-LAUNCH_DATE: Final = date(2027, 3, 2)
 NOW: Final = datetime(2027, 1, 6, 9, 30, tzinfo=UTC)
 APPROVED_AT: Final = datetime(2027, 1, 5, 9, 30, tzinfo=UTC)
 

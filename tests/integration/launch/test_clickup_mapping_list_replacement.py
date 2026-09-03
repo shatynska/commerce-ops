@@ -90,7 +90,6 @@ import inspect
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
-from datetime import date
 from typing import Any, Final
 
 import pytest
@@ -121,14 +120,12 @@ from commerce_ops.launch.infrastructure.driven.clickup_mapping import (
 )
 from commerce_ops.launch.infrastructure.driven.launch_repository import LaunchRepository
 from commerce_ops.shared.domain.discipline import Discipline
-from commerce_ops.shared.domain.identity import MarketplaceId, ProductId, Sku
+from commerce_ops.shared.domain.identity import ProductId, Sku
+from tests.support.fixtures import LAUNCH_DATE, MARKETPLACE
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import opening_for as _opening_for
 
 pytestmark = pytest.mark.anyio
-
-MARKETPLACE: Final = MarketplaceId("ATVPDKIKX0DER")
-LAUNCH_DATE: Final = date(2027, 3, 2)
 
 #: An unfinished step's mapping: discarded with the dead list.
 OPEN_STEP_ID: Final = "listing.title-conforms"

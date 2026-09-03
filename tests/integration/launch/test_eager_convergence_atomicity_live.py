@@ -107,7 +107,6 @@ import uuid
 from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from datetime import date
 from types import ModuleType
 from typing import Any, Final
 
@@ -142,14 +141,13 @@ from commerce_ops.launch.infrastructure.driven.launch_repository import (
 )
 from commerce_ops.shared.domain.clickup import ClickUpListState
 from commerce_ops.shared.domain.discipline import Discipline
-from commerce_ops.shared.domain.identity import MarketplaceId, ProductId, Sku
+from commerce_ops.shared.domain.identity import ProductId, Sku
+from tests.support.fixtures import LAUNCH_DATE, MARKETPLACE
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import opening_for as _opening_for
 
 pytestmark = pytest.mark.anyio
 
-MARKETPLACE: Final = MarketplaceId("ATVPDKIKX0DER")
-LAUNCH_DATE: Final = date(2027, 3, 2)
 STEP_ID: Final = "listing.title-conforms"
 SECOND_STEP_ID: Final = "listing.images-conform"
 FOLDER_ID: Final = "90110042424"

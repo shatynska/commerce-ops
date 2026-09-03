@@ -89,6 +89,7 @@ from commerce_ops.access.application import create_member
 from tests.support.admin import ADMIN_IDENTITY, fake_verify
 from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
 from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
+from tests.support.fixtures import PRINCIPAL
 from tests.support.html import HX_VERBS as _HX_VERBS
 from tests.support.html import Node as _Node
 from tests.support.html import Text as _Text
@@ -108,7 +109,6 @@ SECOND_NAME: Final = "Bob Deputy"
 THIRD_NAME: Final = "Carol Colleague"
 DEPARTED_NAME: Final = "Dave Departed"
 
-PRINCIPAL: Final = "helen"
 THE_CREATING_ADMIN: Final = "the-creating-admin"
 THE_EDITING_ADMIN: Final = "the-editing-admin"
 

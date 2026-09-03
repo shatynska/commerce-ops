@@ -42,17 +42,16 @@ Baseline: captured before writing these tests.
 
 from __future__ import annotations
 
-import uuid
 from datetime import date
 from typing import Any, Final
 
 import pytest
 
-from commerce_ops.shared.domain.identity import ProductId
+from tests.support.fixtures import product_id
 
 pytestmark = pytest.mark.anyio
 
-PRODUCT_ID: Final = ProductId(str(uuid.uuid4()))
+PRODUCT_ID: Final = product_id()
 SUBMITTER_SLACK_ID: Final = "U0SUBMITTER123"
 SLACK_THREAD_TS: Final = "1700000000.000100"
 LAUNCH_DATE: Final = date(2027, 3, 15)

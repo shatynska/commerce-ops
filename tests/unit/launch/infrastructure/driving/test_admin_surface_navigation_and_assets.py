@@ -127,6 +127,7 @@ from commerce_ops.shared.domain.discipline import Discipline
 from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
 from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
 from tests.support.admin import fake_verify
+from tests.support.fixtures import ALICE, ALICE_NAME, BOHDAN, BOHDAN_NAME, PRINCIPAL
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 
 #: The shared asset route this change adds. Imported by name rather than
@@ -142,7 +143,6 @@ def _assets_module() -> ModuleType | None:
         return None
 
 
-PRINCIPAL: Final = "helen"
 DISCIPLINES: Final = tuple(Discipline)
 A_DISCIPLINE: Final = DISCIPLINES[0]
 
@@ -162,10 +162,6 @@ _CURRENT_CLASSES: Final = ("current", "active", "here", "is-current", "is-active
 
 EDITED: Final = "listing.zeta"
 
-ALICE: Final = "prs_01HQ8Z6M4A"
-ALICE_NAME: Final = "Alice Admin"
-BOHDAN: Final = "prs_01HQ8Z6M4B"
-BOHDAN_NAME: Final = "Bohdan Colleague"
 CHRIS_DEPARTED: Final = "prs_01HQ8Z6M4C"
 CHRIS_NAME: Final = "Chris Departed"
 

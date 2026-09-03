@@ -117,6 +117,7 @@ from commerce_ops.launch.infrastructure.driven.models import (
 )
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
+from tests.support.fixtures import STEP_ID
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
 
@@ -124,7 +125,6 @@ pytestmark = pytest.mark.anyio
 
 ROW_ID: Final = uuid.uuid4()
 PRODUCT_ID: Final = ProductId(str(ROW_ID))
-STEP_ID: Final = "listing.sub-category"
 WHEN: Final = datetime(2027, 1, 6, 9, 30, tzinfo=UTC)
 
 EVIDENCE: Final = "Home & Kitchen > Kitchen & Dining > Cutting Boards."

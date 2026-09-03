@@ -59,6 +59,7 @@ import pytest
 
 from commerce_ops.launch.domain.launch_playbook import Satisfied
 from commerce_ops.shared.domain.identity import ProductId, Sku
+from tests.support.fixtures import HANDLER_NAME, PRODUCT_NAME, PRODUCT_SKU, STEP_ID
 
 pytestmark = pytest.mark.anyio
 
@@ -69,13 +70,7 @@ MODULE_PATH: Final = (
 STORED_UUID: Final = uuid.uuid4()
 #: What `_deliver_waiting` builds from the stored row and passes on.
 PRODUCT_ID: Final = ProductId(str(STORED_UUID))
-PRODUCT_NAME: Final = "Bamboo Cutting Board"
-PRODUCT_SKU: Final = Sku("BCB-2027-01")
-
-STEP_ID: Final = "listing.sub-category"
 STEP_NAME: Final = "Choose the sub-category node"
-HANDLER_NAME: Final = "listing.subcategory_advisor"
-
 #: What a step's `confirmer` actually holds: the membership's own generated
 #: identifier (`str(uuid.uuid4())`), which Slack cannot resolve. This file
 #: used to spell it `CONFIRMER_ID = "U0CONFIRMER"` and assert that value

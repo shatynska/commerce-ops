@@ -74,11 +74,11 @@ from commerce_ops.launch.domain.launch_playbook import (
     StepStatus,
 )
 from commerce_ops.shared.domain.discipline import Discipline
+from tests.support.fixtures import PRINCIPAL
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 
 pytestmark = pytest.mark.anyio
 
-PRINCIPAL: Final = "helen"
 EARLIER_PRINCIPAL: Final = "olena"
 A_DISCIPLINE: Final = next(iter(Discipline))
 

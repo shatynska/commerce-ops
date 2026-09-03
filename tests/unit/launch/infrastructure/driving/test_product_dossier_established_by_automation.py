@@ -133,14 +133,13 @@ from commerce_ops.launch.infrastructure.driving import (
 )
 from commerce_ops.shared.domain.access_scope import AccessScope
 from commerce_ops.shared.domain.discipline import Discipline
-from commerce_ops.shared.domain.identity import Asin, MarketplaceId, ProductId, Sku
+from commerce_ops.shared.domain.identity import Asin, ProductId, Sku
 from commerce_ops.shared.domain.lifecycle_stage import Launching
 from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
 from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
 from tests.support.admin import fake_verify
+from tests.support.fixtures import MARKETPLACE, PRINCIPAL
 
-PRINCIPAL: Final = "helen"
-MARKETPLACE: Final = MarketplaceId("ATVPDKIKX0DER")
 T_REGISTERED: Final = datetime(2026, 8, 23, 9, 0, tzinfo=UTC)
 T_MOVED: Final = datetime(2026, 8, 24, 10, 30, tzinfo=UTC)
 CONFIRMER: Final = "Helen Shatynska"

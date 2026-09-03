@@ -67,7 +67,6 @@ from __future__ import annotations
 
 import logging
 import re
-import uuid
 from datetime import UTC, date, datetime
 from typing import Any, Final
 
@@ -99,12 +98,13 @@ from commerce_ops.launch.domain.launch_run import (
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import MetricId, ProductId
 from commerce_ops.shared.domain.lifecycle_stage import Posture, SteadyState
+from tests.support.fixtures import product_id
 from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
 from tests.support.playbook import opening_for as _opening_for
 
 pytestmark = pytest.mark.anyio
 
-PRODUCT_ID: Final = ProductId(str(uuid.uuid4()))
+PRODUCT_ID: Final = product_id()
 RECORDED_AT: Final = datetime(2027, 6, 2, 14, 30, tzinfo=UTC)
 APPROVED_AT: Final = datetime(2027, 6, 3, 9, 0, tzinfo=UTC)
 ATTESTED_AT: Final = datetime(2027, 6, 4, 9, 0, tzinfo=UTC)

@@ -87,6 +87,7 @@ import pytest
 
 import commerce_ops.access.application as access_application
 from commerce_ops.access.application import create_member
+from tests.support.fixtures import PRINCIPAL
 
 pytestmark = pytest.mark.anyio
 
@@ -101,8 +102,6 @@ EARLIEST_ADMIN_IDENTITY: Final = "U03BEATRICE"
 LATER_ADMIN_IDENTITY: Final = "U04ANNA"
 LATEST_ADMIN_IDENTITY: Final = "U05CLARA"
 ORDINARY_IDENTITY: Final = "U06DEREK"
-
-PRINCIPAL: Final = "helen"
 
 DRAFT: Final = "draft"
 ACTIVE: Final = "active"

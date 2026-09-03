@@ -119,11 +119,12 @@ from commerce_ops.launch.infrastructure.driving import (
 )
 from commerce_ops.shared.domain.access_scope import AccessScope
 from commerce_ops.shared.domain.discipline import Discipline
-from commerce_ops.shared.domain.identity import MarketplaceId, ProductId, Sku
+from commerce_ops.shared.domain.identity import ProductId, Sku
 from commerce_ops.shared.domain.lifecycle_stage import Launching
 from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
 from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
 from tests.support.admin import fake_verify
+from tests.support.fixtures import ALICE, ALICE_NAME, MARKETPLACE
 from tests.support.html import HX_VERBS as _HX_VERBS
 from tests.support.html import Node as _Node
 from tests.support.html import classes as _classes
@@ -153,12 +154,7 @@ AFTER_STEPS: Final = "after_steps"
 
 LISTING: Final = Discipline("listing")
 INVENTORY: Final = Discipline("inventory")
-MARKETPLACE: Final = MarketplaceId("ATVPDKIKX0DER")
-
 PRINCIPAL: Final = "U01ALICE"
-ALICE: Final = "prs_01HQ8Z6M4A"
-ALICE_NAME: Final = "Alice Admin"
-
 T_REGISTERED: Final = datetime(2026, 8, 23, 9, 0, tzinfo=UTC)
 RENDER_DATE: Final = date(2027, 4, 1)
 LAUNCH_DATE: Final = date(2027, 4, 15)

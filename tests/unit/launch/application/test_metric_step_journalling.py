@@ -62,7 +62,6 @@ throughout: no database is configured here).
 from __future__ import annotations
 
 import re
-import uuid
 from collections.abc import Mapping
 from datetime import UTC, date, datetime
 from typing import Any, Final
@@ -83,6 +82,7 @@ from commerce_ops.launch.domain.launch_playbook import (
 from commerce_ops.launch.domain.launch_run import Launch, Provenance
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import MetricId, ProductId
+from tests.support.fixtures import product_id
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
 
@@ -95,7 +95,7 @@ KIND_STEP_OUTCOME_RECORDED: Final = "step-outcome-recorded"
 #: it is declared, which after this change is nowhere.
 KIND_METRIC_ATTESTED: Final = "metric-attested"
 
-PRODUCT_ID: Final = ProductId(str(uuid.uuid4()))
+PRODUCT_ID: Final = product_id()
 RECORDED_AT: Final = datetime(2027, 5, 3, 9, 15, tzinfo=UTC)
 LAUNCH_DATE: Final = date(2027, 9, 1)
 RECORDER: Final = "Dana"

@@ -84,11 +84,12 @@ from commerce_ops.launch.domain.launch_playbook import (
     LaunchPlaybook,
 )
 from commerce_ops.launch.domain.launch_run import Launch
-from commerce_ops.shared.domain.identity import MarketplaceId, ProductId, Sku
+from commerce_ops.shared.domain.identity import ProductId, Sku
 from commerce_ops.shared.domain.lifecycle_stage import Launching
 from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
 from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
 from tests.support.admin import fake_verify
+from tests.support.fixtures import MARKETPLACE
 from tests.support.html import Node as _Node
 from tests.support.html import all_text as _all_text
 from tests.support.html import elements as _elements
@@ -120,7 +121,6 @@ def _journal_seam(module: ModuleType) -> str:
     )
 
 
-MARKETPLACE: Final = MarketplaceId("ATVPDKIKX0DER")
 PRINCIPAL: Final = "U01ALICE"
 RENDER_DATE: Final = date(2027, 4, 1)
 LAUNCH_DATE: Final = date(2027, 4, 15)

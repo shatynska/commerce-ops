@@ -59,7 +59,6 @@ commit `656f1c4`, clean tree: `uv run pytest tests/unit tests/agents` —
 
 from __future__ import annotations
 
-import uuid
 from datetime import UTC, date, datetime
 from typing import Any, Final
 
@@ -80,12 +79,13 @@ from commerce_ops.launch.domain.launch_playbook import (
 from commerce_ops.launch.domain.launch_run import Launch, Provenance
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
+from tests.support.fixtures import product_id
 from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
 from tests.support.playbook import opening_for as _opening_for
 
 pytestmark = pytest.mark.anyio
 
-PRODUCT_ID: Final = ProductId(str(uuid.uuid4()))
+PRODUCT_ID: Final = product_id()
 LAUNCH_DATE: Final = date(2027, 9, 1)
 RECORDED_AT: Final = datetime(2027, 5, 3, 9, 15, tzinfo=UTC)
 

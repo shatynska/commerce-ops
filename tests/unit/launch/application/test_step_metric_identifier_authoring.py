@@ -98,16 +98,13 @@ from commerce_ops.launch.domain.launch_playbook import (
 )
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import MetricId
+from tests.support.fixtures import ALICE, BOHDAN, PRINCIPAL
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 
 pytestmark = pytest.mark.anyio
 
-PRINCIPAL: Final = "helen"
 DISCIPLINES: Final = tuple(Discipline)
 A_DISCIPLINE: Final = DISCIPLINES[0]
-
-ALICE: Final = "prs_01HQ8Z6M4A"
-BOHDAN: Final = "prs_01HQ8Z6M4B"
 
 REJECTED: Final = (InvalidPlaybookError, ValueError, TypeError)
 

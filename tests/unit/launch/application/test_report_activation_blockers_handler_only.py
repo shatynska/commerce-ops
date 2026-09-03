@@ -58,13 +58,12 @@ from commerce_ops.launch.domain.launch_playbook import (
     StepStatus,
 )
 from commerce_ops.shared.domain.discipline import Discipline
+from tests.support.fixtures import ALICE
 
 A_DISCIPLINE: Final = Discipline("strategy")
 ANOTHER_DISCIPLINE: Final = Discipline("price")
 
 REGISTERED_HANDLER: Final = "price.buy_box_check"
-
-ALICE: Final = "prs_01HQ8Z6M4A"
 
 
 def _step(**overrides: Any) -> StepDefinition:

@@ -105,6 +105,7 @@ import pytest
 
 from commerce_ops.launch.domain.launch_playbook import Satisfied
 from commerce_ops.shared.domain.identity import ProductId, Sku
+from tests.support.fixtures import HANDLER_NAME, PRODUCT_NAME, PRODUCT_SKU, STEP_ID
 
 pytestmark = pytest.mark.anyio
 
@@ -118,13 +119,7 @@ MODULE_PATH: Final = (
 STORED_UUID: Final = uuid.UUID("018f3a5c-9d21-7b4e-9a11-0f2c6d8e4a37")
 PRODUCT_ID: Final = ProductId(str(STORED_UUID))
 
-PRODUCT_NAME: Final = "Bamboo Cutting Board"
-PRODUCT_SKU: Final = Sku("BCB-2027-01")
-
-STEP_ID: Final = "listing.sub-category"
 STEP_NAME: Final = "Choose the sub-category node"
-HANDLER_NAME: Final = "listing.subcategory_advisor"
-
 #: A member identifier, as a step's `confirmer` field actually holds one.
 #: Deliberately not Slack-shaped, so a message carrying it is visibly wrong.
 CONFIRMER_MEMBER_ID: Final = "3f7c1a92-6b0e-4c7a-9d51-1e8a4b2c9f30"

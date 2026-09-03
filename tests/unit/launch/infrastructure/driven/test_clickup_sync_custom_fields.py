@@ -126,7 +126,6 @@ import logging
 import uuid
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
-from datetime import date
 from types import SimpleNamespace
 from typing import Any, Final
 
@@ -145,18 +144,20 @@ from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.launch.infrastructure.driven.clickup_sync import converge_launch
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId, Sku
+from tests.support.fixtures import (
+    ALICE,
+    LAUNCH_DATE,
+    PRODUCT_NAME,
+    PRODUCT_SKU,
+    product_id,
+)
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
 
 pytestmark = pytest.mark.anyio
 
-PRODUCT_ID: Final = ProductId(str(uuid.uuid4()))
-PRODUCT_NAME: Final = "Bamboo Cutting Board"
-PRODUCT_SKU: Final = Sku("BCB-2027-01")
-
+PRODUCT_ID: Final = product_id()
 FOLDER_ID: Final = "90110042424"
-LAUNCH_DATE: Final = date(2027, 3, 2)
-
 SEPARATOR: Final = " · "
 
 GATE_FIELD_ID: Final = "4bd1f0f9-6f2a-4f0e-9d5d-0f4a1c6b2e11"
@@ -190,7 +191,6 @@ DISCIPLINE_OPTION_IDS: Final = {
     for index, member in enumerate(Discipline)
 }
 
-ALICE: Final = "prs_01HQ8Z6M4A"
 ALICE_CLICKUP: Final = "clickup-alice"
 
 

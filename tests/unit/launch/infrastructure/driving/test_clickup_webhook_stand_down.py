@@ -79,11 +79,9 @@ import asyncio
 import hashlib
 import hmac
 import json
-import uuid
 from collections.abc import AsyncIterator, Iterator, Sequence
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from datetime import date
 from typing import Any, Final
 
 import pytest
@@ -106,13 +104,14 @@ from commerce_ops.launch.infrastructure.driven.clickup_sync import reconcile_lau
 from commerce_ops.launch.infrastructure.driving import clickup_webhook as webhook_module
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
+from tests.support.fixtures import LAUNCH_DATE, product_id
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
 
 WEBHOOK_SECRET: Final = "test-clickup-webhook-secret-not-a-real-credential"
 SIGNATURE_HEADER: Final = "X-Signature"
 
-PRODUCT_ID: Final = ProductId(str(uuid.uuid4()))
+PRODUCT_ID: Final = product_id()
 SERVED_STEP_ID: Final = "listing.title-conforms"
 SERVED_TASK_ID: Final = "8x2served"
 DRAFT_STEP_ID: Final = "listing.copy-review"
@@ -121,7 +120,6 @@ UNKNOWN_STEP_ID: Final = "listing.never-authored"
 UNKNOWN_TASK_ID: Final = "8x2unknown"
 
 LIST_ID: Final = "list-001"
-LAUNCH_DATE: Final = date(2027, 3, 2)
 ACTOR_USERNAME: Final = "helen.shatynska"
 
 # SPECIFIED (main spec): the gate the served fixture step hangs off.

@@ -97,7 +97,6 @@ import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from dataclasses import dataclass, field
-from datetime import date
 from types import ModuleType
 from typing import Any, Final
 
@@ -133,7 +132,8 @@ from commerce_ops.launch.infrastructure.driven.clickup_mapping import (
 from commerce_ops.launch.infrastructure.driven.clickup_sync import ClickUpSyncError
 from commerce_ops.launch.infrastructure.driven.launch_repository import LaunchRepository
 from commerce_ops.shared.domain.discipline import Discipline
-from commerce_ops.shared.domain.identity import MarketplaceId, ProductId, Sku
+from commerce_ops.shared.domain.identity import ProductId, Sku
+from tests.support.fixtures import LAUNCH_DATE, MARKETPLACE
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import opening_for as _opening_for
 
@@ -141,9 +141,7 @@ pytestmark = pytest.mark.anyio
 
 JOB_PACKAGE: Final = "commerce_ops.launch.infrastructure.driving"
 
-MARKETPLACE: Final = MarketplaceId("ATVPDKIKX0DER")
 STEP_ID: Final = "listing.title-conforms"
-LAUNCH_DATE: Final = date(2027, 3, 2)
 
 
 @pytest.fixture(scope="module")

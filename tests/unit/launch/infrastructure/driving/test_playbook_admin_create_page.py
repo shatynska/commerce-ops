@@ -126,9 +126,9 @@ from commerce_ops.shared.domain.discipline import Discipline
 from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
 from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
 from tests.support.admin import fake_verify
+from tests.support.fixtures import ALICE, ALICE_NAME, BOHDAN, BOHDAN_NAME, PRINCIPAL
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 
-PRINCIPAL: Final = "helen"
 DISCIPLINES: Final = tuple(Discipline)
 #: `_step`'s default discipline, and the first option the create surface
 #: offers — so `ANOTHER_DISCIPLINE` is "a discipline other than the first
@@ -160,10 +160,6 @@ _OUTSIDE_WORDS: Final = (
     "narrow",
 )
 
-ALICE: Final = "prs_01HQ8Z6M4A"
-ALICE_NAME: Final = "Alice Admin"
-BOHDAN: Final = "prs_01HQ8Z6M4B"
-BOHDAN_NAME: Final = "Bohdan Colleague"
 CHRIS_DEPARTED: Final = "prs_01HQ8Z6M4C"
 CHRIS_NAME: Final = "Chris Departed"
 

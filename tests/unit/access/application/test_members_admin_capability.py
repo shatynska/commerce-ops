@@ -59,14 +59,13 @@ from commerce_ops.access.application import (
     resolve_admin_capability,
 )
 from tests.support.admin import ADMIN_IDENTITY
+from tests.support.fixtures import PRINCIPAL
 
 pytestmark = pytest.mark.anyio
 
 SECOND_ADMIN_IDENTITY: Final = "U02BOB"
 MEMBER_IDENTITY: Final = "U03CAROL"
 STRANGER_IDENTITY: Final = "U99STRANGER"
-
-PRINCIPAL: Final = "helen"
 
 
 @pytest.fixture(scope="module")

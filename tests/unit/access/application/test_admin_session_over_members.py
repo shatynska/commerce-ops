@@ -76,6 +76,7 @@ from commerce_ops.access.application import (
     verify_admin_session,
 )
 from tests.support.admin import ADMIN_IDENTITY
+from tests.support.fixtures import PRINCIPAL
 
 pytestmark = pytest.mark.anyio
 
@@ -83,7 +84,6 @@ SECOND_ADMIN_IDENTITY: Final = "U02BOB"
 MEMBER_IDENTITY: Final = "U03CAROL"
 STRANGER_IDENTITY: Final = "U99STRANGER"
 
-PRINCIPAL: Final = "helen"
 BASE_URL: Final = "http://testserver"
 
 T0: Final = datetime(2026, 8, 25, 9, 0, tzinfo=UTC)

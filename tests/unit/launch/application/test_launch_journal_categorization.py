@@ -92,7 +92,6 @@ raise, never the exception type.
 
 from __future__ import annotations
 
-import uuid
 from dataclasses import is_dataclass, replace
 from datetime import UTC, datetime
 from typing import Any, Final
@@ -102,10 +101,11 @@ import pytest
 from commerce_ops.launch.application import JournalOccurrence, read_launch_journal
 from commerce_ops.shared.domain.access_scope import AccessScope
 from commerce_ops.shared.domain.identity import ProductId
+from tests.support.fixtures import product_id
 
 pytestmark = pytest.mark.anyio
 
-PRODUCT_ID: Final = ProductId(str(uuid.uuid4()))
+PRODUCT_ID: Final = product_id()
 OCCURRED_AT: Final = datetime(2027, 7, 8, 16, 20, tzinfo=UTC)
 STORE_STAMPED_AT: Final = datetime(2027, 7, 9, 10, 0, tzinfo=UTC)
 

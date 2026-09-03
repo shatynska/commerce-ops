@@ -78,11 +78,9 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
-import uuid
 from collections.abc import AsyncIterator, Iterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from datetime import date
 from typing import Any, Final
 
 import pytest
@@ -103,17 +101,16 @@ from commerce_ops.launch.domain.launch_playbook import (
 from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
+from tests.support.fixtures import LAUNCH_DATE, product_id
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import opening_for as _opening_for
 
 WEBHOOK_SECRET: Final = "test-clickup-webhook-secret-not-a-real-credential"
 SIGNATURE_HEADER: Final = "X-Signature"
 
-PRODUCT_ID: Final = ProductId(str(uuid.uuid4()))
+PRODUCT_ID: Final = product_id()
 STEP_ID: Final = "listing.title-conforms"
 TASK_ID: Final = "8x2mapped"
-
-LAUNCH_DATE: Final = date(2027, 3, 2)
 
 #: Kept in step with `test_eager_convergence_helper.py`'s own
 #: `_HELPER_NAMES`, which is the correction point for the name itself.

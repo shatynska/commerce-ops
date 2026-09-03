@@ -81,9 +81,8 @@ Baseline recorded before these tests were written:
 
 from __future__ import annotations
 
-import uuid
 from dataclasses import dataclass
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 from typing import Any, ClassVar, Final
 
 import pytest
@@ -107,7 +106,8 @@ from commerce_ops.launch.domain.launch_playbook import (
 )
 from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.shared.domain.discipline import Discipline
-from commerce_ops.shared.domain.identity import MarketplaceId, ProductId, Sku
+from commerce_ops.shared.domain.identity import MarketplaceId, Sku
+from tests.support.fixtures import ALICE, LAUNCH_DATE, product_id
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
 
@@ -340,10 +340,8 @@ def _install_refusing_factory(monkeypatch: pytest.MonkeyPatch) -> list[str]:
 # ---------------------------------------------------------------------------
 
 STEP_ID: Final = "lp.strategy.006"
-ALICE: Final = "prs_01HQ8Z6M4A"
 AS_OF: Final = datetime(2027, 1, 6, 9, 30, tzinfo=UTC)
-LAUNCH_DATE: Final = date(2027, 3, 2)
-PRODUCT_ID: Final = ProductId(str(uuid.uuid4()))
+PRODUCT_ID: Final = product_id()
 
 
 class _CatalogProduct:

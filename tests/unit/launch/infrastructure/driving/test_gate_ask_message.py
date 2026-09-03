@@ -81,23 +81,20 @@ from __future__ import annotations
 import importlib
 import inspect
 import json
-import uuid
 from dataclasses import dataclass
 from types import ModuleType
 from typing import Any, Final
 
 import pytest
 
-from commerce_ops.shared.domain.identity import ProductId, Sku
+from commerce_ops.shared.domain.identity import Sku
+from tests.support.fixtures import PRODUCT_NAME, PRODUCT_SKU, product_id
 
 pytestmark = pytest.mark.anyio
 
 MODULE_PATH: Final = "commerce_ops.launch.infrastructure.driving.gate_confirmation"
 
-PRODUCT_ID: Final = ProductId(str(uuid.uuid4()))
-PRODUCT_NAME: Final = "Bamboo Cutting Board"
-PRODUCT_SKU: Final = Sku("BCB-2027-01")
-
+PRODUCT_ID: Final = product_id()
 GATE_ID: Final = "commit"
 
 LAUNCHES_CHANNEL_ID: Final = "C0LAUNCHES"

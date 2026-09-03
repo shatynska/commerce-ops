@@ -66,9 +66,8 @@ Baseline recorded before these tests were written:
 from __future__ import annotations
 
 import dataclasses
-import uuid
 from dataclasses import dataclass
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 from typing import Any, Final
 
 import pytest
@@ -91,18 +90,13 @@ from commerce_ops.launch.domain.launch_playbook import (
 )
 from commerce_ops.launch.domain.launch_run import Launch, Provenance
 from commerce_ops.shared.domain.discipline import Discipline
-from commerce_ops.shared.domain.identity import ProductId, Sku
+from commerce_ops.shared.domain.identity import Sku
+from tests.support.fixtures import ALICE, HANDLER_NAME, LAUNCH_DATE, STEP_ID, product_id
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
 
-PRODUCT_ID: Final = ProductId(str(uuid.uuid4()))
-STEP_ID: Final = "listing.sub-category"
-HANDLER_NAME: Final = "listing.subcategory_advisor"
-ALICE: Final = "prs_01HQ8Z6M4A"
-
+PRODUCT_ID: Final = product_id()
 AS_OF: Final = datetime(2027, 1, 6, 9, 30, tzinfo=UTC)
-LAUNCH_DATE: Final = date(2027, 3, 2)
-
 RECOMMENDATION: Final = (
     "Home & Kitchen > Kitchen & Dining > Cutting Boards. Demands: FDA "
     "food-contact declaration. Rejected alternative: Home Decor."

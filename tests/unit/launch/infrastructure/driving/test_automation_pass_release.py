@@ -69,7 +69,6 @@ from __future__ import annotations
 import importlib
 import inspect
 import logging
-import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
 from types import ModuleType
@@ -96,6 +95,7 @@ from commerce_ops.launch.domain.launch_run import (
 )
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId, Sku
+from tests.support.fixtures import HANDLER_NAME, PRODUCT_NAME, PRODUCT_SKU, product_id
 from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
 
@@ -108,15 +108,11 @@ automation_pass: ModuleType = importlib.import_module(
     "commerce_ops.launch.infrastructure.driving.automation_pass"
 )
 
-PRODUCT_ID: Final = ProductId(str(uuid.uuid4()))
-PRODUCT_NAME: Final = "Bamboo Cutting Board"
-PRODUCT_SKU: Final = Sku("BCB-2027-01")
-
+PRODUCT_ID: Final = product_id()
 A_DISCIPLINE: Final = next(iter(Discipline))
 
 WAITING_STEP: Final = "listing.waits-for-listable"
 RUNNING_STEP: Final = "listing.runs-from-the-first-pass"
-HANDLER_NAME: Final = "listing.subcategory_advisor"
 OTHER_HANDLER_NAME: Final = "listing.other_advisor"
 UNREGISTERED_HANDLER: Final = "listing.nobody_registers_this"
 

@@ -68,7 +68,6 @@ failed, 0 skipped.
 from __future__ import annotations
 
 import inspect
-import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
@@ -92,13 +91,13 @@ from commerce_ops.launch.domain.launch_run import Launch, Provenance
 from commerce_ops.shared.domain.access_scope import AccessScope
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
+from tests.support.fixtures import STEP_ID, product_id
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
 
 pytestmark = pytest.mark.anyio
 
-PRODUCT_ID: Final = ProductId(str(uuid.uuid4()))
-STEP_ID: Final = "listing.sub-category"
+PRODUCT_ID: Final = product_id()
 OTHER_STEP_ID: Final = "listing.title-drafted"
 AS_OF: Final = date(2027, 1, 6)
 WHEN: Final = datetime(2027, 1, 6, 9, 30, tzinfo=UTC)

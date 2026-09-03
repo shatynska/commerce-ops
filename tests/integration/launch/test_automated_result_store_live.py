@@ -84,7 +84,7 @@ import importlib
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 from typing import Any, Final
 
 import pytest
@@ -108,17 +108,19 @@ from commerce_ops.launch.domain.launch_playbook import (
 from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.launch.infrastructure.driven.launch_repository import LaunchRepository
 from commerce_ops.shared.domain.discipline import Discipline
-from commerce_ops.shared.domain.identity import MarketplaceId, ProductId, Sku
+from commerce_ops.shared.domain.identity import ProductId, Sku
+from tests.support.fixtures import (
+    ALICE,
+    HANDLER_NAME,
+    LAUNCH_DATE,
+    MARKETPLACE,
+    STEP_ID,
+)
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import opening_for as _opening_for
 
 pytestmark = pytest.mark.anyio
 
-MARKETPLACE: Final = MarketplaceId("ATVPDKIKX0DER")
-STEP_ID: Final = "listing.sub-category"
-HANDLER_NAME: Final = "listing.subcategory_advisor"
-ALICE: Final = "prs_01HQ8Z6M4A"
-LAUNCH_DATE: Final = date(2027, 3, 2)
 PRODUCED_AT: Final = datetime(2027, 1, 6, 9, 30, tzinfo=UTC)
 DECIDED_AT: Final = datetime(2027, 1, 6, 10, 0, tzinfo=UTC)
 

@@ -73,7 +73,6 @@ below are what it fixed, unweakened.
 from __future__ import annotations
 
 import asyncio
-import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
 from typing import Any, Final, Self
@@ -87,11 +86,11 @@ from commerce_ops.launch.application.thread_establishment import (
 )
 from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.shared.domain.identity import MarketplaceId, ProductId, Sku
+from tests.support.fixtures import PRODUCT_NAME, product_id
 
 pytestmark = pytest.mark.anyio
 
-PRODUCT_ID: Final = ProductId(str(uuid.uuid4()))
-PRODUCT_NAME: Final = "Bamboo Cutting Board"
+PRODUCT_ID: Final = product_id()
 PRODUCT_SKU: Final = "BCB-2027-01"
 PRODUCT_MARKETPLACE: Final = "ATVPDKIKX0DER"
 LAUNCH_DATE: Final = date(2027, 3, 1)

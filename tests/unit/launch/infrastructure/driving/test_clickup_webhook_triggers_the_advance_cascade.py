@@ -99,11 +99,10 @@ import hashlib
 import hmac
 import inspect
 import json
-import uuid
 from collections.abc import AsyncIterator, Iterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 from typing import Any, Final
 
 import pytest
@@ -130,18 +129,18 @@ from commerce_ops.launch.domain.launch_run import (
 )
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
+from tests.support.fixtures import LAUNCH_DATE, product_id
 from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
 from tests.support.playbook import opening_for as _opening_for
 
 WEBHOOK_SECRET: Final = "test-clickup-webhook-secret-not-a-real-credential"
 SIGNATURE_HEADER: Final = "X-Signature"
 
-PRODUCT_ID: Final = ProductId(str(uuid.uuid4()))
+PRODUCT_ID: Final = product_id()
 STEP_ID: Final = "listing.title-conforms"
 TASK_ID: Final = "8x2mapped"
 UNMAPPED_TASK_ID: Final = "8x2unknown"
 
-LAUNCH_DATE: Final = date(2027, 3, 2)
 APPROVED_AT: Final = datetime(2027, 1, 6, 9, 30, tzinfo=UTC)
 
 #: The names the cascade trigger may carry on the route module. The

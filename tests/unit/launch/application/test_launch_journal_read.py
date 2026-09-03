@@ -113,11 +113,12 @@ from commerce_ops.launch.domain.launch_run import Launch, Provenance
 from commerce_ops.shared.domain.access_scope import AccessScope
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
+from tests.support.fixtures import product_id
 from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
 
 pytestmark = pytest.mark.anyio
 
-PRODUCT_ID: Final = ProductId(str(uuid.uuid4()))
+PRODUCT_ID: Final = product_id()
 OTHER_PRODUCT_ID: Final = ProductId(str(uuid.uuid4()))
 UNLAUNCHED_PRODUCT_ID: Final = ProductId(str(uuid.uuid4()))
 
