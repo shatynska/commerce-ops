@@ -29,10 +29,11 @@ import asyncio
 import logging
 import sys
 
-from commerce_ops.access.application import seed_bootstrap_admin
+from commerce_ops.access.application import seed_bootstrap_admin, seed_roles
 from commerce_ops.access.infrastructure.driven.members_repository import (
     PostgresMembers,
 )
+from commerce_ops.access.infrastructure.driven.roles_repository import PostgresRoles
 from commerce_ops.shared.infrastructure.driven.database import dispose_engine
 from commerce_ops.shared.infrastructure.logging import configure_logging
 
@@ -41,13 +42,27 @@ _logger = logging.getLogger(__name__)
 
 async def _seed() -> None:
     try:
-        seeded = await seed_bootstrap_admin(members=PostgresMembers())
+        members = PostgresMembers()
+        seeded = await seed_bootstrap_admin(members=members)
+        # The roles, in the same step: their default holders are members, so
+        # the membership must be usable first, and `seed_playbook` — which
+        # follows in the container's chain — will come to reference these
+        # slugs. `seeded` is the member this run established, where it
+        # established one; on an already-administered membership it is None
+        # and `seed_roles` resolves the seeding administrator itself.
+        added = await seed_roles(
+            roles=PostgresRoles(), members=members, seeding_administrator=seeded
+        )
     finally:
         # This process opened its own engine; the server that follows in
         # the chain gets a clean one.
         await dispose_engine()
     if seeded is None:
-        _logger.info("the membership already holds an active admin; nothing seeded")
+        _logger.info("the membership already holds an active admin; none seeded")
+    if added:
+        _logger.info("seeded %d role(s)", len(added))
+    else:
+        _logger.info("every seeded role is already present; none added")
 
 
 def main() -> int:

@@ -17,7 +17,7 @@ either table, and every one of them was written before a finding could be
 carried.
 
 Revision ID: b62d05f1ae37
-Revises: f4b7c1e09d52
+Revises: a7d2e94c31b8
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ from sqlalchemy.dialects import postgresql
 from alembic import op
 
 revision = "b62d05f1ae37"
-down_revision = "f4b7c1e09d52"
+down_revision = "a7d2e94c31b8"
 branch_labels = None
 depends_on = None
 

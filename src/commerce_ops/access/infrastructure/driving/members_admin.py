@@ -28,10 +28,13 @@ from jinja2 import ChoiceLoader, Environment, FileSystemLoader, select_autoescap
 
 from commerce_ops.access.application import (
     InvalidMembersError,
+    InvalidRolesError,
     StaleMembersError,
     create_member,
     deactivate_member,
+    list_role_records,
     reactivate_member,
+    remove_role_holder,
     update_member,
     verify_admin_session,
 )
@@ -41,10 +44,17 @@ __all__ = [
     "PAGE_PATH",
     "admin_sessions",
     "members",
+    "roles",
     "router",
 ]
 
 PAGE_PATH: Final = "/admin/team"
+
+ROLES_PATH: Final = "/admin/roles"
+"""The roles surface, as a literal. `members_admin` and `roles_admin` are two
+adapters of one module, but writing the import would make each page's path a
+thing the other module could move; the shared header already writes both as
+literals for the same reason."""
 
 SESSION_COOKIE: Final = "admin_session"
 
@@ -70,6 +80,10 @@ router = APIRouter()
 # Injected by `main.py` after the app is built. Resolved at call time.
 members: Any = None
 admin_sessions: Any = None
+# The role collection, so a deactivation blocked by an active role's default
+# can be refused with that refusal's own explanation. Optional: absent, the
+# membership's own refusals are unaffected.
+roles: Any = None
 
 
 async def _require_admin(request: Request) -> str:
@@ -100,13 +114,12 @@ async def _render(
     *,
     faults: tuple[str, ...] = (),
     notice: str | None = None,
-    submitted: dict[str, str] | None = None,
 ) -> str:
-    """The page as it stands now, plus whatever the last write reported.
+    """The Team list as it stands now, plus whatever the last write reported.
 
-    The membership is re-read rather than patched from the write's result, so
-    a rejected write renders exactly what is stored — which is what makes
-    "the membership is unchanged" visible rather than merely claimed.
+    The membership is re-read rather than patched from the write's result, so a
+    rejected write renders exactly what is stored — which is what makes "the
+    membership is unchanged" visible rather than merely claimed.
     """
     records, _ = await members.load()
     active = [record for record in records if record.member.active]
@@ -114,12 +127,103 @@ async def _render(
     template = _TEMPLATES.get_template("team.html")
     return template.render(
         page_path=PAGE_PATH,
+        roles_path=ROLES_PATH,
         active=active,
         deactivated=deactivated,
+        roles_by_member=await _roles_by_member(),
+        faults=faults,
+        notice=notice,
+    )
+
+
+async def _roles_by_member() -> dict[str, list[dict[str, Any]]]:
+    """Each member's roles, keyed by identifier, for the list.
+
+    Slugs rather than titles here: a row carries several of them, and a run of
+    full job titles would outweigh the name that is the row's subject. The
+    title is one click away on the role's own page.
+    """
+    if roles is None:
+        return {}
+    records = await list_role_records(roles=roles)
+    held: dict[str, list[dict[str, Any]]] = {}
+    for record in records:
+        for holder in record.role.holders:
+            held.setdefault(holder, []).append(
+                {
+                    "slug": record.role.slug,
+                    "title": record.role.title,
+                    "status": record.role.status.value,
+                    "is_default": record.role.default_holder == holder,
+                }
+            )
+    return held
+
+
+async def _render_new(
+    *,
+    faults: tuple[str, ...] = (),
+    submitted: dict[str, str] | None = None,
+) -> str:
+    template = _TEMPLATES.get_template("member_new.html")
+    return template.render(
+        page_path=PAGE_PATH,
+        faults=faults,
+        submitted=submitted or {},
+    )
+
+
+async def _render_member(
+    member_id: str,
+    *,
+    faults: tuple[str, ...] = (),
+    notice: str | None = None,
+    submitted: dict[str, str] | None = None,
+) -> str:
+    """One member's own page, where every change to them is made."""
+    records, _ = await members.load()
+    record = next(
+        (r for r in records if r.member.identifier == member_id),
+        None,
+    )
+    if record is None:
+        raise HTTPException(status_code=404)
+    template = _TEMPLATES.get_template("member.html")
+    return template.render(
+        page_path=PAGE_PATH,
+        roles_path=ROLES_PATH,
+        # Whether this render follows a rejected submission. A checkbox absent
+        # from the posted form means *unchecked*, which the dict alone cannot
+        # tell from "nothing was submitted".
+        resubmitted=submitted is not None,
+        record=record,
+        held=await _roles_held_by(member_id),
         faults=faults,
         notice=notice,
         submitted=submitted or {},
     )
+
+
+async def _roles_held_by(member_id: str) -> list[dict[str, Any]]:
+    """Every role this member holds, and whether they are its default.
+
+    Read here rather than left to be inferred from the Roles pages: the roles a
+    member holds is the thing that decides whether they can be deactivated at
+    all, so the page carrying that refusal should also carry what causes it.
+    """
+    if roles is None:
+        return []
+    records = await list_role_records(roles=roles)
+    return [
+        {
+            "slug": r.role.slug,
+            "title": r.role.title,
+            "status": r.role.status.value,
+            "is_default": r.role.default_holder == member_id,
+        }
+        for r in records
+        if member_id in r.role.holders
+    ]
 
 
 def _truthy(value: str | None) -> bool:
@@ -137,7 +241,15 @@ async def page(request: Request) -> HTMLResponse:
     return HTMLResponse(await _render())
 
 
-@router.post(PAGE_PATH + "/members", response_class=HTMLResponse)
+# Registered before `/{member_id}` so the literal wins the match rather than
+# being read as a member whose identifier is "new".
+@router.get(PAGE_PATH + "/new", response_class=HTMLResponse)
+async def new(request: Request) -> HTMLResponse:
+    await _require_admin(request)
+    return HTMLResponse(await _render_new())
+
+
+@router.post(PAGE_PATH + "/new", response_class=HTMLResponse)
 async def create(request: Request) -> Any:
     principal = await _require_admin(request)
     form = await _form(request)
@@ -151,12 +263,21 @@ async def create(request: Request) -> Any:
             admin=_truthy(form.get("admin")),
         )
     except InvalidMembersError as rejected:
-        # The submitted values ride back with the faults: an admin who
-        # mistyped one field should not have to retype the others.
-        return HTMLResponse(await _render(faults=_faults_of(rejected), submitted=form))
+        # The submitted values ride back with the faults, and the admin stays
+        # on the create page: an admin who mistyped one field should not have
+        # to retype the others, nor hunt for the refusal back on the list.
+        return HTMLResponse(
+            await _render_new(faults=_faults_of(rejected), submitted=form)
+        )
     except StaleMembersError:
         return HTMLResponse(await _render(notice=STALE_NOTICE))
     return RedirectResponse(PAGE_PATH, status_code=303)
+
+
+@router.get(PAGE_PATH + "/{member_id}", response_class=HTMLResponse)
+async def member_page(member_id: str, request: Request) -> HTMLResponse:
+    await _require_admin(request)
+    return HTMLResponse(await _render_member(member_id))
 
 
 @router.post(PAGE_PATH + "/{member_id}/edit", response_class=HTMLResponse)
@@ -173,10 +294,12 @@ async def edit(member_id: str, request: Request) -> Any:
             admin=_truthy(form.get("admin")),
         )
     except InvalidMembersError as rejected:
-        return HTMLResponse(await _render(faults=_faults_of(rejected), submitted=form))
+        return HTMLResponse(
+            await _render_member(member_id, faults=_faults_of(rejected), submitted=form)
+        )
     except StaleMembersError:
-        return HTMLResponse(await _render(notice=STALE_NOTICE))
-    return RedirectResponse(PAGE_PATH, status_code=303)
+        return HTMLResponse(await _render_member(member_id, notice=STALE_NOTICE))
+    return RedirectResponse(f"{PAGE_PATH}/{member_id}", status_code=303)
 
 
 @router.post(PAGE_PATH + "/{member_id}/deactivate", response_class=HTMLResponse)
@@ -184,15 +307,19 @@ async def deactivate(member_id: str, request: Request) -> Any:
     principal = await _require_admin(request)
     try:
         await deactivate_member(
-            members=members, principal=principal, member_id=member_id
+            members=members,
+            principal=principal,
+            member_id=member_id,
+            roles=roles,
         )
     except InvalidMembersError as refused:
-        # The last-admin refusal lands here, and its own explanation is
-        # what the page shows — never a paraphrase of it.
-        return HTMLResponse(await _render(faults=_faults_of(refused)))
+        # Both refusals land here — the last-admin floor and the active-role
+        # default — and each explanation is what the page shows, never a
+        # paraphrase. A write blocked by both shows both.
+        return HTMLResponse(await _render_member(member_id, faults=_faults_of(refused)))
     except StaleMembersError:
-        return HTMLResponse(await _render(notice=STALE_NOTICE))
-    return RedirectResponse(PAGE_PATH, status_code=303)
+        return HTMLResponse(await _render_member(member_id, notice=STALE_NOTICE))
+    return RedirectResponse(f"{PAGE_PATH}/{member_id}", status_code=303)
 
 
 @router.post(PAGE_PATH + "/{member_id}/reactivate", response_class=HTMLResponse)
@@ -203,7 +330,33 @@ async def reactivate(member_id: str, request: Request) -> Any:
             members=members, principal=principal, member_id=member_id
         )
     except InvalidMembersError as refused:
-        return HTMLResponse(await _render(faults=_faults_of(refused)))
+        return HTMLResponse(await _render_member(member_id, faults=_faults_of(refused)))
     except StaleMembersError:
-        return HTMLResponse(await _render(notice=STALE_NOTICE))
-    return RedirectResponse(PAGE_PATH, status_code=303)
+        return HTMLResponse(await _render_member(member_id, notice=STALE_NOTICE))
+    return RedirectResponse(f"{PAGE_PATH}/{member_id}", status_code=303)
+
+
+@router.post(PAGE_PATH + "/{member_id}/roles/remove", response_class=HTMLResponse)
+async def remove_role(member_id: str, request: Request) -> Any:
+    """Take a role off this member, from their own page.
+
+    The same use case the role's own page calls, so every rule holds
+    identically — an active role's default cannot be removed here either, and
+    the refusal explaining that is rendered on this page rather than on the
+    role's.
+    """
+    principal = await _require_admin(request)
+    form = await _form(request)
+    try:
+        await remove_role_holder(
+            roles=roles,
+            members=members,
+            principal=principal,
+            slug=(form.get("slug") or "").strip(),
+            member_id=member_id,
+        )
+    except (InvalidRolesError, ValueError) as refused:
+        return HTMLResponse(await _render_member(member_id, faults=_faults_of(refused)))
+    except StaleMembersError:
+        return HTMLResponse(await _render_member(member_id, notice=STALE_NOTICE))
+    return RedirectResponse(f"{PAGE_PATH}/{member_id}", status_code=303)

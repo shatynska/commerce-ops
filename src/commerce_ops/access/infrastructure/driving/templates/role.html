@@ -1,0 +1,145 @@
+{#
+  One role's own page: every change to the role is made here, and nowhere else.
+
+  Only the transitions permitted from this role's current status are offered,
+  rather than offering all of them and refusing on submission. Nothing offers a
+  return to draft, from any status — once a role has been in play, `retired` is
+  what records that it no longer is.
+
+  `Retire` is this surface's destructive action and the only control carrying
+  `danger`. Removing a holder deliberately is not: it takes nothing away that
+  cannot be restored by adding the member back, and marking it destructive
+  alongside retirement would flatten the distinction the marker exists to draw.
+#}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ role.title }}</title>
+  <link rel="stylesheet" href="/admin/assets/pico.min.css">
+  <link rel="stylesheet" href="/admin/assets/vocabulary.css">
+</head>
+<body>
+{% with current = "team" %}{% include "_admin_header.html" %}{% endwith %}
+<main class="container">
+  <div class="page-head">
+    {% with breadcrumb = [("Team", team_path), ("Roles", page_path), (role.title, None)] %}
+      {% include "_breadcrumb.html" %}
+    {% endwith %}
+  </div>
+
+{% if faults %}
+  <article class="faults">
+    <p>The write was rejected and nothing was saved:</p>
+    <ul>{% for fault in faults %}<li>{{ fault }}</li>{% endfor %}</ul>
+  </article>
+{% endif %}
+{% if notice %}
+  <article class="notice"><p>{{ notice }}</p></article>
+{% endif %}
+
+  <dl class="role-facts">
+    {# Presented as a value, never as an input: `roles` states the slug is
+       chosen once and never changes. #}
+    <dt>Slug</dt><dd><code>{{ role.slug }}</code></dd>
+    <dt>Status</dt><dd class="role-status role-status-{{ role.status.value }}">{{ role.status.value }}</dd>
+  </dl>
+
+  <h2>Title</h2>
+  <form method="post" action="{{ page_path }}/{{ role.slug }}/edit">
+    <label>Title
+      <input name="title" value="{{ submitted.get('title', role.title) }}">
+    </label>
+    <button type="submit" class="row-action">Save title</button>
+  </form>
+
+  <h2>Holders</h2>
+  {% if holders %}
+  <table class="role-holders">
+    <thead><tr><th>Member</th><th>Default</th></tr></thead>
+    <tbody>
+    {% for member in holders %}
+      {% if member %}
+      <tr>
+        <td>{{ member.display_name }}</td>
+        <td>{% if role.default_holder == member.identifier %}<span class="role-default">default</span>{% endif %}</td>
+      </tr>
+      {% endif %}
+    {% endfor %}
+    </tbody>
+  </table>
+  {# One control, naming which holder to remove, rather than a button per row.
+     The three holder actions then read alike — add, remove, move the default
+     are each one form over a select — and the table stays a table rather than
+     becoming a place where actions are crammed into a cell, which is the shape
+     this whole change exists to undo. #}
+  <form method="post" action="{{ page_path }}/{{ role.slug }}/holders/remove">
+    <label>Remove a holder
+      <select name="member_id">
+        {% for member in holders %}{% if member %}
+        <option value="{{ member.identifier }}">{{ member.display_name }}</option>
+        {% endif %}{% endfor %}
+      </select>
+    </label>
+    <button type="submit" class="row-action">Remove holder</button>
+  </form>
+  {% else %}
+  <p class="muted">Nobody holds this role.</p>
+  {% endif %}
+
+  {% if candidates %}
+  <form method="post" action="{{ page_path }}/{{ role.slug }}/holders">
+    <label>Add a holder
+      <select name="member_id">
+        {% for member in candidates %}
+        <option value="{{ member.identifier }}">{{ member.display_name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <button type="submit" class="row-action">Add holder</button>
+  </form>
+  {% endif %}
+
+  {% if movable %}
+  <form method="post" action="{{ page_path }}/{{ role.slug }}/default">
+    <label>Move the default to
+      <select name="member_id">
+        {% for member in movable %}
+        <option value="{{ member.identifier }}">{{ member.display_name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    {# No holder is ever promoted implicitly on a removal, so moving the
+       default is always something an admin does deliberately. #}
+    <button type="submit" class="row-action">Move default</button>
+  </form>
+  {% endif %}
+
+  <h2>Lifecycle</h2>
+  {% if role.status.value == "draft" %}
+  <form method="post" action="{{ page_path }}/{{ role.slug }}/activate">
+    <button type="submit" class="row-action">Activate</button>
+  </form>
+  {% endif %}
+  {% if role.status.value == "retired" %}
+  <form method="post" action="{{ page_path }}/{{ role.slug }}/activate">
+    <button type="submit" class="row-action">Un-retire</button>
+  </form>
+  {% else %}
+  <form method="post" action="{{ page_path }}/{{ role.slug }}/retire">
+    <button type="submit" class="row-action danger">Retire</button>
+  </form>
+  {% endif %}
+
+  <h2>History</h2>
+  <dl class="attribution">
+    <dt>Created</dt>
+    <dd>{% if record.created_by %}{{ record.created_by }} — {{ record.created_on }}{% else %}<span class="muted">—</span>{% endif %}</dd>
+    {% if record.updated_by %}<dt>Last updated</dt><dd>{{ record.updated_by }} — {{ record.updated_on }}</dd>{% endif %}
+    {% if record.retired_by %}<dt>Retired</dt><dd>{{ record.retired_by }} — {{ record.retired_on }}</dd>{% endif %}
+    {% if record.unretired_by %}<dt>Un-retired</dt><dd>{{ record.unretired_by }} — {{ record.unretired_on }}</dd>{% endif %}
+  </dl>
+</main>
+</body>
+</html>

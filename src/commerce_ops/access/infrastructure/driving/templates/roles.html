@@ -1,0 +1,90 @@
+{#
+  The Roles list. Grouped by status — active, draft, retired — each group set
+  apart and never interleaved, which is what the `roles-admin` delta requires:
+  a draft role and an active one differ in exactly one obligation, and a
+  listing that mixed them would leave that difference to be inferred from a
+  column.
+
+  A row carries no action controls at all. There is no reordering here — the
+  collection has no authored order — so unlike a step's row there is not even
+  one action left on it, and every way of changing a role is reached through
+  its own page.
+#}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Roles</title>
+  <link rel="stylesheet" href="/admin/assets/pico.min.css">
+  <link rel="stylesheet" href="/admin/assets/vocabulary.css">
+</head>
+<body>
+{% with current = "team" %}{% include "_admin_header.html" %}{% endwith %}
+<main class="container">
+  <div class="page-head">
+    {# The way back to Team, and the statement that roles sit inside it. The
+       admin header marks Team as the current surface, so it offers no link. #}
+    {% with breadcrumb = [("Team", team_path), ("Roles", None)] %}
+      {% include "_breadcrumb.html" %}
+    {% endwith %}
+    <a role="button" class="page-head-action" href="{{ page_path }}/new">Add role</a>
+  </div>
+
+{% if faults %}
+  <article class="faults">
+    <p>The write was rejected and nothing was saved:</p>
+    <ul>{% for fault in faults %}<li>{{ fault }}</li>{% endfor %}</ul>
+  </article>
+{% endif %}
+{% if notice %}
+  <article class="notice"><p>{{ notice }}</p></article>
+{% endif %}
+
+{% macro role_table(records, empty) %}
+  {% if records %}
+  <table>
+    <thead><tr><th>Role</th><th>Slug</th><th>Default holder</th></tr></thead>
+    <tbody>
+    {% for record in records %}
+      <tr>
+        {# The title is the row's only way in. The slug is readable beside it
+           but is not a second destination: one row, one destination, so which
+           of two adjacent controls an admin clicked is never the question. #}
+        <td><a href="{{ page_path }}/{{ record.role.slug }}">{{ record.role.title }}</a></td>
+        <td><code>{{ record.role.slug }}</code></td>
+        <td>
+          {%- if record.role.default_holder and members_by_id.get(record.role.default_holder) -%}
+            {{ members_by_id[record.role.default_holder].display_name }}
+          {%- else -%}
+            <span class="muted">—</span>
+          {%- endif -%}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">{{ empty }}</p>
+  {% endif %}
+{% endmacro %}
+
+  <section class="role-group role-group-active">
+    <h2>active</h2>
+    {{ role_table(active, "No active roles.") }}
+  </section>
+
+  <section class="role-group role-group-draft">
+    <h2>draft</h2>
+    <p class="muted">Positions recorded but not yet in play. A draft role need
+      not name a holder, and takes no assignment.</p>
+    {{ role_table(draft, "No draft roles.") }}
+  </section>
+
+  <section class="role-group role-group-retired">
+    <h2>retired</h2>
+    {{ role_table(retired, "No retired roles.") }}
+  </section>
+</main>
+</body>
+</html>
