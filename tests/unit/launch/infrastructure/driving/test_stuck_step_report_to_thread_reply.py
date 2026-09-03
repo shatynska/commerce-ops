@@ -157,13 +157,19 @@ class _InertBackoff:
 
 class _CapturingNotifier:
     """The `notifier` `_report_stuck_step` calls `.post_monitoring_message`
-    through -- an object, not a bare function, matching `MonitoringNotifier`."""
+    through -- an object, not a bare function, matching `ThreadReplyNotifier`
+    (`launch.application.ports`), not `shared.application.ports`'s
+    message-only `MonitoringNotifier`: this call site's real collaborator is
+    `launch`'s own notifier, injected by `worker.py`
+    (`fix-stuck-step-report-notifier`)."""
 
     def __init__(self) -> None:
         self.calls: list[dict[str, Any]] = []
 
-    async def post_monitoring_message(self, **kwargs: Any) -> None:
-        self.calls.append(kwargs)
+    async def post_monitoring_message(
+        self, *, channel: str, text: str, thread_ts: str | None = None
+    ) -> None:
+        self.calls.append({"channel": channel, "text": text, "thread_ts": thread_ts})
 
     @property
     def rendered(self) -> str:

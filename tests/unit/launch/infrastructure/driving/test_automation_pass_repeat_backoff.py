@@ -66,9 +66,17 @@ INVENTED, each with its correction point:
 - **That "reported" means a WARNING-or-above log record or a monitoring
   message.** `_reported_text` reads both, so no test here pins the
   channel a *fault* is reported through. What the *stuck-step report*
-  goes through is not invented: `tasks.md` 4.2 fixes the monitoring
-  notifier, and `_FakeNotifier.post_monitoring_message` transcribes
-  `test_clickup_field_configuration_check.py`.
+  goes through is not invented, but it is now pinned rather than
+  tolerant of either shape: `_FakeNotifier.post_monitoring_message`
+  originally transcribed `test_clickup_field_configuration_check.py`'s
+  `MonitoringNotifier` double and accepted both the message-only positional
+  call and the channel/text/thread_ts keyword call, "satisfied
+  structurally" and pinning no call shape. `fix-stuck-step-report-notifier`
+  narrowed it to `ThreadReplyNotifier` (`channel`/`text`/`thread_ts`
+  keywords only) once `worker.py` started injecting `launch`'s own notifier
+  here instead of `briefing`'s: the dual tolerance is exactly what let that
+  mismatch reach production unnoticed, since a double accepting every shape
+  a caller might use can never notice which one it was actually given.
 
 Correcting any of the above is a fixture correction (failure state 3 in
 `ai-toolkit:testing`). What must survive unweakened is what each test
@@ -767,35 +775,27 @@ class _DeliveryRefused(RuntimeError):
 
 
 class _FakeNotifier:
-    """A `MonitoringNotifier`, satisfied structurally -- transcribed from
-    `test_clickup_field_configuration_check.py`."""
+    """A `ThreadReplyNotifier` (`launch.application.ports`), satisfied
+    structurally. Originally transcribed from
+    `test_clickup_field_configuration_check.py` as a `MonitoringNotifier`
+    double tolerant of either call shape; narrowed to the one shape the pass
+    actually calls this collaborator under once `worker.py` started
+    injecting `launch`'s own notifier here instead of `briefing`'s
+    (`fix-stuck-step-report-notifier`) -- the dual tolerance was exactly
+    what let that mismatch ship unnoticed."""
 
     def __init__(self) -> None:
         self.messages: list[str] = []
         self.attempts: list[str] = []
         self.refuse = False
 
-    async def post_monitoring_message(self, *args: Any, **kwargs: Any) -> None:
-        # `thread-launch-slack-notifications` moved the stuck-step report
-        # into the launch's thread, so the pass now calls this with
-        # `channel=`, `text=` and `thread_ts=` where it once passed one
-        # positional message. Both spellings land here: `text` is what
-        # `world.messages` exposes and what every assertion in this file
-        # reads, and the positional form is kept because this double's own
-        # docstring says it is satisfied structurally and pins no call shape.
-        message = kwargs["text"] if "text" in kwargs else str(args[0]) if args else ""
-        self.attempts.append(message)
+    async def post_monitoring_message(
+        self, *, channel: str, text: str, thread_ts: str | None = None
+    ) -> None:
+        self.attempts.append(text)
         if self.refuse:
             raise _DeliveryRefused("Slack refused the message")
-        self.messages.append(message)
-
-    # Spellings the pass might call it under, all landing in the same place.
-    post = post_monitoring_message
-    notify = post_monitoring_message
-
-    async def __call__(self, *args: Any, **kwargs: Any) -> None:
-        text = " ".join(str(value) for value in (*args, *kwargs.values()))
-        await self.post_monitoring_message(text)
+        self.messages.append(text)
 
 
 # ---------------------------------------------------------------------------

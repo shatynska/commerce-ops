@@ -418,7 +418,16 @@ class _InertBackoff:
 
 
 class _InertNotifier:
-    async def post_monitoring_message(self, message: str) -> None:
+    """A `ThreadReplyNotifier` (`launch.application.ports`) never reached
+    in this file: nothing here exercises a repeat, so `_report_stuck_step`
+    is never called. Shaped to match it anyway rather than the message-only
+    `MonitoringNotifier` — `fix-stuck-step-report-notifier` narrowed
+    `run_automation_pass`'s `notifier` parameter to `ThreadReplyNotifier`,
+    the shape this collaborator actually stands in for."""
+
+    async def post_monitoring_message(
+        self, *, channel: str, text: str, thread_ts: str | None = None
+    ) -> None:
         return None
 
 

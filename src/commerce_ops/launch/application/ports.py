@@ -61,6 +61,30 @@ class Playbooks(Protocol):
     def get(self, version: str) -> LaunchPlaybook: ...
 
 
+class ThreadReplyNotifier(Protocol):
+    """Delivers a message as a reply within a launch's Slack thread.
+
+    `launch`'s own notifier module satisfies this structurally, the same
+    way `briefing`'s satisfies `shared.application.ports.MonitoringNotifier`
+    — a Protocol declaring a method is satisfied by any object carrying
+    it, module included. The two Protocols are deliberately distinct
+    rather than one widened to cover both: `MonitoringNotifier`'s single
+    `message` argument is a real, separately-used contract of its own
+    (`overdue_check`, `clickup_sync_job`), and this one names the shape
+    the stuck-step report actually calls — `channel`, `text` and the
+    thread it replies within.
+
+    Return type is `object`, matching `SteadyStateStamper` above: `launch`'s
+    own notifier returns the posted message's `ts` (a `str`), which
+    `_report_stuck_step` does not use, so the port states only that a
+    caller gets *something* back, not what.
+    """
+
+    async def post_monitoring_message(
+        self, *, channel: str, text: str, thread_ts: str | None = None
+    ) -> object: ...
+
+
 class SteadyStateStamper(Protocol):
     """Stamps a catalog product's stage on graduation — `change_stage`'s
     shape minus the store, so the launch module never sees catalog

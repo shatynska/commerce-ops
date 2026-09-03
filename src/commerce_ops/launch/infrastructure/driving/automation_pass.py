@@ -39,6 +39,7 @@ from commerce_ops.launch.application import (
     FindingSink,
     StepContext,
     StepResolution,
+    ThreadReplyNotifier,
     record_step_outcome,
 )
 from commerce_ops.launch.domain.launch_playbook import (
@@ -75,7 +76,6 @@ from commerce_ops.launch.infrastructure.driven.playbook_repository import (
 )
 from commerce_ops.launch.infrastructure.driven.slack_notifier import launches_channel
 from commerce_ops.launch.infrastructure.driving import automation_confirmation
-from commerce_ops.shared.application.ports import MonitoringNotifier
 from commerce_ops.shared.domain.identity import ProductId
 from commerce_ops.shared.domain.result import Success
 from commerce_ops.shared.infrastructure.driven.database import session
@@ -143,7 +143,7 @@ read_product: Callable[..., Awaitable[Any]] | None = None
 # lives outside this module. `None` in the HTTP process — and a stuck-step
 # report then logs at error rather than vanishing, since a step nobody can
 # resolve is exactly what must not go unmentioned.
-notifier: MonitoringNotifier | None = None
+notifier: ThreadReplyNotifier | None = None
 
 # The per-step recording capability a handler's supported finding is
 # written through, injected the same way and for the same reason
@@ -257,7 +257,7 @@ async def run_automation_pass(
     read_product: Callable[..., Awaitable[Any]],
     deliver: Callable[..., Awaitable[Any]],
     backoff: Any,
-    notifier: Any,
+    notifier: ThreadReplyNotifier | None,
     establish_thread: Callable[..., Awaitable[tuple[str, str | None]]],
     now: datetime.datetime,
     recorders: Mapping[str, Any] | None = None,
@@ -373,7 +373,7 @@ async def _walk_launch(
     read_product: Callable[..., Awaitable[Any]],
     deliver: Callable[..., Awaitable[Any]],
     backoff: Any,
-    notifier: Any,
+    notifier: ThreadReplyNotifier | None,
     establish_thread: Callable[..., Awaitable[tuple[str, str | None]]],
     now: datetime.datetime,
     recorders: Mapping[str, Any],
@@ -500,7 +500,7 @@ async def _note_repeat(
     already_reported: bool,
     row_ok: bool,
     backoff: Any,
-    notifier: Any,
+    notifier: ThreadReplyNotifier | None,
     establish_thread: Callable[..., Awaitable[tuple[str, str | None]]],
     product: Any,
     now: datetime.datetime,
@@ -596,7 +596,7 @@ async def _report_stuck_step(
     step: StepDefinition,
     produced: str,
     backoff: Any,
-    notifier: Any,
+    notifier: ThreadReplyNotifier | None,
     establish_thread: Callable[..., Awaitable[tuple[str, str | None]]],
     product: Any,
     now: datetime.datetime,
