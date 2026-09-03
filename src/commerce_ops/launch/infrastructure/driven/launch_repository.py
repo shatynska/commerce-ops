@@ -22,6 +22,8 @@ rows wholesale from the aggregate's state; at slice-3 scale (one launch,
 from __future__ import annotations
 
 import uuid
+from collections.abc import Mapping
+from typing import Any
 
 from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
@@ -37,8 +39,10 @@ from commerce_ops.launch.domain.launch_playbook import (
 )
 from commerce_ops.launch.domain.launch_run import (
     ApprovalDecision,
+    CarriedFinding,
     GateApproval,
     Launch,
+    LaunchError,
     Provenance,
     StepOutcomeValue,
     StepProgress,
@@ -96,6 +100,52 @@ def _outcome_to_row(outcome: StepOutcomeValue) -> tuple[str, str | None]:
         return _KIND_BY_TYPE[type(outcome)], outcome.reason
     kind_type = outcome if isinstance(outcome, type) else type(outcome)
     return _KIND_BY_TYPE[kind_type], None
+
+
+def _finding_to_row(finding: CarriedFinding | None) -> dict[str, Any] | None:
+    """The stored payload for a carried finding, or `NULL` for none.
+
+    Four keys, the wording among them: it is carried rather than resolved
+    because the sink that names it is registered in the worker's
+    composition root and the surface rendering it is served by another
+    (`launch-instance`).
+    """
+    if finding is None:
+        return None
+    return {
+        "field": finding.field,
+        "reads_as": finding.reads_as,
+        "value": finding.value,
+        "comment": finding.comment,
+    }
+
+
+def _finding_from_row(stored: Any) -> CarriedFinding | None:
+    """What a stored payload reads back as, or nothing.
+
+    **Never raises.** A payload that cannot be read reports as carrying
+    none rather than failing the read: one unreadable row must not deny a
+    reader every other fact about the launch, which is what a surface
+    built to stop facts going missing would then do
+    (`launch-instance`).
+
+    An absent or null `value` is not a present finding — the one spelling
+    of empty is an empty value inside a finding that exists, and `None` is
+    not it.
+    """
+    if stored is None:
+        return None
+    if not isinstance(stored, Mapping):
+        return None
+    try:
+        return CarriedFinding(
+            field=stored["field"],
+            value=stored["value"],
+            comment=stored.get("comment"),
+            reads_as=stored.get("reads_as"),
+        )
+    except (KeyError, TypeError, AttributeError, LaunchError):
+        return None
 
 
 def _outcome_from_row(kind: str, reason: str | None) -> StepOutcomeValue:
@@ -196,6 +246,7 @@ class LaunchRepository:
                         when=row.recorded_at,
                         evidence=row.evidence,
                     ),
+                    finding=_finding_from_row(row.finding),
                 )
                 for row in progress_rows
             },
@@ -283,6 +334,7 @@ class LaunchRepository:
                     who=progress.provenance.who,
                     recorded_at=progress.provenance.when,
                     evidence=progress.provenance.evidence,
+                    finding=_finding_to_row(progress.finding),
                 )
             )
         for gate_id in launch.approved_gate_ids:

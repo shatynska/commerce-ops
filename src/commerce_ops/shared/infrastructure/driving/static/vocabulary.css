@@ -64,6 +64,12 @@
      text — a lighter value still than this failed that check. */
   --link: #0369a1;
 
+  /* An established fact -- what a recording carries beside its evidence.
+     Paired with `--danger-*` so the two read as one scale, and given its
+     own dark value below rather than inheriting one, which is how a token
+     ends up arbitrary in one theme. Colour *reinforces* the result/comment
+     distinction; the structure below carries it (`launch-admin`). */
+  --fact-ink: #1d5f2e;
   --danger-ink: #8c1d1d;
   --danger-rule: #d99a9a;
   --danger-wash: #fdf3f3;
@@ -155,6 +161,7 @@
 
     --link: #38bdf8;
 
+    --fact-ink: #8fd8a4;
     --danger-ink: #f5a9a9;
     --danger-rule: #7d3a3a;
     --danger-wash: #2e1f21;
@@ -201,6 +208,7 @@
   --field: #212a35;
   --surface: #18202a;
 
+  --fact-ink: #8fd8a4;
   --danger-ink: #f5a9a9;
   --danger-rule: #7d3a3a;
   --danger-wash: #2e1f21;
@@ -2173,4 +2181,41 @@ ul.member-roles form {
 main.container table th,
 main.container table td {
   vertical-align: top;
+
+/*
+ * A carried finding: the established fact, a rule, then the model's
+ * account of it.
+ *
+ * The separation is what carries the distinction -- a reader who cannot
+ * tell the colours apart, and a reader in the theme the colour was not
+ * chosen for, both still see two blocks with a rule between them
+ * (`launch-admin`). The colour reinforces it and never carries it alone.
+ */
+.finding-result {
+  color: var(--fact-ink);
+  font-weight: 600;
+}
+
+.finding-divide {
+  border-top: 1px solid var(--rule);
+  margin: 0.35rem 0;
+}
+
+.finding-comment {
+  color: var(--ink);
+  /* Its own clamp, over inline content only -- the mechanism used the way
+     it is meant to be. It sits outside `.evidence-clamp` rather than
+     within it, so the established fact above is never spent out of that
+     span's two-line budget. */
+  min-width: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.gate-group .evidence-disclosure[open] .finding-comment {
+  display: block;
+  -webkit-line-clamp: unset;
+  overflow: visible;
 }

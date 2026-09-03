@@ -21,7 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from commerce_ops.access.application import Member, list_members
 from commerce_ops.access.infrastructure.driven.members_repository import PostgresMembers
 from commerce_ops.catalog.domain.product import Product
-from commerce_ops.launch.application import LaunchReport
+from commerce_ops.launch.application import FindingSink, LaunchReport
 from commerce_ops.shared.domain.access_scope import AccessScope
 from commerce_ops.shared.domain.identity import ProductId
 from commerce_ops.shared.infrastructure.driven.database import dispose_engine
@@ -136,7 +136,17 @@ async def _record_sub_category(product_id: ProductId, sub_category: str) -> None
 # Wired for `lp.listing.007` specifically, not for every automated step —
 # `launch-step-automation`'s recording capability is per-step, and this is
 # the only step this deployment writes a finding for today.
-automation_pass.recorders = {"lp.listing.007": _record_sub_category}
+# The sink names both where the value goes and how that field reads. The
+# wording travels onto the recording with the finding rather than being
+# resolved by whoever renders it: this root registers it, and the admin
+# surface is served by another (`launch-instance`).
+automation_pass.recorders = {
+    "lp.listing.007": FindingSink(
+        record=_record_sub_category,
+        field="sub_category",
+        reads_as="Sub-category",
+    )
+}
 
 # The gate-progression pass asks about a gate by naming the product, so the
 # ask adapter needs the same catalog reader for the same reason: `launch`

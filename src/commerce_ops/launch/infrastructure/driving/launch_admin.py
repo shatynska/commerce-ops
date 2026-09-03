@@ -37,6 +37,7 @@ failing-closed direction.
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from pathlib import Path
@@ -232,6 +233,9 @@ class StepLine:
     recorded_at: datetime | None
     source: str | None
     evidence: str | None
+    finding_reads: str | None
+    finding_value: str | None
+    finding_comment: str | None
     due_from: date | None
     due_to: date | None
     started: bool = True
@@ -473,12 +477,44 @@ def _finished_key(row: LaunchRow) -> tuple[int, str, str]:
     return (undated, inverted, row.product_id)
 
 
+#: What an empty value reads as. Visible text, not an element carrying a
+#: class and no text: an empty value is a *result* -- something was
+#: established and it was empty -- and a reader must be able to see that
+#: the answer was "none" rather than infer it from a blank
+#: (`launch-admin`).
+EMPTY_VALUE_READING: Final = "none"
+
+
+def _render_finding_value(value: object) -> str:
+    """A carried value as a reader sees it.
+
+    A sequence renders as its members, an empty one as
+    `EMPTY_VALUE_READING` rather than as nothing. A scalar renders as
+    itself. Strings are not treated as sequences, which is what stops
+    `"abc"` rendering as `a, b, c`.
+    """
+    if isinstance(value, str):
+        rendered = value
+    elif isinstance(value, Mapping):
+        rendered = ", ".join(f"{key}: {item}" for key, item in value.items())
+    elif isinstance(value, Sequence):
+        rendered = ", ".join(str(member) for member in value)
+    else:
+        rendered = str(value)
+    # One emptiness test for every shape, and it is `strip()`. Bare
+    # truthiness would let `"   "` and `[""]` through as an element
+    # carrying the class and no visible text -- which `launch-admin`
+    # names outright as not satisfying the empty-value requirement.
+    return rendered if rendered.strip() else EMPTY_VALUE_READING
+
+
 def _steps_for(report: Any) -> tuple[StepLine, ...]:
     lines: list[StepLine] = []
     for entry in report.steps:
         progress = entry.progress
         outcome = None
         recorded_by = recorded_at = source = evidence = None
+        finding_reads = finding_value = finding_comment = None
         if progress is not None:
             recorded = progress.outcome
             outcome = (
@@ -491,6 +527,15 @@ def _steps_for(report: Any) -> tuple[StepLine, ...]:
             recorded_at = provenance.when
             source = provenance.source
             evidence = provenance.evidence
+            carried = progress.finding
+            if carried is not None:
+                # The wording comes off the record, not from a registry
+                # of this surface's own: the sink that names it is
+                # registered in the worker's composition root, and this
+                # page is served by another (`launch-instance`).
+                finding_reads = carried.reads
+                finding_value = _render_finding_value(carried.value)
+                finding_comment = carried.comment
         period = entry.due_period
         lines.append(
             StepLine(
@@ -507,6 +552,9 @@ def _steps_for(report: Any) -> tuple[StepLine, ...]:
                 recorded_at=recorded_at,
                 source=source,
                 evidence=evidence,
+                finding_reads=finding_reads,
+                finding_value=finding_value,
+                finding_comment=finding_comment,
                 due_from=getattr(period, "start", None) if period else None,
                 due_to=getattr(period, "end", None) if period else None,
             )

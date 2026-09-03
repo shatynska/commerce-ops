@@ -159,7 +159,31 @@
             {%- if step.recorded %}
             <details class="evidence-disclosure">
               <summary class="evidence-summary">
+                {#- The established fact leads, then a separating rule,
+                    then the model's account of it. Three elements and not
+                    one, because the distinction has to survive a reader
+                    who cannot tell the colours apart, and a theme the
+                    colour was not chosen for (`launch-admin`).
+
+                    **Outside `.evidence-clamp`, deliberately.** That span
+                    is a `-webkit-box` with a two-line clamp, which clamps
+                    *inline* content; block children inside it are
+                    browser-dependent, and the two-line budget would be
+                    spent by the result and the rule with the fact itself
+                    clipped. The result is the point of the column and is
+                    never clipped; the comment carries its own clamp, over
+                    inline content, which is what that mechanism is for. -#}
+                {%- if step.finding_reads %}
+                <div class="finding-result">{{ step.finding_reads }}: {{ step.finding_value }}</div>
+                <div class="finding-divide" aria-hidden="true"></div>
+                {%- if step.finding_comment %}
+                <div class="finding-comment">{{ step.finding_comment }}</div>
+                {%- endif %}
+                {%- endif %}
                 <span class="evidence-clamp">
+                  {#- The verbatim evidence still follows: it is the record
+                      of what a member was shown, and a tidier rendering
+                      must not replace it. -#}
                   <span class="evidence-text">{{ step.evidence }}</span>
                   <span class="outcome-provenance">recorded by {{ step.recorded_by }}
                     ({{ step.source }})

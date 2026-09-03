@@ -37,6 +37,7 @@ the decider about *their* decision — see `_member_for`.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -51,7 +52,11 @@ from commerce_ops.launch.domain.launch_playbook import (
     LaunchPlaybook,
     StepDefinition,
 )
-from commerce_ops.launch.domain.launch_run import Provenance
+from commerce_ops.launch.domain.launch_run import (
+    CarriedFinding,
+    LaunchError,
+    Provenance,
+)
 from commerce_ops.shared.domain.identity import ProductId
 
 __all__ = [
@@ -205,12 +210,22 @@ async def _decide(
         outcome: Any = _proposed_outcome(pending)
         evidence = f"{handler}: {produced}"
         state = "accepted"
+        # Read off the pending result, never re-read from the sink: the
+        # fact recorded is the one the member was shown and decided on,
+        # and a value changed elsewhere meanwhile must not be substituted
+        # for it (`launch-step-automation`). Unreadable carries none --
+        # a decision must not be lost to a field beside it.
+        carried = _carried_finding(pending)
     else:
         outcome = Blocked(
             reason=(f"{who} rejected the automated result produced by {handler}")
         )
         evidence = f"{handler}: {produced} — rejected by {who}"
         state = "rejected"
+        # A rejection asserts nothing: the member declined the fact the
+        # proposal carried, so the `Blocked` recorded from it must not
+        # carry a finding asserting it anyway.
+        carried = None
 
     await record_outcome(
         product_id=product_id,
@@ -222,6 +237,7 @@ async def _decide(
             when=when,
             evidence=evidence,
         ),
+        finding=carried,
     )
     # Settled only after the recording took effect: a settled result whose
     # outcome was never recorded would be undecidable and unrecoverable.
@@ -241,6 +257,38 @@ def _proposed_outcome(pending: Any) -> Any:
     if isinstance(proposed, str):
         return getattr(launch_playbook, proposed)
     return proposed
+
+
+def _carried_finding(pending: Any) -> CarriedFinding | None:
+    """The finding stored with a pending result, or nothing.
+
+    Never raises. An unreadable stored finding reports as none rather
+    than failing the acceptance: the recording and the settlement must
+    both take effect or neither, so a member's decision must not be lost
+    to a field beside the outcome they accepted.
+    """
+    stored = getattr(pending, "finding", None)
+    if stored is None:
+        return None
+    if isinstance(stored, CarriedFinding):
+        return stored
+    if not isinstance(stored, Mapping):
+        return None
+    try:
+        return CarriedFinding(
+            field=stored["field"],
+            value=stored["value"],
+            comment=stored.get("comment"),
+            reads_as=stored.get("reads_as"),
+        )
+    except (KeyError, TypeError, ValueError, AttributeError, LaunchError):
+        # `AttributeError` is not hypothetical: `CarriedFinding` validates
+        # its field with `.strip()`, so a stored `{"field": 17}` raises
+        # there. Uncaught, that propagates out of the accept path and the
+        # member's decision is neither recorded nor settled -- the one
+        # thing `launch-step-automation` says an unreadable finding must
+        # never cost.
+        return None
 
 
 async def accept_automated_result(

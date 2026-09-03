@@ -139,6 +139,11 @@ class LaunchStepProgress(Base):
         DateTime(timezone=True), nullable=False
     )
     evidence: Mapped[str] = mapped_column(String, nullable=False)
+    #: The finding this recording carries, or `NULL` where it carries
+    #: none. One column rather than three: an empty *value* lives inside
+    #: a finding that exists, and `NULL` is the whole of "carries
+    #: nothing" (`launch-instance`).
+    finding: Mapped[dict[str, object] | None] = mapped_column(JSONB, nullable=True)
 
 
 class LaunchGateApproval(Base):
@@ -490,6 +495,9 @@ class AutomatedStepResult(Base):
     handler: Mapped[str] = mapped_column(String, nullable=False)
     proposed_outcome: Mapped[str] = mapped_column(String, nullable=False)
     result_text: Mapped[str] = mapped_column(Text, nullable=False)
+    #: The finding written when the handler ran, carried across the wait
+    #: for a confirmer and onto the recording acceptance makes.
+    finding: Mapped[dict[str, object] | None] = mapped_column(JSONB, nullable=True)
     produced_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
     )

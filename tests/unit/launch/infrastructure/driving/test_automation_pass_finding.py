@@ -347,6 +347,7 @@ class _FakeResults:
         proposed_outcome: Any,
         result_text: str,
         produced_at: datetime,
+        finding: Any = None,
     ) -> _PendingRow:
         row = _PendingRow(
             product_id=product_id,

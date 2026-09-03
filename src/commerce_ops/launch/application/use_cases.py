@@ -60,6 +60,7 @@ from commerce_ops.launch.domain.launch_playbook import (
     start_position_of,
 )
 from commerce_ops.launch.domain.launch_run import (
+    CarriedFinding,
     GateApproval,
     GateBlockedError,
     GateOpened,
@@ -162,11 +163,16 @@ async def record_step_outcome(
     outcome: StepOutcomeValue,
     provenance: Provenance,
     journal: LaunchJournal,
+    finding: CarriedFinding | None = None,
 ) -> tuple[LaunchEvent, ...]:
     launch = await _existing(launches, product_id)
     playbook = playbooks.get(launch.playbook_version)
     events = launch.record_step_outcome(
-        playbook, step_id=step_id, outcome=outcome, provenance=provenance
+        playbook,
+        step_id=step_id,
+        outcome=outcome,
+        provenance=provenance,
+        finding=finding,
     )
     await launches.save(launch)
     await _journal(
