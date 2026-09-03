@@ -1431,8 +1431,11 @@ section.finished .empty,
   overflow-wrap: anywhere;
 }
 
-/* The evidence cell's own disclosure: closed, it clamps the evidence
-   text and its provenance to two lines with a native ellipsis: opened
+/* The evidence cell's own disclosure: closed, it bounds the whole
+   outcome -- a carried finding's result and comment included, not the
+   evidence and provenance alone -- to two lines, hard-clipped rather
+   than ellipsised, since the bound is a height and not a line count;
+   opened
    (a click anywhere on the summary, `<details>`'s own built-in
    behaviour), it shows all of it. `list-style`/`::marker` remove the
    triangle a `<summary>` draws by default -- replaced by the chevron
@@ -1473,16 +1476,32 @@ section.finished .empty,
 }
 
 .gate-group .evidence-clamp {
+  /* Takes the row's width so the chevron stays beside it rather than
+     wrapping beneath. `min-width: 0` lets it actually shrink -- a flex
+     item's default floor is its content, which a long value would push
+     past. */
+  flex: 1;
   min-width: 0;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+  /* One bound over the fact, the account, the evidence and the
+     provenance, opened in full by the one control on the cell. A height
+     rather than a count of lines: a line-count bound is defined over
+     inline content, and what this holds are blocks.
+
+     The line height is set here rather than inherited, and the bound is
+     computed from that same number, so the two cannot disagree. They did:
+     a `1.5em` bound against Pico's inherited `1.4` line height was 2.14
+     lines, which showed a sliver of a third line and clipped the second
+     through its descenders once the two blocks carried a margin between
+     them. Two lines is the whole budget, and nothing between the blocks
+     may spend any of it -- which is why the break between them carries no
+     margin. */
+  line-height: 1.4;
+  max-height: calc(2 * 1.4em);
   overflow: hidden;
 }
 
 .gate-group .evidence-disclosure[open] .evidence-clamp {
-  display: block;
-  -webkit-line-clamp: unset;
+  max-height: none;
   overflow: visible;
 }
 
@@ -2181,41 +2200,26 @@ ul.member-roles form {
 main.container table th,
 main.container table td {
   vertical-align: top;
+}
 
 /*
- * A carried finding: the established fact, a rule, then the model's
- * account of it.
+ * A carried finding: the established fact, then the model's account of
+ * it. Two blocks, one below the other, and no rule between them -- the
+ * break is the separation, and it is structural rather than chromatic,
+ * which is what keeps the distinction off colour alone (`launch-admin`).
  *
- * The separation is what carries the distinction -- a reader who cannot
- * tell the colours apart, and a reader in the theme the colour was not
- * chosen for, both still see two blocks with a rule between them
- * (`launch-admin`). The colour reinforces it and never carries it alone.
+ * `display: block` is what makes them blocks: both are spans, because a
+ * paragraph is not valid inside the span that bounds them. Nothing here
+ * may lay the container's children out in a row -- that is how the three
+ * parts of a finding once came to read as three narrow columns.
  */
 .finding-result {
+  display: block;
   color: var(--fact-ink);
   font-weight: 600;
 }
 
-.finding-divide {
-  border-top: 1px solid var(--rule);
-  margin: 0.35rem 0;
-}
-
 .finding-comment {
-  color: var(--ink);
-  /* Its own clamp, over inline content only -- the mechanism used the way
-     it is meant to be. It sits outside `.evidence-clamp` rather than
-     within it, so the established fact above is never spent out of that
-     span's two-line budget. */
-  min-width: 0;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.gate-group .evidence-disclosure[open] .finding-comment {
   display: block;
-  -webkit-line-clamp: unset;
-  overflow: visible;
+  color: var(--ink);
 }
