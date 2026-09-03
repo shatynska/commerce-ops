@@ -86,19 +86,9 @@ from commerce_ops.launch.domain.launch_playbook import (
     StepStatus,
 )
 from commerce_ops.shared.domain.discipline import Discipline
+from tests.support.playbook import SPECIFIED_GATE_ORDER
 
 CHECK_MODULE: Final = "commerce_ops.check_step_handlers"
-
-SPECIFIED_GATE_ORDER: Final = (
-    "commit",
-    "order",
-    "listable",
-    "stock-ready",
-    "live",
-    "ignition",
-    "phase-one-complete",
-    "graduated",
-)
 
 CONFIRMATION_GATES: Final = frozenset(
     {"commit", "order", "phase-one-complete", "graduated"}

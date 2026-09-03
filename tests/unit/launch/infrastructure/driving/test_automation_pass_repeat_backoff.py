@@ -210,6 +210,7 @@ from commerce_ops.launch.domain.launch_run import (
 from commerce_ops.launch.infrastructure.driving import automation_pass
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId, Sku
+from tests.support.playbook import SPECIFIED_GATE_ORDER
 
 pytestmark = pytest.mark.anyio
 
@@ -218,17 +219,6 @@ pytestmark = pytest.mark.anyio
 # launch, the same two step kinds. Re-declared rather than imported, the
 # way every other file in this directory re-declares its fixtures.
 # ---------------------------------------------------------------------------
-
-SPECIFIED_GATE_ORDER: Final = (
-    "commit",
-    "order",
-    "listable",
-    "stock-ready",
-    "live",
-    "ignition",
-    "phase-one-complete",
-    "graduated",
-)
 
 CONFIRMATION_GATES: Final = frozenset(
     {"commit", "order", "phase-one-complete", "graduated"}

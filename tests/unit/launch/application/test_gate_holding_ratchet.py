@@ -95,19 +95,9 @@ from commerce_ops.launch.domain.launch_playbook import (
     StepStatus,
 )
 from commerce_ops.shared.domain.discipline import Discipline
+from tests.support.playbook import SPECIFIED_GATE_ORDER
 
 pytestmark = pytest.mark.anyio
-
-SPECIFIED_GATE_ORDER: Final = (
-    "commit",
-    "order",
-    "listable",
-    "stock-ready",
-    "live",
-    "ignition",
-    "phase-one-complete",
-    "graduated",
-)
 
 PRINCIPAL: Final = "helen"
 A_DISCIPLINE: Final = next(iter(Discipline))

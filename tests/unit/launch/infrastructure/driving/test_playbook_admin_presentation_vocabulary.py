@@ -135,6 +135,7 @@ from commerce_ops.launch.infrastructure.driving import (
     playbook_admin as page_module,
 )
 from commerce_ops.shared.domain.discipline import Discipline
+from tests.support.playbook import SPECIFIED_GATE_ORDER
 
 # ---------------------------------------------------------------------------
 # The vocabulary's literal tokens — the delta gives these on purpose
@@ -143,17 +144,6 @@ from commerce_ops.shared.domain.discipline import Discipline
 ROW_ACTION: Final = "row-action"
 DANGER: Final = "danger"
 JUST_CREATED: Final = "just-created"
-
-SPECIFIED_GATE_ORDER: Final = (
-    "commit",
-    "order",
-    "listable",
-    "stock-ready",
-    "live",
-    "ignition",
-    "phase-one-complete",
-    "graduated",
-)
 
 PRINCIPAL: Final = "helen"
 _SESSION_COOKIE: Final = "admin_session"

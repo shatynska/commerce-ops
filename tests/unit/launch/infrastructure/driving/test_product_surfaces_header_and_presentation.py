@@ -117,6 +117,7 @@ from commerce_ops.launch.infrastructure.driving import (
 from commerce_ops.shared.domain.access_scope import AccessScope
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import MarketplaceId, ProductId, Sku
+from tests.support.playbook import SPECIFIED_GATE_ORDER
 
 PRINCIPAL: Final = "helen"
 _SESSION_COOKIE: Final = "admin_session"
@@ -134,17 +135,6 @@ NAME: Final = "Bamboo Cutting Board"
 ALICE: Final = "prs_01HQ8Z6M4A"
 ALICE_NAME: Final = "Alice Admin"
 MEMBER_ADMIN_IDENTITY: Final = "U01ALICE"
-
-SPECIFIED_GATE_ORDER: Final = (
-    "commit",
-    "order",
-    "listable",
-    "stock-ready",
-    "live",
-    "ignition",
-    "phase-one-complete",
-    "graduated",
-)
 
 _ASSETS_MODULE_NAME: Final = "commerce_ops.shared.infrastructure.driving.admin_assets"
 

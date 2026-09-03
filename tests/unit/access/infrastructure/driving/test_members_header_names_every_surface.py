@@ -86,6 +86,7 @@ from commerce_ops.launch.domain.launch_playbook import (
 from commerce_ops.launch.infrastructure.driving import (
     playbook_admin as playbook_module,
 )
+from tests.support.playbook import SPECIFIED_GATE_ORDER
 
 _LAUNCH_MODULE_NAME: Final = "commerce_ops.launch.infrastructure.driving.launch_admin"
 
@@ -102,16 +103,6 @@ def _launch_module() -> ModuleType:
         )
 
 
-SPECIFIED_GATE_ORDER: Final = (
-    "commit",
-    "order",
-    "listable",
-    "stock-ready",
-    "live",
-    "ignition",
-    "phase-one-complete",
-    "graduated",
-)
 CONFIRMATION_GATES: Final = frozenset(
     {"commit", "order", "phase-one-complete", "graduated"}
 )

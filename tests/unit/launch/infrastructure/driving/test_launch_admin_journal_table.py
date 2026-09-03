@@ -118,6 +118,7 @@ from commerce_ops.launch.domain.launch_playbook import (
 from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.shared.domain.identity import MarketplaceId, ProductId, Sku
 from commerce_ops.shared.domain.lifecycle_stage import Launching
+from tests.support.playbook import SPECIFIED_GATE_ORDER
 
 # ---------------------------------------------------------------------------
 # The module under test, resolved by name
@@ -151,17 +152,6 @@ def _journal_seam(module: ModuleType) -> str:
 # ---------------------------------------------------------------------------
 # Fixed vocabulary and fixture values
 # ---------------------------------------------------------------------------
-
-SPECIFIED_GATE_ORDER: Final = (
-    "commit",
-    "order",
-    "listable",
-    "stock-ready",
-    "live",
-    "ignition",
-    "phase-one-complete",
-    "graduated",
-)
 
 MARKETPLACE: Final = MarketplaceId("ATVPDKIKX0DER")
 PRINCIPAL: Final = "U01ALICE"

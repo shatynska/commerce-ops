@@ -109,17 +109,7 @@ from commerce_ops.launch.domain.launch_run import (
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import MetricId, ProductId
 from commerce_ops.shared.domain.lifecycle_stage import Posture
-
-SPECIFIED_GATE_ORDER: Final = (
-    "commit",
-    "order",
-    "listable",
-    "stock-ready",
-    "live",
-    "ignition",
-    "phase-one-complete",
-    "graduated",
-)
+from tests.support.playbook import SPECIFIED_GATE_ORDER
 
 CONFIRMATION_GATES: Final = frozenset(
     {"commit", "order", "phase-one-complete", "graduated"}

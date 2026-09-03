@@ -76,18 +76,7 @@ from commerce_ops.launch.domain.launch_run import (
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
 from commerce_ops.shared.domain.lifecycle_stage import Posture
-
-# SPECIFIED (launch-playbook spec, unchanged): the eight gates, in order.
-SPECIFIED_GATE_ORDER: Final = (
-    "commit",
-    "order",
-    "listable",
-    "stock-ready",
-    "live",
-    "ignition",
-    "phase-one-complete",
-    "graduated",
-)
+from tests.support.playbook import SPECIFIED_GATE_ORDER
 
 # SPECIFIED (launch-playbook spec, unchanged): the four confirmation gates.
 CONFIRMATION_GATES: Final = frozenset(

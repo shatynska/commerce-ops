@@ -79,18 +79,7 @@ from commerce_ops.launch.domain.launch_playbook import (
     StepStatus,
 )
 from commerce_ops.shared.domain.discipline import Discipline
-
-# SPECIFIED (main spec, Requirement: Gate sequence orders the launch).
-SPECIFIED_GATE_ORDER: Final = (
-    "commit",
-    "order",
-    "listable",
-    "stock-ready",
-    "live",
-    "ignition",
-    "phase-one-complete",
-    "graduated",
-)
+from tests.support.playbook import SPECIFIED_GATE_ORDER
 
 CONFIRMATION_GATES: Final = frozenset(
     {"commit", "order", "phase-one-complete", "graduated"}

@@ -145,21 +145,12 @@ from commerce_ops.launch.infrastructure.driving import (
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import MarketplaceId, ProductId, Sku
 from commerce_ops.shared.domain.lifecycle_stage import Launching
+from tests.support.playbook import SPECIFIED_GATE_ORDER
 
 # ---------------------------------------------------------------------------
 # Fixed vocabulary and DERIVED fixture values
 # ---------------------------------------------------------------------------
 
-SPECIFIED_GATE_ORDER: Final = (
-    "commit",
-    "order",
-    "listable",
-    "stock-ready",
-    "live",
-    "ignition",
-    "phase-one-complete",
-    "graduated",
-)
 CONFIRMATION_GATES: Final = frozenset(
     {"commit", "order", "phase-one-complete", "graduated"}
 )

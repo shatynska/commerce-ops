@@ -154,11 +154,28 @@ specification and must be maintained by hand against it. Declaring it once
 instead of 159 times changes nothing about its independence; sourcing it from
 production destroys it.
 
-The rule extends to `CONFIRMATION_GATES`, `FINAL_GATE`, `_opening_for` and
-`_gates`, which together form one self-contained test-side restatement of the
+The rule extends to `CONFIRMATION_GATES`, `FINAL_GATE`, `opening_for` and
+`gates`, which together form one self-contained test-side restatement of the
 gate specification. `tests/support/playbook.py` carries a module-level docstring
 stating it, because the next reader's instinct will be to "fix" the duplication
 with an import.
+
+**The prohibition is on values, not on the module.** `gates()` constructs
+`Gate(identifier=..., position=..., opening=...)`, so it must import the `Gate`
+and `GateOpening` *types* from `launch_playbook` — there is no other way to
+build the subject's own type, and doing so asserts nothing. What must never be
+imported is any name carrying the sequence or its openings:
+
+```
+BANNED   GATE_SEQUENCE, gate_position, _SPECIFIED_GATES,
+         _SPECIFIED_GATE_IDS, _GATE_POSITION, _FINAL_GATE
+ALLOWED  Gate, GateOpening          — types, not statements about the spec
+```
+
+A blanket "no import from `launch_playbook`" was the first phrasing of task 2.1
+and is unsatisfiable: it forbids the type the module exists to construct. The
+distinction is the whole point — a test may use production's *types* freely and
+must never take production's *answer* to the question it is asking.
 
 ### 3. Two populations, two procedures
 

@@ -135,21 +135,11 @@ from commerce_ops.launch.infrastructure.driven.clickup_sync import ClickUpSyncEr
 from commerce_ops.launch.infrastructure.driven.launch_repository import LaunchRepository
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import MarketplaceId, ProductId, Sku
+from tests.support.playbook import SPECIFIED_GATE_ORDER
 
 pytestmark = pytest.mark.anyio
 
 JOB_PACKAGE: Final = "commerce_ops.launch.infrastructure.driving"
-
-SPECIFIED_GATE_ORDER: Final = (
-    "commit",
-    "order",
-    "listable",
-    "stock-ready",
-    "live",
-    "ignition",
-    "phase-one-complete",
-    "graduated",
-)
 
 CONFIRMATION_GATES: Final = frozenset(
     {"commit", "order", "phase-one-complete", "graduated"}

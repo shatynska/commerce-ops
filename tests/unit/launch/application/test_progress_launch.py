@@ -145,20 +145,10 @@ from commerce_ops.launch.domain.launch_run import (
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import MetricId, ProductId
 from commerce_ops.shared.domain.lifecycle_stage import Posture
+from tests.support.playbook import SPECIFIED_GATE_ORDER
 
 pytestmark = pytest.mark.anyio
 
-# SPECIFIED (launch-playbook, unchanged): the eight gates, in order.
-SPECIFIED_GATE_ORDER: Final = (
-    "commit",
-    "order",
-    "listable",
-    "stock-ready",
-    "live",
-    "ignition",
-    "phase-one-complete",
-    "graduated",
-)
 FINAL_GATE: Final = SPECIFIED_GATE_ORDER[-1]
 
 CONFIRMATION_GATES: Final = frozenset(

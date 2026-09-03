@@ -171,6 +171,7 @@ from commerce_ops.shared.domain.lifecycle_stage import (
     Retired,
     SteadyState,
 )
+from tests.support.playbook import SPECIFIED_GATE_ORDER
 
 # ---------------------------------------------------------------------------
 # The modules under test, resolved by name
@@ -217,16 +218,6 @@ def _assets_module() -> ModuleType:
 # Fixed vocabulary and DERIVED fixture values
 # ---------------------------------------------------------------------------
 
-SPECIFIED_GATE_ORDER: Final = (
-    "commit",
-    "order",
-    "listable",
-    "stock-ready",
-    "live",
-    "ignition",
-    "phase-one-complete",
-    "graduated",
-)
 CONFIRMATION_GATES: Final = frozenset(
     {"commit", "order", "phase-one-complete", "graduated"}
 )

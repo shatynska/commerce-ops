@@ -144,6 +144,7 @@ from commerce_ops.launch.infrastructure.driving import (
     playbook_admin as page_module,
 )
 from commerce_ops.shared.domain.discipline import Discipline
+from tests.support.playbook import SPECIFIED_GATE_ORDER
 
 # ---------------------------------------------------------------------------
 # The delta's two literal markers, and the three events it binds
@@ -213,17 +214,6 @@ _CLAIMS_NOTHING_SAVED: Final = (
     "was not saved",
     "were not saved",
     "nothing saved",
-)
-
-SPECIFIED_GATE_ORDER: Final = (
-    "commit",
-    "order",
-    "listable",
-    "stock-ready",
-    "live",
-    "ignition",
-    "phase-one-complete",
-    "graduated",
 )
 
 PRINCIPAL: Final = "helen"

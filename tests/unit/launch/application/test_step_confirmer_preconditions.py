@@ -73,6 +73,7 @@ from commerce_ops.launch.domain.launch_playbook import (
     StepStatus,
 )
 from commerce_ops.shared.domain.discipline import Discipline
+from tests.support.playbook import SPECIFIED_GATE_ORDER
 
 pytestmark = pytest.mark.anyio
 
@@ -134,18 +135,6 @@ def _holding_step(gate: str) -> StepDefinition:
         handler=None,
         provenance=None,
     )
-
-
-SPECIFIED_GATE_ORDER: Final = (
-    "commit",
-    "order",
-    "listable",
-    "stock-ready",
-    "live",
-    "ignition",
-    "phase-one-complete",
-    "graduated",
-)
 
 
 class _Record:

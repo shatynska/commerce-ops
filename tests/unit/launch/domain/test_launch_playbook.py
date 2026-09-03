@@ -61,19 +61,7 @@ from commerce_ops.launch.domain.launch_playbook import (
     StepStatus,
 )
 from commerce_ops.shared.domain.discipline import Discipline
-
-# SPECIFIED: the eight gates, in this order (Requirement: Gate sequence
-# orders the launch).
-SPECIFIED_GATE_ORDER: Final = (
-    "commit",
-    "order",
-    "listable",
-    "stock-ready",
-    "live",
-    "ignition",
-    "phase-one-complete",
-    "graduated",
-)
+from tests.support.playbook import SPECIFIED_GATE_ORDER
 
 # SPECIFIED: "commit, order, phase-one-complete and graduated require
 # confirmation, and listable, stock-ready, live and ignition open

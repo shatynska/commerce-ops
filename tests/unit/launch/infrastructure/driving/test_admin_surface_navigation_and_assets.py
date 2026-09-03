@@ -124,6 +124,7 @@ from commerce_ops.launch.infrastructure.driving import (
     playbook_admin as page_module,
 )
 from commerce_ops.shared.domain.discipline import Discipline
+from tests.support.playbook import SPECIFIED_GATE_ORDER
 
 #: The shared asset route this change adds. Imported by name rather than
 #: by `import`, so that the header tests below — which do not need it —
@@ -137,17 +138,6 @@ def _assets_module() -> ModuleType | None:
     except ModuleNotFoundError:
         return None
 
-
-SPECIFIED_GATE_ORDER: Final = (
-    "commit",
-    "order",
-    "listable",
-    "stock-ready",
-    "live",
-    "ignition",
-    "phase-one-complete",
-    "graduated",
-)
 
 PRINCIPAL: Final = "helen"
 _SESSION_COOKIE: Final = "admin_session"

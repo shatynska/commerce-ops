@@ -145,6 +145,7 @@ from commerce_ops.launch.domain.launch_playbook import (
     StepStatus,
 )
 from commerce_ops.shared.domain.discipline import Discipline
+from tests.support.playbook import SPECIFIED_GATE_ORDER
 
 page_module: ModuleType = importlib.import_module(
     "commerce_ops.launch.infrastructure.driving.playbook_admin"
@@ -172,17 +173,6 @@ _NAMES_OF_FIELD: Final[dict[str, tuple[str, ...]]] = {
 
 #: INVENTED. The element a "control per value" is taken to be.
 _VALUE_INPUT_TYPES: Final = ("checkbox",)
-
-SPECIFIED_GATE_ORDER: Final = (
-    "commit",
-    "order",
-    "listable",
-    "stock-ready",
-    "live",
-    "ignition",
-    "phase-one-complete",
-    "graduated",
-)
 
 PRINCIPAL: Final = "helen"
 _SESSION_COOKIE: Final = "admin_session"

@@ -97,6 +97,7 @@ from commerce_ops.launch.domain.launch_playbook import (
     StepStatus,
 )
 from commerce_ops.shared.domain.discipline import Discipline
+from tests.support.playbook import SPECIFIED_GATE_ORDER
 
 #: Resolved by name rather than imported, matching
 #: `test_launch_admin_detail.py`.
@@ -104,16 +105,6 @@ page_module: ModuleType = importlib.import_module(
     "commerce_ops.launch.infrastructure.driving.playbook_admin"
 )
 
-SPECIFIED_GATE_ORDER: Final = (
-    "commit",
-    "order",
-    "listable",
-    "stock-ready",
-    "live",
-    "ignition",
-    "phase-one-complete",
-    "graduated",
-)
 FINAL_GATE: Final = SPECIFIED_GATE_ORDER[-1]
 
 PRINCIPAL: Final = "helen"

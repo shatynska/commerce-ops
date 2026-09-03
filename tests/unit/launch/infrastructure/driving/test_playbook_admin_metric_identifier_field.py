@@ -88,17 +88,7 @@ from commerce_ops.launch.infrastructure.driving import (
 )
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import MetricId
-
-SPECIFIED_GATE_ORDER: Final = (
-    "commit",
-    "order",
-    "listable",
-    "stock-ready",
-    "live",
-    "ignition",
-    "phase-one-complete",
-    "graduated",
-)
+from tests.support.playbook import SPECIFIED_GATE_ORDER
 
 PRINCIPAL: Final = "helen"
 _SESSION_COOKIE: Final = "admin_session"

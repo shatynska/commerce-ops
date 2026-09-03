@@ -78,20 +78,11 @@ from commerce_ops.launch.domain.launch_playbook import (
     framework_gates,
 )
 from commerce_ops.seed_playbook import vendored_definitions
+from tests.support.playbook import SPECIFIED_GATE_ORDER
 
 _ROOT: Final = Path(__file__).resolve().parents[3]
 _VENDORED: Final = _ROOT / "alembic" / "data" / "playbook_reference.yaml"
 
-SPECIFIED_GATE_ORDER: Final = (
-    "commit",
-    "order",
-    "listable",
-    "stock-ready",
-    "live",
-    "ignition",
-    "phase-one-complete",
-    "graduated",
-)
 FINAL_GATE: Final = SPECIFIED_GATE_ORDER[-1]
 
 #: SPECIFIED by `tasks.md` 8.5: a final-gate step defaults two gates back.

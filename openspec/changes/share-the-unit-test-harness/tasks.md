@@ -45,7 +45,7 @@ possible — see task 6.10, which is its worst case.
 
 ## 1. Foundation
 
-- [ ] 1.0 **Stand up this worktree's `.env.test` first** — its own database,
+- [x] 1.0 **Stand up this worktree's `.env.test` first** — its own database,
       `_test`-suffixed, `alembic upgrade head` **and**
       `uv run python -m commerce_ops.seed_playbook`, per `AGENTS.md`'s worktree
       obligations. Before 1.1, not at 8.1: a baseline taken while the
@@ -53,10 +53,38 @@ possible — see task 6.10, which is its worst case.
       verification while it runs, and `pre-push` reports the skipping tier as
       `Passed`. `AGENTS.md` records that this exact confusion already produced a
       merged pull request claiming a tier that had skipped.
-- [ ] 1.1 Record the baseline: collected test count per tier (`uv run pytest
-      --collect-only -q`), and full-suite wall time — with the integration tier
-      actually running. Everything after this is compared against it.
-- [ ] 1.2 Write the two throwaway checkers to the scratchpad: the AST
+- [x] 1.1 Record the baseline: collected test count per tier (`uv run pytest
+      --collect-only -q`), and wall time — with the integration tier actually
+      running. Everything after this is compared against it.
+
+      **Recorded 2026-09-03, on `1fd93d9`, database `commerce_ops_harness_test`
+      migrated and seeded (358 steps):**
+
+      | tier | collected | result | wall |
+      |---|---|---|---|
+      | `tests/unit` | 2,246 | — | — |
+      | `tests/agents` | 236 | — | — |
+      | `tests/unit tests/agents` | **2,482** | 2,482 passed | 74.7 s |
+      | `tests/integration` | **159** | 159 passed | 19.7 s |
+      | total | **2,641** | green | ~95 s |
+
+      The integration run set `COMMERCE_OPS_REQUIRE_DATABASE=1`, so a skipping
+      tier would have failed rather than reported green. 159 passed, none
+      skipped — the tier genuinely ran.
+
+      **Measured per tier, not by bare `uv run pytest`, and that is a finding
+      rather than a convenience.** Bare `uv run pytest` — the command `AGENTS.md`
+      documents — fails at collection on `main` today: `testpaths` names all
+      three tiers, and two basenames repeat across them
+      (`test_product_hazard_categories.py` in `tests/unit/catalog/domain/` and
+      `tests/integration/catalog/`; `test_placeholder.py` in `tests/unit/` and
+      `tests/integration/`). With pytest's `prepend` import mode and no
+      `__init__.py` in those directories, both import as the same top-level
+      module and collection is interrupted. Every gate — `pre-commit`,
+      `pre-push`, CI — invokes the tiers in *separate* commands, so none of them
+      ever hits it. Pre-existing, not caused by this change, and **not fixed
+      here** (see 8.4).
+- [x] 1.2 Write the two throwaway checkers to the scratchpad: the AST
       assertion-identity comparator (Decision 7a) and the instrumented
       equivalence wrapper generator (Decision 7b1). Not committed — but the
       comparator's **per-file before/after digest goes into each migration
@@ -64,7 +92,7 @@ possible — see task 6.10, which is its worst case.
       task 8.5 hands `/code-review` a ~300-file diff: a checker that leaves no
       record lets the reviewer neither re-run it nor verify by eye, only trust
       that it was run.
-- [ ] 1.2a The comparator collects **four** node kinds, not one: `ast.Assert`
+- [x] 1.2a The comparator collects **four** node kinds, not one: `ast.Assert`
       (6,623), `pytest.raises` `With` items (238), `ast.Expr` wrapping a `Call`
       whose callee tail starts `assert` or is `fail` (757), and
       `@pytest.mark.parametrize` decorators (172). Kinds 3 and 4 are not
@@ -73,10 +101,10 @@ possible — see task 6.10, which is its worst case.
 - [ ] 1.3 Add `pythonpath = ["."]` to `[tool.pytest.ini_options]`. **Commit
       alone**, with no other change, and confirm the 1.1 baseline is unmoved
       (`design.md` — Decision 1).
-- [ ] 1.4 Create `tests/support/__init__.py` — empty, exporting nothing. Modules
+- [x] 1.4 Create `tests/support/__init__.py` — empty, exporting nothing. Modules
       are imported by path, so the package cannot become one namespace
       everything pulls from.
-- [ ] 1.5 Create `tests/support/protocols.py` with its module docstring only,
+- [x] 1.5 Create `tests/support/protocols.py` with its module docstring only,
       recording that `unify-launch-adapter-dependencies` replaces these with the
       production protocols. **Each protocol is added by the §6 task that adds its
       fake** — the shape comes from reading the variants, so authoring them up
@@ -86,15 +114,19 @@ possible — see task 6.10, which is its worst case.
 
 The largest single cluster: 159 files. Mechanical; no test body may change.
 
-- [ ] 2.1 Write `tests/support/playbook.py` carrying `SPECIFIED_GATE_ORDER`,
+- [x] 2.1 Write `tests/support/playbook.py` carrying `SPECIFIED_GATE_ORDER`,
       `CONFIRMATION_GATES`, `FINAL_GATE`, `opening_for` and `gates` as
       **literals**, with the module docstring stating why they must never be
       sourced from `launch_playbook.GATE_SEQUENCE` (Decision 2). **Mechanise the
-      prohibition**: grep that `tests/support/playbook.py` contains no import
-      from `commerce_ops.launch.domain.launch_playbook`. Decision 2's failure
-      mode unparses identically either way, so 7(a) cannot see it and task 2.6's
-      human read is otherwise the only guard.
-- [ ] 2.2 Migrate the 159 files declaring `SPECIFIED_GATE_ORDER` to an aliased
+      prohibition as a name deny-list, not a module ban**: `tests/support/
+      playbook.py` must import no `GATE_SEQUENCE`, `gate_position`,
+      `_SPECIFIED_GATES`, `_SPECIFIED_GATE_IDS`, `_GATE_POSITION` or
+      `_FINAL_GATE`. It *must* import the `Gate` and `GateOpening` types, since
+      `gates()` constructs them — a blanket module ban was this task's first
+      phrasing and forbids the very type the module exists to build. Decision
+      2's failure mode unparses identically either way, so 7(a) cannot see it
+      and task 2.6's human read is otherwise the only guard.
+- [x] 2.2 Migrate the 159 files declaring `SPECIFIED_GATE_ORDER` to an aliased
       import. Verify no line at or after each file's first test changed.
 - [ ] 2.3 Migrate the 128 files declaring `CONFIRMATION_GATES`, including the one
       formatting variant.
@@ -311,9 +343,15 @@ leaves its file **unmigrated and recorded** (task 8.3) — never forced.
       `_TreeParser` (3.1), any Population A symbol declared below its first
       test (2.7), and the 5 pinned `A_DISCIPLINE` outliers (4.3a).
 - [ ] 8.4 Raise as findings, without acting on them: the stale-`playbook_v1.yaml`
-      observation if anything new was learned while reading those tests, and
+      observation if anything new was learned while reading those tests;
       `docs/deferred-work.md:1068-1095`'s tolerance list, which this change
       established is stale in both directions
-      (`proposal.md` — Why has the corrected enumeration).
+      (`proposal.md` — Why has the corrected enumeration); and **the duplicate
+      test basenames that break bare `uv run pytest`** (task 1.1). The last is
+      the strongest evidence against `design.md` Decision 1's rejected
+      alternative of filling in the missing `__init__.py` files — it was
+      rejected as unnecessary scope, and it turns out those absences already
+      cost the project its documented test command. Still not this change's to
+      fix: it is a module-naming defect, not arrangement duplication.
 - [ ] 8.5 Run `/code-review` over the full diff before calling the change done
       (`AGENTS.md` — Independent review before completion).

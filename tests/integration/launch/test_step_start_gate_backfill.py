@@ -85,19 +85,10 @@ from commerce_ops.launch.domain.launch_playbook import (
 from commerce_ops.launch.infrastructure.driven.playbook_repository import (
     PlaybookRepository,
 )
+from tests.support.playbook import SPECIFIED_GATE_ORDER
 
 pytestmark = pytest.mark.anyio
 
-SPECIFIED_GATE_ORDER: Final = (
-    "commit",
-    "order",
-    "listable",
-    "stock-ready",
-    "live",
-    "ignition",
-    "phase-one-complete",
-    "graduated",
-)
 FINAL_GATE: Final = SPECIFIED_GATE_ORDER[-1]
 POSITIONS: Final = {gate: index for index, gate in enumerate(SPECIFIED_GATE_ORDER)}
 

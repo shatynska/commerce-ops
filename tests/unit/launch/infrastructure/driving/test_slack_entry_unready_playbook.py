@@ -82,6 +82,7 @@ from commerce_ops.launch.domain.launch_playbook import (
     StepStatus,
 )
 from commerce_ops.shared.domain.discipline import Discipline
+from tests.support.playbook import SPECIFIED_GATE_ORDER
 
 SLACK_ENTRY_PATH: Final = "/product_agent/slack/events"
 SIGNING_SECRET: Final = "test-product-agent-signing-secret"
@@ -110,17 +111,6 @@ REGISTRAR_ATTRIBUTES: Final = (
     "register_catalog_product",
     "catalog_registrar",
     "register_product",
-)
-
-SPECIFIED_GATE_ORDER: Final = (
-    "commit",
-    "order",
-    "listable",
-    "stock-ready",
-    "live",
-    "ignition",
-    "phase-one-complete",
-    "graduated",
 )
 
 CONFIRMATION_GATES: Final = frozenset(
