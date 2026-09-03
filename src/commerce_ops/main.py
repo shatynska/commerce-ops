@@ -12,9 +12,15 @@ from commerce_ops.access.application import Member, list_members, verify_admin_s
 from commerce_ops.access.infrastructure.driven.members_repository import (
     PostgresMembers,
 )
+from commerce_ops.access.infrastructure.driven.roles_repository import (
+    PostgresRoles,
+)
 from commerce_ops.access.infrastructure.driving import admin_link as access_admin_link
 from commerce_ops.access.infrastructure.driving import (
     members_admin as access_members_admin,
+)
+from commerce_ops.access.infrastructure.driving import (
+    roles_admin as access_roles_admin,
 )
 from commerce_ops.catalog.application import register_product
 from commerce_ops.catalog.domain.product import Product
@@ -94,6 +100,10 @@ register_all()
 # database — the connection is opened per operation, no earlier than the
 # first one — so importing this module still requires no configuration.
 members = PostgresMembers()
+# The role collection, opened per operation like the membership. Both
+# serialize on the same version row (`design.md` Decision 8), so importing
+# this still requires no configuration.
+roles = PostgresRoles()
 
 app = FastAPI(lifespan=_lifespan)
 app.include_router(health.router)
@@ -106,6 +116,7 @@ app.include_router(launch_slack_entry.router)
 app.include_router(access_admin_link.router)
 app.include_router(launch_playbook_admin.router)
 app.include_router(access_members_admin.router)
+app.include_router(access_roles_admin.router)
 app.include_router(launch_tracking_admin.router)
 app.include_router(launch_product_dossier.router)
 app.include_router(shared_admin_assets.router)
@@ -154,6 +165,13 @@ launch_playbook_admin.members = members
 launch_playbook_admin.admin_sessions = access_admin_link.admin_sessions
 access_members_admin.members = members
 access_members_admin.admin_sessions = access_admin_link.admin_sessions
+# The roles, so a deactivation blocked by an active role's default is refused
+# with that refusal's own explanation and a member's page can show what they
+# hold.
+access_members_admin.roles = roles
+access_roles_admin.roles = roles
+access_roles_admin.members = members
+access_roles_admin.admin_sessions = access_admin_link.admin_sessions
 launch_tracking_admin.members = members
 launch_tracking_admin.admin_sessions = access_admin_link.admin_sessions
 launch_product_dossier.members = members

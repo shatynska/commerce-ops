@@ -40,6 +40,7 @@ from commerce_ops.access.domain.members import (
     Member,
     Members,
 )
+from commerce_ops.access.domain.roles import Roles
 
 _logger = logging.getLogger(__name__)
 
@@ -279,12 +280,51 @@ async def update_member(
     )
 
 
+async def _blocking_role_faults(roles: Any, member_id: str) -> tuple[str, ...]:
+    """Every `active` role `member_id` is the default holder of, as one fault.
+
+    Named all at once rather than one at a time: a member who is the default of
+    several should learn the whole list in one refusal rather than discovering
+    it one attempt at a time. The roles store is optional so that a caller with
+    no role collection to hand — every call site predating this change — keeps
+    working unchanged.
+    """
+    if roles is None:
+        return ()
+    rows, _version = await roles.load()
+    collection = Roles(roles=tuple(row.role for row in rows))
+    blocking = collection.active_defaults_of(member_id)
+    if not blocking:
+        return ()
+    named = ", ".join(f"'{role.slug}'" for role in blocking)
+    plural = "roles" if len(blocking) > 1 else "role"
+    return (
+        (
+            f"member '{member_id}' is the default holder of the active "
+            f"{plural} {named} — an active role always has a default holder, "
+            f"so move the default to another holder or retire the role before "
+            f"deactivating them"
+        ),
+    )
+
+
 async def deactivate_member(
-    *, members: MembersStore, principal: str, member_id: str
+    *,
+    members: MembersStore,
+    principal: str,
+    member_id: str,
+    roles: Any = None,
 ) -> MemberRecord:
     """Deactivate a member: excluded from access resolution, never
-    deleted. Rejected whole when the remaining membership would hold no
-    active admin."""
+    deleted.
+
+    Rejected whole on either of two independent refusals, which compose: the
+    remaining membership would hold no active admin, and the member is the
+    default holder of one or more `active` roles. A write blocked by both
+    reports both, because the membership rejects a write "reporting every fault
+    at once" and learning of one obstacle at a time is what that rule exists to
+    prevent.
+    """
     for _ in range(_WRITE_ATTEMPTS):
         rows, version = await members.load()
         index = _find(rows, member_id)
@@ -295,7 +335,13 @@ async def deactivate_member(
         record.reactivated_by = None
         record.reactivated_on = None
         candidate = (*rows[:index], record, *rows[index + 1 :])
-        _validate(candidate)
+        role_faults = await _blocking_role_faults(roles, member_id)
+        try:
+            _validate(candidate)
+        except InvalidMembersError as error:
+            raise InvalidMembersError((*error.faults, *role_faults)) from error
+        if role_faults:
+            raise InvalidMembersError(role_faults)
         try:
             await members.save(candidate, expected_version=version)
         except StaleMembersError:

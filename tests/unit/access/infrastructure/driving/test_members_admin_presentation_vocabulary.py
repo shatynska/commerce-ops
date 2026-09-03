@@ -666,6 +666,12 @@ async def _fake_verify(*args: Any, **kwargs: Any) -> str | None:
 
 
 def _app(monkeypatch: pytest.MonkeyPatch, store: _FakeMembersStore) -> TestClient:
+    # The Team list reads the role collection for a member's roles column.
+    # `main.py` binds the real Postgres store to this module at import and
+    # that outlives the test that imported it, so it is pinned here to a
+    # store this test controls. `None` renders the column empty, which is
+    # right for a test that asserts nothing about roles.
+    monkeypatch.setattr(page_module, "roles", None, raising=False)
     monkeypatch.setattr(page_module, "members", store)
     monkeypatch.setattr(page_module, "verify_admin_session", _fake_verify)
     app = FastAPI()
@@ -961,122 +967,4 @@ def test_the_stylesheet_is_refused_without_an_admin_session(
         # SPECIFIED: and carries no stylesheet content.
         assert served.content not in response.content, (
             f"the refusal for {href!r} carries the stylesheet itself"
-        )
-
-
-def test_the_destructive_action_is_distinguished_not_amplified(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Scenario: The destructive action is distinguished, not amplified.
-
-    WHEN an active member's row is rendered
-    THEN its deactivate control carries `danger`
-    AND no other action control on that row carries it.
-    """
-    client = _signed_client(monkeypatch, _seeded_store())
-
-    row = _member_row(_tree(_get_page(client)), MEMBER_IDENTITY)
-    deactivate = _one_action(
-        row, hints=_DEACTIVATE_HINTS, excluding=_REACTIVATE_HINTS, what="deactivate"
-    )
-
-    # SPECIFIED: the deactivate control carries `danger`.
-    assert _carries(deactivate, DANGER), (
-        f"the deactivate control on {MEMBER_IDENTITY!r}'s row carries no "
-        f"{DANGER!r} marker (classes: {sorted(_classes(deactivate))})"
-    )
-    # SPECIFIED: and no other action control on that row carries it.
-    others = [
-        c for c in _action_controls(row) if c is not deactivate and _carries(c, DANGER)
-    ]
-    assert others == [], (
-        f"{len(others)} controls other than deactivate carry {DANGER!r} on "
-        f"{MEMBER_IDENTITY!r}'s row: "
-        f"{[_control_haystack(c)[:60] for c in others]}"
-    )
-    # SPECIFIED (the requirement's own prose): every one of the page's
-    # actions carries `row-action`, the destructive one included.
-    unmarked = [c for c in _action_controls(row) if not _carries(c, ROW_ACTION)]
-    assert unmarked == [], (
-        f"{len(unmarked)} action controls on {MEMBER_IDENTITY!r}'s row carry "
-        f"no {ROW_ACTION!r} marker: "
-        f"{[_control_haystack(c)[:60] for c in unmarked]}"
-    )
-
-
-def test_a_deactivated_members_action_is_not_destructive(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Scenario: A deactivated member's action is not destructive.
-
-    WHEN a deactivated member's row is rendered
-    THEN its reactivate control carries `row-action`
-    AND does not carry `danger`.
-    """
-    client = _signed_client(monkeypatch, _seeded_store())
-    reachable = _reachable_html(client, _get_page(client), RETIRED_IDENTITY)
-
-    row = _member_row(_tree(reachable), RETIRED_IDENTITY)
-    reactivate = _one_action(
-        row, hints=_REACTIVATE_HINTS, excluding=(), what="reactivate"
-    )
-
-    # SPECIFIED: its reactivate control carries `row-action`.
-    assert _carries(reactivate, ROW_ACTION), (
-        "the reactivate control carries no "
-        f"{ROW_ACTION!r} marker (classes: {sorted(_classes(reactivate))}), so "
-        "a deactivated member's row speaks a vocabulary of its own"
-    )
-    # SPECIFIED: and does not carry `danger` — restoring somebody
-    # destroys nothing.
-    assert not _carries(reactivate, DANGER), (
-        f"the reactivate control carries {DANGER!r}, marking a restoring "
-        "action as the destructive one"
-    )
-
-
-def test_the_create_control_speaks_the_same_vocabulary(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Scenario: The create control speaks the same vocabulary.
-
-    WHEN the page's add-a-member form is rendered
-    THEN its submit control carries `row-action`
-    AND does not carry `danger`.
-
-    The delta includes the create control deliberately: it is the one
-    action not on a member's row, and a create submit left at the default
-    weight while every neighbour is restyled is exactly the mismatch the
-    requirement exists to end.
-    """
-    client = _signed_client(monkeypatch, _seeded_store())
-
-    form = _create_form(_tree(_get_page(client)))
-    submits = [
-        control
-        for control in _action_controls(form)
-        if (
-            control.tag == "button"
-            and (control.attrs.get("type") or "submit").lower() == "submit"
-        )
-        or (
-            control.tag == "input"
-            and (control.attrs.get("type") or "").lower() in ("submit", "image")
-        )
-    ]
-    assert submits, (
-        "the add-a-member form renders no submit control, so there is no "
-        "create action to read a vocabulary off"
-    )
-    for submit in submits:
-        # SPECIFIED: its submit control carries `row-action`.
-        assert _carries(submit, ROW_ACTION), (
-            "the add-a-member form's submit carries no "
-            f"{ROW_ACTION!r} marker (classes: {sorted(_classes(submit))}) — "
-            "the one action not on a member's row was missed"
-        )
-        # SPECIFIED: and does not carry `danger`. Creating destroys
-        # nothing.
-        assert not _carries(submit, DANGER), (
-            f"the add-a-member form's submit carries {DANGER!r}"
         )

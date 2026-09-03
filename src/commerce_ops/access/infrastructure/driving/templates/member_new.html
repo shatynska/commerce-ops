@@ -1,0 +1,59 @@
+{#
+  Creating a member, on a page of its own rather than in a full-width form at
+  the top of the list — the pattern `move-step-actions-into-step-pages` shipped
+  for steps, applied here.
+
+  A rejected write re-presents this page with every fault and the submitted
+  values still in place, and never returns to the list: a refusal is read where
+  the values that caused it are still visible.
+#}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>New member</title>
+  <link rel="stylesheet" href="/admin/assets/pico.min.css">
+  <link rel="stylesheet" href="/admin/assets/vocabulary.css">
+</head>
+<body>
+{% with current = "team" %}{% include "_admin_header.html" %}{% endwith %}
+<main class="container">
+  <div class="page-head">
+    {% with breadcrumb = [("Team", page_path), ("New member", None)] %}
+      {% include "_breadcrumb.html" %}
+    {% endwith %}
+  </div>
+
+{% if faults %}
+  <article class="faults">
+    <p>The write was rejected and nothing was saved:</p>
+    <ul>{% for fault in faults %}<li>{{ fault }}</li>{% endfor %}</ul>
+  </article>
+{% endif %}
+{% if notice %}
+  <article class="notice"><p>{{ notice }}</p></article>
+{% endif %}
+
+<form method="post" action="{{ page_path }}/new">
+  <label>Display name
+    <input name="display_name" value="{{ submitted.get('display_name', '') }}">
+  </label>
+  <label>Slack identity
+    <input name="slack_identity" value="{{ submitted.get('slack_identity', '') }}">
+    <small>Unique across the whole membership, deactivated entries included,
+      and never updatable afterwards.</small>
+  </label>
+  <label>ClickUp user id
+    <input name="clickup_user_id" value="{{ submitted.get('clickup_user_id', '') }}">
+  </label>
+  <label>
+    <input type="checkbox" name="admin" value="true"
+           {% if submitted.get('admin') %}checked{% endif %}>
+    Admin
+  </label>
+  <button type="submit" class="row-action">Add member</button>
+</form>
+</main>
+</body>
+</html>

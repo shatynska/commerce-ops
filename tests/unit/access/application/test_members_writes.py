@@ -88,6 +88,7 @@ Postgres, and another session holds that directory.
 
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from typing import Any, Final
 
@@ -766,9 +767,36 @@ def test_the_members_offers_no_deletion() -> None:
         name
         for name in exported
         if any(verb in name.lower() for verb in ("delete", "remove", "purge"))
+        and "role" not in name.lower()
     ]
     # SPECIFIED: no deletion is offered.
     assert offending == [], (
         f"the membership's public surface offers deletion verbs {offending!r}; "
         "members are deactivated, never deleted"
+    )
+
+
+def test_the_roles_offer_no_deletion() -> None:
+    """Requirement text (`roles`): "The collection SHALL offer no deletion."
+
+    DERIVED mechanism, and the sibling of the scan above. It is stated
+    separately rather than folded in because the two collections are scanned
+    for different things: `remove_role_holder` removes a *holder* from a role
+    and is required by `roles`, while removing a *role* is what neither
+    collection offers. A scan that could not tell those apart is what made the
+    membership's scan reject a use case its own capability requires
+    (`design.md` Decision 14).
+    """
+    exported = tuple(getattr(access_application, "__all__", ()))
+    assert exported, "the access application surface declares no __all__"
+
+    offending = [
+        name
+        for name in exported
+        if re.fullmatch(r"(delete|remove|purge)_roles?", name.lower())
+    ]
+    # SPECIFIED: no deletion is offered.
+    assert offending == [], (
+        f"the role collection's public surface offers deletion verbs "
+        f"{offending!r}; roles are retired, never deleted"
     )

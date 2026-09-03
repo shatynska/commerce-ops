@@ -37,7 +37,14 @@
        it, then the playbook those launches run on, and the membership last. The
        key, the path and the label now read `team`, `/admin/team` and `Team`
        (`rename-the-roster-to-members`): `Team` is the container that makes
-       "members" read naturally, and it is what an admin calls these people. #}
+       "members" read naturally, and it is what an admin calls these people.
+
+       Roles are deliberately NOT a row here (`rebuild-the-member-directory`).
+       They are not a peer of the catalog or the playbook: a role's holders are
+       members, and both collections live in one module, so Team is the surface
+       and roles are a section within it. The roles pages therefore render this
+       header with `current = "team"` and offer their own way back through
+       Team's secondary navigation. #}
     {% for key, path, label in [
          ("products", "/admin/products", "Products"),
          ("launches", "/admin/launches", "Launches"),
