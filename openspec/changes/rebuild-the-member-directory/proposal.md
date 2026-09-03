@@ -9,8 +9,7 @@ it" — steps assigned by role is that behaviour, and it is now next.
 
 Separately, the Team page is the last admin surface still editing in a table
 cell. Its `actions` column holds two `<form>`s containing three unlabelled
-`<input>`s, worked around by a `td.actions form { display: contents }` CSS
-hack, while `move-step-actions-into-step-pages` already replaced that pattern
+`<input>`s, worked around by a `td.actions form` CSS hack, while `move-step-actions-into-step-pages` already replaced that pattern
 for steps with a row that links to the record's own page. Adding a second
 managed collection to the same surface is the moment to stop copying the
 pattern this change exists to undo.
@@ -60,7 +59,7 @@ the page rebuild.
 - **The Team page is rebuilt** to the pattern `move-step-actions-into-step-pages`
   shipped for steps: a read-only list whose name column links to the member's
   own page, with adding on its own page and editing, deactivating and
-  reactivating on the member's page. The `display: contents` hack goes with it.
+  reactivating on the member's page. The `td.actions form` hack goes with it.
 - **`docs/playbook-program.md` is amended** in seven places across four
   sections, listed in `design.md` Decision 13: the role seed is eleven rather
   than nine (three separate statements of it), its default holder is the
@@ -122,7 +121,7 @@ discipline-to-role map the seeded step set uses. Both belong to Changes 2 and
 - **Admin templates**: `team.html` rebuilt and split into per-member pages, new
   role templates, a breadcrumb on each of the four new sub-pages, the shared
   `_admin_header.html` partial gains a Roles entry and is rendered on them,
-  and the shared admin stylesheet absorbs whatever `display: contents` was
+  and the shared admin stylesheet absorbs whatever the `td.actions form` rule was
   working around.
 - **Tests**: unit tests for the role rules and the seed, and integration tests
   for the repository and the admin routes.

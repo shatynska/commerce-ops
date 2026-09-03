@@ -356,6 +356,33 @@ rows added, the amendment **splits it in two** — a positions table, and the
 discipline-to-role seed map the completeness argument belongs to. Change 3
 reads the map; this change seeds the positions.
 
+### 14. `members`' no-deletion guard is narrowed, not weakened
+
+`tests/unit/access/application/test_members_writes.py::test_the_members_offers_no_deletion`
+asserts a `members` requirement — "The membership SHALL offer no deletion" —
+through a **derived** mechanism its own docstring names as derived: it scans
+`access.application.__all__` for any exported name containing `delete`,
+`remove` or `purge`. `roles` requires a remove-a-holder use case, and task 4.6
+exports the role use cases from that same `__all__`, so the scan will fail on
+this change.
+
+The scan is corrected to member-scoped names, and a sibling guard is added for
+`roles`' own "A role is retired, never deleted". This is narrowing an
+over-reaching proxy, not weakening a guard: the requirement it stands for was
+never about roles, and removing a holder from a role deletes no member. The
+guard's strength against *member* deletion is unchanged.
+
+*Alternative considered:* name the use case something the regex does not match
+— `withdraw_holder`, `release_holder`. Rejected. The specification says
+*removing a holder*, and renaming a use case to slip past a test's regex
+distorts the vocabulary to protect a proxy, which is the wrong thing to
+protect. The test's mechanism is the derived part; the name is the specified
+part.
+
+Recorded as a decision rather than done quietly, because editing an existing
+test to make a change pass is the shape of weakening one, and the distinction
+has to be visible to whoever reads the diff.
+
 ## Risks / Trade-offs
 
 - **[Risk]** The seeding administrator is the default holder of eight active
@@ -381,7 +408,7 @@ reads the map; this change seeds the positions.
   role-management half if it stops being reviewable in one sitting →
   **Mitigation**: **measured, and the measurement is recorded here rather than
   left as an intention.** The package reaches 4 capabilities, 21 requirements
-  and 93 scenarios across 72 tasks:
+  and 93 scenarios across 74 tasks:
 
   | Capability | Requirements | Scenarios |
   |---|---|---|

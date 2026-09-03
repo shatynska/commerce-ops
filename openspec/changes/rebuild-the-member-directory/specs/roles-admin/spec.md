@@ -128,7 +128,11 @@ A refused transition SHALL be surfaced with the refusal's own explanation rather
 
 ### Requirement: The create page and a role's own page carry a breadcrumb back to the list
 
-The create page and each role's own page SHALL carry a breadcrumb trail whose linked segment names the Roles list on both pages, and whose current, un-linked segment reads `New role` on the create page and the role's title on a role's own page. The current segment SHALL be rendered as the page's own title, so that the page carries no separate title beside it.
+Every Roles page SHALL carry a breadcrumb trail, and its segments SHALL name the containment: `Team` first, then `Roles`, then — on the create page and a role's own page — that page itself.
+
+`Team` and `Roles` SHALL be links wherever they are not the current page; the last segment SHALL be un-linked and SHALL read `New role` on the create page and the role's title on a role's own page. The current segment SHALL be rendered as the page's own title, so that the page carries no separate title beside it.
+
+The Roles listing carries this trail as well as the two sub-pages, which is a departure from the steps surface, where only the sub-pages do. It is the listing's only way back to the members half, and it is what states — on the page where an admin most needs to read it — that roles sit inside Team rather than beside it.
 
 The header does not serve this and is not obliged to. It identifies the roles surface as the one being viewed, rendering it as a position rather than as a link, and its guarantee concerns the *other* admin surfaces — the list a role's page was reached from is the same surface, so nothing in the header requirement obliges a way back. `launch-admin` records exactly this gap having been left open on its own detail pages, and `playbook-admin` records the breadcrumb that closed it for steps. A surface built now to the pattern minus the part that had to be added later would repeat the mistake this change exists to undo.
 
@@ -137,29 +141,55 @@ Following the breadcrumb SHALL NOT depend on scripting.
 #### Scenario: A role's page offers the list
 
 - **WHEN** a role's own page is rendered
-- **THEN** it carries a breadcrumb naming the Roles list as a link and the role's title as the current, un-linked segment
+- **THEN** it carries a breadcrumb offering the Roles list in one action, with the role's title as the current, un-linked segment
 
 #### Scenario: The create page offers the list
 
 - **WHEN** the create page is rendered
-- **THEN** it carries a breadcrumb naming the Roles list as its linked segment and `New role` as its current, un-linked segment
+- **THEN** it carries a breadcrumb offering the Roles list in one action, with `New role` as its current, un-linked segment
+
+#### Scenario: The listing's own breadcrumb names its container
+
+- **WHEN** the Roles page is rendered
+- **THEN** it carries a breadcrumb offering `Team` in one action, with `Roles` as its current, un-linked segment
 
 #### Scenario: The breadcrumb needs no scripting
 
 - **WHEN** a role's page is rendered and its breadcrumb link is followed without scripting
 - **THEN** the Roles list is reached
 
-### Requirement: The Roles pages carry the shared admin header
+### Requirement: The Roles pages sit inside the Team surface
 
-Every Roles surface — the list, the create page and a role's own page — SHALL carry the same header every other admin surface carries, naming the admin surfaces the session can reach, and from it each of those other surfaces SHALL be reachable in one action. The header SHALL identify the roles surface as the one currently being viewed.
+Roles are a **section of the Team surface**, not an admin surface of their own. A role's holders are members, both collections live in one module, and an admin moving between them is doing one job — so the shared admin header, which names the admin *surfaces*, SHALL NOT carry a roles entry, and every Roles page SHALL render that header identifying **Team** as the surface currently being viewed.
+
+Every Roles page SHALL nevertheless carry that header, so that each admin surface the session can reach is reachable from it in one action — the guarantee is about not stranding an admin, and it is owed by a section as much as by a surface.
+
+The roles listing SHALL be reachable from the members listing in one action, through the heading of the column presenting each member's roles. The link sits on the thing it explains: a reader looking at which roles a member holds is already looking at the subject the roles listing is about, so the way there belongs on that column rather than in a navigation bar above the page.
+
+The roles listing SHALL in turn offer the members listing in one action, through its breadcrumb's `Team` segment. Both directions are required together — the header identifies Team as the current surface and so links to neither half, and a section reachable in one direction only strands whoever follows it.
 
 Reachability SHALL NOT depend on scripting.
 
 #### Scenario: Every other admin surface is reachable from the roles surface
 
 - **WHEN** the Roles page is rendered
-- **THEN** its header offers each admin surface the session can reach, other than the roles surface itself, in one action
-- **AND** identifies the roles surface as the one currently viewed
+- **THEN** its header offers each admin surface the session can reach in one action
+- **AND** identifies Team as the surface currently viewed
+
+#### Scenario: The header carries no roles entry
+
+- **WHEN** any admin page is rendered
+- **THEN** its header names no surface for roles, roles being a section of Team rather than a surface
+
+#### Scenario: The roles listing is reached from the members listing
+
+- **WHEN** the Team page is rendered
+- **THEN** the heading of the column presenting each member's roles offers the roles listing in one action
+
+#### Scenario: The members listing is reached back from the roles listing
+
+- **WHEN** the Roles page is rendered
+- **THEN** it offers the members listing in one action
 
 #### Scenario: The header is rendered on an empty collection
 

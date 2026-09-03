@@ -10,6 +10,8 @@ Each entry's attribution — who created it and when, and its most recent update
 
 A member's row SHALL carry no action controls. Every way of changing a member is reached through their own page.
 
+Each row SHALL present the roles that member holds, identified by slug rather than by title — a row can carry several, and a run of full job titles would outweigh the name that is the row's subject. The role a member is the **default** holder of SHALL be distinguishable from the rest, being the one that refuses their retirement. The heading of that column SHALL offer the roles listing in one action.
+
 #### Scenario: An entry's attribution is readable
 
 - **WHEN** an admin opens a member's own page
@@ -34,6 +36,11 @@ A member's row SHALL carry no action controls. Every way of changing a member is
 
 - **WHEN** any member's row is rendered
 - **THEN** their display name offers that member's own page in one action
+
+#### Scenario: A member's roles are presented on their row
+
+- **WHEN** a member holding several roles has their row rendered
+- **THEN** each role is presented by slug, and the one they are the default holder of is distinguishable from the others
 
 ### Requirement: A member can be created and edited from the page
 
@@ -122,9 +129,20 @@ content, and would put that churn in the same diff as this rebuild. It
 is the shared admin vocabulary's word for *an action control*, and
 correcting it is separate work.
 
-The `td.actions form { display: contents }` rule SHALL be removed with
-the row actions it was working around, rather than left behind as a
-rule matching nothing.
+The rule selecting a form inside an actions cell — today
+`td.actions form { display: inline; margin: 0 }`, together with the
+comment block recording why an earlier `display: contents` attempt was
+abandoned — SHALL be removed with the row actions it was working
+around, rather than left behind as a rule matching nothing.
+
+The rule is named by what it selects rather than by what it declares.
+`docs/playbook-program.md` describes this workaround as
+`display: contents`, and that description was carried into this change's
+own artifacts before the stylesheet was read; the served rule has never
+been `display: contents`, and the stylesheet's comment records that
+approach as "the first approach … It is not taken". A requirement naming
+the declaration would therefore be satisfied by a stylesheet that still
+carried the workaround.
 
 #### Scenario: The page carries no styling of its own
 
@@ -165,7 +183,7 @@ rule matching nothing.
 #### Scenario: The workaround rule is gone
 
 - **WHEN** the shared admin stylesheet is served
-- **THEN** it carries no rule setting a form inside a table's actions cell to `display: contents`
+- **THEN** it carries no rule selecting a form inside a table's actions cell at all, whatever that rule declares
 
 ### Requirement: The page carries a header from which the other admin surface is reachable
 
@@ -188,8 +206,10 @@ The requirement was also written when there were two admin surfaces and
 named the playbook page as "the other" one. There are more than two now.
 The header SHALL name every surface the session can reach, so that a
 surface added later is added to one partial rather than left unreachable
-from the pages that predate it — the roles surface this change adds
-being the case in point.
+from the pages that predate it. The roles pages this change adds are
+**not** such a surface: they are a section of the Team surface and
+render this header identifying Team as current, reached from Team's
+own secondary navigation rather than from here.
 
 Reachability SHALL NOT depend on scripting.
 
