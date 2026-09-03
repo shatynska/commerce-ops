@@ -2,19 +2,29 @@ Every task below is verified the same way unless it says otherwise: `uv run
 ruff check`, `uv run ruff format --check`, `uv run mypy`, `uv run lint-imports`,
 and `uv run pytest tests/unit tests/agents` green, **with the collected test
 count unchanged from the commit before it**. A task that changes the test count
-has changed the suite, not migrated it.
+has changed the suite, not migrated it. **Task 6.15 is the one exception** — it
+adds behaviour tests for the stateful fakes deliberately, and re-baselines.
 
 Every task from §2 onward also runs the AST assertion-identity check
-(`design.md` — Decision 7a) over the files it touches.
+(`design.md` — Decision 7a) over the files it touches. For a two-commit
+Population B migration, 7(a) is evaluated across the commit **pair** — the
+7(b1) wrapper contains an `assert`, so 7(a) run against the intermediate commit
+would fail by construction.
 
-§6 splits by what can be proved. Tasks **6.1–6.7** migrate the value builders and
-run the equality proof **7(b1)** — the instrumented checking wrapper, which adds
-no test function and so does not move the collected count. Tasks **6.6–6.12**
-migrate the fakes, where `==` is identity and 7(b1) is inexpressible; they run
-**7(b2)** instead — the `_conforms` assignment plus a surface-and-behaviour note.
-The substitute is weaker in a named way: it catches a fake that models less than
-its protocol, and a dropped spelling; it does **not** catch a fake with the same
-surface and different behaviour, and that risk is carried knowingly.
+§6 splits by what can be proved. Tasks **6.1–6.7** migrate the 334 value-builder
+declarations and run the equality proof **7(b1)** — the instrumented checking
+wrapper, which adds no test function and so does not move the collected count.
+Tasks **6.8–6.14** migrate the **455** fake declarations, where `==` is identity
+and 7(b1) is inexpressible; they run **7(b2)** instead. Note the proportion: the
+weaker substitute covers the *majority* of Population B, not a remainder.
+
+7(b2) is weaker in named ways. It catches a fake that models less than its
+protocol, and a dropped spelling — provided the search covers `src/`, since the
+callers are production shape probes that fall through silently rather than
+raising. It does **not** catch a fake with the same surface and different
+behaviour (risk 3), and the fake that models *more* and thereby redirects a
+production probe (risk 4) is guaranteed by Decision 6 rather than merely
+possible — see task 6.10, which is its worst case.
 
 **Two standing prohibitions**, both of which a migrator will be tempted by:
 
@@ -27,12 +37,31 @@ surface and different behaviour, and that risk is carried knowingly.
 
 ## 1. Foundation
 
+- [ ] 1.0 **Stand up this worktree's `.env.test` first** — its own database,
+      `_test`-suffixed, `alembic upgrade head` **and**
+      `uv run python -m commerce_ops.seed_playbook`, per `AGENTS.md`'s worktree
+      obligations. Before 1.1, not at 8.1: a baseline taken while the
+      integration tier skips in its entirety is not comparable with a final
+      verification while it runs, and `pre-push` reports the skipping tier as
+      `Passed`. `AGENTS.md` records that this exact confusion already produced a
+      merged pull request claiming a tier that had skipped.
 - [ ] 1.1 Record the baseline: collected test count per tier (`uv run pytest
-      --collect-only -q`), and full-suite wall time. Everything after this is
-      compared against it.
+      --collect-only -q`), and full-suite wall time — with the integration tier
+      actually running. Everything after this is compared against it.
 - [ ] 1.2 Write the two throwaway checkers to the scratchpad: the AST
       assertion-identity comparator (Decision 7a) and the instrumented
-      equivalence wrapper generator (Decision 7b1). Not committed.
+      equivalence wrapper generator (Decision 7b1). Not committed — but the
+      comparator's **per-file before/after digest goes into each migration
+      commit message**. Goal 3 is a rule a reviewer can check mechanically, and
+      task 8.5 hands `/code-review` a ~300-file diff: a checker that leaves no
+      record lets the reviewer neither re-run it nor verify by eye, only trust
+      that it was run.
+- [ ] 1.2a The comparator collects **four** node kinds, not one: `ast.Assert`
+      (6,623), `pytest.raises` `With` items (238), `ast.Expr` wrapping a `Call`
+      whose callee tail starts `assert` or is `fail` (757), and
+      `@pytest.mark.parametrize` decorators (172). Kinds 3 and 4 are not
+      optional — an `assert_called_with` is not an `ast.Assert`, and a
+      parametrize table is where expected values hide.
 - [ ] 1.3 Add `pythonpath = ["."]` to `[tool.pytest.ini_options]`. **Commit
       alone**, with no other change, and confirm the 1.1 baseline is unmoved
       (`design.md` — Decision 1).
@@ -52,7 +81,11 @@ The largest single cluster: 159 files. Mechanical; no test body may change.
 - [ ] 2.1 Write `tests/support/playbook.py` carrying `SPECIFIED_GATE_ORDER`,
       `CONFIRMATION_GATES`, `FINAL_GATE`, `opening_for` and `gates` as
       **literals**, with the module docstring stating why they must never be
-      sourced from `launch_playbook.GATE_SEQUENCE` (Decision 2).
+      sourced from `launch_playbook.GATE_SEQUENCE` (Decision 2). **Mechanise the
+      prohibition**: grep that `tests/support/playbook.py` contains no import
+      from `commerce_ops.launch.domain.launch_playbook`. Decision 2's failure
+      mode unparses identically either way, so 7(a) cannot see it and task 2.6's
+      human read is otherwise the only guard.
 - [ ] 2.2 Migrate the 159 files declaring `SPECIFIED_GATE_ORDER` to an aliased
       import. Verify no line at or after each file's first test changed.
 - [ ] 2.3 Migrate the 128 files declaring `CONFIRMATION_GATES`, including the one
@@ -180,15 +213,31 @@ leaves its file **unmigrated and recorded** (task 8.3) — never forced.
       is what makes `clickup_sync._members:128` deletable by the successor
       change. Add the `MembersReader` protocol and its `_conforms` assignment.
       **Surface-and-behaviour note, licensed by Decision 7(b2):** dropped —
-      `members = list_members` (present in 34 files) and `async def __call__`;
-      confirm by search that no test reaches for either. Kept —
-      `list_members()`, which must return the same shape in the same order as
-      the dominant local variant, and the note says so explicitly.
+      `members = list_members` (present in 34 files) and `async def __call__`.
+      Search **`src/` as well as `tests/`**: those two spellings exist to
+      satisfy `clickup_sync._members`'s three `getattr` branches, so the caller
+      is production and a probe falls through silently rather than raising
+      (risk 2). Kept — `list_members()`, same shape and order as the dominant
+      local variant. Added — none over the dominant variant; if the shared
+      `Member` gains an attribute the local lacked, name the probe sites
+      (`clickup_sync._member_identifier:139`,
+      `playbook_authoring.member_identifier:266`) and the branch each takes
+      before and after (risk 4).
 - [ ] 6.9 `tests/support/launches.py`: `FakeLaunches`, `FakeLaunchStore`,
       `FakeSession` (32 / 26 / 12). Protocol plus `_conforms` assignment for each.
 - [ ] 6.10 The `LaunchProgressed` double models `crossed`,
       `awaiting_confirmation`, `awaiting_gate`, `gate_id` and `current_gate` —
       every attribute `gate_progression_job.py:256-279` probes for (Decision 6).
+      **This is risk 4's worst case and needs its own reading before any file
+      is migrated.** `_awaiting_gate:267` returns the *first* of
+      `("awaiting_gate", "gate_id", "current_gate")` that is a non-empty string,
+      and the local doubles model them unevenly — `current_gate` in 111 files,
+      `gate_id` in 53, `awaiting_gate` in **10**. A complete double matches on
+      `awaiting_gate` where ~100 files currently fall through to `current_gate`,
+      returning a different gate with `mypy`, 7(a), the search and the suite all
+      passing. Establish per file whether the two agree; where they do not, the
+      file's note records it and the file is a candidate for 8.3 rather than a
+      silent migration.
 - [ ] 6.11 `FakeStepStore`, `FakePlaybooks`, `FakeHandlerRegistry` (37 / 32 / 12).
 - [ ] 6.12 `tests/support/slack.py`: `RecordingSlackApi`, `FakeSlackResponse` — 12
       declarations, 12 variants, no two alike. Expect this to be the slowest and
@@ -196,15 +245,23 @@ leaves its file **unmigrated and recorded** (task 8.3) — never forced.
 - [ ] 6.13 `tests/support/clickup.py`: `FakeClickUp`, `TaskMapping`, `FakeMapping`,
       `CreatedTask`, `FakeTask`.
 - [ ] 6.14 `tests/support/catalog.py`: `CatalogProduct`, `FakeCatalog` (40 / 29).
-- [ ] 6.15 Every fake task in 6.8–6.14 records a **surface-and-behaviour note**
-      (Decision 7b2): each attribute or method the local variants offered that
-      the shared one does not, with a search confirming no test calls it — and,
-      for every method the shared fake *keeps*, its return shape, its error
-      behaviour on an absent or unknown key, and its initial state, each stated
-      as "same as the dominant local variant" or named as a difference. This is
-      what stands in for 7(b1) where `==` is identity, and it does not reach the
-      same-surface-different-behaviour risk; that one is carried knowingly.
-- [ ] 6.16 Confirm every fake in `tests/support/` carries a `_conforms:
+- [ ] 6.15 Add direct behaviour tests for the five stateful fakes in
+      **`tests/unit/support/`** (collected; `tests/support/` is not), pinning
+      return ordering, absent-key behaviour and initial state for
+      `FakeMembersStore`, `FakeStepStore`, `FakeLaunches`, `FakePlaybooks` and
+      `FakeSession`. These do not close risk 3 — they pin the shared fake
+      without comparing it to the local one — but they make half of each
+      surface-and-behaviour note executable rather than asserted, which is the
+      most available where `==` is identity. They add to the collected count by
+      design; record the new baseline when they land.
+- [ ] 6.16 Every fake task in 6.8–6.14 records a **surface-and-behaviour note**
+      (Decision 7b2) in three parts: what the shared fake **drops**, searched
+      across `src/` **and** `tests/` because the callers are production probes
+      (risk 2); what it **adds**, with the probe sites reading it and the branch
+      each population takes before and after (risk 4); and for every method it
+      **keeps**, return shape, absent-key behaviour and initial state, stated as
+      "same as the dominant local variant" or named as a difference (risk 3).
+- [ ] 6.17 Confirm every fake in `tests/support/` carries a `_conforms:
       SomeProtocol = TheFake()` assignment and that `uv run mypy .` passes — the
       assignment, not the protocol's existence, is what makes a drifted double a
       type error (Decision 6).

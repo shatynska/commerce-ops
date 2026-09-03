@@ -439,17 +439,39 @@ two ways to break it.
 **(a) The assertions themselves must not change.** Compared as syntax trees, not
 as lines:
 
-> For every migrated file, collect every `ast.Assert` node and every
-> `pytest.raises` `With` item, and compare `ast.unparse` of each whole node
-> before and after. The multiset must be identical, and the count of
-> `def test_` / `async def test_` unchanged.
+> For every migrated file, collect **four** node kinds and compare
+> `ast.unparse` of each whole node before and after; the multiset must be
+> identical, and the count of `def test_` / `async def test_` unchanged:
+>
+> 1. every `ast.Assert` node — **6,623**;
+> 2. every `pytest.raises` `With` item — **238**;
+> 3. every `ast.Expr` wrapping an `ast.Call` whose callee tail starts `assert`
+>    or is `fail` — **757**;
+> 4. every `@pytest.mark.parametrize` decorator — **172**.
 
 A line-level regex was the first design and is not sufficient: **2,632 of the
-suite's 6,623 assertions span more than one line**, so their expected values sit
-on lines a `^\s*assert\b` pattern never reads, and a further **755 lines** are
-helper-style assertions (`assert_called_with`, `_assert…`, `pytest.fail`) that
-`assert\b` does not match at all. An AST comparison costs no more to write and
-has neither hole.
+6,623 `ast.Assert` nodes span more than one line**, so their expected values sit
+on lines a `^\s*assert\b` pattern never reads.
+
+**Kinds 3 and 4 are why the node set is four kinds and not one.** An earlier
+draft specified only kinds 1 and 2 while claiming an AST comparison "has neither
+hole" — and it does not, because a helper-style assertion (`assert_called_with`,
+`_assert_unchanged`, `pytest.fail`) is an `ast.Expr` wrapping a `Call`, not an
+`ast.Assert`, so all 757 of them were excluded by the very node set that was
+meant to catch them. Kind 4 closes a hole neither design had noticed: a
+`@parametrize` table is where a large share of expected values live, and
+changing a value in one — as opposed to the number of cases — is invisible to
+kinds 1–3 *and* to the collected-count check. Population A's stronger rule
+covers this; Population B's per-file judgement does not, which is exactly where
+it would bite.
+
+**One assertion this check cannot see, by construction.** Decision 2's
+prohibition — sourcing `SPECIFIED_GATE_ORDER` from `GATE_SEQUENCE` — leaves
+`assert [g.identifier for g in playbook.gates] == list(SPECIFIED_GATE_ORDER)`
+unparsing identically either way, so the change's own headline failure mode
+passes every mechanical check here. It is mechanised separately and trivially:
+**`tests/support/playbook.py` must contain no import from
+`commerce_ops.launch.domain.launch_playbook`**, checked by grep in task 2.1.
 
 For **Population A** the rule is stronger and simpler: no line at or after the
 file's first test may change at all. Where a Population A symbol is declared
@@ -465,23 +487,32 @@ exercises something else. Across 121 `_step` sites over as many default sets,
 this is the likely failure, not a hypothetical one.
 
 **Population B is not one population for this purpose.** The proof works by value
-equality, and only half of Population B has values:
+equality, and **the minority of Population B has values**:
 
 ```
-VALUE BUILDERS — step, hold, playbook            334 declarations
+VALUE BUILDERS — step 135, hold 104, playbook 95     334 declarations
   StepDefinition and LaunchPlaybook are both
   @dataclass(frozen=True, slots=True), no field
   compare=False, __post_init__ normalising both
   sides alike.  `==` is structural.  Proof (b1) applies.
 
-FAKES — Member, FakeMembers, FakeMembersStore,   ~250 declarations
-  FakeStepStore, FakeLaunches, FakePlaybooks,
-  FakeSession, RecordingSlackApi, FakeClickUp,
-  CatalogProduct, FakeCatalog
+FAKES — Member 47, FakeMembers 43, FakeMembersStore 38,
+  FakeStepStore 37, FakeLaunches 32, FakePlaybooks 32,
+  FakeLaunchStore 26, FakeMapping 19, TaskMapping 19,
+  FakeClickUp 15, FakeTask 15, CreatedTask 14,
+  FakeSlackResponse 13, FakeSession 12,
+  FakeHandlerRegistry 12, RecordingSlackApi 12,
+  CatalogProduct 40, FakeCatalog 29                  455 declarations
   Plain classes.  `==` is identity, so
   `local() == shared()` is false or meaningless.
   Proof (b1) is inexpressible.  (b2) applies instead.
 ```
+
+**455 against 334.** An earlier draft put the fakes at "~250" and glossed the
+split as "only half of Population B has values", which reads as though the
+strong proof carries the bulk. It carries the minority — 42% of Population B by
+declaration, against 58% under the weaker substitute. The residual risks below
+are therefore scoped to the *majority* of Population B, not a remainder.
 
 **(b1) — the value builders.** Each file is migrated in two commits. In the
 first, add the shared builder and the partial or wrapper **without deleting the
@@ -502,40 +533,89 @@ miss; a call arriving through a file-local second-layer helper — one that buil
 its own dict and calls `_step(**attributes)`, as at
 `test_metric_step_gate_obligations.py:249` — is intercepted like any other,
 because the wrapper redefines the *name* rather than patching call sites; and no
-test function is added, so the collected count — which every task in this change
-is verified against — does not move. The second commit deletes the wrapper
-together with the local variant.
+test function is added, so the collected count does not move. The second commit
+deletes the wrapper together with the local variant.
+
+**7(a) is evaluated across the commit *pair*, not per commit.** The wrapper
+contains `assert expected == actual`, which is an `ast.Assert` — so 7(a) run
+against the intermediate commit fails by construction on all 334 value-builder
+migrations. The two checks contradict each other unless the boundary is stated,
+and it is: for a two-commit Population B migration, 7(a) compares the commit
+*before* the pair with the commit *after* it. The collected-count check still
+runs on each commit individually, because the wrapper does not move it.
 
 **(b2) — the fakes.** There is no equality to assert, so the substitute is
 stated rather than computed, and it is weaker. Being precise about *where* it is
 weaker is the point; "weaker" on its own is not a statement anyone can act on.
 
-Three risks survive the move from a local fake to a shared one, and they are not
-the same risk:
+**Four** risks survive the move from a local fake to a shared one, and they are
+not the same risk:
 
 1. **The shared fake models less than its subject.** Caught by the
    `_conforms: SomeProtocol = TheFake()` assignment of Decision 6 — `mypy` fails.
-2. **The shared fake drops a spelling a test calls.** Caught by a
-   **surface-and-behaviour note** (below) plus a search. Sound, because a test
-   calling a removed attribute raises `AttributeError` rather than passing
-   quietly. **This argument covers dropped spellings and nothing else.**
+
+2. **The shared fake drops a spelling something calls.** Caught by a
+   **surface-and-behaviour note** (below) plus a search — but the search must
+   cover **production, not only tests**, and the reason is specific. The
+   soundness argument for this risk used to be "a caller of a removed attribute
+   raises `AttributeError` rather than passing quietly." **That holds for direct
+   attribute access and fails for a `getattr` shape probe**, which falls through
+   to the next branch or a default and raises nothing. The worked example below
+   is exactly a probe: the spellings `FakeMembers` drops exist *only* to satisfy
+   `clickup_sync._members`'s three `getattr` branches, so the thing reaching for
+   them is production, and it will not raise. Scoping the search to "no test
+   reaches for either" would look for the caller in the wrong codebase.
+
 3. **The shared fake keeps the whole surface and behaves differently behind it**
    — a different return ordering, a different response to an absent or unknown
    key, a different initial state. `mypy` passes, no spelling is missing, the
    AST check passes, the suite is green, and the test now exercises a different
-   path. **No check in this change detects this.** It is carried deliberately,
-   and it is the principal residual risk across `FakeMembersStore` (38),
-   `FakeStepStore` (37), `FakeLaunches` (32), `FakePlaybooks` (32) and
-   `FakeSession` (12), all of which are stateful.
+   path. **No check in this change detects this.** Carried deliberately;
+   principal across the stateful fakes — `FakeMembersStore` (38),
+   `FakeStepStore` (37), `FakeLaunches` (32), `FakePlaybooks` (32),
+   `FakeSession` (12).
+
+4. **The shared fake models *more* than the local variant, and the added surface
+   redirects a production shape probe.** This one is not incidental drift like
+   risk 3 — **Decision 6 guarantees it**, for exactly the doubles that sit
+   opposite the five tolerances, and it is the mechanism this change's whole
+   thesis turns on.
+
+   Production probes by shape at five sites. `gate_progression_job._awaiting_gate`
+   is the clearest: it returns the **first** of
+   `("awaiting_gate", "gate_id", "current_gate")` that is a non-empty string.
+   Measured across `tests/`, the local doubles model those attributes very
+   unevenly — `current_gate` in 111 files, `gate_id` in 53, `awaiting_gate` in
+   **10**. So today the overwhelming majority of doubles fall through to
+   `current_gate`. Decision 6 requires the shared `LaunchProgressed` double to
+   model all five attributes, so it will match on `awaiting_gate` instead —
+   **returning a different gate, in up to ~100 files, by design**.
+
+   `mypy` passes: the fake models *more*, not less. No spelling is dropped, so
+   risk 2's search finds nothing. 7(a) passes. The suite may well stay green
+   while every one of those tests exercises a different branch than it did.
+
+   *Mitigation.* Where a shared fake is a superset of the dominant local
+   variant, its surface-and-behaviour note **names the production probe sites
+   that read the added attributes, and states which branch each population took
+   before and after**. For `LaunchProgressed` that is `_awaiting_gate` and
+   `_crossed` in `gate_progression_job.py`; for the members fakes,
+   `clickup_sync._members` and the two `member_identifier` probes. This is the
+   one place where the change must read `src/` to migrate `tests/` safely, and
+   it does not contradict "no change to `src/`" — reading is not editing.
 
 The **surface-and-behaviour note** is what stands in for (b1) here. Per fake, in
 the task's own notes, the migrator records:
 
 - every attribute or method the local variants offered that the shared one does
-  not, with a search confirming nothing calls it;
+  not, with a search **across `tests/` and `src/`** confirming nothing calls it
+  — production is where the probes live (risk 2);
+- every attribute the shared fake **adds** over the dominant local variant, with
+  the production probe sites that read it and the branch each population takes
+  before and after (risk 4);
 - for every method the shared fake *keeps*: its return shape, its error
   behaviour on an absent or unknown key, and its initial state — each stated as
-  "same as the dominant local variant" or named as a difference.
+  "same as the dominant local variant" or named as a difference (risk 3).
 
 That is judgement rather than proof, but it is judgement that leaves a trace a
 reviewer can read, which is what Goal 3 asks for. A behavioural harness running
@@ -717,16 +797,25 @@ checked.
 
 ## Open Questions
 
-- **Whether `tests/support/` should carry its own tests.** The answer differs by
-  half, and only one half is deferrable.
+- **Whether `tests/support/` should carry its own tests — settled, not
+  deferred, and the answer differs by half.**
 
-  For `step`, `hold` and `playbook` the question is close to moot: 7(b1)
-  exercises each against the variant it replaces at every executed call site,
-  which is stronger coverage than a hand-written builder test would give.
+  For `step`, `hold` and `playbook` it is moot: 7(b1) exercises each against the
+  variant it replaces at every executed call site, which is stronger coverage
+  than a hand-written builder test would give.
 
-  For the **fakes** it is not moot and is arguably more live than it looks —
-  7(b2) provides no equivalence coverage at all, and risk 3 above (same surface,
-  different behaviour) is precisely a builder bug. Deferred rather than settled:
-  it does not change the package layout, the migration order or the task
-  breakdown, and it should be revisited once the first two fakes exist and it is
-  clear whether either carries logic worth testing directly.
+  For the **fakes** it is not moot, and an earlier draft deferred it wrongly.
+  They are the *majority* of Population B (455 declarations against 334), they
+  get no equivalence coverage at all, and risks 3 and 4 are both precisely
+  builder bugs. So the five stateful fakes — `FakeMembersStore` (38),
+  `FakeStepStore` (37), `FakeLaunches` (32), `FakePlaybooks` (32) and
+  `FakeSession` (12) — carry direct behaviour tests pinning return ordering,
+  absent-key behaviour and initial state (task 6.15).
+
+  These do not close risk 3: they pin the shared fake's behaviour without
+  comparing it to the local variant. What they do is make half of the
+  surface-and-behaviour note **executable** rather than merely asserted, which
+  is the most that is available where `==` is identity.
+
+  They live in **`tests/unit/support/`**, which is collected, not in
+  `tests/support/`, which is not.
