@@ -68,6 +68,22 @@ every transition carries its own attribution."""
 
 
 @dataclass(slots=True)
+class HolderRecord:
+    """One holder of a role, with when they were added and by whom.
+
+    Attribution per holder rather than per role: a role's `updated_*` pair
+    records its last write of any kind, so reading a holder's provenance off it
+    would restate the role's last title correction as the moment every holder
+    joined. Carried here so a holder added a month ago still says so after the
+    role is retired, renamed, or given another holder.
+    """
+
+    member_id: str
+    added_by: str | None = None
+    added_on: datetime | None = None
+
+
+@dataclass(slots=True)
 class RoleRecord:
     """One stored role: the position plus its attribution trail.
 
@@ -85,6 +101,10 @@ class RoleRecord:
     retired_on: datetime | None = None
     unretired_by: str | None = None
     unretired_on: datetime | None = None
+    holder_attribution: tuple[HolderRecord, ...] = ()
+    """When each holder was added, and by whom. Carried beside the role rather
+    than on it: `Role` is the domain value and knows nothing of attribution,
+    exactly as `Member` does not."""
 
     @property
     def slug(self) -> str:
@@ -136,6 +156,7 @@ def _as_record(row: Any) -> RoleRecord:
         retired_on=getattr(row, "retired_on", None),
         unretired_by=getattr(row, "unretired_by", None),
         unretired_on=getattr(row, "unretired_on", None),
+        holder_attribution=tuple(getattr(row, "holder_attribution", ()) or ()),
     )
 
 
@@ -222,17 +243,52 @@ async def create_role(
     for _ in range(_WRITE_ATTEMPTS):
         rows, version = await roles.load()
         membership = await _membership(members)
+
+        # The faults `Role.__post_init__` cannot see, gathered BEFORE it is
+        # constructed. Building the role first would raise on its intrinsic
+        # faults and hide these, so a role submitted with a malformed slug that
+        # is also already taken would report only the first half — and `roles`
+        # requires a write "rejected reporting every fault at once".
+        beyond: list[str] = []
+        if any(row.role.slug == slug for row in rows):
+            beyond.append(
+                f"the slug '{slug}' is carried by more than one role — a slug "
+                f"names exactly one position, retired roles included"
+            )
+        # A holder is an active member at the moment it is added, whatever the
+        # role's status. `membership_faults` only reaches a deactivated default
+        # on an ACTIVE role, so without this a draft role could be created
+        # holding somebody who has left.
+        if default_holder is not None:
+            beyond.extend(_inactive_holder_faults(membership, default_holder, slug))
+
         now = datetime.now(UTC)
-        record = RoleRecord(
-            role=Role(
+        try:
+            proposed = Role(
                 slug=slug,
                 title=title,
                 status=wanted,
                 holders=tuple(h for h in holders if h is not None),
                 default_holder=default_holder,
-            ),
+            )
+        except InvalidRolesError as intrinsic:
+            raise InvalidRolesError((*intrinsic.faults, *beyond)) from intrinsic
+        if beyond:
+            raise InvalidRolesError(tuple(beyond))
+
+        record = RoleRecord(
+            role=proposed,
             created_by=principal,
             created_on=now,
+            holder_attribution=(
+                (
+                    HolderRecord(
+                        member_id=default_holder, added_by=principal, added_on=now
+                    ),
+                )
+                if default_holder is not None
+                else ()
+            ),
         )
         candidate = (*rows, record)
         _validate(candidate, membership)
@@ -452,13 +508,18 @@ async def add_role_holder(
             )
         _refuse_inactive_holder(membership, member_id, slug)
 
+        now = datetime.now(UTC)
         record.role = replace(
             record.role,
             holders=(*record.role.holders, member_id),
             default_holder=(member_id if make_default else record.role.default_holder),
         )
+        record.holder_attribution = (
+            *record.holder_attribution,
+            HolderRecord(member_id=member_id, added_by=principal, added_on=now),
+        )
         record.updated_by = principal
-        record.updated_on = datetime.now(UTC)
+        record.updated_on = now
         candidate = (*rows[:index], record, *rows[index + 1 :])
         _validate(candidate, membership)
         try:
@@ -471,30 +532,45 @@ async def add_role_holder(
     )
 
 
-def _refuse_inactive_holder(membership: Members, member_id: str, slug: str) -> None:
+def _inactive_holder_faults(
+    membership: Members, member_id: str, slug: str
+) -> tuple[str, ...]:
+    """Why `member_id` may not hold `slug`, if anything.
+
+    Returned rather than raised so a caller gathering every fault can add these
+    to the rest; `_refuse_inactive_holder` raises them for the callers whose
+    write has nothing else to report.
+
+    An empty membership answers nothing: a caller that supplied no membership
+    store has none to check against, and inventing a fault there would refuse
+    every holder rather than none.
+    """
+    if not membership.members:
+        return ()
     known = {member.identifier: member for member in membership.members}
     member = known.get(member_id)
     if member is None:
-        if membership.members:
-            raise InvalidRolesError(
-                (
-                    (
-                        f"member '{member_id}' is not on the membership, so "
-                        f"cannot hold role '{slug}'"
-                    ),
-                )
-            )
-        return
-    if not member.active:
-        raise InvalidRolesError(
+        return (
             (
-                (
-                    f"member '{member_id}' is deactivated, so cannot be added "
-                    f"as a holder of role '{slug}' — a holder is an active "
-                    f"member at the moment it is added"
-                ),
-            )
+                f"member '{member_id}' is not on the membership, so cannot "
+                f"hold role '{slug}'"
+            ),
         )
+    if not member.active:
+        return (
+            (
+                f"member '{member_id}' is deactivated, so cannot be added as a "
+                f"holder of role '{slug}' — a holder is an active member at "
+                f"the moment it is added"
+            ),
+        )
+    return ()
+
+
+def _refuse_inactive_holder(membership: Members, member_id: str, slug: str) -> None:
+    faults = _inactive_holder_faults(membership, member_id, slug)
+    if faults:
+        raise InvalidRolesError(faults)
 
 
 async def remove_role_holder(
@@ -546,6 +622,10 @@ async def remove_role_holder(
             default_holder=(
                 None if role.is_default(member_id) else role.default_holder
             ),
+        )
+        # The departed holder's attribution leaves with them.
+        record.holder_attribution = tuple(
+            held for held in record.holder_attribution if held.member_id != member_id
         )
         record.updated_by = principal
         record.updated_on = datetime.now(UTC)
@@ -765,6 +845,12 @@ async def seed_roles(
                 ),
                 created_by=SYSTEM_PRINCIPAL,
                 created_on=now,
+                holder_attribution=tuple(
+                    HolderRecord(
+                        member_id=held, added_by=SYSTEM_PRINCIPAL, added_on=now
+                    )
+                    for held in holders
+                ),
             )
         )
 

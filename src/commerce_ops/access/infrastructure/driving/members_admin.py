@@ -192,6 +192,10 @@ async def _render_member(
     return template.render(
         page_path=PAGE_PATH,
         roles_path=ROLES_PATH,
+        # Whether this render follows a rejected submission. A checkbox absent
+        # from the posted form means *unchecked*, which the dict alone cannot
+        # tell from "nothing was submitted".
+        resubmitted=submitted is not None,
         record=record,
         held=await _roles_held_by(member_id),
         faults=faults,

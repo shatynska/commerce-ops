@@ -280,6 +280,7 @@ async def _act(
     slug: str,
     request: Request,
     action: Any,
+    form_field: str | None = None,
     **extra: Any,
 ) -> Any:
     """One shape for every write reached from a role's own page.
@@ -290,6 +291,12 @@ async def _act(
     each explain the specific obligation they failed.
     """
     principal = await _require_admin(request)
+    # The body is read only after the guard has run. Parsing it first would
+    # buffer an unauthenticated caller's upload before refusing them, which is
+    # the one way a 404 meant to reveal nothing still costs something.
+    if form_field is not None:
+        form = await _form(request)
+        extra[form_field] = (form.get(form_field) or "").strip()
     try:
         await action(
             roles=roles, members=members, principal=principal, slug=slug, **extra
@@ -313,32 +320,14 @@ async def activate(slug: str, request: Request) -> Any:
 
 @router.post(PAGE_PATH + "/{slug}/holders", response_class=HTMLResponse)
 async def add_holder(slug: str, request: Request) -> Any:
-    form = await _form(request)
-    return await _act(
-        slug,
-        request,
-        add_role_holder,
-        member_id=(form.get("member_id") or "").strip(),
-    )
+    return await _act(slug, request, add_role_holder, form_field="member_id")
 
 
 @router.post(PAGE_PATH + "/{slug}/holders/remove", response_class=HTMLResponse)
 async def remove_holder(slug: str, request: Request) -> Any:
-    form = await _form(request)
-    return await _act(
-        slug,
-        request,
-        remove_role_holder,
-        member_id=(form.get("member_id") or "").strip(),
-    )
+    return await _act(slug, request, remove_role_holder, form_field="member_id")
 
 
 @router.post(PAGE_PATH + "/{slug}/default", response_class=HTMLResponse)
 async def move_default(slug: str, request: Request) -> Any:
-    form = await _form(request)
-    return await _act(
-        slug,
-        request,
-        move_role_default,
-        member_id=(form.get("member_id") or "").strip(),
-    )
+    return await _act(slug, request, move_role_default, form_field="member_id")

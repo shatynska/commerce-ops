@@ -144,13 +144,14 @@ class Role:
         found: list[str] = []
 
         seen: set[str] = set()
+        named: set[str] = set()
         for holder in self.holders:
-            if holder in seen:
+            if holder in seen and holder not in named:
                 found.append(
                     f"role '{who}' names the member '{holder}' as a holder "
                     f"more than once"
                 )
-                break
+                named.add(holder)
             seen.add(holder)
 
         if self.default_holder is not None and self.default_holder not in self.holders:

@@ -26,7 +26,11 @@ from typing import Any
 from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from commerce_ops.access.application.roles import RoleRecord, StaleRolesError
+from commerce_ops.access.application.roles import (
+    HolderRecord,
+    RoleRecord,
+    StaleRolesError,
+)
 from commerce_ops.access.domain.roles import Role, RoleStatus
 from commerce_ops.access.infrastructure.driven.models import (
     MembersSet,
@@ -57,6 +61,14 @@ def _record_from_rows(row: RoleRow, holders: Sequence[RoleHolderRow]) -> RoleRec
         retired_on=row.retired_on,
         unretired_by=row.unretired_by,
         unretired_on=row.unretired_on,
+        holder_attribution=tuple(
+            HolderRecord(
+                member_id=held.member_id,
+                added_by=held.added_by,
+                added_on=held.added_on,
+            )
+            for held in ordered
+        ),
     )
 
 
@@ -75,13 +87,26 @@ def _rows_from_record(record: Any) -> tuple[RoleRow, list[RoleHolderRow]]:
         unretired_by=getattr(record, "unretired_by", None),
         unretired_on=getattr(record, "unretired_on", None),
     )
+    # Each holder's own attribution, not the role's last write. `save` is a
+    # full replacement, so taking these off `record.updated_*` would restate
+    # every holder as added by whoever last touched the role, rewriting the
+    # audit on every unrelated write.
+    attributed = {held.member_id: held for held in record.holder_attribution}
     holders = [
         RoleHolderRow(
             role_slug=role.slug,
             member_id=member_id,
             is_default=(member_id == role.default_holder),
-            added_by=record.updated_by or record.created_by,
-            added_on=record.updated_on or record.created_on,
+            added_by=(
+                attributed[member_id].added_by
+                if member_id in attributed
+                else record.created_by
+            ),
+            added_on=(
+                attributed[member_id].added_on
+                if member_id in attributed
+                else record.created_on
+            ),
         )
         for member_id in role.holders
     ]

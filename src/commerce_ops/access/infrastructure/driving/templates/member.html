@@ -59,8 +59,14 @@
              value="{{ submitted.get('clickup_user_id', record.member.clickup_user_id or '') }}">
     </label>
     <label>
+      {# `submitted` is empty on a fresh render and holds the posted form
+         after a rejection. An unchecked box posts NOTHING, so falling back to
+         the stored value would re-render it checked after an admin unchecked
+         it — and re-submitting the form as displayed would silently re-confer
+         admin. `resubmitted` tells the two states apart, so the box shows what
+         was sent rather than what is stored. #}
       <input type="checkbox" name="admin" value="true"
-             {% if submitted.get('admin', record.member.admin) %}checked{% endif %}>
+             {% if (submitted.get('admin') if resubmitted else record.member.admin) %}checked{% endif %}>
       Admin
     </label>
     <button type="submit" class="row-action">Save member</button>
