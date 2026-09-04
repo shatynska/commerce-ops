@@ -663,7 +663,38 @@ Carries `design.md` Decision 6, the invariant's sharper instance.
       slice adds no test of its own, so the strong form of the invariant was
       available and is what was used. Wall time is unchanged within noise and no
       speed claim is made.
-- [ ] 10.8 Run `/code-review` over the full diff before calling the change done
+- [x] 10.8 Run `/code-review` over the full diff before calling the change done
       (`AGENTS.md` — Independent review before completion). Not
       `openspec-change-reviewer`, which reviews plans and explicitly not the code
       that follows them.
+
+      **Run at `high` over `main...HEAD`. No correctness defects.** It verified
+      by equivalence rather than by eye: AST-diffed every touched test file
+      against `main` ignoring imports, docstrings and the deleted classes and
+      confirmed **no call site changed anywhere**; grouped all removed
+      declarations by shape against their replacements and reproduced every
+      count this change records; and checked each widened field against the
+      production probe that reads it, confirming every added attribute carries
+      the value the `getattr` fall-through produced.
+
+      Three findings, all acted on, none a defect in the migration:
+
+      1. *(medium)* The six member-identifier probes' fall-through branches are
+         now unreachable from any test — proven by mutation: narrowing all six
+         to `("identifier",)` leaves 2,482 passing here, where the same mutation
+         of two of them against the old tests produced 177 failures. **That is
+         Goal 3 succeeding**, and the cost is an unguarded interval until
+         `unify-launch-adapter-dependencies` deletes them. Recorded as its own
+         `docs/deferred-work.md` entry, with the instruction not to narrow any
+         probe on the strength of a green suite, and the note that the old
+         protection was accidental — a double spelling `id` was never evidence
+         that a production reader does.
+      2. *(low)* `Member` and `MemberValue` disagree on `clickup_user_id`'s
+         default, so choosing between them changes a value as well as an
+         equality semantics. Named at both docstrings and in `AGENTS.md`'s
+         two-types rule, with the concrete vacuous-assertion path.
+      3. *(low)* `active` gained a default of `True` where ten locals required
+         it — exactly the files whose subject is active/inactive
+         discrimination. Unavoidable, since 23 other declarations construct with
+         two positional arguments. Documented beside the other measured
+         defaults, with the instruction to pass `active=False` explicitly.

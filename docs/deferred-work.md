@@ -1153,6 +1153,41 @@ shape without naming a type `.importlinter` forbids — and
 Recorded here because the finding predates all of them and outlives any one
 landing alone.
 
+### The member-identifier probes' fall-through branches are now untested
+
+**Found by `/code-review` on `share-the-value-doubles`, 2026-09-04, and it is
+that change succeeding rather than failing.** All 52 member doubles now expose
+`identifier`, so every one of the six member-identifier probes matches on its
+**first** branch. The `"id"` and `"member_id"` branches are unreachable from any
+test.
+
+Demonstrated by mutation: rewriting all six probes to `for name in
+("identifier",)` leaves **2,482 of 2,482 passing** on that branch, where the
+same mutation of only two of them against the pre-change tests produced **177
+failures and 14 errors**.
+
+That is exactly what the change set out to do — a branch no double needs is a
+branch that can be deleted. The cost is that the interval before it *is* deleted
+is unguarded. `playbook_authoring.member_identifier`'s own docstring says the
+`id` branch exists because "a reader that answers rows of its own may spell it
+`id`", and if that branch is reordered, narrowed or dropped early, admin writes
+raise `ValueError: a member exposes no identifier` in production and no test
+reports it.
+
+Worth being clear about what was lost: the old protection was **accidental and
+misleading**. A test double spelling `id` was never evidence that a production
+reader spells `id`; it was evidence that the double modelled the minimum. So
+this entry is not a regression to repair but an interval to close, and the way
+to close it is to delete the branches rather than to re-grow doubles that
+exercise them.
+
+Closes with `unify-launch-adapter-dependencies`, which
+`docs/proposed-change-order.md` now orders after both doubles slices. Until
+then: **do not narrow any of the six probes on the strength of a green suite.**
+The six are `clickup_sync.py:140`, `playbook_authoring.py:272`,
+`playbook_admin.py:321`, `activation_readiness.py:204`, `roles.py:729` and
+`gate_decisions.py:105`.
+
 ### `uv run pytest` fails at collection, and no gate notices
 
 `AGENTS.md` documents the test command as `uv run pytest`. On `main` it does not

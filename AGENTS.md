@@ -243,7 +243,11 @@ not report.
   this suite disagrees on all three for real reasons. Where a name carries a
   substantial population in both forms it gets **two** shared types rather than
   one bent across two equality semantics; `Member` and `MemberValue` are that
-  case, at 42 plain against 10 `@dataclass`.
+  case, at 42 plain against 10 `@dataclass`. **Where two such types also
+  disagree on a default, say so at both of them**: choosing between them then
+  changes a value as well as an equality semantics, which is the one way this
+  arrangement can break the same-value invariant. `clickup_user_id` is that
+  field, and each type's docstring names the trap.
 - **A constructor mismatch is remediable by a three-line adapter; a form or
   value mismatch is not.** Where the shared type can produce the exact object
   but cannot take the call site unchanged, the file subclasses it and adapts the

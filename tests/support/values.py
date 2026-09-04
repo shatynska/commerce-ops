@@ -45,6 +45,17 @@ class Member:
     matching the 42 local declarations this replaces. `MemberValue` is the
     same subject in `@dataclass` form, for the ten that compare by field.
 
+    **`active` is looser here than in ten of the locals, deliberately and at a
+    cost.** Ten declared it keyword-only *without* a default, and they are
+    exactly the files whose subject is active/inactive discrimination --
+    `test_step_activation.py`, `test_gate_holding_ratchet.py`,
+    `test_report_activation_blockers.py` and their neighbours. A default is
+    unavoidable, since 23 other declarations construct with two positional
+    arguments and nothing else. The cost is that a *new* case in one of those
+    ten which forgets `active=False` used to be a `TypeError` and now silently
+    builds an active member. **Writing an inactivity test means passing
+    `active=False` explicitly; nothing will remind you.**
+
     `slack_identity` and `admin` are modelled here and are declared by none of
     the 42. Both are supersets rather than displacements: no `getattr` probe in
     `src/` reads either, `admin` being read only as a direct attribute on
@@ -92,10 +103,22 @@ class MemberValue:
     matching the ten local declarations this replaces, which are exactly the
     ten that construct with `id=` as a keyword.
 
-    `clickup_user_id` defaults to `None` here and to `CLICKUP_USER_ID` on
-    `Member`, because the two populations genuinely disagree and the
-    disagreement falls along the same line as the form split. Neither type has
-    to compromise, which is the second thing two types buy.
+    **`clickup_user_id` defaults to `None` here and to `CLICKUP_USER_ID` on
+    `Member`, and that divergence is a trap worth naming.** The two populations
+    genuinely disagree -- the ten `@dataclass` locals default it to `None`,
+    production's own default, and the 42 plain ones hard-code `"clickup-1"` --
+    so neither type can compromise without failing the other's proof. But it
+    means the choice between these two types, which the form rule presents as
+    being about *equality semantics*, silently also changes a value.
+
+    Concretely: a test that picks `MemberValue` because it wants field equality
+    gets `clickup_user_id=None`, and `clickup_sync._clickup_users` then drops
+    that member through `getattr(member, "clickup_user_id", None)` -- so an
+    assertion over the resulting assignees passes vacuously. **If a test cares
+    about ClickUp assignees, pass `clickup_user_id` explicitly rather than
+    relying on either default.** This is the one place in the harness where the
+    same-value invariant is broken by construction, and it collapses when
+    `unify-launch-adapter-dependencies` replaces both types with production's.
     """
 
     id: str
