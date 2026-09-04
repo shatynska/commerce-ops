@@ -55,10 +55,11 @@ and the derived spellings these doubles expose (`Member.identifier`,
 
 from __future__ import annotations
 
+from datetime import date
 from typing import Any, Protocol
 
 from commerce_ops.shared.domain.identity import Sku
-from tests.support.fakes import FakeHandlers, FakeSlackResponse
+from tests.support.fakes import FakeHandlers, FakeSlackResponse, StubDate
 from tests.support.values import CatalogProduct, Member, MemberValue
 
 
@@ -146,3 +147,22 @@ class HandlerRegistryShape(Protocol):
 
 
 _handlers_conforms: HandlerRegistryShape = FakeHandlers()
+
+
+class DateShape(Protocol):
+    """What a page reads off the `date` it was handed.
+
+    `_conforms` for this one takes the **class-object** form,
+    `type[DateShape]`, and that is a second `mypy` trap worth recording beside
+    the `@property` rule above: `date` requires three constructor arguments, so
+    `DateShape = StubDate()` cannot be written, and the surface production reads
+    is a classmethod rather than an instance attribute. `type[DateShape]` asks
+    whether instances of the class satisfy the protocol without constructing
+    one.
+    """
+
+    @classmethod
+    def today(cls) -> date: ...
+
+
+_stub_date_conforms: type[DateShape] = StubDate

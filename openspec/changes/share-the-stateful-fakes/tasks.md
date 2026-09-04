@@ -200,14 +200,17 @@ Counts here are AST counts. Do not re-derive one by grep.
 
 ## 5. `StubDate` — 15 declarations, one body, **proof-exempt**
 
-- [ ] 5.1 Add `StubDate(date)` with `_today` as a `ClassVar` and the `today`
+- [x] 5.1 Add `StubDate(date)` with `_today` as a `ClassVar` and the `today`
       classmethod, **its protocol and `_conforms` assignment**, plus contract
       tests; declare the number added. The assignment takes the class-object
       form — `_conforms: type[DateShape] = StubDate` — because `date` requires
       three constructor arguments and the surface production reads is a
       classmethod (`design.md` Decision 8). Without it `mypy` compares nothing,
       and this name is one of the two whose migration is priced at exactly three
-      checks. The shared
+      checks. **Three tests added; `tests/unit/support/` now collects 14.
+      `_today` carries no default: all 15 locals set it from a per-module
+      `RENDER_DATE`, and the parent slice's rule is that a per-module constant
+      does not become a shared one.** The shared
       declaration carries the `# type: ignore[override]` that all 15 locals
       carry, so no call site needs one. As with `FakeSlackResponse`, these tests
       are the primary check: they cover `today()` returning the class attribute,

@@ -22,7 +22,8 @@ left to look like a proof that passed.
 
 from __future__ import annotations
 
-from typing import Any
+from datetime import date
+from typing import Any, ClassVar
 
 
 class FakeSlackResponse(dict[str, Any]):
@@ -75,3 +76,30 @@ class FakeHandlers:
 
     def get(self, name: str, default: Any = None) -> Any:
         return self._handlers.get(name, default)
+
+
+class StubDate(date):
+    """`date` with a fixed `today()`, for a page whose rendering reads it.
+
+    A `date` subclass, because the call sites substitute the *class* --
+    `monkeypatch.setattr(module, "date", _StubDate)` -- and production goes on
+    constructing and comparing dates through it. A stand-in that merely held a
+    day would fail the first `date(...)` call the module makes.
+
+    **`_today` has no default, deliberately.** All 15 local declarations set it
+    from a module-level `RENDER_DATE` the file owns, and every one of those is a
+    per-module constant rather than a shared one -- the parent slice's rule that
+    a per-module constant does not become a shared constant. So each file keeps
+    a two-line subclass setting its own day, and this class is never used
+    directly.
+
+    Like `FakeSlackResponse`, it exposes no instance method: the lockstep proof
+    has nothing to intercept, so this one migrates on its base class, `mypy` and
+    the contract tests under `tests/unit/support/`.
+    """
+
+    _today: ClassVar[date]
+
+    @classmethod
+    def today(cls) -> date:  # type: ignore[override]
+        return cls._today
