@@ -643,6 +643,6 @@ Counts here are AST counts. Do not re-derive one by grep.
       record the 291 declarations that remain, with the composition rule that
       blocks the largest group of them. The §3 entry is deleted on archive, not
       here.
-- [ ] 12.7 Open the pull request. Per `AGENTS.md`, the archive is a separate
+- [x] 12.7 Open the pull request. Per `AGENTS.md`, the archive is a separate
       commit on its own branch in a last pull request of its own, after this one
       merges.
