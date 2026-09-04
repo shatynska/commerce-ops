@@ -82,6 +82,8 @@ from commerce_ops.launch.infrastructure.driven.clickup_sync import (
 from commerce_ops.shared.domain.clickup import ClickUpListState
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
+from tests.support._paired import paired as _paired
+from tests.support.fakes import FakeMembers as _MembersShared
 from tests.support.fixtures import LAUNCH_DATE, PRODUCT_NAME, PRODUCT_SKU
 from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
@@ -193,6 +195,7 @@ class _FakeCatalog:
         return self._product
 
 
+@_paired(_MembersShared, build_from=lambda local: _MembersShared(local._members))
 class _FakeMembers:
     def __init__(self) -> None:
         self._members = (_Member("prs_01HQ8Z6M4A", "Alice Admin"),)

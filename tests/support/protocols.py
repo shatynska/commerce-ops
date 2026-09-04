@@ -64,6 +64,7 @@ from tests.support.fakes import (
     FakeCatalogPort,
     FakeHandlerRegistry,
     FakeHandlers,
+    FakeMembers,
     FakeMembersStore,
     FakeSlackResponse,
     FakeStepStore,
@@ -245,3 +246,23 @@ class CatalogPortShape(Protocol):
 
 
 _catalog_port_conforms: CatalogPortShape = FakeCatalogPort()
+
+
+class MembersReaderShape(Protocol):
+    """The one shape a members reader presents.
+
+    Both members probes -- `clickup_sync._members:128` and
+    `activation_readiness._members_of:179` -- accept three conventions: this
+    method, a callable, or a bare iterable. This protocol declares only the
+    first, because that is the one every double in the suite now presents and
+    the one `unify-launch-adapter-dependencies` will narrow the probes to. The
+    other two conventions are not gone from the suite: `_StoreShapedMembers`,
+    `_ReaderMembers`, `_Members` and a module-level `_members()` still supply
+    them, which is why this change narrows the population and does not claim
+    the branches are dead.
+    """
+
+    async def list_members(self) -> Any: ...
+
+
+_members_conforms: MembersReaderShape = FakeMembers()

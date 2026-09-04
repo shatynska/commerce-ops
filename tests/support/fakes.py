@@ -292,3 +292,39 @@ class FakeCatalogPort:
         if self.fails:
             raise ConnectionError("the catalog store is unreachable")
         return self.products
+
+
+class FakeMembers:
+    """The membership, as the reader production is handed.
+
+    **One reader shape, where the locals carried up to four.** Forty-three
+    declarations spelled the read `list_members()`, thirty-two aliased it as
+    `members`, and thirty-six added `async def __call__`. This fake carries
+    `list_members()` alone, under clause (e), and the licence is a measurement
+    rather than a preference: nothing in `src/` or `tests/` reads a reader's
+    `members`, and both members probes reach their `callable(...)` branch only
+    after `list_members` has missed -- which it never does, since every
+    declaration provides it. Re-taken at the commit that dropped them, both
+    still zero.
+
+    `member(member_id)` is **kept**: a genuine second query that six files use,
+    and no probe chooses between it and anything else. It matches on `id`, the
+    spelling all fifty-two member doubles carry (`values.Member` stores `id` and
+    derives `identifier`).
+
+    The roster is `_members` -- the dominant local spelling, and private, so it
+    is outside every probe. Nine locals spelled it `members_rows`; those carry a
+    `state` name map while the pairing runs, and nothing after it.
+    """
+
+    def __init__(self, members: tuple[Any, ...] = ()) -> None:
+        self._members = tuple(members)
+
+    async def list_members(self) -> tuple[Any, ...]:
+        return self._members
+
+    async def member(self, member_id: str) -> Any | None:
+        for known in self._members:
+            if known.id == member_id:
+                return known
+        return None

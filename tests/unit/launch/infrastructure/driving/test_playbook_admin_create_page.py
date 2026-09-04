@@ -120,9 +120,11 @@ from commerce_ops.launch.infrastructure.driving import (
     playbook_admin as page_module,
 )
 from commerce_ops.shared.domain.discipline import Discipline
+from tests.support._paired import paired as _paired
 from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
 from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
 from tests.support.admin import fake_verify
+from tests.support.fakes import FakeMembers as _MembersShared
 from tests.support.fakes import FakeStepStore
 from tests.support.fixtures import ALICE, ALICE_NAME, BOHDAN, BOHDAN_NAME, PRINCIPAL
 from tests.support.playbook import SPECIFIED_GATE_ORDER
@@ -182,6 +184,11 @@ class _StaleStepStore(_FakeStepStore):
         raise StaleStepSetError("the step set changed underneath this write")
 
 
+@_paired(
+    _MembersShared,
+    build_from=lambda local: _MembersShared(local.members_rows),
+    state={"members_rows": "_members"},
+)
 class _FakeMembers:
     def __init__(self) -> None:
         self.members_rows = (

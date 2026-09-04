@@ -142,6 +142,8 @@ from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.launch.infrastructure.driven.clickup_sync import converge_launch
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
+from tests.support._paired import paired as _paired
+from tests.support.fakes import FakeMembers as _MembersShared
 from tests.support.fixtures import (
     ALICE,
     LAUNCH_DATE,
@@ -400,6 +402,7 @@ class _FakeCatalog:
         return self._product
 
 
+@_paired(_MembersShared)
 class _FakeMembers:
     def __init__(self, members: tuple[_Member, ...]) -> None:
         self._members = members

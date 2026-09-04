@@ -163,9 +163,39 @@ def paired(
     shared: type,
     *,
     build: Callable[..., Any] | None = None,
+    build_from: Callable[[Any], Any] | None = None,
     state: Mapping[str, str] | None = None,
 ) -> Callable[[type[_T]], type[_T]]:
-    """Drive a local double and its shared replacement in lockstep."""
+    """Drive a local double and its shared replacement in lockstep.
+
+    **`build` and `build_from` are not equally strong, and the difference is
+    the whole reason both exist.**
+
+    `build` receives the local's *call arguments* and constructs the twin from
+    them independently. Everything is then compared: that the two constructors
+    agree, and that every executed method does.
+
+    `build_from` receives the *constructed local* and seeds the twin from its
+    state. It is weaker: construction is no longer independently checked, only
+    the methods are. It exists for the population where the stronger form
+    reports nothing but false positives -- a double that **builds its own
+    contents** rather than being handed them. `FakeMembers` is that population:
+    thirty-three of its forty-three declarations hard-code a roster inside the
+    class, so an independently built twin holds different `Member` objects, and
+    `values.Member` is a plain class whose `==` is identity by design. Every
+    comparison would differ, on every call, for a difference that is an artefact
+    of running two objects. Seeded from the local instead, the twin holds *the
+    same* members, and what the pairing then establishes is what risk 3 is
+    actually about: that `list_members()` returns the same tuple in the same
+    order and `member()` resolves the same way.
+
+    What `build_from` gives up is stated rather than glossed: for those
+    declarations the shared fake's *constructor* is proved by the adapter
+    reproducing the roster literally, and by nothing else.
+    """
+
+    if build is not None and build_from is not None:
+        raise TypeError("paired() takes build or build_from, never both")
 
     names = dict(state or {})
 
@@ -196,11 +226,15 @@ def paired(
         def __init__(self: Any, *args: Any, **kwargs: Any) -> None:
             original_init(self, *args, **kwargs)
             PAIRED_BUILDS[label] += 1
-            twin = (
-                build(*args, **kwargs) if build is not None else shared(*args, **kwargs)
-            )
+            if build_from is not None:
+                twin = build_from(self)
+            elif build is not None:
+                twin = build(*args, **kwargs)
+            else:
+                twin = shared(*args, **kwargs)
             object.__setattr__(self, _TWIN, twin)
-            _compare_state(f"{label}(...) initial state", self, twin, names)
+            if build_from is None:
+                _compare_state(f"{label}(...) initial state", self, twin, names)
 
         local.__init__ = __init__  # type: ignore[method-assign]
 

@@ -89,7 +89,9 @@ from commerce_ops.launch.domain.launch_playbook import (
     StepStatus,
 )
 from commerce_ops.shared.domain.discipline import Discipline
+from tests.support._paired import paired as _paired
 from tests.support.fakes import FakeHandlerRegistry as _FakeHandlerRegistry
+from tests.support.fakes import FakeMembers as _MembersShared
 from tests.support.fakes import FakeStepStore
 from tests.support.fixtures import ALICE, ALICE_NAME, PRINCIPAL
 from tests.support.playbook import SPECIFIED_GATE_ORDER
@@ -174,6 +176,11 @@ def _record_named(store: _FakeStepStore, identifier: str) -> Any:
 # ---------------------------------------------------------------------------
 
 
+@_paired(
+    _MembersShared,
+    build_from=lambda local: _MembersShared(local.members_rows),
+    state={"members_rows": "_members"},
+)
 class _FakeMembers:
     """A collaborator answering the stated shape — case 1."""
 

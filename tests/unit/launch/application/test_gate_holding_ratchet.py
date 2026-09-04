@@ -92,7 +92,9 @@ from commerce_ops.launch.domain.launch_playbook import (
     StepStatus,
 )
 from commerce_ops.shared.domain.discipline import Discipline
+from tests.support._paired import paired as _paired
 from tests.support.fakes import FakeHandlerRegistry as _FakeHandlerRegistry
+from tests.support.fakes import FakeMembers as _MembersShared
 from tests.support.fakes import FakeStepStore
 from tests.support.fixtures import PRINCIPAL
 from tests.support.playbook import SPECIFIED_GATE_ORDER
@@ -152,6 +154,7 @@ def _holding_step(gate: str, **overrides: Any) -> StepDefinition:
 _FakeStepStore = FakeStepStore[Any]
 
 
+@_paired(_MembersShared)
 class _FakeMembers:
     def __init__(self, members: tuple[_Member, ...]) -> None:
         self._members = members

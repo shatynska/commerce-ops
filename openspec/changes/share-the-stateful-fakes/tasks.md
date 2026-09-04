@@ -435,27 +435,32 @@ Counts here are AST counts. Do not re-derive one by grep.
 
 ## 11. `FakeMembers` — 43 declarations, twenty-one bodies
 
-- [ ] 11.1 Before writing the fake, re-take the clause (e) measurements
+- [x] 11.1 Before writing the fake, re-take the clause (e) measurements
       Decision 5 rests on, structurally: that no site in `src/` or `tests/`
       reads `members`, and that no test invokes a `_FakeMembers` instance
       directly. Record alongside them the two completeness searches Decision 6
-      lists for this name and does not task elsewhere: that no probe chooses
-      between `member(id)` and another spelling, and that `_members` is private
-      and therefore outside every probe. Both were zero at `5e5b19a`. If either is non-zero now, the drop
+      lists for this name and does not task elsewhere: that no probe chooses between `member(id)` and another spelling, and that
+      `_members` is private and therefore outside every probe. **All four
+      re-taken and all four hold: nothing in `src/` reads a reader's `members`;
+      no test invokes an instance or calls `.members()`; nothing in `src/` calls
+      `.member(` at all, and the one `getattr(value, "member")` — `roles.py:724`
+      — reads a *record's* nested member, not a reader's query method, and would
+      fall through harmlessly if it ever met one; nothing in `src/` names
+      `_members`.** Both were zero at `5e5b19a`. If either is non-zero now, the drop
       does not apply to that file and it keeps its own declaration — clause (e)
       licenses a drop only on the measurement, and only for the three spellings
       it names.
-- [ ] 11.2 Add `FakeMembers(members: tuple[Any, ...] = ())` carrying
+- [x] 11.2 Add `FakeMembers(members: tuple[Any, ...] = ())` carrying
       `list_members()` and `member(member_id)` and **not** `members` or
       `__call__`, storing the roster as **`self._members`** — the dominant local
       spelling, and private, so the dropped `members` spelling does not return
       as instance data. The 8 declarations storing `members_rows` carry
       `state={"members_rows": "_members"}` on their `@paired` line; the 20 that
-      store nothing see `_members` as a shared-only note. Add its protocol
-      declaring the reader shape, `_conforms`, and
-      contract tests covering the empty roster, the ordering `list_members`
-      returns, and `member()` on a present and an absent identifier; declare the
-      number added.
+      store nothing see `_members` as a shared-only note. Add its protocol declaring
+      the reader shape, `_conforms`, and contract tests covering the empty
+      roster, the ordering `list_members` returns, and `member()` on a present
+      and an absent identifier; declare the number added. **Five tests added;
+      `tests/unit/support/` now collects 46.**
 - [ ] 11.3 Instrument, verify, settle, verify. **Both** commits run the
       integration tier with `COMMERCE_OPS_REQUIRE_DATABASE=1`
       (`test_seeded_step_fields.py:579`). **Expected: 41 of 43 — 8 aliases and

@@ -97,6 +97,8 @@ from commerce_ops.launch.infrastructure.driven.clickup_sync import converge_laun
 from commerce_ops.shared.domain.clickup import ClickUpListState
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
+from tests.support._paired import paired as _paired
+from tests.support.fakes import FakeMembers as _MembersShared
 from tests.support.fixtures import (
     ALICE,
     BOHDAN,
@@ -181,6 +183,7 @@ class _FakeCatalog:
         return self._product
 
 
+@_paired(_MembersShared)
 class _FakeMembers:
     """The members reader, offering several plausible call shapes so a
     correction to the seam is one line here."""
