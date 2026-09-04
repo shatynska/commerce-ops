@@ -31,13 +31,19 @@ Never `uv run pytest` bare: it fails at collection on duplicate test basenames
       **2,246**, `tests/unit/support` **46**, `tests/agents` **236**,
       `tests/integration` **159**; commit tier **2,528** collected. Re-take
       rather than inherit these numbers.
-- [ ] 1.2 Confirm `tests/integration` actually runs before any proof result is
+- [x] 1.2 Confirm `tests/integration` actually runs before any proof result is
       trusted: `docker ps` shows `commerce-ops-postgres-1`, `.env.test` names a
       `_test`-suffixed database, and the tier reports 159 passed with **zero
       skips**. A worktree without `.env.test` skips the tier in its entirety and
       `pre-push` reports it `Passed` (`AGENTS.md` — *Working in a git worktree*);
       17 of this change's 155 declarations live there, so that green would make
       §3's coverage claim false.
+
+      **Done, 2026-09-04, at the plan commit.** `commerce-ops-postgres-1` up and
+      healthy; `.env.test` names `commerce_ops_harness_test`, migrated and
+      seeded; `uv run pytest tests/integration` → **159 passed in 36.5 s, zero
+      skips**. Re-run this in any other worktree: `.env.test` is gitignored and
+      `git worktree add` carries none, so the confirmation does not travel.
 - [ ] 1.3 Take the assertion-identity baseline over `tests/` at the branch point,
       with `tests/support/` and `tests/unit/support/` excluded.
 
@@ -145,10 +151,30 @@ Read as a preceding phase, the rule contradicts itself.
       (`launch_playbook.py:830-844`), so step order is part of `==`.
 - [ ] 4.2 Add its behaviour test to `tests/unit/support/`. This is the one task
       that moves a collected count, and it moves only `tests/unit/support`'s.
-      **State the successor number when it moves** — 46 plus whatever this task
-      adds — so "unchanged from the §1 baseline" keeps a defined target for that
-      second number after §4. Run it last within §4 so the two populations never
-      mix.
+      Run it last within the §4/§5.3 commit so the two populations never mix.
+
+      **The test is already written** — derived from the plan ahead of
+      implementation, per `AGENTS.md` — *Test design before implementation*, by
+      an author who does not write the implementation. It is
+      `tests/unit/support/test_playbook_fillers_first.py`, **6 test functions**,
+      with `test-manifest.md` beside this file recording what each serves and
+      what was deliberately not tested.
+
+      **The successor number is 52.** `tests/unit/support` 46 → **52**; the
+      commit tier 2,528 → **2,534**; `tests/unit` outside support stays
+      **2,246** and `tests/agents` stays **236** — verified by `--collect-only`,
+      not assumed. That is the only collected-count move this change permits.
+
+      **Four of the six fail today, and that is the expected state**, with
+      `TypeError: playbook() got an unexpected keyword argument 'fillers_first'`
+      — the absent-target state, so their assertions have not yet run. The other
+      two pass on first run and must keep passing: they pin today's filler order
+      (the control the new parameter must not disturb) and the fact that
+      `LaunchPlaybook` does not sort its steps, which is what `design.md` —
+      Decision 5 rests on. **Because the commit-time hook runs the whole tier,
+      the test file cannot be committed before the parameter exists** — it lands
+      in the §4/§5.3 commit with the implementation, which is what 4.1's "never
+      speculatively" already requires.
 
 ## 5. Phase C — `_playbook` (82 declarations, 82 files)
 
