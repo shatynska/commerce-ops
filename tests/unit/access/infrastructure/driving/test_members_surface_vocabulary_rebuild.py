@@ -101,11 +101,10 @@ from commerce_ops.access.infrastructure.driving import members_admin as page_mod
 from commerce_ops.launch.infrastructure.driving import (
     playbook_admin as playbook_surface,
 )
-from tests.support._paired import paired as _paired
 from tests.support.admin import ADMIN_IDENTITY, fake_verify
 from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
 from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
-from tests.support.fakes import FakeMembersStore as _MembersStoreShared
+from tests.support.fakes import FakeMembersStore
 from tests.support.fixtures import PRINCIPAL
 from tests.support.html import HX_VERBS as _HX_VERBS
 from tests.support.html import Node as _Node
@@ -203,21 +202,9 @@ def _roles_module() -> ModuleType:
 # ---------------------------------------------------------------------------
 
 
-@_paired(_MembersStoreShared, build=lambda version=13: _MembersStoreShared((), version))
-class _FakeMembersStore:
+class _FakeMembersStore(FakeMembersStore):
     def __init__(self, version: int = 13) -> None:
-        self.rows: tuple[Any, ...] = ()
-        self.version = version
-        self.saves: list[tuple[tuple[Any, ...], int]] = []
-
-    async def load(self) -> tuple[tuple[Any, ...], int]:
-        return self.rows, self.version
-
-    async def save(self, rows: Any, *, expected_version: int) -> None:
-        stored = tuple(rows)
-        self.saves.append((stored, expected_version))
-        self.rows = stored
-        self.version += 1
+        super().__init__((), version)
 
 
 _ID_NAMES: Final = ("id", "member_id", "identifier")

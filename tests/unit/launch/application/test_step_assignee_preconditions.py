@@ -68,10 +68,8 @@ from commerce_ops.launch.domain.launch_playbook import (
     StepStatus,
 )
 from commerce_ops.shared.domain.discipline import Discipline
-from tests.support._paired import paired as _paired
 from tests.support.fakes import FakeHandlerRegistry as _FakeHandlerRegistry
-from tests.support.fakes import FakeMembersStore as _MembersStoreShared
-from tests.support.fakes import FakeStepStore
+from tests.support.fakes import FakeMembersStore, FakeStepStore
 from tests.support.fixtures import ALICE, ALICE_NAME, BOHDAN, PRINCIPAL
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import opening_for as _opening_for
@@ -124,33 +122,9 @@ class _FakeMembers:
         return await self.list_members()
 
 
-@_paired(
-    _MembersStoreShared,
-    build=lambda rows=(), version=7: _MembersStoreShared(rows, version),
-)
-class _FakeMembersStore:
-    """The members store `access`'s own write use cases take.
-
-    Shaped exactly as `tests/unit/access/application/test_members_writes.py`
-    records it: `load()` answers every row plus the set-version, `save()`
-    persists conditionally. Used by the display-name-correction test
-    below, which drives the *real* members write rather than simulating
-    one.
-    """
-
+class _FakeMembersStore(FakeMembersStore):
     def __init__(self, rows: tuple[Any, ...] = (), version: int = 7) -> None:
-        self.rows = tuple(rows)
-        self.version = version
-        self.saves: list[tuple[tuple[Any, ...], int]] = []
-
-    async def load(self) -> tuple[tuple[Any, ...], int]:
-        return self.rows, self.version
-
-    async def save(self, rows: Any, *, expected_version: int) -> None:
-        stored = tuple(rows)
-        self.saves.append((stored, expected_version))
-        self.rows = stored
-        self.version += 1
+        super().__init__(rows, version)
 
 
 _MEMBERS_ID_NAMES: Final = ("id", "member_id", "identifier")

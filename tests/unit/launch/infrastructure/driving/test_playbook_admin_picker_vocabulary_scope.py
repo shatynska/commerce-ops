@@ -121,11 +121,10 @@ from commerce_ops.shared.domain.access_scope import AccessScope
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId, Sku
 from commerce_ops.shared.domain.lifecycle_stage import Launching
-from tests.support._paired import paired as _paired
 from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
 from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
 from tests.support.admin import fake_verify
-from tests.support.fakes import FakeMembersStore as _MembersStoreShared
+from tests.support.fakes import FakeMembersStore as _FakeMembersStore
 from tests.support.fakes import FakeStepStore, StubDate
 from tests.support.fixtures import ALICE, ALICE_NAME, MARKETPLACE
 from tests.support.html import HX_VERBS as _HX_VERBS
@@ -256,20 +255,6 @@ class _PlaybookMembers:
 
     async def __call__(self) -> tuple[_Member, ...]:
         return await self.list_members()
-
-
-@_paired(_MembersStoreShared)
-class _FakeMembersStore:
-    def __init__(self, rows: tuple[Any, ...] = (), version: int = 13) -> None:
-        self.rows = tuple(rows)
-        self.version = version
-
-    async def load(self) -> tuple[tuple[Any, ...], int]:
-        return self.rows, self.version
-
-    async def save(self, rows: Any, *, expected_version: int) -> None:
-        self.rows = tuple(rows)
-        self.version += 1
 
 
 async def _build_members() -> _FakeMembersStore:

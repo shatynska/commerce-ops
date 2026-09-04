@@ -65,9 +65,8 @@ from commerce_ops.access.application import (
     resolve_scope,
 )
 from commerce_ops.shared.domain.identity import ProductId
-from tests.support._paired import paired as _paired
 from tests.support.admin import ADMIN_IDENTITY
-from tests.support.fakes import FakeMembersStore as _MembersStoreShared
+from tests.support.fakes import FakeMembersStore
 from tests.support.fixtures import PRINCIPAL
 
 pytestmark = pytest.mark.anyio
@@ -86,25 +85,9 @@ def anyio_backend() -> str:
 # ---------------------------------------------------------------------------
 
 
-@_paired(
-    _MembersStoreShared,
-    build=lambda rows=(), version=3: _MembersStoreShared(rows, version),
-)
-class _FakeMembersStore:
+class _FakeMembersStore(FakeMembersStore):
     def __init__(self, rows: tuple[Any, ...] = (), version: int = 3) -> None:
-        self.rows = tuple(rows)
-        self.version = version
-        self.saves: list[tuple[tuple[Any, ...], int]] = []
-
-    async def load(self) -> tuple[tuple[Any, ...], int]:
-        return self.rows, self.version
-
-    async def save(self, rows: Any, *, expected_version: int) -> None:
-        assert expected_version == self.version
-        stored = tuple(rows)
-        self.saves.append((stored, expected_version))
-        self.rows = stored
-        self.version += 1
+        super().__init__(rows, version)
 
 
 class _UnreadableMembersStore(_FakeMembersStore):

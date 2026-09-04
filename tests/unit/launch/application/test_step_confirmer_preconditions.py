@@ -73,9 +73,7 @@ from commerce_ops.launch.domain.launch_playbook import (
     StepStatus,
 )
 from commerce_ops.shared.domain.discipline import Discipline
-from tests.support._paired import paired as _paired
-from tests.support.fakes import FakeHandlerRegistry, FakeStepStore
-from tests.support.fakes import FakeMembersStore as _MembersStoreShared
+from tests.support.fakes import FakeHandlerRegistry, FakeMembersStore, FakeStepStore
 from tests.support.fixtures import ALICE, ALICE_NAME, BOHDAN, PRINCIPAL
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.steps import step as _build_step
@@ -154,27 +152,9 @@ class _FakeHandlerRegistry(FakeHandlerRegistry):
         super().__init__(names)
 
 
-@_paired(
-    _MembersStoreShared,
-    build=lambda rows=(), version=7: _MembersStoreShared(rows, version),
-)
-class _FakeMembersStore:
-    """The members store `access`'s own write use cases take — see
-    `test_step_assignee_preconditions.py`'s identical double."""
-
+class _FakeMembersStore(FakeMembersStore):
     def __init__(self, rows: tuple[Any, ...] = (), version: int = 7) -> None:
-        self.rows = tuple(rows)
-        self.version = version
-        self.saves: list[tuple[tuple[Any, ...], int]] = []
-
-    async def load(self) -> tuple[tuple[Any, ...], int]:
-        return self.rows, self.version
-
-    async def save(self, rows: Any, *, expected_version: int) -> None:
-        stored = tuple(rows)
-        self.saves.append((stored, expected_version))
-        self.rows = stored
-        self.version += 1
+        super().__init__(rows, version)
 
 
 _MEMBERS_ID_NAMES: Final = ("id", "member_id", "identifier")

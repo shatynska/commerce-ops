@@ -363,16 +363,42 @@ Counts here are AST counts. Do not re-derive one by grep.
       `tuple[Any, ...]`, so there is no row type to bind. The `saves`
       completeness note fired 42 times across the tier and was the only note
       emitted -- no silent pairings, no other superset.**
-- [ ] 9.2 Instrument, verify, settle, verify. **Expected: 29 of 38 — 22 aliases
+- [x] 9.2 Instrument, verify, settle, verify. **Expected: 29 of 38 — 22 aliases
       and 7 adapters, 9 kept.** The nine are the six declarations threading an
       external `_Version` cell and exposing `version` as a property, the two
       whose `save` raises rather than storing, and the one carrying a `loads`
       counter. The seven adapters are default versions of 11, 7, 5, 3 and 0
       against the shared 13, one constructor without a `rows` parameter, and one
       hard-coded row set.
-- [ ] 9.3 Record which of the nine kept declarations sit in files whose leaf
+      **Actual: 29 of 38 — 21 aliases and 8 adapters, 9 kept.** The total is the
+      one expected; one file moved from the alias column to the adapter column
+      (`test_members_surface_vocabulary_rebuild`, whose constructor takes a
+      version and no rows), and the hard-coded row set turned out to be one of
+      the two whose `save` raises, so it is a keep rather than an adapter.
+
+      **One migration is proof-exempt, for a limit `design.md` Decision 2 does
+      not list.** `test_members_bootstrap.py:249` writes the double's state
+      directly — `store.rows = remaining; store.version += 1` — rather than
+      through `save()`. The pairing intercepts *calls*, not attribute writes, so
+      the twin never saw it and the next `load()` diverged by two rows and a
+      version. The behaviour migrates intact, since the same direct write works
+      on the shared fake; it is the *proof* that cannot see it. Measured across
+      every name in scope there are exactly **four** such writes in three files,
+      and the other two files are keeps already, so this does not recur.
+
+      Pairing totals: 28 declarations, 231 constructions, 996 calls, no
+      divergence, and every one exercised — no declaration was built without
+      being called. The only note emitted across the whole tier was
+      `the shared fake adds ['saves']`, 42 times: the licensed superset
+      Decision 6 enumerates, and nothing else.
+- [x] 9.3 Record which of the nine kept declarations sit in files whose leaf
       value double migrated in `share-the-value-doubles`, for the partition
-      `design.md` Decision 4 asks for.
+      `design.md` Decision 4 asks for. **None of the nine turns on its leaf: six
+      thread an external `_Version` cell, two refuse writes outright and one
+      counts loads — all constructor or behaviour reasons, none of them a row
+      type. So this name contributes no evidence either way to the composition
+      rule, and `FakeStepStore`'s single false positive remains the only data
+      point.**
 
 ## 10. `FakeCatalogPort` — 16 declarations of `_Catalog`, seven bodies
 
