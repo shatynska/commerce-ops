@@ -132,6 +132,7 @@ from tests.support.html import elements as _elements
 from tests.support.html import tree as _tree
 from tests.support.playbook import gates as _gates
 from tests.support.values import Member as _Member
+from tests.support.values import Record as _Record
 
 _LAUNCH_MODULE_NAME: Final = "commerce_ops.launch.infrastructure.driving.launch_admin"
 _ASSETS_MODULE_NAME: Final = "commerce_ops.shared.infrastructure.driving.admin_assets"
@@ -230,20 +231,6 @@ PLAYBOOK: Final = LaunchPlaybook(
         _step(LIVE_OPTION, discipline=INVENTORY),
     ),
 )
-
-
-class _Record:
-    def __init__(self, definition: StepDefinition, display_order: int) -> None:
-        self.definition = definition
-        self.display_order = display_order
-        self.created_by: str | None = None
-        self.created_on: Any = None
-        self.updated_by: str | None = None
-        self.updated_on: Any = None
-        self.retired_by: str | None = None
-        self.retired_on: Any = None
-        self.unretired_by: str | None = None
-        self.unretired_on: Any = None
 
 
 class _FakeStepStore:

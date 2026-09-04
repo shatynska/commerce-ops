@@ -84,6 +84,7 @@ from commerce_ops.launch.domain.launch_playbook import (
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
 from tests.support.steps import step as _build_step
+from tests.support.values import Record as _Record
 
 CHECK_MODULE: Final = "commerce_ops.check_step_handlers"
 
@@ -170,12 +171,6 @@ def _build_not_ready(playbook: LaunchPlaybook) -> Exception:
 # ---------------------------------------------------------------------------
 # Doubles
 # ---------------------------------------------------------------------------
-
-
-class _Record:
-    def __init__(self, definition: StepDefinition, display_order: int = 10) -> None:
-        self.definition = definition
-        self.display_order = display_order
 
 
 class _ReadRecorder:

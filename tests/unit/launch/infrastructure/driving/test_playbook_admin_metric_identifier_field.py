@@ -90,6 +90,7 @@ from tests.support.fixtures import ALICE, ALICE_NAME, PRINCIPAL
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.steps import step as _build_step
 from tests.support.values import Member as _Member
+from tests.support.values import Record as _Record
 
 DISCIPLINES: Final = tuple(Discipline)
 A_DISCIPLINE: Final = DISCIPLINES[0]
@@ -112,20 +113,6 @@ def _step(**overrides: Any) -> StepDefinition:
     return _build_step(
         **{"identifier": ORDINARY_STEP, "assignees": (ALICE,), **overrides}
     )
-
-
-class _Record:
-    def __init__(self, definition: StepDefinition, display_order: int) -> None:
-        self.definition = definition
-        self.display_order = display_order
-        self.created_by: str | None = None
-        self.created_on: Any = None
-        self.updated_by: str | None = None
-        self.updated_on: Any = None
-        self.retired_by: str | None = None
-        self.retired_on: Any = None
-        self.unretired_by: str | None = None
-        self.unretired_on: Any = None
 
 
 class _FakeStepStore:

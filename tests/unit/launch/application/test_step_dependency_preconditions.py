@@ -92,6 +92,7 @@ from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import opening_for as _opening_for
 from tests.support.steps import step as _build_step
 from tests.support.values import Member as _Member
+from tests.support.values import Record as _Record
 
 pytestmark = pytest.mark.anyio
 
@@ -123,20 +124,6 @@ def _holding_step(gate: str) -> StepDefinition:
         gate=gate,
         blocking=True,
     )
-
-
-class _Record:
-    def __init__(self, definition: StepDefinition, display_order: int = 10) -> None:
-        self.definition = definition
-        self.display_order = display_order
-        self.created_by: str | None = None
-        self.created_on: Any = None
-        self.updated_by: str | None = None
-        self.updated_on: Any = None
-        self.retired_by: str | None = None
-        self.retired_on: Any = None
-        self.unretired_by: str | None = None
-        self.unretired_on: Any = None
 
 
 class _FakeStepStore:

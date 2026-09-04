@@ -27,7 +27,9 @@ same string by construction rather than by inspection, which is what lets
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
+from commerce_ops.launch.domain.launch_playbook import StepDefinition
 from commerce_ops.shared.domain.identity import Sku
 from tests.support.fixtures import PRODUCT_NAME, PRODUCT_SKU
 
@@ -134,3 +136,41 @@ class CatalogProduct:
 
     name: str = PRODUCT_NAME
     sku: Sku = PRODUCT_SKU
+
+
+class Record:
+    """A stored playbook step: its definition, its position, its provenance.
+
+    A plain class, which all 30 declarations are. It holds a production
+    `StepDefinition` -- a type, never a value, which is the line
+    `AGENTS.md` draws -- so Decision 2's comparison over it is shallow: two
+    references to one `StepDefinition` are equal by identity, and recursing
+    would compare production against itself.
+
+    **`display_order` defaults to `10`, and the measurement decided it.** 16 of
+    the 30 declare exactly that default and their calls exercise it, so it is
+    inside the compared intersection and anything else fails their proof
+    loudly. 13 more require the argument and are indifferent. The one
+    declaration carrying no `display_order` at all --
+    `test_launch_report_step_facts.py` -- keeps its own: production reads the
+    field at four sites as `getattr(row, "display_order", 0)`, so its absence
+    yields `0` there, and a shared `10` would move an exercised read *silently*,
+    the field being outside the intersection. Lowering the shared default to `0`
+    to recover that one file would instead break 16 loudly.
+
+    The eight provenance fields default to `None`, which is what every
+    declaration carrying them uses. `src/` reads them only as direct attributes
+    on ORM rows, never off a double.
+    """
+
+    def __init__(self, definition: StepDefinition, display_order: int = 10) -> None:
+        self.definition = definition
+        self.display_order = display_order
+        self.created_by: str | None = None
+        self.created_on: Any = None
+        self.updated_by: str | None = None
+        self.updated_on: Any = None
+        self.retired_by: str | None = None
+        self.retired_on: Any = None
+        self.unretired_by: str | None = None
+        self.unretired_on: Any = None

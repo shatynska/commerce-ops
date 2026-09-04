@@ -343,7 +343,7 @@ five sit directly opposite `playbook_admin.py:321`.
 written out and run in a subprocess, so it is source text rather than a
 declaration in that module. Do not migrate it and do not count it.
 
-- [ ] 5.1 The 30 are **three field sets** and **three constructor signatures**,
+- [x] 5.1 The 30 are **three field sets** and **three constructor signatures**,
       and both matter:
 
       | count | fields | `__init__` |
@@ -361,7 +361,7 @@ declaration in that module. Do not migrate it and do not count it.
       what 16 locals produce, inside the compared intersection. The eight
       provenance fields default to `None`, which is what every declaration
       carrying them uses.
-- [ ] 5.2 `test_launch_report_step_facts.py` **keeps its own declaration**, and
+- [x] 5.2 `test_launch_report_step_facts.py` **keeps its own declaration**, and
       the reason is recorded rather than inferred. It declares no
       `display_order`; production reads that field at four sites as
       `getattr(row, "display_order", 0)` — `playbook_authoring.py:180` and
@@ -371,22 +371,37 @@ declaration in that module. Do not migrate it and do not count it.
       silently, because the field is outside the compared intersection. Lowering
       the shared default to `0` to keep this one file would instead break 16
       declarations loudly. Expectation is therefore **29 of 30**.
-- [ ] 5.2a For `test_check_step_handlers_reads_the_authored_set.py`, which
+- [x] 5.2a For `test_check_step_handlers_reads_the_authored_set.py`, which
       declares `definition` and `display_order` and none of the eight provenance
       fields, run the clause-(a) check on those eight: absence raised there, and
       a `None` default returns instead. Record the result, not the expected
       result. If anything reads one on a path that file exercises, it stays
       local too and the expectation drops to 28.
-- [ ] 5.3 Resolve the open half of `design.md` Open Question 1 — the shallow
+- [x] 5.3 Resolve the open half of `design.md` Open Question 1 — the shallow
       comparison, the `display_order` default being settled there already.
       `Record` holds a production `StepDefinition`, so it is the one type whose
       field values are production objects. Confirm the shallow comparison is right here — two references to
       the same `StepDefinition` compare equal by identity, and recursing would
       compare production against itself. If shallow turns out to be wrong here,
       say so and stop rather than deepening it silently.
-- [ ] 5.4 Add `Record` as a **plain class** — all 30 declarations are plain, so
+- [x] 5.4 Add `Record` as a **plain class** — all 30 declarations are plain, so
       there is no form split here — with its protocol and `_conforms`;
       instrument, verify, settle, verify; record the not-migrated.
+
+      **The record: 29 of 30.** 30 files changed. The proof found no
+      disagreement across the 29.
+
+      Not migrated: `test_launch_report_step_facts.py`, per 5.2 — it is the one
+      declaration with no `display_order` field, so the shared default of `10`
+      would move an exercised production read from `0` silently.
+
+      5.2a resolved in the shared type's favour:
+      `test_check_step_handlers_reads_the_authored_set.py` declares only
+      `definition` and `display_order`, and gains the eight provenance fields as
+      `None`. `src/` reads those only as direct attributes on ORM rows, never
+      off a double — and a double lacking them that reached such a read would
+      already raise today, so the green suite is the evidence that none does.
+      It migrated, and the proof passed on it.
 
 ## 6. `TaskMapping` — 19 declarations, expectation 19
 
