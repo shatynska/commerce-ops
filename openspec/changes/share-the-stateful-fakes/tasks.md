@@ -547,7 +547,7 @@ Counts here are AST counts. Do not re-derive one by grep.
       `fakes.py` carries the stale-write assertions of tasks 8.1 and 9.1 and
       persists at head. This is the run that catches drift accumulated
       across pairs on the 52 files that more than one name touches.
-- [ ] 12.3 Record the outcome per name — expected against actual, with the
+- [x] 12.3 Record the outcome per name — expected against actual, with the
       reason for every shortfall — and the three findings this change was asked
       to produce: the composition partition of Decision 4, the reader-shape
       population of task 11.4, and the list of declarations that migrated with
