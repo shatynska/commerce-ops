@@ -477,5 +477,21 @@ leaves its file **unmigrated and recorded** (task 8.3) — never forced.
       rejected as unnecessary scope, and it turns out those absences already
       cost the project its documented test command. Still not this change's to
       fix: it is a module-naming defect, not arrangement duplication.
-- [ ] 8.5 Run `/code-review` over the full diff before calling the change done
+- [x] 8.5 Run `/code-review` over the full diff before calling the change done
       (`AGENTS.md` — Independent review before completion).
+
+      **Run at `high`. No correctness defects.** It verified by equivalence
+      rather than by eye: AST-compared every `def test_*` across all 202 changed
+      files (0 differences), compared top-level statements and decorators per
+      file (0 anomalies), imported both versions of each file and compared
+      `_step`/`_hold`/`_playbook` outputs across 14 override sets and all 8
+      gates, awaited old and new `_fake_verify` across call shapes in all 45
+      admin files, and confirmed the collected node IDs are **identical** to
+      `main`'s 2,482.
+
+      Four `low` findings, all one cause — the docs described the deferred fakes
+      in the present tense: the `_conforms` rule had no instance to copy,
+      `tests/unit/support/` was asserted to exist, `tests/support/__init__.py`
+      pointed at it, and `protocols.py` shipped 41 lines with no importer. All
+      four corrected to say plainly that the fakes are cut to a follow-up and
+      nothing was deleted.

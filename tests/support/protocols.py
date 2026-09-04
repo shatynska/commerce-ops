@@ -1,5 +1,14 @@
 """The shapes the shared fakes are checked against.
 
+**Intentionally empty, and not an accident.** No protocol is declared here yet
+and nothing imports this module: `share-the-unit-test-harness` delivered the
+constants, the HTML harness, the admin session, the fixtures and the step
+builder, and cut the shared *fakes* to a follow-up change. The rules below are
+what that change is held to, recorded now so the first fake is written against
+them rather than after them. If you are reading this expecting protocols and
+finding none, none were deleted -- they were never written.
+
+
 A `Protocol` declared beside a fake checks nothing on its own: `mypy` compares
 a class to a protocol only where a value is assigned to a protocol-annotated
 target. So every fake in this package carries, beside it::

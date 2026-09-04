@@ -205,6 +205,14 @@ All three tiers arrange from `tests/support/`. It is imported, never collected â
 - **A new test arranges from `tests/support/`.** A new bespoke fake means a
   builder is missing, not that a thirteenth `_FakeSession` is warranted. Add the
   builder.
+
+**The four rules below govern shared *fakes*, which the package does not carry
+yet.** `share-the-unit-test-harness` delivered the constants, the HTML harness,
+the admin session, the fixtures and the step builder; the fakes were cut to a
+follow-up because their `==` is identity, which makes the equality proof the
+value builders were migrated under inexpressible for them. The rules are
+recorded here rather than in that change so they bind whoever writes the first
+one â€” there is no instance in the tree to copy yet.
 - **A spec-restating constant is a literal there, and is never sourced from
   production.** `SPECIFIED_GATE_ORDER`, `CONFIRMATION_GATES`, `FINAL_GATE`,
   `opening_for` and `gates` state what the specification says the gates are, and
@@ -230,10 +238,11 @@ All three tiers arrange from `tests/support/`. It is imported, never collected â
 - **The package exports public names**; a call site that keeps a local
   `_`-prefixed spelling aliases them (`from tests.support.html import tree as
   _tree`). A module-private name imported across modules is a contradiction.
-- **`tests/unit/support/` is a deliberate exception to the tier layout above.**
-  It names no bounded context because its subject is the harness itself; it
-  lives under `tests/unit/` so the shared fakes' own behaviour tests are
-  collected and run at commit time.
+- **`tests/unit/support/` will be a deliberate exception to the tier layout
+  above**, and does not exist yet. It arrives with the fakes: it names no
+  bounded context because its subject is the harness itself, and it belongs
+  under `tests/unit/` so the shared fakes' own behaviour tests are collected and
+  run at commit time. `tests/support/` itself is imported, never collected.
 
 ### Working in a git worktree
 
