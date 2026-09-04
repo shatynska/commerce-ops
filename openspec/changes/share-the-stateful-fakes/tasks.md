@@ -301,6 +301,50 @@ Counts here are AST counts. Do not re-derive one by grep.
       constructing records from `StepDefinition`s and the body carrying
       `supersede()`. The one kept carries a `loads` counter, which needs a
       method override rather than a constructor.
+      **Actual: 36 of 37 — 34 aliases and 2 adapters, 1 kept, as expected, but
+      four things the plan did not anticipate:**
+
+      1. **The shared store is generic in its row type**, and each file's settle
+         line binds the parameter its own local bound
+         (`_FakeStepStore = FakeStepStore[_Record]`). All 34 annotate with the
+         name, and seven read a row back through a helper declaring a concrete
+         return type; a store fixed at `tuple[Any, ...]` makes those nine
+         helpers return `Any` from a function declared otherwise, which
+         `mypy --strict` refuses. Binding per file keeps every annotation site
+         the type it had, and costs no test-body edit.
+      2. **One adapter could not be paired at all.**
+         `test_playbook_admin_filtered_moves.py` adds `supersede()`, a name the
+         shared fake has not, so the decorator rejects it at decoration —
+         correctly, since it cannot tell an adapter's addition from a keep. An
+         adapter that *adds a method* is outside the proof; it migrated on
+         clauses (a)–(c) and is recorded here.
+      3. **One pairing was a false positive, and it is the composition
+         partition's first data point.**
+         `test_launch_report_step_facts.py` declares its **own** `_Record` — one
+         of the twenty the parent slice left behind — so the `build=` factory
+         constructs records whose `==` is identity and every comparison differs.
+         Exactly the false positive `design.md` Decision 2 predicts. It migrated
+         as an adapter with the proof exempt. **The one file whose leaf did not
+         migrate is the one file whose store could not be paired**, which is
+         evidence for the rule that ordered these two changes.
+      4. **`assert_identity` reports five files changed, and all five are the
+         same node**: the fake's own stale-write `assert`, textually identical,
+         one per file, nothing gained, no test count moving. Those five locals
+         carried the assertion in their `save`; it now lives in
+         `tests/support/fakes.py`, which Decision 10 excludes — so the check
+         sees the departure and not the arrival. Nothing a *test* asserts
+         changed: a double's internal assertion is part of the double, and
+         Decision 1's rule holds, since every one of these declarations sits
+         above its file's first test. Recorded rather than suppressed, because
+         the check is a belt on top of that rule and a silent exclusion is how a
+         belt stops holding. It also understates the outcome — the assertion
+         went from 19 files to all 34.
+
+      Pairing totals: 34 declarations, 298 constructions, 983 calls, no
+      divergence. **Two were built but never called** —
+      `test_launch_admin_detail` and `test_launch_journal_page`, four
+      constructions each — so those two are proved at their initial state and
+      nowhere else.
 - [x] 8.3 Where the strict assertion makes a previously-passing test fail, the
       proof reports it at the instrument commit. Record the file, keep its own
       declaration, and state the reason — do not weaken the shared fake to
