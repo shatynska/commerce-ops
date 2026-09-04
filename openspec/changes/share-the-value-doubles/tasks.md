@@ -531,7 +531,7 @@ Carries `design.md` Decision 6, the invariant's sharper instance.
 
 ## 10. Records and completion
 
-- [ ] 10.1 Correct `docs/deferred-work.md`'s tolerance table — **by re-running
+- [x] 10.1 Correct `docs/deferred-work.md`'s tolerance table — **by re-running
       the shape measurement, not by copying `design.md`'s table.** Every previous
       version of that entry was assembled by grepping a spelling, which is why it
       has now been stale three times; the measurement that supersedes it is
@@ -567,7 +567,7 @@ Carries `design.md` Decision 6, the invariant's sharper instance.
       `share-the-stateful-fakes`, and say that those two make deletion *safe*
       while the deletion itself belongs to
       `unify-launch-adapter-dependencies`.
-- [ ] 10.2 Update `docs/proposed-change-order.md` — **two edits, not one.**
+- [x] 10.2 Update `docs/proposed-change-order.md` — **two edits, not one.**
 
       First, §4: `share-the-test-doubles` becomes two entries,
       `share-the-value-doubles` and `share-the-stateful-fakes`, with the
@@ -585,7 +585,7 @@ Carries `design.md` Decision 6, the invariant's sharper instance.
       deliberately, so the constraint exists while this change is in flight
       rather than after it. Renumber per that file's own rule and keep
       cross-references by name.
-- [ ] 10.3 Correct the two `tests/support/` docstrings that this change makes
+- [x] 10.3 Correct the two `tests/support/` docstrings that this change makes
       false. `__init__.py` says "**The shared fakes are not here yet**" and gives
       the identity-`==` reason for the whole population; `protocols.py` opens
       "Intentionally empty, and not an accident … none were deleted -- they were
@@ -596,12 +596,12 @@ Carries `design.md` Decision 6, the invariant's sharper instance.
       never-re-exported rule, exactly as they stand. This is the same class of
       finding the parent change's own `/code-review` raised four times (archived
       `tasks.md` 8.5) — docs describing deferred work in the present tense.
-- [ ] 10.4 Record `Member` / `MemberValue` as a known follow-up: two shared types
+- [x] 10.4 Record `Member` / `MemberValue` as a known follow-up: two shared types
       for one concept, differing only in equality semantics, hashability and one
       default, collapsing when `unify-launch-adapter-dependencies` lands
       production's own type. `design.md` risk 5 has the reasoning; the record is
       so it is not rediscovered as a defect.
-- [ ] 10.5 Update `AGENTS.md`'s "The shared harness" section. Its four fake
+- [x] 10.5 Update `AGENTS.md`'s "The shared harness" section. Its four fake
       rules are written as binding on "whoever writes the first one, since there
       is no instance in the tree to copy yet" — after this change there is.
       Point at the instances, and keep `tests/unit/support/` described as
@@ -614,15 +614,55 @@ Carries `design.md` Decision 6, the invariant's sharper instance.
       `tests/support/__init__.py`, and this change's central claim is that it is
       false for 400 of the 1,199: the proof *was* expressible for the value
       doubles, as field comparison, and is what they migrated under.
-- [ ] 10.6 Record every file left unmigrated, per name, with its reason, in the
+- [x] 10.6 Record every file left unmigrated, per name, with its reason, in the
       final commit message. A file skipped because its variant resisted the
       shared type is a finding, not a silence.
-- [ ] 10.7 Full verification across all three tiers, integration with
+
+      **166 of 186 migrated. The 20 that did not, by the clause that excluded
+      them:**
+
+      | name | kept | clause | why |
+      |---|---|---|---|
+      | `_CatalogProduct` | 7 | (b) | plain classes carrying `id`, `marketplace_id`, `sub_category`, sometimes `hazard_categories` — a different object wearing the same name. Two document plain-ness as deliberate, for `!r`. |
+      | `_CatalogProduct` | 2 | (a) | declare a required `stage`, read only by `briefing` and read directly, not by shape |
+      | `_Record` | 1 | (a) | no `display_order` field, so the shared default of `10` would move an exercised `getattr(row, "display_order", 0)` from `0`, silently |
+      | `_PendingRow` | 3 | (b) | plain classes |
+      | `_PendingRow` | 4 | (a) | supersets — 2 add `extra`, 2 add `id` **first**, which would change what every positional construction means |
+      | `_PendingRow` | 3 | (c) | default *every* required field to a file-local literal, so a zero-argument call works locally and cannot work against the shared type |
+      | **total** | **20** | | |
+
+      `_Member`/`_FakeMember`, `_TaskMapping`, `_FakeTask` and `_CreatedTask`
+      migrated whole. Three `_Member` declarations migrated **as adapters**
+      rather than aliases and are counted as migrated, because each still
+      exposes `identifier`: one for a constructor mismatch (clause c) and two
+      for a pinned `clickup_user_id` the shared default does not carry.
+
+      Not a migration target and not counted: the `_Record` at
+      `test_startup_handler_report_holds_the_registry.py:259`, which is source
+      text inside a subprocess driver script held in a string literal. `^class
+      _Record:` matches 31 files; there are 30 declarations.
+- [x] 10.7 Full verification across all three tiers, integration with
       `COMMERCE_OPS_REQUIRE_DATABASE=1`. **Collected counts must equal task
       1.1's exactly, with no exclusion** — this slice adds no test of its own
       (`design.md` Decision 9), so the strong form of the invariant is available
       and is what is used. Report line reduction against the plan commit and
       wall time; wall time is a report, not a claim.
+
+      **The record, against task 1.1's baseline:**
+
+      | | baseline (1.1) | now |
+      |---|---|---|
+      | `tests/unit` collected | 2,246 | **2,246** |
+      | `tests/agents` collected | 236 | **236** |
+      | `tests/integration` collected | 159 | **159** |
+      | commit tier | 2,482 passed, 73.4 s | **2,482 passed, 73.4 s** |
+      | integration | 159 passed, 27.7 s | **159 passed, 30.2 s** |
+      | `ruff check` / `format --check` / `mypy` / `lint-imports` | pass | **pass** |
+
+      Counts held **with no exclusion**, as Decision 9 said they could be: this
+      slice adds no test of its own, so the strong form of the invariant was
+      available and is what was used. Wall time is unchanged within noise and no
+      speed claim is made.
 - [ ] 10.8 Run `/code-review` over the full diff before calling the change done
       (`AGENTS.md` — Independent review before completion). Not
       `openspec-change-reviewer`, which reviews plans and explicitly not the code
