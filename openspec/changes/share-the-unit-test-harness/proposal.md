@@ -17,8 +17,14 @@ The single most-copied block appears verbatim in **159 of 319 test files**:
 
 ```python
 SPECIFIED_GATE_ORDER: Final = (
-    "commit", "order", "listable", "stock-ready",
-    "live", "ignition", "phase-one-complete", "graduated",
+    "commit",
+    "order",
+    "listable",
+    "stock-ready",
+    "live",
+    "ignition",
+    "phase-one-complete",
+    "graduated",
 )
 ```
 
@@ -247,6 +253,43 @@ change wholly inside `tests/`.
   deployed behaviour. The commit-time gate runs the same tests and should not get
   slower; if it gets meaningfully faster, that is a bonus and not a claim being
   made here.
+
+### Scope reduced during implementation: the fakes move to a follow-up
+
+**The 455 fake declarations are no longer in this change.** They were, and this
+records why they are not, because a scope cut made silently is worse than the
+scope.
+
+`design.md` Decision 11 kept Phase B here rather than splitting it, on the
+argument that Decision 4's measurement had shrunk the planning surface. That
+argument held for the value builders and did not survive the fakes. What the
+implementation measured:
+
+| builder | migrated | limit |
+|---|---|---|
+| `_step` | **135 / 135** | none — one body, 121 default sets |
+| `_hold` | 31 / 104 | composes over the *file's* `_step`, not the canonical one |
+| `_playbook` | 13 / 95 | 56 distinct bodies; the dominant covers 11 |
+
+`_step` was the prize and it migrated whole. `_hold` and `_playbook` compose
+*over* it, and composition is where sharing stops paying: a local `_hold` built
+on a customised `_step` is not reproducible by a shared `hold()` built on the
+canonical one, however the deltas are forwarded. Six attempts established that,
+one of them costing 499 failures.
+
+The fakes are the same problem with less protection. They compose in more
+directions — a fake is held by a store, which is held by a session — and
+`FakeStepStore() == FakeStepStore()` is identity, so Decision 7(b1)'s equality
+proof, which caught **five** real defects across the value builders, is
+inexpressible for them. Every one of those defects left the assertions
+textually identical and the suite green. Migrating 455 declarations with that
+check removed, against a corpus that has already shown this composition
+behaviour, is the trade Decision 11 said it would revisit.
+
+So this change delivers the shared harness and the step builder; a follow-up
+proposes the fakes, with a design that starts from the composition problem
+rather than discovering it. `docs/deferred-work.md`'s tolerance entry closes
+behind that follow-up, not behind this change.
 
 ### Ordering against the other proposed changes
 

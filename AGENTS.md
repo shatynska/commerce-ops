@@ -197,6 +197,44 @@ Tests are split into three directory-based tiers, each mirroring the module/laye
 - Test-path glob: `tests/**/test_*.py` (matches all three tiers)
 - The integration tier finds its own database — `tests/integration/conftest.py` reads `DATABASE_URL`, else `.env.test`, else `.env` — so no `export` is needed before running it. Only that one key is read from either file; the suite sets its own Slack, OpenAI and ClickUp values. An isolated test database is optional: create one once by hand, **migrate it and then seed it** (`alembic upgrade head`, then `uv run python -m commerce_ops.seed_playbook`), and name it in `.env.test`. Where nothing resolves, tests needing a database skip and say why; where `COMMERCE_OPS_REQUIRE_DATABASE` is set — CI sets it — they fail instead, and a skipped test anywhere in the tier fails the run, so a gate cannot pass a tier, or a check, it never ran.
 
+### The shared harness: `tests/support/`
+
+All three tiers arrange from `tests/support/`. It is imported, never collected —
+`testpaths` names the three tiers, as does every hook and CI step.
+
+- **A new test arranges from `tests/support/`.** A new bespoke fake means a
+  builder is missing, not that a thirteenth `_FakeSession` is warranted. Add the
+  builder.
+- **A spec-restating constant is a literal there, and is never sourced from
+  production.** `SPECIFIED_GATE_ORDER`, `CONFIRMATION_GATES`, `FINAL_GATE`,
+  `opening_for` and `gates` state what the specification says the gates are, and
+  fifteen files assert production *against* them. Importing
+  `launch_playbook.GATE_SEQUENCE` instead would make those assertions say that
+  production equals itself. The types (`Gate`, `GateOpening`) are imported
+  freely; only the values are banned. The distinction is the point: a test may
+  use production's types and must never take production's answer to the question
+  it is asking.
+- **A generated value is a factory, never a shared constant.** `product_id()`
+  exists because 68 modules each evaluated `ProductId(str(uuid.uuid4()))` at
+  module level and got 68 distinct identifiers; one shared constant would give
+  them all the same one. A file keeps `PRODUCT_ID: Final = product_id()`.
+- **A fake carries `_conforms: SomeProtocol = TheFake()` beside it.** `mypy`
+  compares a class to a protocol only where a value is assigned to a
+  protocol-annotated target, so that assignment — not the protocol's existence —
+  is what makes a double which has stopped matching its subject a type error.
+- **Completeness carries the same-value invariant with it.** Production reads
+  several collaborators by probing attribute names in order, so a double that
+  models *more* than the local one can silently redirect the probe to an earlier
+  branch. Where a fake adds a spelling a probe reads before the one the local
+  populated, the added spelling carries the same value as the one it displaces.
+- **The package exports public names**; a call site that keeps a local
+  `_`-prefixed spelling aliases them (`from tests.support.html import tree as
+  _tree`). A module-private name imported across modules is a contradiction.
+- **`tests/unit/support/` is a deliberate exception to the tier layout above.**
+  It names no bounded context because its subject is the harness itself; it
+  lives under `tests/unit/` so the shared fakes' own behaviour tests are
+  collected and run at commit time.
+
 ### Working in a git worktree
 
 Parallel sessions run as worktrees under `.claude/worktrees/`, and a worktree

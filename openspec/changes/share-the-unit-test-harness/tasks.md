@@ -19,6 +19,12 @@ Population B migration, 7(a) is evaluated across the commit **pair** — the
 7(b1) wrapper contains an `assert`, so 7(a) run against the intermediate commit
 would fail by construction.
 
+**Tasks 6.8–6.17 are marked `[~]`: moved out of this change, not skipped.**
+`proposal.md` — *Scope reduced during implementation* records the evidence.
+The short form: the equality proof caught five real defects across the value
+builders, every one of which left the assertions identical and the suite green,
+and that proof is inexpressible for the fakes because their `==` is identity.
+
 §6 splits by what can be proved. Tasks **6.1–6.7** migrate the 334 value-builder
 declarations and run the equality proof **7(b1)** — the instrumented checking
 wrapper, which adds no test function and so does not move the collected count.
@@ -337,7 +343,7 @@ leaves its file **unmigrated and recorded** (task 8.3) — never forced.
       back on the default, since 36 of the 69 fill with an automated step and 33
       with a human one. **The 11 one-off signatures are not migrated**; record
       them under 8.3.
-- [ ] 6.8 `tests/support/members.py`: `Member`, `FakeMembers`, `FakeMembersStore`
+- [~] 6.8 `tests/support/members.py`: `Member`, `FakeMembers`, `FakeMembersStore`
       (47 / 43 / 38 declarations). The fake provides **one** method,
       `list_members()`, not the three spellings the current fake carries — that
       is what makes `clickup_sync._members:128` deletable by the successor
@@ -353,9 +359,9 @@ leaves its file **unmigrated and recorded** (task 8.3) — never forced.
       (`clickup_sync._member_identifier:139`,
       `playbook_authoring.member_identifier:266`) and the branch each takes
       before and after (risk 4).
-- [ ] 6.9 `tests/support/launches.py`: `FakeLaunches`, `FakeLaunchStore`,
+- [~] 6.9 `tests/support/launches.py`: `FakeLaunches`, `FakeLaunchStore`,
       `FakeSession` (32 / 26 / 12). Protocol plus `_conforms` assignment for each.
-- [ ] 6.10 The `LaunchProgressed` double models `crossed`,
+- [~] 6.10 The `LaunchProgressed` double models `crossed`,
       `awaiting_confirmation`, `awaiting_gate`, `gate_id` and `current_gate` —
       every attribute `gate_progression_job.py:256-279` probes for (Decision 6).
       **This is risk 4's worst case.** `_awaiting_gate:267` returns the *first*
@@ -372,14 +378,14 @@ leaves its file **unmigrated and recorded** (task 8.3) — never forced.
       `getattr` fall-through produced. Record the invariant in the double's
       surface-and-behaviour note. A caller that deliberately sets two spellings
       apart is the case the note exists for.
-- [ ] 6.11 `FakeStepStore`, `FakePlaybooks`, `FakeHandlerRegistry` (37 / 32 / 12).
-- [ ] 6.12 `tests/support/slack.py`: `RecordingSlackApi`, `FakeSlackResponse` — 12
+- [~] 6.11 `FakeStepStore`, `FakePlaybooks`, `FakeHandlerRegistry` (37 / 32 / 12).
+- [~] 6.12 `tests/support/slack.py`: `RecordingSlackApi`, `FakeSlackResponse` — 12
       declarations, 12 variants, no two alike. Expect this to be the slowest and
       the most likely to leave files unmigrated.
-- [ ] 6.13 `tests/support/clickup.py`: `FakeClickUp`, `TaskMapping`, `FakeMapping`,
+- [~] 6.13 `tests/support/clickup.py`: `FakeClickUp`, `TaskMapping`, `FakeMapping`,
       `CreatedTask`, `FakeTask`.
-- [ ] 6.14 `tests/support/catalog.py`: `CatalogProduct`, `FakeCatalog` (40 / 29).
-- [ ] 6.15 Add direct behaviour tests for the five stateful fakes in
+- [~] 6.14 `tests/support/catalog.py`: `CatalogProduct`, `FakeCatalog` (40 / 29).
+- [~] 6.15 Add direct behaviour tests for the five stateful fakes in
       **`tests/unit/support/`** (collected; `tests/support/` is not), pinning
       return ordering, absent-key behaviour and initial state for
       `FakeMembersStore`, `FakeStepStore`, `FakeLaunches`, `FakePlaybooks` and
@@ -390,21 +396,21 @@ leaves its file **unmigrated and recorded** (task 8.3) — never forced.
       tests sit outside the preamble's count invariant by *exclusion*, not by
       exception: record `tests/unit/support/`'s own expected count, and leave
       the pre-existing tree's count untouched.
-- [ ] 6.16 Every fake task in 6.8–6.14 records a **surface-and-behaviour note**
+- [~] 6.16 Every fake task in 6.8–6.14 records a **surface-and-behaviour note**
       (Decision 7b2) in three parts: what the shared fake **drops**, searched
       across `src/` **and** `tests/` because the callers are production probes
       (risk 2); what it **adds**, with the probe sites reading it and the branch
       each population takes before and after (risk 4); and for every method it
       **keeps**, return shape, absent-key behaviour and initial state, stated as
       "same as the dominant local variant" or named as a difference (risk 3).
-- [ ] 6.17 Confirm every fake in `tests/support/` carries a `_conforms:
+- [~] 6.17 Confirm every fake in `tests/support/` carries a `_conforms:
       SomeProtocol = TheFake()` assignment and that `uv run mypy .` passes — the
       assignment, not the protocol's existence, is what makes a drifted double a
       type error (Decision 6).
 
 ## 7. Record the rule
 
-- [ ] 7.1 Add to `AGENTS.md`'s Testing Strategy section: a new test uses
+- [x] 7.1 Add to `AGENTS.md`'s Testing Strategy section: a new test uses
       `tests/support/`; a new bespoke fake means a builder is missing, not that a
       thirteenth `_FakeSession` is warranted; a spec-restating constant is a
       literal in `tests/support/` and is never sourced from production; a fake
@@ -414,25 +420,53 @@ leaves its file **unmigrated and recorded** (task 8.3) — never forced.
       names no bounded context, so it fits none of the Testing Strategy's
       `tests/unit/<module>/<layer>/` rules; say that it holds the shared
       harness's own behaviour tests and why it must be collected.
-- [ ] 7.2 Note in the same section that `tests/support/` exports public names and
+- [x] 7.2 Note in the same section that `tests/support/` exports public names and
       call sites alias them where they keep a local `_`-prefixed spelling.
 
 ## 8. Completion
 
-- [ ] 8.1 Full verification across all three tiers. The integration tier needs
+- [x] 8.1 Full verification across all three tiers. The integration tier needs
       this worktree's own `.env.test` — migrated **and** seeded
       (`uv run python -m commerce_ops.seed_playbook`), per `AGENTS.md`'s worktree
       obligations. A skipped integration test fails the run, so a green
       `pre-push` here is evidence and not a formality.
-- [ ] 8.2 Compare against the 1.1 baseline: test count identical, line reduction
+- [x] 8.2 Compare against the 1.1 baseline: test count identical, line reduction
       measured, wall time reported (faster is a bonus, not a claim).
-- [ ] 8.3 Record every file left unmigrated with its reason in the final commit
+
+      | | baseline (1.1) | now |
+      |---|---|---|
+      | `tests/unit` collected | 2,246 | **2,246** |
+      | `tests/agents` collected | 236 | **236** |
+      | `tests/integration` collected | 159 | **159** |
+      | commit tier | 2,482 passed, 74.7 s | 2,482 passed, 74.8 s |
+      | integration | 159 passed, 19.7 s | 159 passed, 25.2 s |
+      | `ruff check .` / `format --check .` / `mypy .` / `lint-imports` | pass | **pass** |
+
+      Line reduction against the plan commit `1fd93d9`: **344 files, +2,650 /
+      −10,326, net −7,676**, of which ~900 are the new `tests/support/` package.
+      200 of the 319 test files now import from it. Wall time is unchanged
+      within noise; no speed claim is made.
+- [x] 8.3 Record every file left unmigrated with its reason in the final commit
       message — the long tail is a non-goal, but a file skipped because its
       variant resisted the builder is a finding, not a silence. Expected entries:
       the 11 `_playbook` one-off signatures (6.5), any behaviourally distinct
       `_TreeParser` (3.1), any Population A symbol declared below its first
       test (2.7), and the 5 pinned `A_DISCIPLINE` outliers (4.3a).
-- [ ] 8.4 Raise as findings, without acting on them: the stale-`playbook_v1.yaml`
+
+      **The record.** Left unmigrated, with reasons:
+
+      | what | count | why |
+      |---|---|---|
+      | `_gates` in `test_gate_conditions_are_steps_alone.py` | 1 | returns `tuple(framework_gates())` — production's own gates; a fixture would defeat the test |
+      | `_TreeParser` / `_Node` / `_Text` | 17 files | 8 track `Node.order`, 4 track `Text.ordinal`, 5 differ in `_flat` or `handle_data` — the shared queries model no document order |
+      | `_signed_headers` / `_signed_client` | 18 | Slack request signing, not the admin session; 6 variants, one taking a `secret` keyword |
+      | `_hold` | 73 of 104 | composes over a *customised* `_step`; `hold()` composes over the canonical one |
+      | `_playbook` | 82 of 95 | 56 distinct bodies; only the two matching the shared builder exactly were taken |
+      | fixture literals | ~145 declarations | their value differs from the shared one; they differ on purpose until shown otherwise |
+      | `A_DISCIPLINE` pinned outliers | 5 | 3 pin `Discipline("listing")`, 2 `Discipline("strategy")` |
+      | `PRODUCT_ID` | 8 | their own construction, not `ProductId(str(uuid.uuid4()))` |
+      | the fakes | 455 declarations | moved to a follow-up change (`proposal.md` — *Scope reduced during implementation*) |
+- [x] 8.4 Raise as findings, without acting on them: the stale-`playbook_v1.yaml`
       observation if anything new was learned while reading those tests;
       `docs/deferred-work.md:1068-1095`'s tolerance list, which this change
       established is stale in both directions

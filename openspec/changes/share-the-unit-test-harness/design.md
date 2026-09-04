@@ -145,6 +145,7 @@ There is an obvious-looking move here that must not be made:
 ```python
 # WRONG — makes 15 assertions vacuous
 from commerce_ops.launch.domain.launch_playbook import GATE_SEQUENCE
+
 SPECIFIED_GATE_ORDER = GATE_SEQUENCE
 ```
 
@@ -271,6 +272,7 @@ does not.** This is the general rule, and it governs all three value builders:
 ```python
 # the 121 — signature is **overrides-only, so a partial reproduces it exactly
 _step = functools.partial(step, discipline=Discipline.STRATEGY, gate="commit")
+
 
 # the 14 — the local signature takes `identifier` positionally, which a
 # partial over `step(**overrides)` cannot accept
@@ -408,7 +410,8 @@ protocol-annotated target. So each fake carries one, beside it:
 class FakeMembers:
     async def list_members(self) -> tuple[Member, ...]: ...
 
-_conforms: MembersReader = FakeMembers()   # mypy fails here if the fake drifts
+
+_conforms: MembersReader = FakeMembers()  # mypy fails here if the fake drifts
 ```
 
 `uv run mypy .` already runs strict over `tests/`, so the check costs one line
@@ -421,8 +424,10 @@ dominant `_FakeMembers` variant is:
 ```python
 class _FakeMembers:
     async def list_members(self) -> tuple[_Member, ...]: ...
-    members = list_members                  # second spelling
-    async def __call__(self): ...           # third spelling
+
+    members = list_members  # second spelling
+
+    async def __call__(self): ...  # third spelling
 ```
 
 Three spellings, because `clickup_sync._members:128-136` probes for three
@@ -743,6 +748,7 @@ moves:
 ```python
 # tests/support/fixtures.py
 def product_id() -> ProductId: ...
+
 
 # in the migrated file — module-level, one per module, exactly as today
 PRODUCT_ID: Final = product_id()
