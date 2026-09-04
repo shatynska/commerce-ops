@@ -114,11 +114,10 @@ from commerce_ops.launch.domain.launch_playbook import (
 from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.shared.domain.identity import ProductId, Sku
 from commerce_ops.shared.domain.lifecycle_stage import Launching
-from tests.support._paired import paired as _paired
 from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
 from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
 from tests.support.admin import fake_verify
-from tests.support.fakes import FakeCatalogPort as _CatalogShared
+from tests.support.fakes import FakeCatalogPort as _Catalog
 from tests.support.fakes import FakeMembersStore as _FakeMembersStore
 from tests.support.fakes import StubDate
 from tests.support.fixtures import MARKETPLACE
@@ -271,23 +270,6 @@ async def _members_with_extra_member(
 
 def _members_store() -> _FakeMembersStore:
     return asyncio.run(_build_members())
-
-
-@_paired(_CatalogShared)
-class _Catalog:
-    def __init__(self, *products: Product) -> None:
-        self.products = tuple(products)
-
-    async def list_products(self, *_args: Any, **_kwargs: Any) -> tuple[Product, ...]:
-        return self.products
-
-    async def get_product_by_id(
-        self, product_id: ProductId, *_args: Any, **_kwargs: Any
-    ) -> Product | None:
-        for product in self.products:
-            if product.id == product_id:
-                return product
-        return None
 
 
 # ---------------------------------------------------------------------------

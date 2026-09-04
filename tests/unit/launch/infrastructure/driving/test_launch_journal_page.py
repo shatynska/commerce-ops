@@ -141,11 +141,10 @@ from commerce_ops.shared.domain.access_scope import AccessScope
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId, Sku
 from commerce_ops.shared.domain.lifecycle_stage import Launching
-from tests.support._paired import paired as _paired
 from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
 from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
 from tests.support.admin import fake_verify
-from tests.support.fakes import FakeCatalogPort as _CatalogShared
+from tests.support.fakes import FakeCatalogPort as _Catalog
 from tests.support.fakes import FakeMembersStore as _FakeMembersStore
 from tests.support.fakes import FakeStepStore, StubDate
 from tests.support.fixtures import MARKETPLACE
@@ -304,28 +303,6 @@ async def _build_members() -> _FakeMembersStore:
 
 def _members_store() -> _FakeMembersStore:
     return asyncio.run(_build_members())
-
-
-@_paired(_CatalogShared)
-class _Catalog:
-    def __init__(self, *products: Product, fails: bool = False) -> None:
-        self.products = tuple(products)
-        self.fails = fails
-
-    async def list_products(self, *_a: Any, **_k: Any) -> tuple[Product, ...]:
-        if self.fails:
-            raise ConnectionError("the catalog store is unreachable")
-        return self.products
-
-    async def get_product_by_id(
-        self, product_id: ProductId, *_a: Any, **_k: Any
-    ) -> Product | None:
-        if self.fails:
-            raise ConnectionError("the catalog store is unreachable")
-        for product in self.products:
-            if product.id == product_id:
-                return product
-        return None
 
 
 _FakeStepStore = FakeStepStore[Any]

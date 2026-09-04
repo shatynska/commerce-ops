@@ -418,18 +418,20 @@ Counts here are AST counts. Do not re-derive one by grep.
       Searched: nothing in `src/` names `fails` or reads it by `getattr`, and
       `launch_admin` calls `list_products` and `get_product_by_id` by name. The
       eight declarations that never pass `fails` cannot tell it is there.**
-- [ ] 10.2 Instrument, verify, settle, verify. **Expected: 12 of 16 — 12
+- [x] 10.2 Instrument, verify, settle, verify. **Expected: 12 of 16 — 12
       aliases, 4 kept.** The kept are the two declarations that sniff their
       arguments for a `ProductId` rather than taking one positionally, the one
       counting list calls, and the one declaring `__call__` instead of the port
-      surface.
-- [ ] 10.3 Record explicitly that `_FakeCatalog` (29 declarations) is **not**
+      surface. **Actual: 12 of 16 — 12 aliases, 4 kept, exactly as measured.
+      The pairing fired 146 times over 112 constructions with no divergence,
+      and every declaration was exercised.**
+- [x] 10.3 Record explicitly that `_FakeCatalog` (29 declarations) is **not**
       migrated onto this fake, and why: it is two doubles under one name, and
       four of its five port-shaped declarations apply access-scope filtering
       that no `_Catalog` declaration performs (`proposal.md`). Migrating them
-      would drop a scope check inside a double, invisibly. No file declares
-      both names, so the exclusion leaves no file holding one migrated and one
-      unmigrated catalog double — confirm that still holds.
+      would drop a scope check inside a double, invisibly. No file declares both
+      names, so the exclusion leaves no file holding one migrated and one
+      unmigrated catalog double — **confirmed, still zero.**
 
 ## 11. `FakeMembers` — 43 declarations, twenty-one bodies
 
