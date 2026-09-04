@@ -51,7 +51,8 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from tests.support.values import Member, MemberValue
+from commerce_ops.shared.domain.identity import Sku
+from tests.support.values import CatalogProduct, Member, MemberValue
 
 
 class MemberShape(Protocol):
@@ -79,3 +80,16 @@ _member_conforms: MemberShape = Member("prs_01HQ8Z6M4A", "Alice Admin")
 _member_value_conforms: MemberShape = MemberValue(
     id="prs_01HQ8Z6M4A", display_name="Alice Admin", slack_identity="U-ALICE"
 )
+
+
+class CatalogProductShape(Protocol):
+    """What a launch reads off a catalog product."""
+
+    @property
+    def name(self) -> str: ...
+
+    @property
+    def sku(self) -> Sku: ...
+
+
+_catalog_product_conforms: CatalogProductShape = CatalogProduct()

@@ -81,14 +81,13 @@ from __future__ import annotations
 import importlib
 import inspect
 import json
-from dataclasses import dataclass
 from types import ModuleType
 from typing import Any, Final
 
 import pytest
 
-from commerce_ops.shared.domain.identity import Sku
-from tests.support.fixtures import PRODUCT_NAME, PRODUCT_SKU, product_id
+from tests.support.fixtures import PRODUCT_NAME, product_id
+from tests.support.values import CatalogProduct as _CatalogProduct
 
 pytestmark = pytest.mark.anyio
 
@@ -115,12 +114,6 @@ def _module() -> ModuleType:
             f"{MODULE_PATH} does not exist ({error}); `tasks.md` 5.1 creates "
             "it. This is the absent-target state, not a defect in this file."
         )
-
-
-@dataclass(frozen=True)
-class _CatalogProduct:
-    name: str = PRODUCT_NAME
-    sku: Sku = PRODUCT_SKU
 
 
 class _CapturingPoster:

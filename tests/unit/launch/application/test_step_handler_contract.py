@@ -66,7 +66,6 @@ Baseline recorded before these tests were written:
 from __future__ import annotations
 
 import dataclasses
-from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, Final
 
@@ -86,11 +85,11 @@ from commerce_ops.launch.domain.launch_playbook import (
 )
 from commerce_ops.launch.domain.launch_run import Launch, Provenance
 from commerce_ops.shared.domain.discipline import Discipline
-from commerce_ops.shared.domain.identity import Sku
 from tests.support.fixtures import ALICE, HANDLER_NAME, LAUNCH_DATE, STEP_ID, product_id
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
 from tests.support.steps import step as _build_step
+from tests.support.values import CatalogProduct as _CatalogProduct
 
 PRODUCT_ID: Final = product_id()
 AS_OF: Final = datetime(2027, 1, 6, 9, 30, tzinfo=UTC)
@@ -110,14 +109,6 @@ EVERY_OUTCOME: Final = (
     Refused,
     NotApplicable("single-marketplace product; the node is EU-only"),
 )
-
-
-@dataclass(frozen=True)
-class _CatalogProduct:
-    """Stands in for the catalog product the pass resolves and supplies."""
-
-    name: str = "Bamboo Cutting Board"
-    sku: Sku = dataclasses.field(default_factory=lambda: Sku("BCB-2027-01"))
 
 
 def _any_discipline() -> Discipline:

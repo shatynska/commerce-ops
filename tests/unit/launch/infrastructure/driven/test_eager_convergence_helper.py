@@ -142,12 +142,13 @@ from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.launch.infrastructure.driven.clickup_sync import converge_launch
 from commerce_ops.shared.domain.clickup import ClickUpListState
 from commerce_ops.shared.domain.discipline import Discipline
-from commerce_ops.shared.domain.identity import ProductId, Sku
+from commerce_ops.shared.domain.identity import ProductId
 from tests.support.fixtures import LAUNCH_DATE, PRODUCT_NAME, PRODUCT_SKU, product_id
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import opening_for as _opening_for
 from tests.support.steps import hold as _build_hold
 from tests.support.steps import step as _build_step
+from tests.support.values import CatalogProduct as _CatalogProduct
 
 pytestmark = pytest.mark.anyio
 
@@ -261,12 +262,6 @@ class _RecordingConverge:
 # Test doubles — real `converge_launch`'s collaborators, transcribed from
 # `test_clickup_sync_projection.py`, for the partial-write-survival test
 # ---------------------------------------------------------------------------
-
-
-@dataclass(frozen=True)
-class _CatalogProduct:
-    name: str
-    sku: Sku
 
 
 class _FakeCatalog:

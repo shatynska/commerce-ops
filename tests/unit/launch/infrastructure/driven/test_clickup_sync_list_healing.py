@@ -156,7 +156,7 @@ from commerce_ops.launch.infrastructure.driven.clickup_sync import (
     reconcile_launch,
 )
 from commerce_ops.shared.domain.discipline import Discipline
-from commerce_ops.shared.domain.identity import ProductId, Sku
+from commerce_ops.shared.domain.identity import ProductId
 from tests.support.fixtures import (
     ALICE,
     LAUNCH_DATE,
@@ -167,6 +167,7 @@ from tests.support.fixtures import (
 from tests.support.playbook import CONFIRMATION_GATES
 from tests.support.playbook import playbook as _build_playbook
 from tests.support.steps import step as _build_step
+from tests.support.values import CatalogProduct as _CatalogProduct
 from tests.support.values import Member as _Member
 
 pytestmark = pytest.mark.anyio
@@ -322,12 +323,6 @@ def _graduated(playbook: LaunchPlaybook) -> Launch:
 # ---------------------------------------------------------------------------
 # Test doubles
 # ---------------------------------------------------------------------------
-
-
-@dataclass(frozen=True)
-class _CatalogProduct:
-    name: str
-    sku: Sku
 
 
 class _FakeCatalog:

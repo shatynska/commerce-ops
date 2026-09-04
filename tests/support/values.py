@@ -28,6 +28,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from commerce_ops.shared.domain.identity import Sku
+from tests.support.fixtures import PRODUCT_NAME, PRODUCT_SKU
+
 #: What a member double's ClickUp identity is, absent a reason to differ.
 CLICKUP_USER_ID = "clickup-1"
 
@@ -103,3 +106,31 @@ class MemberValue:
     def identifier(self) -> str:
         """As `Member.identifier`, and for the same reason."""
         return self.id
+
+
+@dataclass(frozen=True)
+class CatalogProduct:
+    """The catalog product a launch is about, as far as `launch` reads it.
+
+    `frozen=True`, matching the 31 frozen declarations this replaces -- so
+    equality is structural and instances are hashable, which
+    `test_step_handler_contract.py` relies on. The seven plain-class
+    declarations keep their own: two say in their docstrings that the plain form
+    is deliberate, because `catalog.domain.product.Product` is plain and `!r`
+    must leak `<... object at 0x...>` exactly as it would in production. A
+    shared dataclass renders fields instead, so form is part of the contract
+    rather than an implementation detail.
+
+    The defaults are `fixtures`' values because seven declarations already
+    default to exactly those -- six by importing the names, one by spelling the
+    literals. `fixtures.py`'s own rule is that migration matches on the value,
+    never on the identifier.
+
+    `stage` is **not** modelled. Two declarations carry it and only `briefing`
+    reads it, directly rather than by shape; adding it would hand 31
+    launch-facing doubles an attribute whose absence previously raised, to suit
+    two tests in another bounded context. Those two keep their own declaration.
+    """
+
+    name: str = PRODUCT_NAME
+    sku: Sku = PRODUCT_SKU

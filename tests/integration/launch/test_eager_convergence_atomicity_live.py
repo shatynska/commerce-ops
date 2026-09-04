@@ -143,6 +143,7 @@ from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import opening_for as _opening_for
 from tests.support.steps import hold as _build_hold
 from tests.support.steps import step as _build_step
+from tests.support.values import CatalogProduct as _CatalogProduct
 
 pytestmark = pytest.mark.anyio
 
@@ -219,12 +220,6 @@ def _launch(product_id: ProductId, playbook: LaunchPlaybook) -> Launch:
 # it (`converge_launch` only reads `.name`/`.sku` off what `read_product`
 # returns).
 # ---------------------------------------------------------------------------
-
-
-@dataclass(frozen=True)
-class _CatalogProduct:
-    name: str
-    sku: Sku
 
 
 class _FakeCatalog:

@@ -268,7 +268,7 @@ five sit directly opposite `playbook_admin.py:321`.
 
 ## 4. `CatalogProduct` — 40 declarations, expectation 31
 
-- [ ] 4.1 Measure per file as in 3.1. Known — the 33 frozen dataclasses are
+- [x] 4.1 Measure per file as in 3.1. Known — the 33 frozen dataclasses are
       **four** groups, not two:
 
       | count | shape |
@@ -281,7 +281,7 @@ five sit directly opposite `playbook_admin.py:321`.
       The 7 plain classes are a fifth group, at least one carrying `id`,
       `marketplace_id`, `sub_category` and `hazard_categories` — a different
       object entirely.
-- [ ] 4.2 Add `CatalogProduct` as a **`@dataclass(frozen=True)`** — the form 33
+- [x] 4.2 Add `CatalogProduct` as a **`@dataclass(frozen=True)`** — the form 33
       of the 40 declare — carrying `name` and `sku` and **not** `stage`, with
       its protocol and `_conforms`. Defaults from `tests.support.fixtures` where
       the local default *is* that literal; `fixtures.py`'s own rule is that
@@ -294,7 +294,7 @@ five sit directly opposite `playbook_admin.py:321`.
       declarations an attribute whose absence previously raised, to satisfy two
       tests in another bounded context. That is the type-bending Decision 3 and
       risk 5 both refuse. Expectation is therefore **31 of 40**, not 33.
-- [ ] 4.2a The 7 plain-class declarations stay local, by `design.md` Decision 3
+- [x] 4.2a The 7 plain-class declarations stay local, by `design.md` Decision 3
       clause (b) and not by field breadth. Two of them —
       `test_compliance_screen_failure_and_context.py:314` and
       `test_compliance_screen_verdict_routing.py:399` — say in their own
@@ -302,13 +302,38 @@ five sit directly opposite `playbook_admin.py:321`.
       `catalog.domain.product.Product` is plain and `!r` must leak
       `<... object at 0x...>` "exactly as it would in production". Quote that
       reason in the record rather than filing them under "field breadth".
-- [ ] 4.3 Instrument, verify, settle, verify — as 3.3–3.8. **The instrument
+- [x] 4.3 Instrument, verify, settle, verify — as 3.3–3.8. **The instrument
       commit runs the integration tier too**: two of the 40 declarations are at
       `test_eager_convergence_atomicity_live.py:225` and
       `test_pending_result_delivery_seam_live.py:267`, which the commit tier
       never imports.
-- [ ] 4.4 Record the not-migrated: the 7 plain-class variants, with 4.2a's
+- [x] 4.4 Record the not-migrated: the 7 plain-class variants, with 4.2a's
       reason for two of them and the measured reason for the rest.
+
+      **The record: 31 of 40, exactly as planned.** 33 files changed, 107
+      insertions against 226 deletions. The proof found **no disagreement at
+      all** — every one of the 31 agreed with the shared defaults on every
+      construction the suite performs, which is what licenses
+      `PRODUCT_NAME`/`PRODUCT_SKU` as the defaults.
+
+      Not migrated, 9 declarations:
+
+      | count | why |
+      |---|---|
+      | 7 | plain classes carrying `id`, `marketplace_id`, `sub_category` and in two cases `hazard_categories` — a different object wearing the same name. Clause (b). Two of the seven document the plain form as deliberate, for `!r`. |
+      | 2 | `test_briefing_assembly.py:268` and `test_briefing_delivery.py:233` declare a required `stage`, read only by `briefing` and read directly rather than by shape. Clause (a), and 4.2's reason for not carrying it. |
+
+      `test_step_handler_contract.py:116` **did** migrate: it spells its
+      defaults `'Bamboo Cutting Board'` and
+      `field(default_factory=lambda: Sku('BCB-2027-01'))` where the other six
+      import `PRODUCT_NAME`/`PRODUCT_SKU`, and `fixtures.py`'s rule is that
+      migration matches on the value, not the identifier. The proof confirmed
+      the values agree.
+
+      One process finding worth recording: instrumenting all 38 declaring files
+      rather than the 31 in scope produced 125 failures in one run — the
+      clause-(b) population failing loudly, as it should. The exclusion list is
+      derived from the 2.3 measurement, not from the name.
 
 ## 5. `Record` — 30 declarations, expectation 29
 

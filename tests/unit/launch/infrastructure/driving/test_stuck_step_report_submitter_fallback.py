@@ -108,8 +108,8 @@ from typing import Any, Final
 import pytest
 
 from commerce_ops.launch.domain.launch_run import Launch
-from commerce_ops.shared.domain.identity import Sku
-from tests.support.fixtures import PRODUCT_NAME, PRODUCT_SKU, STEP_ID, product_id
+from tests.support.fixtures import STEP_ID, product_id
+from tests.support.values import CatalogProduct as _CatalogProduct
 
 pytestmark = pytest.mark.anyio
 
@@ -158,12 +158,6 @@ def _module() -> Any:
         return importlib.import_module(MODULE_PATH)
     except ImportError as error:  # pragma: no cover -- absent-target guard
         pytest.fail(f"{MODULE_PATH} does not exist ({error})")
-
-
-@dataclass(frozen=True)
-class _CatalogProduct:
-    name: str = PRODUCT_NAME
-    sku: Sku = PRODUCT_SKU
 
 
 @dataclass(frozen=True)

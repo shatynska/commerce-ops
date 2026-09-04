@@ -75,8 +75,9 @@ import pytest
 
 from commerce_ops.launch.domain.launch_playbook import Satisfied
 from commerce_ops.launch.infrastructure.driving import automation_confirmation
-from commerce_ops.shared.domain.identity import ProductId, Sku
-from tests.support.fixtures import HANDLER_NAME, PRODUCT_NAME, PRODUCT_SKU, STEP_ID
+from commerce_ops.shared.domain.identity import ProductId
+from tests.support.fixtures import HANDLER_NAME, PRODUCT_NAME, STEP_ID
+from tests.support.values import CatalogProduct as _CatalogProduct
 
 pytestmark = pytest.mark.anyio
 
@@ -113,12 +114,6 @@ def anyio_backend() -> str:
 # ---------------------------------------------------------------------------
 # Test doubles
 # ---------------------------------------------------------------------------
-
-
-@dataclass(frozen=True)
-class _CatalogProduct:
-    name: str = PRODUCT_NAME
-    sku: Sku = PRODUCT_SKU
 
 
 @dataclass
