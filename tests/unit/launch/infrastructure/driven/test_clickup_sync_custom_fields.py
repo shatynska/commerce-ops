@@ -152,6 +152,7 @@ from tests.support.fixtures import (
 )
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import playbook as _build_playbook
+from tests.support.steps import hold as _build_hold
 from tests.support.steps import step as _build_step
 from tests.support.values import CatalogProduct as _CatalogProduct
 from tests.support.values import CreatedTask as _CreatedTask
@@ -237,16 +238,11 @@ def _control_step(**overrides: Any) -> StepDefinition:
 def _hold(gate: str) -> StepDefinition:
     """An `active` `automated` blocking filler, so no filler is ever
     projected and every assertion below is about this file's own steps."""
-    return _step(
-        identifier=f"hold.{gate}",
-        name=f"Blocking work holding the {gate} gate",
-        description=None,
-        gate=gate,
-        blocking=True,
-        kind=StepKind.AUTOMATED,
-        status=StepStatus.ACTIVE,
-        assignees=(),
+    return _build_hold(
+        gate,
+        discipline=STEP_DISCIPLINE,
         handler=f"hold.{gate.replace('-', '_')}",
+        kind=StepKind.AUTOMATED,
     )
 
 

@@ -119,6 +119,7 @@ from commerce_ops.shared.domain.lifecycle_stage import Posture
 from tests.support.fixtures import product_id
 from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
 from tests.support.playbook import opening_for as _opening_for
+from tests.support.steps import hold as _build_hold
 from tests.support.steps import step as _build_step
 
 pytestmark = pytest.mark.anyio
@@ -242,13 +243,10 @@ def _step(**overrides: Any) -> StepDefinition:
 def _hold(gate: str) -> StepDefinition:
     """A blocking filler holding `gate` — the gate-holding floor forbids a
     coherent playbook with unheld gates."""
-    return _step(
-        identifier=f"hold.{gate}",
-        name=f"Blocking work holding the {gate} gate",
-        gate=gate,
-        blocking=True,
-        kind=StepKind.AUTOMATED,
+    return _build_hold(
+        gate,
         handler="fixture.holding_check",
+        kind=StepKind.AUTOMATED,
     )
 
 

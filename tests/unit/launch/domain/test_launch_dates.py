@@ -51,7 +51,6 @@ from commerce_ops.launch.domain.launch_playbook import (
     Satisfied,
     StepDefinition,
     StepKind,
-    StepStatus,
     WindowAnchor,
 )
 from commerce_ops.launch.domain.launch_run import (
@@ -63,6 +62,7 @@ from commerce_ops.launch.domain.launch_run import (
 from commerce_ops.shared.domain.discipline import Discipline
 from tests.support.fixtures import product_id
 from tests.support.playbook import playbook as _build_playbook
+from tests.support.steps import hold as _build_hold
 from tests.support.steps import step as _build_step
 
 PRODUCT_ID: Final = product_id()
@@ -96,13 +96,11 @@ def _hold(gate: str) -> StepDefinition:
     steps leave unheld. Automated with a decided rule so no other
     coherence rule fires, and anchored a year *after* the launch so a
     filler can never be the overdue step an at-risk assertion is about."""
-    return _step(
-        identifier=f"hold.{gate}",
-        gate=gate,
-        blocking=True,
-        kind=StepKind.AUTOMATED,
-        status=StepStatus.ACTIVE,
+    return _build_hold(
+        gate,
         handler="fixture.holding_check",
+        kind=StepKind.AUTOMATED,
+        name="Work this step asks for",
         timing_anchor=OffsetAnchor(days=365),
     )
 

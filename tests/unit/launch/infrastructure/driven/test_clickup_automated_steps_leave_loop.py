@@ -83,7 +83,6 @@ from commerce_ops.launch.domain.launch_playbook import (
     LaunchPlaybook,
     StepDefinition,
     StepKind,
-    StepStatus,
 )
 from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.launch.infrastructure.driven.clickup_sync import (
@@ -104,6 +103,7 @@ from tests.support.fixtures import (
 )
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
+from tests.support.steps import hold as _build_hold
 from tests.support.steps import step as _build_step
 from tests.support.values import CatalogProduct as _CatalogProduct
 from tests.support.values import CreatedTask as _CreatedTask
@@ -161,15 +161,10 @@ def _automated_step() -> StepDefinition:
 
 
 def _hold(gate: str) -> StepDefinition:
-    return _step(
-        identifier=f"hold.{gate}",
-        name=f"Blocking work holding the {gate} gate",
-        gate=gate,
-        blocking=True,
-        kind=StepKind.AUTOMATED,
-        status=StepStatus.ACTIVE,
-        assignees=(),
+    return _build_hold(
+        gate,
         handler=f"hold.{gate.replace('-', '_')}",
+        kind=StepKind.AUTOMATED,
     )
 
 

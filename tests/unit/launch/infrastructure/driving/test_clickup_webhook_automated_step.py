@@ -75,7 +75,6 @@ from commerce_ops.launch.domain.launch_playbook import (
     LaunchPlaybook,
     StepDefinition,
     StepKind,
-    StepStatus,
 )
 from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.launch.infrastructure.driving import clickup_webhook as webhook_module
@@ -84,6 +83,7 @@ from commerce_ops.shared.domain.identity import ProductId
 from tests.support.fixtures import ALICE, HANDLER_NAME, LAUNCH_DATE, product_id
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import opening_for as _opening_for
+from tests.support.steps import hold as _build_hold
 from tests.support.steps import step as _build_step
 from tests.support.values import TaskMapping as _TaskMapping
 
@@ -127,14 +127,11 @@ def _automated_step() -> StepDefinition:
 
 
 def _hold(gate: str) -> StepDefinition:
-    return _step(
-        identifier=f"hold.{gate}",
-        gate=gate,
-        blocking=True,
-        kind=StepKind.AUTOMATED,
-        status=StepStatus.ACTIVE,
-        assignees=(),
+    return _build_hold(
+        gate,
         handler=f"hold.{gate.replace('-', '_')}",
+        kind=StepKind.AUTOMATED,
+        name="Choose the sub-category node",
     )
 
 

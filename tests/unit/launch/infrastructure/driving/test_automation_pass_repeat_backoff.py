@@ -196,7 +196,6 @@ from commerce_ops.launch.domain.launch_playbook import (
     Satisfied,
     StepDefinition,
     StepKind,
-    StepStatus,
 )
 from commerce_ops.launch.domain.launch_run import (
     Launch,
@@ -216,6 +215,7 @@ from tests.support.fixtures import (
 )
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
+from tests.support.steps import hold as _build_hold
 from tests.support.steps import step as _build_step
 from tests.support.values import CatalogProduct as _CatalogProduct
 from tests.support.values import PendingRow as _PendingRow
@@ -317,13 +317,8 @@ def _second_automated() -> StepDefinition:
 def _hold(gate: str) -> StepDefinition:
     """One blocking `human` step per gate, satisfying the gate-holding
     floor without adding a step the pass would invoke."""
-    return _step(
-        identifier=f"hold.{gate}",
-        name=f"Blocking work holding the {gate} gate",
-        gate=gate,
-        blocking=True,
-        kind=StepKind.HUMAN,
-        status=StepStatus.ACTIVE,
+    return _build_hold(
+        gate,
         assignees=(ALICE,),
     )
 

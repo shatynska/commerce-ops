@@ -94,6 +94,7 @@ from commerce_ops.shared.domain.identity import ProductId
 from tests.support.fixtures import STEP_ID, product_id
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
+from tests.support.steps import hold as _build_hold
 
 pytestmark = pytest.mark.anyio
 
@@ -147,13 +148,10 @@ def _step(identifier: str, **overrides: Any) -> StepDefinition:
 
 
 def _hold(gate: str) -> StepDefinition:
-    return _step(
-        f"hold.{gate}",
-        gate=gate,
-        blocking=True,
-        kind=StepKind.HUMAN,
+    return _build_hold(
+        gate,
         assignees=("prs_01HQ8Z6M4A",),
-        handler=None,
+        name=f"Work hold.{gate} asks for",
     )
 
 

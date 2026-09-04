@@ -168,6 +168,7 @@ from tests.support.html import size as _size
 from tests.support.html import tree as _tree
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
+from tests.support.steps import hold as _build_hold
 
 # ---------------------------------------------------------------------------
 # The module under test, resolved by name
@@ -291,13 +292,12 @@ def _hold(gate: str) -> StepDefinition:
     named steps below changes nothing the list orders or bands by. That
     isolation is what the last scenario in this file rests on.
     """
-    return _step(
-        identifier=f"hold.{gate}",
-        name=f"Blocking work holding the {gate} gate",
-        gate=gate,
-        blocking=True,
-        kind=StepKind.AUTOMATED,
+    return _build_hold(
+        gate,
+        discipline=LISTING,
         handler="fixture.holding_check",
+        kind=StepKind.AUTOMATED,
+        timing_anchor=OffsetAnchor(days=365),
     )
 
 

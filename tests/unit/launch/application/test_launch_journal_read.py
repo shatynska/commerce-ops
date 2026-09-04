@@ -110,6 +110,7 @@ from commerce_ops.shared.domain.access_scope import AccessScope
 from commerce_ops.shared.domain.identity import ProductId
 from tests.support.fixtures import product_id
 from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
+from tests.support.steps import hold as _build_hold
 from tests.support.steps import step as _build_step
 
 pytestmark = pytest.mark.anyio
@@ -262,13 +263,10 @@ def _step(**overrides: Any) -> StepDefinition:
 
 
 def _hold(gate: str) -> StepDefinition:
-    return _step(
-        identifier=f"hold.{gate}",
-        name=f"Blocking work holding the {gate} gate",
-        gate=gate,
-        blocking=True,
-        kind=StepKind.AUTOMATED,
+    return _build_hold(
+        gate,
         handler="fixture.holding_check",
+        kind=StepKind.AUTOMATED,
     )
 
 

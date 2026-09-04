@@ -91,7 +91,6 @@ from commerce_ops.launch.domain.launch_playbook import (
     LaunchPlaybook,
     StepDefinition,
     StepKind,
-    StepStatus,
 )
 from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.launch.infrastructure.driven import clickup_sync
@@ -102,6 +101,7 @@ from commerce_ops.shared.domain.identity import ProductId
 from tests.support.fixtures import LAUNCH_DATE, PRODUCT_NAME, PRODUCT_SKU, product_id
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
+from tests.support.steps import hold as _build_hold
 from tests.support.steps import step as _build_step
 from tests.support.values import CatalogProduct as _CatalogProduct
 from tests.support.values import CreatedTask as _CreatedTask
@@ -150,13 +150,12 @@ def _hold(gate: str) -> StepDefinition:
     unheld gates, so `_playbook` fills whichever gates the test's own
     steps leave unheld. Automated, so the sync never projects a filler and
     every projection assertion is untouched by them."""
-    return _step(
-        identifier=f"hold.{gate}",
-        gate=gate,
-        blocking=True,
-        kind=StepKind.AUTOMATED,
-        status=StepStatus.ACTIVE,
+    return _build_hold(
+        gate,
+        discipline=Discipline("creative"),
         handler="fixture.holding_check",
+        kind=StepKind.AUTOMATED,
+        name=STEP_DESCRIPTION,
     )
 
 

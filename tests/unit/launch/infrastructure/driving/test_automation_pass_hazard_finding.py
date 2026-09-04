@@ -108,6 +108,7 @@ from tests.support.fakes import InertBackoff as _InertBackoff
 from tests.support.fixtures import LAUNCH_DATE, PRODUCT_NAME, PRODUCT_SKU, product_id
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
+from tests.support.steps import hold as _build_hold
 from tests.support.values import CatalogProduct as _CatalogProduct
 
 pytestmark = pytest.mark.anyio
@@ -166,21 +167,9 @@ def _automated(**overrides: Any) -> StepDefinition:
 
 
 def _hold(gate: str) -> StepDefinition:
-    return StepDefinition(
-        identifier=f"hold.{gate}",
-        name=f"Blocking work holding the {gate} gate",
-        description=None,
-        gate=gate,
-        discipline=Discipline("strategy"),
-        scope=Scope.PRODUCT,
-        timing_anchor=OffsetAnchor(days=-7),
-        blocking=True,
-        kind=StepKind.HUMAN,
-        status=StepStatus.ACTIVE,
-        hazard=Hazard.NONE,
+    return _build_hold(
+        gate,
         assignees=(CONFIRMER,),
-        handler=None,
-        provenance=None,
     )
 
 

@@ -71,18 +71,16 @@ from slack_sdk.signature import SignatureVerifier
 
 from commerce_ops.launch.domain import launch_playbook as playbook_module
 from commerce_ops.launch.domain.launch_playbook import (
-    Hazard,
     LaunchPlaybook,
     OffsetAnchor,
-    Scope,
     StepDefinition,
     StepKind,
     StepStatus,
 )
-from commerce_ops.shared.domain.discipline import Discipline
 from tests.support.fakes import FakeSlackResponse as _FakeSlackResponse
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
+from tests.support.steps import hold as _build_hold
 
 SLACK_ENTRY_PATH: Final = "/product_agent/slack/events"
 SIGNING_SECRET: Final = "test-product-agent-signing-secret"
@@ -125,22 +123,13 @@ UNHELD_GATES: Final = ("ignition", "graduated")
 
 
 def _hold(gate: str, **overrides: Any) -> StepDefinition:
-    attributes: dict[str, Any] = {
-        "identifier": f"hold.{gate}",
-        "name": f"Blocking work holding the {gate} gate",
-        "gate": gate,
-        "discipline": next(iter(Discipline)),
-        "scope": Scope.PRODUCT,
-        "timing_anchor": OffsetAnchor(days=0),
-        "blocking": True,
-        "kind": StepKind.AUTOMATED,
-        "status": StepStatus.ACTIVE,
-        "hazard": Hazard.NONE,
-        "handler": "fixture.holding_check",
-        "provenance": None,
-    }
-    attributes.update(overrides)
-    return StepDefinition(**attributes)
+    return _build_hold(
+        gate,
+        handler="fixture.holding_check",
+        kind=StepKind.AUTOMATED,
+        timing_anchor=OffsetAnchor(days=0),
+        **overrides,
+    )
 
 
 def _ready_playbook() -> LaunchPlaybook:

@@ -67,6 +67,7 @@ from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
 from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
+from tests.support.steps import hold as _build_hold
 from tests.support.steps import step as _build_step
 
 A_DISCIPLINE: Final = next(iter(Discipline))
@@ -90,11 +91,8 @@ def _hold(gate: str) -> StepDefinition:
     launch so a filler can never be the overdue step an assertion is
     about, and declaring neither start field so it is never the reason a
     launch is or is not at risk."""
-    return _step(
-        identifier=f"hold.{gate}",
-        name=f"Blocking work holding the {gate} gate",
-        gate=gate,
-        blocking=True,
+    return _build_hold(
+        gate,
         timing_anchor=OffsetAnchor(days=365),
     )
 

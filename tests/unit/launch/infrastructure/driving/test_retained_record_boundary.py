@@ -104,6 +104,7 @@ from tests.support.fixtures import (
 )
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
+from tests.support.steps import hold as _build_hold
 from tests.support.steps import step as _build_step
 from tests.support.values import CatalogProduct as _CatalogProduct
 
@@ -160,13 +161,10 @@ def _automated(identifier: str, handler: str, **overrides: Any) -> StepDefinitio
 def _hold(gate: str) -> StepDefinition:
     """A blocking `human` filler per gate, satisfying the gate-holding
     floor without becoming a candidate the pass would invoke."""
-    return _step(
-        identifier=f"hold.{gate}",
-        name=f"Blocking work of hold.{gate}",
-        gate=gate,
-        blocking=True,
-        kind=StepKind.HUMAN,
+    return _build_hold(
+        gate,
         assignees=(ALICE,),
+        name=f"Blocking work of hold.{gate}",
     )
 
 

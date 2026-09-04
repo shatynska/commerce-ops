@@ -164,6 +164,7 @@ from tests.support.html import texts as _texts
 from tests.support.html import tree as _tree
 from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
+from tests.support.steps import hold as _build_hold
 from tests.support.steps import step as _build_step
 
 # ---------------------------------------------------------------------------
@@ -335,13 +336,11 @@ def _step(**overrides: Any) -> StepDefinition:
 def _hold(gate: str) -> StepDefinition:
     """A blocking filler holding `gate`, anchored a year after launch so
     it can never be the overdue step an at-risk judgement is about."""
-    return _step(
-        identifier=f"hold.{gate}",
-        name=f"Blocking work holding the {gate} gate",
-        gate=gate,
-        blocking=True,
-        kind=StepKind.AUTOMATED,
+    return _build_hold(
+        gate,
+        discipline=A_DISCIPLINE,
         handler="fixture.holding_check",
+        kind=StepKind.AUTOMATED,
         timing_anchor=OffsetAnchor(days=365),
     )
 
