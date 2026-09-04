@@ -300,18 +300,36 @@ leaves its file **unmigrated and recorded** (task 8.3) — never forced.
 - [x] 6.4 Migrate the **121** `**overrides`-only `_step` files as
       `_step = functools.partial(step, **deltas)`. 69 of the 121 need two
       overrides or fewer; 94 need four or fewer. Proof 7(b1) per file.
-- [ ] 6.5 Migrate the **14** `_step` files whose local signature is
+- [x] 6.5 Migrate the **14** `_step` files whose local signature is
       `(identifier: str, **overrides)` with a one-line wrapper, not a partial —
       a partial over `step(**overrides)` cannot accept their positional argument.
       Read these individually; the diff-shape argument does not cover them, and
       two are among the largest files in the suite
       (`test_launch_admin_detail.py:321`, `test_launch_surface_vocabulary_rules.py:382`).
-- [ ] 6.6 Migrate all **104** `_hold` files as
+- [x] 6.6 Migrate **31 of the 104** `_hold` files as
       `_hold = functools.partial(hold, **deltas)` — both signatures are
       partial-reproducible, since `gate` stays positional. Its own task rather
       than a clause of 6.4: `hold()` carries only three defaults, so most files
       will pass more deltas than the `_step` histogram would suggest, and the
       two populations should not be reported as one. Proof 7(b1) per file.
+
+      **Only 31, and the boundary is a design finding.** `hold()` composes over
+      the *canonical* `step()`, while a local `_hold` composes over its *file's*
+      `_step`. Where that step carries deltas the two build on different
+      foundations, and forwarding the base deltas does not reconcile them:
+      `identifier` is a parameter in 14 files, `gate` ends up set twice, and one
+      file derives `name` from the identifier. So `hold()` is used exactly where
+      the file's step **is** the canonical step — 27 such files, plus 4 whose
+      `_hold` takes `**overrides`. The other 73 keep a local `_hold` over their
+      own two-line `_step`, which is already short. Recorded under 8.3.
+
+      Two extraction bugs found on the way, both caught by the 7(b1) proof
+      rather than by review: a local `_hold` that builds a dict and calls
+      `_step(**attributes)` carries no call keywords, so reading only
+      `call.keywords` silently dropped `kind`, `status` and `handler`; and 45 of
+      the 104 never pass `name`, inheriting `step()`'s "Work this step asks for"
+      rather than `hold()`'s "Blocking work holding the … gate" — passing it
+      back explicitly is what took 101 failures to zero.
 - [ ] 6.7 Migrate the `_playbook` files: the 40 `()` and 13 `(*steps)` as
       partials, the **31 `(steps)`** — which take a positional tuple a partial
       cannot deliver — as one-line wrappers. Each of the **69** that fill unheld

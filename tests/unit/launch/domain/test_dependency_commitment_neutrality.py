@@ -103,6 +103,7 @@ from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
 from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
+from tests.support.steps import hold as _build_hold
 from tests.support.steps import step as _build_step
 
 #: The gate under evaluation, and the one after it in the sequence.
@@ -140,17 +141,7 @@ def _step(**overrides: Any) -> StepDefinition:
 
 
 def _hold(gate: str) -> StepDefinition:
-    """A blocking filler holding `gate`, satisfying the gate-holding floor.
-
-    It declares neither start field, so a filler can never be the reason
-    anything in these tests is held back.
-    """
-    return _step(
-        identifier=f"hold.{gate}",
-        name=f"Blocking work holding the {gate} gate",
-        gate=gate,
-        blocking=True,
-    )
+    return _build_hold(gate)
 
 
 def _playbook(*, declaring: bool) -> LaunchPlaybook:

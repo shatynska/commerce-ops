@@ -97,6 +97,7 @@ from commerce_ops.shared.domain.discipline import Discipline
 from tests.support.fixtures import product_id
 from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
+from tests.support.steps import hold as _build_hold
 from tests.support.steps import step as _build_step
 
 PRODUCT_ID: Final = product_id()
@@ -115,18 +116,12 @@ def _step(**overrides: Any) -> StepDefinition:
 
 
 def _hold(gate: str) -> StepDefinition:
-    """A blocking filler holding `gate` — the gate-holding floor
-    (`move-playbook-steps-to-postgres`) forbids coherent playbooks with
-    unheld gates, so `_playbook` fills whichever gates the test's own
-    steps leave unheld. Automated with a decided rule so no other
-    coherence rule fires; the `hold.` namespace tells fillers apart."""
-    return _step(
-        identifier=f"hold.{gate}",
-        gate=gate,
-        blocking=True,
+    return _build_hold(
+        gate,
         kind=StepKind.AUTOMATED,
         status=StepStatus.ACTIVE,
         handler="fixture.holding_check",
+        name="Work this step asks for",
     )
 
 

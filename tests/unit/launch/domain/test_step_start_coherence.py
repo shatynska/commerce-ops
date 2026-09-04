@@ -70,6 +70,7 @@ from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
+from tests.support.steps import hold as _build_hold
 from tests.support.steps import step as _build_step
 
 #: SPECIFIED: "the final gate", the one every consumer stands down at.
@@ -85,18 +86,7 @@ def _step(**overrides: Any) -> StepDefinition:
 
 
 def _hold(gate: str) -> StepDefinition:
-    """A blocking filler holding `gate`, declaring neither start field.
-
-    Fillers must never be the reason a rule fires: they name no
-    dependency, and their start gate is absent, which every rule here
-    accepts.
-    """
-    return _step(
-        identifier=f"hold.{gate}",
-        name=f"Blocking work holding the {gate} gate",
-        gate=gate,
-        blocking=True,
-    )
+    return _build_hold(gate)
 
 
 def _playbook(*steps: StepDefinition) -> LaunchPlaybook:

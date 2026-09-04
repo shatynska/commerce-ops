@@ -113,6 +113,7 @@ from commerce_ops.shared.domain.identity import (
 )
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import opening_for as _opening_for
+from tests.support.steps import hold as _build_hold
 from tests.support.steps import step as _build_step
 
 pytestmark = pytest.mark.anyio
@@ -149,16 +150,12 @@ def _step(**overrides: Any) -> StepDefinition:
 
 
 def _hold(gate: str) -> StepDefinition:
-    """A blocking filler holding `gate` — the gate-holding floor
-    (`move-playbook-steps-to-postgres`) forbids coherent playbooks with
-    unheld gates; automated with a decided rule so no other rule fires."""
-    return _step(
-        identifier=f"hold.{gate}",
-        gate=gate,
-        blocking=True,
+    return _build_hold(
+        gate,
         kind=StepKind.AUTOMATED,
         status=StepStatus.ACTIVE,
         handler="fixture.holding_check",
+        name="Work this step asks for",
     )
 
 

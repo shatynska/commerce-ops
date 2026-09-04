@@ -97,6 +97,7 @@ from commerce_ops.launch.domain.launch_playbook import (
 )
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
+from tests.support.steps import hold as _build_hold
 from tests.support.steps import step as _build_step
 
 # ---------------------------------------------------------------------------
@@ -109,16 +110,7 @@ def _step(**overrides: Any) -> StepDefinition:
 
 
 def _hold(gate: str, **overrides: Any) -> StepDefinition:
-    """One `active` blocking step holding `gate` — the floor's minimum."""
-    attributes: dict[str, Any] = {
-        "identifier": f"hold.{gate}",
-        "name": f"Blocking work holding the {gate} gate",
-        "gate": gate,
-        "blocking": True,
-        "status": StepStatus.ACTIVE,
-    }
-    attributes.update(overrides)
-    return _step(**attributes)
+    return _build_hold(gate, **{"status": StepStatus.ACTIVE, **overrides})
 
 
 def _holding_steps(

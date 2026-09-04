@@ -104,6 +104,7 @@ from commerce_ops.shared.domain.identity import ProductId
 from tests.support.fixtures import LAUNCH_DATE, product_id
 from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
 from tests.support.playbook import opening_for as _opening_for
+from tests.support.steps import hold as _build_hold
 from tests.support.steps import step as _build_step
 
 WEBHOOK_SECRET: Final = "test-clickup-webhook-secret-not-a-real-credential"
@@ -138,18 +139,12 @@ def _step(**overrides: Any) -> StepDefinition:
 
 
 def _hold(gate: str) -> StepDefinition:
-    """A blocking filler holding `gate` — the gate-holding floor
-    (`move-playbook-steps-to-postgres`) forbids coherent playbooks with
-    unheld gates, so `_playbook` fills whichever gates the test's own
-    steps leave unheld. Automated, so the sync never projects a filler and
-    every projection assertion is untouched by them."""
-    return _step(
-        identifier=f"hold.{gate}",
-        gate=gate,
-        blocking=True,
+    return _build_hold(
+        gate,
         kind=StepKind.AUTOMATED,
         status=StepStatus.ACTIVE,
         handler="fixture.holding_check",
+        name="Work this step asks for",
     )
 
 
