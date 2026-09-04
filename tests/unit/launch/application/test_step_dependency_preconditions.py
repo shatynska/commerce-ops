@@ -87,8 +87,7 @@ from commerce_ops.launch.domain.launch_playbook import (
 from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
-from tests.support._paired import paired as _paired
-from tests.support.fakes import FakeHandlerRegistry as _Shared
+from tests.support.fakes import FakeHandlerRegistry as _FakeHandlerRegistry
 from tests.support.fixtures import ALICE, ALICE_NAME, PRINCIPAL
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import opening_for as _opening_for
@@ -155,21 +154,6 @@ class _FakeMembers:
 
     async def __call__(self) -> tuple[_Member, ...]:
         return await self.list_members()
-
-
-@_paired(_Shared)
-class _FakeHandlerRegistry:
-    def __init__(self, names: frozenset[str] = frozenset()) -> None:
-        self._names = names
-
-    def __contains__(self, name: object) -> bool:
-        return name in self._names
-
-    def __iter__(self) -> Any:
-        return iter(self._names)
-
-    def names(self) -> frozenset[str]:
-        return self._names
 
 
 def _store(extra: tuple[_Record, ...] = ()) -> _FakeStepStore:

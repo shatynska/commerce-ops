@@ -98,8 +98,7 @@ from commerce_ops.launch.domain.launch_playbook import (
 )
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import MetricId
-from tests.support._paired import paired as _paired
-from tests.support.fakes import FakeHandlerRegistry as _Shared
+from tests.support.fakes import FakeHandlerRegistry
 from tests.support.fixtures import ALICE, BOHDAN, PRINCIPAL
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.steps import step as _build_step
@@ -166,16 +165,9 @@ class _FakeMembers:
         return await self.list_members()
 
 
-@_paired(_Shared, build=lambda: _Shared(frozenset({"price.buy_box_check"})))
-class _FakeHandlerRegistry:
-    def __contains__(self, name: object) -> bool:
-        return name == "price.buy_box_check"
-
-    def __iter__(self) -> Any:
-        return iter(("price.buy_box_check",))
-
-    def names(self) -> frozenset[str]:
-        return frozenset({"price.buy_box_check"})
+class _FakeHandlerRegistry(FakeHandlerRegistry):
+    def __init__(self) -> None:
+        super().__init__(frozenset({"price.buy_box_check"}))
 
 
 def _store(extra: tuple[_Record, ...] = ()) -> _FakeStepStore:

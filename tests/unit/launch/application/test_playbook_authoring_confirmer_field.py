@@ -53,8 +53,7 @@ from commerce_ops.launch.domain.launch_playbook import (
     StepStatus,
 )
 from commerce_ops.shared.domain.discipline import Discipline
-from tests.support._paired import paired as _paired
-from tests.support.fakes import FakeHandlerRegistry as _Shared
+from tests.support.fakes import FakeHandlerRegistry
 from tests.support.fixtures import ALICE, PRINCIPAL
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.steps import step as _build_step
@@ -104,16 +103,9 @@ class _FakeMembers:
         return await self.list_members()
 
 
-@_paired(_Shared, build=lambda: _Shared(frozenset({REGISTERED_HANDLER})))
-class _FakeHandlerRegistry:
-    def __contains__(self, name: object) -> bool:
-        return name == REGISTERED_HANDLER
-
-    def __iter__(self) -> Any:
-        return iter((REGISTERED_HANDLER,))
-
-    def names(self) -> frozenset[str]:
-        return frozenset({REGISTERED_HANDLER})
+class _FakeHandlerRegistry(FakeHandlerRegistry):
+    def __init__(self) -> None:
+        super().__init__(frozenset({REGISTERED_HANDLER}))
 
 
 def _store(extra: tuple[_Record, ...] = ()) -> _FakeStepStore:

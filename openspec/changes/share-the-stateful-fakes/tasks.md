@@ -276,11 +276,14 @@ Counts here are AST counts. Do not re-derive one by grep.
       extends it with `resolve` for the latter. `names()` returns a `frozenset`
       here and a tuple there, as their populations did, so the shared protocol
       declares `Iterable[str]` — which is all `_registered_names` needs.**
-- [ ] 7.3 Instrument, verify, settle, verify. **Expected: 12 of 12 — 8 aliases
+- [x] 7.3 Instrument, verify, settle, verify. **Expected: 12 of 12 — 8 aliases
       and 4 adapters.** Three declarations carry no `__init__` and hard-code a
       single registered name; one defaults `names` to a file constant. All four
       are clause (c) mismatches, and each `@paired` line carries the `build=`
-      factory that becomes its adapter at the settle commit.
+      factory that becomes its adapter at the settle commit. **Actual: 12 of 12
+      — 8 aliases and 4 adapters, exactly as measured. The pairing fired 98
+      times with no divergence, and emitted the 12 silent-pairing notes for
+      `__iter__` that clause (e) predicts.**
 
 ## 8. `FakeStepStore` — 37 declarations, eleven bodies
 
