@@ -153,7 +153,9 @@ from commerce_ops.launch.domain.launch_run import (
 from commerce_ops.launch.infrastructure.driving import automation_pass
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
+from tests.support._paired import paired as _paired
 from tests.support.fakes import FakeHandlers as _FakeHandlers
+from tests.support.fakes import InertBackoff as _Shared
 from tests.support.fixtures import (
     ALICE,
     HANDLER_NAME,
@@ -546,6 +548,7 @@ def _pass_entry() -> Any:
     )
 
 
+@_paired(_Shared)
 class _InertBackoff:
     """A backoff record that holds nothing and fails at nothing."""
 

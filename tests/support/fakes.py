@@ -103,3 +103,33 @@ class StubDate(date):
     @classmethod
     def today(cls) -> date:  # type: ignore[override]
         return cls._today
+
+
+class InertBackoff:
+    """The automated-step backoff record, answering nothing to everything.
+
+    Seven of the nine declarations this replaces carried all four methods and
+    two carried `mark_reported` alone. The shared fake carries all four, which
+    gives those two a surface they did not have -- **governed by the same-value
+    invariant, and checked rather than assumed**. Production calls every one of
+    the four by name at `automation_pass:404`, `:531`, `:673` and `:713`; no
+    site probes for them with `getattr` or guards on `hasattr`, so nothing falls
+    through and no branch moves. What changes for those two files is only that a
+    path which would have raised `AttributeError` now returns `None` -- and no
+    test reaches such a path, or it would be failing today.
+
+    `read` answers `None`, which is what the seven answered and what production
+    reads as "no backoff recorded for this step".
+    """
+
+    async def read(self, *args: Any, **kwargs: Any) -> Any:
+        return None
+
+    async def note(self, *args: Any, **kwargs: Any) -> None:
+        return None
+
+    async def mark_reported(self, *args: Any, **kwargs: Any) -> None:
+        return None
+
+    async def rollback(self) -> None:
+        return None

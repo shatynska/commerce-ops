@@ -229,15 +229,23 @@ Counts here are AST counts. Do not re-derive one by grep.
 
 ## 6. `InertBackoff` — 9 declarations, two bodies
 
-- [ ] 6.1 Add `InertBackoff` with all four no-op methods (`mark_reported`,
+- [x] 6.1 Add `InertBackoff` with all four no-op methods (`mark_reported`,
       `note`, `read`, `rollback`), its protocol and `_conforms`, and contract
-      tests asserting each returns `None`; declare the number added.
+      tests asserting each returns `None`; declare the number added. **Four
+      tests added; `tests/unit/support/` now collects 18.**
 - [ ] 6.2 Instrument, verify, settle, verify. **Expected: 9 of 9, all aliases.**
-- [ ] 6.3 Record the same-value check for the two declarations that carry
+- [x] 6.3 Record the same-value check for the two declarations that carry
       `mark_reported` alone: the shared fake adds three methods, each returning
       `None`. Confirm by search across `tests/` and `src/` that no site probes
       for their absence — a `getattr` fall-through or a `hasattr` guard — before
-      accepting the addition (`design.md` Decision 6).
+      accepting the addition (`design.md` Decision 6). **Searched: production
+      calls all four by name -- `automation_pass:404` (`read`), `:531` (`note`),
+      `:673` (`mark_reported`), `:713` (`rollback`) -- and no site in `src/` or
+      `tests/` probes any of them with `getattr` or guards on `hasattr`. So
+      nothing falls through and no branch moves; what changes for the two
+      minimal declarations is only that a path which would have raised
+      `AttributeError` returns `None`, and no test reaches such a path or it
+      would be failing today.**
 
 ## 7. `FakeHandlerRegistry` — 12 declarations, five bodies
 

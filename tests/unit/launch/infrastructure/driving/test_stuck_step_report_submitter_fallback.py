@@ -108,6 +108,8 @@ from typing import Any, Final
 import pytest
 
 from commerce_ops.launch.domain.launch_run import Launch
+from tests.support._paired import paired as _paired
+from tests.support.fakes import InertBackoff as _Shared
 from tests.support.fixtures import STEP_ID, product_id
 from tests.support.values import CatalogProduct as _CatalogProduct
 
@@ -167,6 +169,7 @@ class _Step:
     confirmer: str | None = CONFIRMER_MEMBER_ID
 
 
+@_paired(_Shared)
 class _InertBackoff:
     async def mark_reported(self, *args: Any, **kwargs: Any) -> None:
         return None

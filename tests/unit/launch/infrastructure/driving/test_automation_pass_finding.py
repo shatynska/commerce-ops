@@ -122,7 +122,9 @@ from commerce_ops.launch.infrastructure.driving import automation_pass
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
 from commerce_ops.shared.domain.result import Failure, Success
+from tests.support._paired import paired as _paired
 from tests.support.fakes import FakeHandlers as _FakeHandlers
+from tests.support.fakes import InertBackoff as _Shared
 from tests.support.fixtures import (
     HANDLER_NAME,
     LAUNCH_DATE,
@@ -369,6 +371,7 @@ class _FakeRecorder:
         return object()
 
 
+@_paired(_Shared)
 class _InertBackoff:
     async def read(self, *args: Any, **kwargs: Any) -> None:
         return None

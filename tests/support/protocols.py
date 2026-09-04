@@ -59,7 +59,12 @@ from datetime import date
 from typing import Any, Protocol
 
 from commerce_ops.shared.domain.identity import Sku
-from tests.support.fakes import FakeHandlers, FakeSlackResponse, StubDate
+from tests.support.fakes import (
+    FakeHandlers,
+    FakeSlackResponse,
+    InertBackoff,
+    StubDate,
+)
 from tests.support.values import CatalogProduct, Member, MemberValue
 
 
@@ -166,3 +171,25 @@ class DateShape(Protocol):
 
 
 _stub_date_conforms: type[DateShape] = StubDate
+
+
+class BackoffShape(Protocol):
+    """What `automation_pass` calls on a step's backoff record.
+
+    Four names, all called directly -- `:404`, `:531`, `:673`, `:713` -- and
+    none of them probed for. `read` answers the record or `None`; the inert
+    double answers `None`, which production reads as "no backoff recorded".
+    """
+
+    async def read(self, product_id: Any, step_id: str) -> Any: ...
+
+    async def note(
+        self, product_id: Any, step_id: str, outcome: Any, when: Any
+    ) -> None: ...
+
+    async def mark_reported(self, product_id: Any, step_id: str, when: Any) -> None: ...
+
+    async def rollback(self) -> None: ...
+
+
+_inert_backoff_conforms: BackoffShape = InertBackoff()
