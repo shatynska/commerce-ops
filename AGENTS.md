@@ -216,9 +216,17 @@ HTML harness, the admin session, the fixtures and the step builder;
 `share-the-stateful-fakes` (2026-09-04) added `fakes.py` — `FakeMembers`,
 `FakeMembersStore`, `FakeStepStore`, `FakeCatalogPort`, `FakeHandlers`,
 `FakeHandlerRegistry`, `FakeSlackResponse`, `StubDate`, `InertBackoff` —
-replacing 175 of 191 declarations across 103 files. **291 declarations in the
-recurring names are still local**, mostly the launch, playbook and catalog
-stores, which are blocked on `_playbook()` and `_hold()` being shared.
+replacing 175 of 191 declarations across 103 files;
+`share-the-playbook-builders` (2026-09-04) finished the builders — **`_hold` is
+now 104 of 104 and `_playbook` 84 of 95**, across 105 files.
+
+**The aggregate stores are next, and they are no longer blocked.**
+`_FakePlaybooks` 32, `_FakeLaunches` 32, `_FakeCatalog` 29, `_FakeLaunchStore`
+26, `_FakePlaybookRepository` 10 were ordered behind `_playbook()` and `_hold()`
+being shared, which they now are. Note also that 26 of the 32 `_FakePlaybooks`
+take the playbook as a constructor argument and what they hold is a
+`LaunchPlaybook` — so unlike the previous slice's fakes, **their instance state
+is structurally comparable and the strong proof reaches them.**
 
 **Behaviour is proved by comparison, not by inspection — where it can be.**
 A field-wise equality proof is inexpressible for a stateful fake, since
@@ -271,6 +279,31 @@ proof cannot see**, because the next slice will meet all four again:
   but cannot take the call site unchanged, the file subclasses it and adapts the
   signature — the proof still runs over the adapter. Where the values or the
   form differ, the file keeps its own declaration and the reason is recorded.
+- **A builder's delta is derived by *running* the local, never by reading it.**
+  `share-the-playbook-builders` measured the same 73 `_hold` declarations both
+  ways: the static pass over-reported `discipline` at 26 against 13 and
+  `confirmer` at 22 against 4, because it cannot see that
+  `next(iter(Discipline))` and `any_discipline()` evaluate equal, and it
+  mis-classified one file as reproducible by a fixed partial when its value is
+  computed from the gate. Reading is for finding candidates; running is for
+  deciding.
+- **An expression harvested out of a file must be validated by evaluating it.**
+  `test_launch_report_carried_finding` spells `name` as
+  `f"Work {identifier} asks for"`, where `identifier` is a parameter of that
+  file's `_step` and not a module-level name. Harvested and trusted, it fails at
+  the call site; harvested and validated against all eight gates, it is caught
+  at build time and synthesised from the values instead. Exactly one of 179
+  expressions needed this, which is the point — a one-in-179 defect is the kind
+  a review does not find.
+- **A comprehension over `SPECIFIED_GATE_ORDER` is not necessarily building
+  fillers.** Three files use one to *reorder* steps by gate. A migration that
+  read the two as the same thing silently deleted five real steps, and the
+  equality proof — not the suite, and not review — is what reported it.
+- **A signature-preserving body rewrite must inline the bindings it deletes.**
+  Replacing a `_playbook` body while keeping its signature removes the
+  `steps = (...)` and `gates = (...)` its `return` referred to; 28 files needed
+  those inlined.
+
 - **A spec-restating constant is a literal there, and is never sourced from
   production.** `SPECIFIED_GATE_ORDER`, `CONFIRMATION_GATES`, `FINAL_GATE`,
   `opening_for` and `gates` state what the specification says the gates are, and

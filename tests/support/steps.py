@@ -85,6 +85,25 @@ def hold(gate: str, **overrides: Any) -> StepDefinition:
     `HUMAN` wins 55 to 49. `handler` looks like `"fixture.holding_check"` (41
     of 74) and loses to `None` 51 to 41 the same way. `assignees` and
     `timing_anchor` invert outright, 79 to 19 and 87 to 10.
+
+    **All 104 now compose over this** (`share-the-playbook-builders`,
+    2026-09-04). The 73 that `share-the-unit-test-harness` left local were
+    blocked on their file's `_step` being opaque; once all 135 `_step`
+    declarations reached the shared builder, each file's own defaults became a
+    readable keyword set and reconciling them was forwarding that set. Proved
+    at every call site by a plugin that wrapped all 73 in place and compared
+    whole objects: 8,373 comparisons, zero divergences.
+
+    Two things that proof caught, worth keeping in view for the next slice.
+    **A delta must be derived by running the local, never by reading it**: a
+    static pass over the same 73 over-reports `discipline` at 26 against 13 and
+    `confirmer` at 22 against 4, because it cannot see that
+    `next(iter(Discipline))` and `any_discipline()` evaluate equal. And **an
+    expression harvested from a file may not be evaluable outside it**:
+    `test_launch_report_carried_finding` spells `name` as
+    `f"Work {identifier} asks for"`, where `identifier` is a parameter of that
+    file's `_step`. Harvest it without validating and the harness fails at the
+    call site instead of at build time.
     """
     attributes: dict[str, Any] = {
         "identifier": f"hold.{gate}",

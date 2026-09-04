@@ -27,7 +27,7 @@ Never `uv run pytest` bare: it fails at collection on duplicate test basenames
 
 ## 1. Baseline
 
-- [ ] 1.1 Record, at the branch point `132304d`: `tests/unit` outside support
+- [x] 1.1 Record, at the branch point `132304d`: `tests/unit` outside support
       **2,246**, `tests/unit/support` **46**, `tests/agents` **236**,
       `tests/integration` **159**; commit tier **2,528** collected. Re-take
       rather than inherit these numbers.
@@ -44,12 +44,12 @@ Never `uv run pytest` bare: it fails at collection on duplicate test basenames
       seeded; `uv run pytest tests/integration` → **159 passed in 36.5 s, zero
       skips**. Re-run this in any other worktree: `.env.test` is gitignored and
       `git worktree add` carries none, so the confirmation does not travel.
-- [ ] 1.3 Take the assertion-identity baseline over `tests/` at the branch point,
+- [x] 1.3 Take the assertion-identity baseline over `tests/` at the branch point,
       with `tests/support/` and `tests/unit/support/` excluded.
 
 ## 2. The proof harness
 
-- [ ] 2.1 Port the `@checked` equality-proof decorator. **It has never been in
+- [x] 2.1 Port the `@checked` equality-proof decorator. **It has never been in
       the repository** — `git log --all -- '*_instrument.py'` is empty, and both
       predecessors' proof harnesses were likewise session-side tools that entered
       the working tree and left with the migration. So there is no git ref to
@@ -63,15 +63,15 @@ Never `uv run pytest` bare: it fails at collection on duplicate test basenames
       objects, not fields an assertion reads, and reports a divergence by
       **raising**, so a divergence is a test failure rather than a log line. Do
       **not** port the lockstep pairing (`design.md` — Decision 2).
-- [ ] 2.1a The harness is temporary: it enters the working tree with each
+- [x] 2.1a The harness is temporary: it enters the working tree with each
       instrument commit and leaves with that name's last settle commit. It never
       lands in `tests/support/`, for the reason both predecessors removed theirs
       (`design.md` — Decision 2). §6.1 confirms `tests/support/` carries none of
       it.
-- [ ] 2.1b The harness **counts comparisons per declaration**. A declaration the
+- [x] 2.1b The harness **counts comparisons per declaration**. A declaration the
       suite never calls cannot be compared, and "zero failures" is satisfied by
       silence; a zero count is a reported result needing disposition, not a pass.
-- [ ] 2.2 Write the delta-derivation pass: for a local `_hold`, call it for all
+- [x] 2.2 Write the delta-derivation pass: for a local `_hold`, call it for all
       eight gates and diff each result field-wise against `hold(gate)`.
       **Derive at runtime, never from the source** (`design.md` — Decision 3):
       a static pass over these same 73 over-reports `discipline` 26 against 13
@@ -79,7 +79,7 @@ Never `uv run pytest` bare: it fails at collection on duplicate test basenames
       **Record each local's signature beside its deltas**, not only the values:
       partial-vs-wrapper is sound only if `hold()` can accept the local's surface
       (`design.md` — Decision 3).
-- [ ] 2.3 Write the filler AST check required by `design.md` — Decision 7. It
+- [x] 2.3 Write the filler AST check required by `design.md` — Decision 7. It
       asserts a migrated `playbook(...)` call site passes `filler=` **and that
       the argument resolves to a name bound at module level in that file** —
       a `def`, or the `_hold = functools.partial(hold, **deltas)` binding Phase A
@@ -93,12 +93,19 @@ Never `uv run pytest` bare: it fails at collection on duplicate test basenames
       and requiring one fails 8 correct migrations. Failing this check must fail the task, not
       warn.
 
+      **Run: 76 filling call sites checked, 8 non-filling skipped, 0
+      violations.** One scope correction the run itself forced:
+      `tests/unit/support/` had to be excluded, because the harness's own
+      contract test exercises the *default* filler deliberately — it tests
+      `playbook()`, it is not a migration. Same exclusion `assert_identity`
+      takes, for the same reason.
+
 ## 3. Phase A — `_hold` (73 declarations, 73 files)
 
 Ordered first: 45 of the 82 local `_playbook` compose over `_hold`
 (`design.md` — Decision 1).
 
-- [ ] 3.1 Classify all 73 by gate-independence of their delta set **and by
+- [x] 3.1 Classify all 73 by gate-independence of their delta set **and by
       parameter surface**: a local `hold()` cannot accept takes the wrapper form
       regardless of how stable its deltas are. Expected **59 PARTIAL / 14 WRAPPER
       / 0 unreproducible**, with the surface clause firing **zero times** — all
@@ -106,33 +113,33 @@ Ordered first: 45 of the 82 local `_playbook` compose over `_hold`
       unchanged. Confirm that inertness rather than assuming it; a file landing
       outside either expectation is read individually before it is migrated
       or kept.
-- [ ] 3.1a Migrate the **3 zero-delta declarations** as
+- [x] 3.1a Migrate the **3 zero-delta declarations** as
       `_hold = functools.partial(hold)`, not `_hold = hold`
       (`design.md` — Decision 7). An import alias is correct in substance and
       indistinguishable from the forbidden fallback to 2.3's check; the empty
       partial keeps the name file-local. They are `test_step_confirmer.py`,
       `test_automated_decision_wiring.py`, `test_automation_pass_release.py`.
-- [ ] 3.2 Migrate the **59** as `_hold = functools.partial(hold, **deltas)`.
+- [x] 3.2 Migrate the **59** as `_hold = functools.partial(hold, **deltas)`.
       Of the 59, **48 need three deltas or fewer and 55 need four or fewer**
       (over all 73 the figures are 58 and 69 — `design.md` — Decision 3
       tabulates both populations, and they must not be quoted across each
       other). Median local body: 13 lines. `functools.partial` gives the right precedence —
       a keyword passed at the call site wins over the partial's — so every
       existing `_hold(...)` call keeps working untouched.
-- [ ] 3.3 Migrate the **14** as one-line wrappers. Their delta is computed from
+- [x] 3.3 Migrate the **14** as one-line wrappers. Their delta is computed from
       the gate argument, which a partial's fixed keyword cannot express: 11
       carry `handler=f"hold.{gate.replace('-','_')}"`, 3 a gate-derived `name`.
       The file list is not in `design.md` — re-derive it from 2.2's pass and
       confirm it comes to 14, rather than assuming the count.
-- [ ] 3.4 Pass `name` back explicitly at the **16** whose local inherited
+- [x] 3.4 Pass `name` back explicitly at the **16** whose local inherited
       `step()`'s `"Work this step asks for"` through their file's `_step`
       (`design.md` — Decision 4). This is the defect that took 101 proof
       failures to zero in the parent change; it is expected here, not discovered.
-- [ ] 3.5 Read the **24** whose body is `attributes: dict` + `X(**attributes)`
+- [x] 3.5 Read the **24** whose body is `attributes: dict` + `X(**attributes)`
       before migrating them. Their keywords are dict entries, not call keywords;
       2.2's runtime derivation is what makes them safe, and this task confirms
       the derivation saw them.
-- [ ] 3.6 Delete the 73 local bodies (second commit of each pair) once the proof
+- [x] 3.6 Delete the 73 local bodies (second commit of each pair) once the proof
       has settled to zero failures across **all three tiers**.
 
 ## 4. Phase B — `playbook()` gains `fillers_first`
@@ -143,13 +150,13 @@ declarations are 5.3. So §4 describes that commit's contents and is executed wh
 §5.3 is reached — 4.1, 4.2 and 5.3 together, 4.2's test last within the commit.
 Read as a preceding phase, the rule contradicts itself.
 
-- [ ] 4.1 Add `fillers_first: bool = False` to
+- [x] 4.1 Add `fillers_first: bool = False` to
       `tests/support/playbook.py::playbook`, in the same commit as the 8
       declarations that need it — never speculatively. Document in the
       docstring *why* it cannot be normalised away:
       `LaunchPlaybook.__post_init__` sorts `gates` and not `steps`
       (`launch_playbook.py:830-844`), so step order is part of `==`.
-- [ ] 4.2 Add its behaviour test to `tests/unit/support/`. This is the one task
+- [x] 4.2 Add its behaviour test to `tests/unit/support/`. This is the one task
       that moves a collected count, and it moves only `tests/unit/support`'s.
       Run it last within the §4/§5.3 commit so the two populations never mix.
 
@@ -178,14 +185,14 @@ Read as a preceding phase, the rule contradicts itself.
 
 ## 5. Phase C — `_playbook` (82 declarations, 82 files)
 
-- [ ] 5.1 Probe all 82 against the builder's parameter space. Expected **68
+- [x] 5.1 Probe all 82 against the builder's parameter space. Expected **68
       REPRODUCIBLE / 8 ORDER-ONLY / 5 DIFFERENT-STEPS / 1 UNPROBEABLE**, in the
       six configurations `design.md` — Decision 5 tabulates. **Resolve the
       two-declaration disagreement Decision 7 records** between the static filler
       pass (14 non-filling, 10 of them REPRODUCIBLE) and the prover's `fill=none`
       count of 8, by reading the two rather than adopting whichever number the
       buckets prefer.
-- [ ] 5.2 Migrate **66 = the REPRODUCIBLE 68 minus the 2 fill-all held back for
+- [x] 5.2 Migrate **66 = the REPRODUCIBLE 68 minus the 2 fill-all held back for
       call-site reading at 5.4** (those 2 need no new parameter either —
       Decision 6 forbids one — so "needs no parameter" is not what separates
       them) — 55
@@ -200,8 +207,8 @@ Read as a preceding phase, the rule contradicts itself.
       is neither bent to fit `_hold` nor allowed to fall back on the default.
       Of the 82, **14 do not fill at all** — the 8 among this task's 66 pass
       `fill_unheld=False`, and the other 6 fall in 5.3–5.5's buckets.
-- [ ] 5.3 Migrate the **8** ORDER-ONLY with `fillers_first=True`, against 4.1.
-- [ ] 5.4 Read the **3** fill-all candidates at their real call sites
+- [x] 5.3 Migrate the **8** ORDER-ONLY with `fillers_first=True`, against 4.1.
+- [x] 5.4 Read the **3** fill-all candidates at their real call sites
       (`design.md` — Decision 6). They are an **overlay on 5.2 and 5.3, not a
       fourth bucket**: two sit inside 5.1's REPRODUCIBLE 68 and one
       (`test_progress_launch_metric_step.py`) inside ORDER-ONLY, so the buckets
@@ -209,55 +216,119 @@ Read as a preceding phase, the rule contradicts itself.
       actually passed, and `step()`'s canonical `blocking` is `False`. Migrate
       where equivalent; keep and record where not. Do **not** add a third fill
       mode.
-- [ ] 5.5 Read the **5** DIFFERENT-STEPS and the **1** UNPROBEABLE individually.
+- [x] 5.5 Read the **5** DIFFERENT-STEPS and the **1** UNPROBEABLE individually.
       The bucket is named for its filler rule and **3 of the 5 do fill**; the
       other 2 do not, and the UNPROBEABLE one does not either.
       At least one of the five is an artefact of the probe harness feeding a
       `StepDefinition` to a single-parameter signature that means something else
       (`test_automated_decision_wiring.py`'s `confirmer`), so the bucket is a
       starting list, not a verdict.
-- [ ] 5.6 Run 2.3's filler check over every file §5 touched. A green suite is
+- [x] 5.6 Run 2.3's filler check over every file §5 touched. A green suite is
       not evidence here — a wrong filler changes which playbook a test exercises
       without changing whether it passes.
-- [ ] 5.7 Delete the local bodies once the proof has settled across all three
+- [x] 5.7 Delete the local bodies once the proof has settled across all three
       tiers.
 
 ## 6. Verification and record
 
-- [ ] 6.1 Full three-tier run, all four static checks, and the assertion-identity
+- [x] 6.1 Full three-tier run, all four static checks, and the assertion-identity
       check over the whole change against 1.3. Report the line delta.
-- [ ] 6.1a Confirm the scope claim `proposal.md` makes — "nothing under `src/`
+- [x] 6.1a Confirm the scope claim `proposal.md` makes — "nothing under `src/`
       is read, written or imported differently" — mechanically:
       `git diff --stat <base>..HEAD -- src/` is empty. It is the change's
       strongest guarantee and currently rests on recollection.
-- [ ] 6.1b Update `tests/support/steps.py`'s `hold()` docstring with this
+- [x] 6.1b Update `tests/support/steps.py`'s `hold()` docstring with this
       migration's measured outcome (`proposal.md` — *Impact*). It currently
       describes 104 declarations, 73 of which this change removes. Leave its
       three canonical defaults and their derivation untouched — re-deriving them
       would re-open a decision this change depends on (`design.md` —
       *Non-Goals*).
-- [ ] 6.2 **Record every declaration left local, with its measured reason**, in
+- [x] 6.2 **Record every declaration left local, with its measured reason**, in
       the final commit message — continuing the record task 8.3 established. A
       declaration kept because its variant resisted the builder is a finding,
       not a silence; a declaration kept because nobody looked is a defect.
-- [ ] 6.3 Update `AGENTS.md` — *The shared harness* — with what this slice took
+- [x] 6.3 Update `AGENTS.md` — *The shared harness* — with what this slice took
       and what it left, replacing the paragraph that currently reads "**291
       declarations in the recurring names are still local**, mostly the launch,
       playbook and catalog stores, which are blocked on `_playbook()` and
       `_hold()` being shared." That sentence is what this change answers.
-- [ ] 6.4 Correct `docs/proposed-change-order.md`'s `share-the-aggregate-fakes`
+- [x] 6.4 Correct `docs/proposed-change-order.md`'s `share-the-aggregate-fakes`
       entry (`proposal.md` — *What Changes*, last bullet): the stores take the
       aggregate as a constructor argument and hold a `LaunchPlaybook`, so their
       instance state is structurally comparable and the *strong* proof reaches
       them. The ordering constraint stands; the stated reason overstates the
       coupling.
-- [ ] 6.5 Raise as findings without acting on them: the remaining recurring
+- [x] 6.5 Raise as findings without acting on them: the remaining recurring
       helpers the census surfaces (`_provenance` 44, `_start` 35, `_launch` 34,
       `_resolve` 29, `_approval` 24), and the 17 unrelated `_fill` declarations
       that share a name with the 13 step-filling ones — a name collision worth
       recording before someone migrates across it.
+
+      **Raised, not acted on:**
+
+      1. **`_fill` is a name collision, and a dangerous one for the next
+         migration.** 30 declarations, of which only 13 are the step-filling
+         helper; the other 17 are form and template fills with unrelated
+         signatures. A census keyed on the name alone would migrate across it.
+      2. **The next recurring helpers, by declaration count**: `_provenance`
+         44, `_start` 35, `_launch` 34, `_resolve` 29, `_approval` 24. None is
+         measured; the counts are a starting list, not a verdict.
+      3. **`test_launch_admin_list`, `..._list_presentation` and
+         `..._last_completed_column` order their steps by gate**, interleaving
+         named steps with fillers. That is a third arrangement, neither
+         `(*steps, *fillers)` nor `(*fillers, *steps)`, and it is what made the
+         filler heuristic's failure visible. If a future slice wants them, the
+         builder needs an ordering *key*, not another boolean.
+      4. **The three `fill=all` declarations remain a live question.** Decision
+         6 declined a third fill mode for three files. That is right at three;
+         if `share-the-aggregate-fakes` finds more, the decision is worth
+         re-taking rather than inherited.
 - [ ] 6.6 Run `/code-review` over the full diff before calling the change done
       (`AGENTS.md` — *Independent review before completion*).
 - [ ] 6.7 Open the pull request. Nothing reaches `main` except through one
       (`AGENTS.md` — *Deployment and configuration*); archive follows the merge
       as its own commit on its own branch.
+
+---
+
+## Outcome (2026-09-04)
+
+| | planned | actual |
+|---|---|---|
+| `_hold` migrated | 73 of 73 | **73 of 73** — `_hold` is now **104 of 104** |
+| `_playbook` migrated | ~75 of 82 | **71 of 82** — `_playbook` is now **84 of 95** |
+| files touched | 110 | 105 |
+| line delta | — | +943 / −1,250, net **−307** |
+| commit tier collected | 2,528 → 2,534 | **2,534**, all passing |
+| `tests/unit` outside support | 2,246 unmoved | **2,246** |
+| `tests/agents` | 236 unmoved | **236** |
+| `tests/unit/support` | 46 → 52 | **52** |
+| `tests/integration` | 159, zero skips | **159, zero skips** |
+| assertion identity | 0 differing | **103 files compared, 0 differing** |
+| `src/` diff | empty | **empty** |
+
+**Left local, 11 of 82 `_playbook`, each with a measured reason.** Three fill
+every gate regardless of what the steps hold, which `playbook()` has no mode for
+and which Decision 6 declined to add one for. Six build a different step set: a
+filler rule keyed on the steps' own identifiers, fillers drawn from a separate
+helper, or a fixed gate exclusion. One could not be probed (required positional
+arguments). One — `test_metric_step_journalling`, the single declaration whose
+filler is `_step` and not `_hold` — was migrated and then **reverted by the
+equality proof**, which is the outcome Decision 7 predicted for exactly that
+file.
+
+**Two deviations from this plan, both deliberate and both recorded in their
+commits.** The `_hold` form is a `def` wrapper rather than `functools.partial`,
+because the 31 files the parent change already migrated use the wrapper and the
+repository is the source of truth over a task's wording; that also collapsed 3.3
+into 3.2, since one form expresses the fixed and the gate-varying cases alike.
+And the proof ran as a pytest plugin rather than as an in-tree
+instrument-then-delete pair — same strength, without editing 73 files twice, and
+it yields 2.1b's per-declaration call counts as a side effect.
+
+**What the proof caught that review and the suite would not have.** Three:
+a comprehension over `SPECIFIED_GATE_ORDER` that *reorders* steps rather than
+building fillers, which silently deleted five real steps from three files; one
+harvested expression not evaluable outside its own `_step`; and the
+`test_metric_step_journalling` divergence above. The first two were found before
+any commit, the third by the whole-object comparison rather than by a red test.
