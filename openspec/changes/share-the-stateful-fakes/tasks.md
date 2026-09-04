@@ -558,6 +558,57 @@ Counts here are AST counts. Do not re-derive one by grep.
       outside Decision 6's table surfaces; and **any declaration that migrated
       with a paired-call count of zero**, which is proved by nothing and must not
       read as proved.
+
+      **Outcome, per name.**
+
+      | name | expected | actual | alias | adapter | kept |
+      |---|---|---|---|---|---|
+      | `FakeSlackResponse` | 13 | 13 | 13 | 0 | 0 |
+      | `FakeHandlers` | 8 | 8 | 8 | 0 | 0 |
+      | `StubDate` | 15 | 15 | 0 | 15 | 0 |
+      | `InertBackoff` | 9 | 9 | 9 | 0 | 0 |
+      | `FakeHandlerRegistry` | 12 | 12 | 8 | 4 | 0 |
+      | `FakeStepStore` | 36 | 36 | 34 | 2 | 1 |
+      | `FakeMembersStore` | 29 | 29 | 21 | 8 | 9 |
+      | `FakeCatalogPort` | 12 | 12 | 12 | 0 | 4 |
+      | `FakeMembers` | 41 | 41 | 8 | 33 | 2 |
+      | **total** | **175** | **175** | **113** | **62** | **16** |
+
+      **No name landed under its expectation.** The alias/adapter split came out
+      113/62 against the projected 114/61: one `FakeMembersStore` declaration
+      moved columns, its constructor taking a version and no rows.
+
+      **How much of the 175 the proof actually reached.** 115 declarations were
+      paired and 60 were not. Paired: 1,134 constructions and 2,687 calls, with
+      one divergence — `test_members_bootstrap`, an artefact of the proof rather
+      than a defect. Exempt, with the reason recorded at each: 28 for the two
+      base-class names the decorator cannot intercept (tasks 3.2, 5.2), 24 for
+      `FakeMembers` (20 that build a fresh roster on every call and 4 that store
+      it as a list), and 4 for the constructor-and-`_Record` cases at tasks 8.2
+      and 9.2; the remaining 4 are keeps rather than migrations. **Three
+      declarations were built but never called** — `test_launch_admin_detail`
+      and `test_launch_journal_page` for `FakeStepStore`, and
+      `test_product_dossier_page` for `FakeMembers` — so those are proved at
+      their initial state and nowhere else.
+
+      **Notes the decorator emitted**: `the shared fake adds ['saves']` 42 times,
+      the licensed superset Decision 6 enumerates, and 42 silent pairings for
+      clause (e)'s three dropped spellings. Nothing else — no addition outside
+      Decision 6's table ever surfaced.
+
+      **`state` name maps used**: nine, all for `FakeMembers`, all
+      `{"members_rows": "_members"}`. No other name needed one, because the
+      stores agree on `records`/`rows`/`version`/`saves` across every migrating
+      declaration.
+
+      **The three findings.** The composition partition (Decision 4) has exactly
+      one data point and it goes the rule's way: of the 175, the single file
+      whose pairing failed for a leaf reason —
+      `test_launch_report_step_facts.py` — is the one that kept its own
+      `_Record` instead of the shared one. `FakeMembersStore`'s nine keeps turn
+      on constructors and behaviour, not on row types, so they are silent on the
+      question. The reader-shape population is at task 11.4. The proof-exempt
+      and proof-silent list is above.
 - [ ] 12.4 Update `AGENTS.md`'s "shared harness" section **and both
       `tests/support/` docstrings** (`__init__.py` and `protocols.py`), and
       record the class-object `_conforms` form beside the existing `@property`
