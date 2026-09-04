@@ -330,7 +330,7 @@ leaves its file **unmigrated and recorded** (task 8.3) — never forced.
       the 104 never pass `name`, inheriting `step()`'s "Work this step asks for"
       rather than `hold()`'s "Blocking work holding the … gate" — passing it
       back explicitly is what took 101 failures to zero.
-- [ ] 6.7 Migrate the `_playbook` files: the 40 `()` and 13 `(*steps)` as
+- [x] 6.7 Migrate the `_playbook` files: the 40 `()` and 13 `(*steps)` as
       partials, the **31 `(steps)`** — which take a positional tuple a partial
       cannot deliver — as one-line wrappers. Each of the **69** that fill unheld
       gates passes its own `_hold` partial as `filler`; do not let a file fall

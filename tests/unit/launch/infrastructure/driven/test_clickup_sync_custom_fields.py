@@ -150,7 +150,7 @@ from tests.support.fixtures import (
     product_id,
 )
 from tests.support.playbook import SPECIFIED_GATE_ORDER
-from tests.support.playbook import gates as _gates
+from tests.support.playbook import playbook as _build_playbook
 from tests.support.steps import step as _build_step
 
 pytestmark = pytest.mark.anyio
@@ -245,13 +245,7 @@ def _hold(gate: str) -> StepDefinition:
 
 
 def _playbook(steps: tuple[StepDefinition, ...] = ()) -> LaunchPlaybook:
-    held = {
-        step.gate
-        for step in steps
-        if step.blocking and step.status is StepStatus.ACTIVE
-    }
-    fillers = tuple(_hold(gate) for gate in SPECIFIED_GATE_ORDER if gate not in held)
-    return LaunchPlaybook(version="test-v1", gates=_gates(), steps=(*steps, *fillers))
+    return _build_playbook(*steps, filler=_hold, held_must_be_active=True)
 
 
 def _start(playbook: LaunchPlaybook) -> Launch:
