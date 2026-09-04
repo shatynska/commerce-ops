@@ -293,14 +293,7 @@ A module's `application/__init__.py` (`__all__`-exported) is its only public sur
 
 ## Deployment and configuration
 
-**Every change reaches the server through a pull request.** Merging to `main` is what triggers the deploy workflow; nothing ships from a local machine, and nothing is deployed by committing to `main` directly. So all work happens on its own branch and merges through a PR — a change's OpenSpec artifacts included, not only its code. Propose a change on a branch named for it and implement there. The archive (`openspec archive <change> --yes`, which folds the deltas into `openspec/specs/`) reaches `main` through a pull request like everything else, and this repository has done that two ways:
-
-- **In the implementation PR**, as its last commit — `restore-the-skipped-unit-tests` (#140) and `rename-the-roster-to-members` (#152).
-- **In a separate `archive-<change>` PR after the implementation merges** — `screen-for-hazard-categories` (#162), `read-a-finding-as-two-paragraphs` (#163), `fix-stuck-step-report-notifier` (#165), all on 2026-09-03, and every archive since.
-
-**Prefer the second.** The archive asserts that a change shipped, and only the separate PR can say so truthfully — #162's archive commit reads "now that #161 is merged and deployed", which the same-PR form cannot claim about itself. It also keeps a docs-only diff out of a code review, which matters most for the changes whose diffs are largest. Take the first only where the archive is trivial and the implementation PR is small enough that a reviewer reads both without effort.
-
-Committing a proposal straight to `main` skips the review the deploy depends on.
+**Every change reaches the server through a pull request.** Merging to `main` is what triggers the deploy workflow; nothing ships from a local machine, and nothing is deployed by committing to `main` directly. So all work happens on its own branch and merges through a PR — a change's OpenSpec artifacts included, not only its code. Propose a change on a branch named for it, implement there, and merge that through its own PR. Only then archive it (`openspec archive <change> --yes`, which folds the deltas into `openspec/specs/`) — the last commit, on its own branch, in a last PR of its own. The archive records that a change shipped, so it follows the merge rather than riding along with it. Committing a proposal straight to `main` skips the review the deploy depends on.
 
 **Runtime configuration lives in a GitHub Environment, as secrets.** The `deploy` job declares `environment: production` and renders the host's `.env` from that environment's values. Every value it renders is an Environment **secret**, so read them with `${{ secrets.NAME }}`.
 
