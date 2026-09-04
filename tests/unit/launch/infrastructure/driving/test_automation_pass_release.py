@@ -91,8 +91,7 @@ from commerce_ops.launch.domain.launch_run import (
 )
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
-from tests.support._paired import paired as _paired
-from tests.support.fakes import FakeHandlers as _Shared
+from tests.support.fakes import FakeHandlers as _FakeHandlers
 from tests.support.fixtures import HANDLER_NAME, PRODUCT_NAME, PRODUCT_SKU, product_id
 from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
@@ -251,24 +250,6 @@ class _ScriptedHandler:
     @property
     def invoked(self) -> bool:
         return bool(self.contexts)
-
-
-@_paired(_Shared)
-class _FakeHandlers:
-    def __init__(self, **handlers: Any) -> None:
-        self._handlers = dict(handlers)
-
-    def __contains__(self, name: object) -> bool:
-        return name in self._handlers
-
-    def names(self) -> tuple[str, ...]:
-        return tuple(self._handlers)
-
-    def resolve(self, name: str) -> Any:
-        return self._handlers[name]
-
-    def get(self, name: str, default: Any = None) -> Any:
-        return self._handlers.get(name, default)
 
 
 class _FakeResults:

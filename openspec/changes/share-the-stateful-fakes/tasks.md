@@ -184,9 +184,12 @@ Counts here are AST counts. Do not re-derive one by grep.
       Declare the number of tests added. The contract tests state the absent-key
       behaviour explicitly: `get` returns the default, `resolve` raises
       `KeyError`.
-- [ ] 4.2 Instrument, verify, settle, verify. **Expected: 8 of 8, all aliases.**
+- [x] 4.2 Instrument, verify, settle, verify. **Expected: 8 of 8, all aliases.**
       The wrapped set includes `__contains__`, which is a dunder and is the
-      surface production calls at `automation_pass:770`.
+      surface production calls at `automation_pass:770`. **Actual: 8 of 8, all
+      aliases. The pairing fired 211 times across the eight declarations --
+      42/26/14/26/9/64/18/12 — with no divergence, so the green is evidence
+      per declaration rather than a suite that happened not to exercise them.**
 - [x] 4.3 Record the same-value check for `_registered_names`: every one of the
       8 already provides `names()`, so the probe's first branch already fires
       and the shared fake displaces nothing (`design.md` Decision 6).
