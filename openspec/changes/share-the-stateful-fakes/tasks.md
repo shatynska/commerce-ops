@@ -619,7 +619,7 @@ Counts here are AST counts. Do not re-derive one by grep.
       records; the equality proof's inexpressibility is superseded by the
       lockstep proof, with what it does, does not and cannot reach stated; and
       `tests/unit/support/` exists, with the count invariant's exact form.
-- [ ] 12.5 Add the **three** newly measured reader-shape probes to
+- [x] 12.5 Add the **three** newly measured reader-shape probes to
       `docs/deferred-work.md`'s tolerance record — `activation_readiness`'s two
       and `playbook_authoring._registered_names` — with the measurement *method*
       beside them: a reader shape is invisible to a spelling-shaped sweep, which
