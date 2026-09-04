@@ -626,7 +626,7 @@ Counts here are AST counts. Do not re-derive one by grep.
       is why they were missed. `clickup_sync._members` is already recorded and
       `gate_progression_job._crossed` stays where it is, as the separate live
       tolerance of a different kind that it is.
-- [ ] 12.6 Update `docs/proposed-change-order.md`: correct §4's caution to say
+- [x] 12.6 Update `docs/proposed-change-order.md`: correct §4's caution to say
       what this change actually hands `unify-launch-adapter-dependencies`, and
       record the 291 declarations that remain, with the composition rule that
       blocks the largest group of them. The §3 entry is deleted on archive, not

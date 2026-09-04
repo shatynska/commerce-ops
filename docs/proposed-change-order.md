@@ -63,32 +63,32 @@ so "these must not collide" is checkable by reading four lines.
 `defer-eager-clickup-convergence`, which changes how long the advance lock is
 held and by which process.
 
-## 3. `share-the-stateful-fakes`
+## 3. `share-the-aggregate-fakes` (not yet proposed)
 
-The other half: the doubles with behaviour — `_FakeMembers` 43,
-`_FakeMembersStore` 38, `_FakeStepStore` 37, `_FakeLaunches` and `_FakePlaybooks`
-32 each, and their neighbours. For these `==` is identity, so the proof above is
-inexpressible and the weaker substitute applies: `_conforms` typing plus a
-per-fake surface-and-behaviour note, which explicitly does *not* catch "same
-surface, different behaviour".
+**The third slice, and it has no proposal yet.**
+`share-the-stateful-fakes` (2026-09-04) took nine names — 175 of 191
+declarations across 103 files — and left **291 of the 482 declarations in the 27
+recurring names** untouched. The largest group is the launch, playbook and
+catalog stores: `_FakePlaybooks` 32, `_FakeLaunches` 32, `_FakeCatalog` 29,
+`_FakeLaunchStore` 26, `_FakePlaybookRepository` 10.
 
-**Brings `tests/unit/support/` with it**, for the shared fakes' own behaviour
-tests — a deliberate exception to the tier layout, and the only proposed thing
-that reaches the same-surface-different-behaviour risk. It is collected, unlike
-`tests/support/`, so it is the one slice whose collected count moves.
+**They are blocked on the same rule that ordered the first two slices**: share
+the base before the composer. Each returns a per-file aggregate built by a local
+`_playbook()` or `_hold()` helper, of which `share-the-unit-test-harness`
+reproduced 13 of 95 and 31 of 104 — so a shared store would have to be told what
+to serve, at call sites the migration may not edit. **Sharing `_playbook()` and
+`_hold()` is the prerequisite, and no proposed change owns it.**
 
-**`share-the-value-doubles` landed first** (archived 2026-09-04) and supplies
-the leaves these stores hold: `Member`, `CatalogProduct`, `Record`,
-`TaskMapping`, `PendingRow`, `FakeTask`, `CreatedTask` in
-`tests/support/values.py`. A shared store holding *shared* members is
-reproducible across files; one holding each file's own is the parent change's
-`_hold` problem again. Whether that ordering was worth it is testable rather
-than assumed: if these stores still cap at a partial hit rate, partition the
-findings on whether the file's leaf migrated — the claim is only about the
-migrated partition.
+That rule was tested rather than assumed, and it held: of the 175 migrated
+declarations, the one whose lockstep pairing failed for a leaf reason —
+`test_launch_report_step_facts.py` — is the one file that kept its own `_Record`
+instead of the shared one.
 
-**Conflict-prone**, like its predecessor: it touches many test files, so it does
-not run concurrently with anything else that edits `tests/` broadly.
+`tests/unit/support/` already exists, with 46 tests, so this slice inherits a
+place for contract tests rather than an argument about whether they belong.
+
+**Conflict-prone**, like both predecessors: it will touch many test files, so it
+does not run concurrently with anything else that edits `tests/` broadly.
 
 ## 4. `unify-launch-adapter-dependencies`
 
@@ -101,8 +101,10 @@ those globals outright by moving convergence off the four request-path
 adapters. Re-scope it on arrival rather
 than executing it as written.
 
-**Must also follow `share-the-stateful-fakes`**, and this entry is placed last
-for that reason rather than by preference.
+**No longer waits on the fakes.** `share-the-stateful-fakes` archived on
+2026-09-04, so both halves of its warrant are now met as far as they can be by
+sharing doubles; what remains open is stated in the cautions below and is a
+matter for this change's own mutation work, not for another slice.
 
 The member-identifier half of its warrant is already met.
 `share-the-value-doubles` (archived 2026-09-04) gave all 52 member doubles an
@@ -111,14 +113,25 @@ probes are now unreachable from any test — proven there by mutation. What is
 *not* yet met is `clickup_sync._members`, which probes three reader shapes and
 sits opposite the stateful `FakeMembers` this change must wait for.
 
-Two cautions carried from that work. The probe surface is **ten** `getattr`
-shape probes, and `docs/deferred-work.md` now records the measurement *method*
-beside them, because every spelling-based sweep of this ground has come back
-stale — re-measure structurally, and note that two of the ten are reader shapes
-rather than attribute spellings and so fall outside that measurement entirely.
-And the six member probes' fall-through branches are currently *untested*
-rather than unused: **do not narrow one on the strength of a green suite** until
-this change deletes it deliberately.
+Three cautions carried from that work. The probe surface is **ten** `getattr`
+shape probes **plus five sites a spelling sweep cannot see at all** —
+`docs/deferred-work.md` records all fifteen and, more usefully, the measurement
+*method* for each kind, because every spelling-based sweep of this ground has
+come back stale.
+
+And the narrowing `share-the-stateful-fakes` delivered is uneven, deliberately.
+**The handler-name side is closed from `tests/`**: all 20 doubles present
+`names()` alone, established by mutating every local `__iter__` to raise and
+finding the commit tier still green. **The members side is not.** 41 of 43
+`_FakeMembers` present `list_members()` alone, but 23 module-level `_members()`
+functions, five `_ReaderMembers`, `_StoreShapedMembers`, `_Members`,
+`_FailingMembers`, two `_PlaybookMembers` and two keeps still supply the callable
+and iterable conventions. So `clickup_sync._members` and
+`activation_readiness._members_of` keep all three branches reachable.
+
+The standing rule applies to every one of the fifteen: the fall-through branches
+are *untested* rather than unused, and **do not narrow one on the strength of a
+green suite** until this change deletes it deliberately.
 
 ---
 
