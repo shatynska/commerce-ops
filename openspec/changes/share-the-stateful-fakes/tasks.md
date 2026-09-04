@@ -233,10 +233,20 @@ Counts here are AST counts. Do not re-derive one by grep.
       `note`, `read`, `rollback`), its protocol and `_conforms`, and contract
       tests asserting each returns `None`; declare the number added. **Four
       tests added; `tests/unit/support/` now collects 18.**
-- [x] 6.2 Instrument, verify, settle, verify. **Expected: 9 of 9, all aliases.
-      Actual: 9 of 9, all aliases.** The pairing fired 95 times across the nine
-      before the decorator came off, the two minimal declarations included
-      (9 and 6 calls on `mark_reported`), with no divergence.
+- [x] 6.2 Instrument, verify, settle, verify. **Expected: 9 of 9, all aliases. Actual: 7 of 9, all aliases, 2 kept.**
+      The pairing fired 95 times across the nine with no divergence, and the
+      two minimal declarations were then **reverted on the code review's
+      finding**: carrying `mark_reported` alone is itself a guard. If the
+      stuck-step report path regressed to reading or noting the backoff, the
+      missing method raises `AttributeError`, `_contained`
+      (`automation_pass:676`) catches it, and the `rollback()` it then attempts
+      raises too — surfacing as `BackoffStoreUnrestorable`. Against the complete
+      shared fake that regression returns `None` four times and passes green.
+      Task 6.3's search was sound and answered the wrong question: it looked for
+      a site that *probes* for the names, and the guard here is the
+      `AttributeError` itself. **Completeness is the right default and these are
+      the two files where it costs a guard**, so they keep their own
+      declarations with the reason recorded in each.
 - [x] 6.3 Record the same-value check for the two declarations that carry
       `mark_reported` alone: the shared fake adds three methods, each returning
       `None`. Confirm by search across `tests/` and `src/` that no site probes
@@ -566,17 +576,19 @@ Counts here are AST counts. Do not re-derive one by grep.
       | `FakeSlackResponse` | 13 | 13 | 13 | 0 | 0 |
       | `FakeHandlers` | 8 | 8 | 8 | 0 | 0 |
       | `StubDate` | 15 | 15 | 0 | 15 | 0 |
-      | `InertBackoff` | 9 | 9 | 9 | 0 | 0 |
+      | `InertBackoff` | 9 | 7 | 7 | 0 | 2 |
       | `FakeHandlerRegistry` | 12 | 12 | 8 | 4 | 0 |
       | `FakeStepStore` | 36 | 36 | 34 | 2 | 1 |
       | `FakeMembersStore` | 29 | 29 | 21 | 8 | 9 |
       | `FakeCatalogPort` | 12 | 12 | 12 | 0 | 4 |
       | `FakeMembers` | 41 | 41 | 8 | 33 | 2 |
-      | **total** | **175** | **175** | **113** | **62** | **16** |
+      | **total** | **175** | **173** | **111** | **62** | **18** |
 
-      **No name landed under its expectation.** The alias/adapter split came out
-      113/62 against the projected 114/61: one `FakeMembersStore` declaration
-      moved columns, its constructor taking a version and no rows.
+      **One name landed under its expectation, and for a reason worth having.**
+      `InertBackoff` took 7 of 9 rather than 9 of 9: the code review found that
+      the two minimal declarations' *absence* of three methods was a guard, and
+      they were reverted (task 6.2). Every other name matched exactly. The
+      alias/adapter split came out 111/62 against the projected 114/61.
 
       **How much of the 175 the proof actually reached.** 115 declarations were
       paired and 60 were not. Paired: 1,134 constructions and 2,687 calls, with

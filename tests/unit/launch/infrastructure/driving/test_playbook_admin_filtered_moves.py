@@ -1712,8 +1712,14 @@ def test_a_move_submitted_from_a_superseded_list_is_rejected(
     only then is the rendered move submitted. An implementation that
     passed its own POST-time load version through instead of the one the
     page carried would find the check vacuous, compute the position
-    against the newer set and persist it — which `store.saves` catches:
-    this store's `save()` refuses nothing on its own.
+    against the newer set and persist it — which `store.saves` catches.
+
+    `save()` no longer refuses nothing on its own: since
+    `share-the-stateful-fakes` the shared `FakeStepStore` asserts that the
+    version it is handed is the one it holds. So the regression this test
+    names would now surface as that assertion rather than as an empty
+    `store.saves`, and the detector below is a second line rather than the
+    only one.
     """
     store = _seeded_store(extra=_listable_gate(*_SPREAD_GATE))
     client = _signed_client(monkeypatch, store)

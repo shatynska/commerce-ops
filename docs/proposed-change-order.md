@@ -101,17 +101,21 @@ those globals outright by moving convergence off the four request-path
 adapters. Re-scope it on arrival rather
 than executing it as written.
 
-**No longer waits on the fakes.** `share-the-stateful-fakes` archived on
-2026-09-04, so both halves of its warrant are now met as far as they can be by
-sharing doubles; what remains open is stated in the cautions below and is a
-matter for this change's own mutation work, not for another slice.
+**No longer waits on the fakes.** `share-the-stateful-fakes` merged on
+2026-09-04 — its own archive is a later PR, per `AGENTS.md` — so both halves of
+its warrant are now met as far as sharing doubles can meet them. What remains
+open is stated in the cautions below and is this change's own mutation work,
+not another slice's.
 
 The member-identifier half of its warrant is already met.
 `share-the-value-doubles` (archived 2026-09-04) gave all 52 member doubles an
 `identifier`, so the second and third branches of all six member-identifier
-probes are now unreachable from any test — proven there by mutation. What is
-*not* yet met is `clickup_sync._members`, which probes three reader shapes and
-sits opposite the stateful `FakeMembers` this change must wait for.
+probes are now unreachable from any test — proven there by mutation.
+
+The reader-shape half is met **unevenly**, and the cautions below say how:
+`share-the-stateful-fakes` closed the handler-name probes from `tests/` and only
+narrowed the members ones. `clickup_sync._members` and
+`activation_readiness._members_of` still have all three conventions supplied.
 
 Three cautions carried from that work. The probe surface is **ten** `getattr`
 shape probes **plus five sites a spelling sweep cannot see at all** —

@@ -220,7 +220,13 @@ class VersionedStoreShape(Protocol):
 
     async def load(self) -> tuple[Any, int]: ...
 
-    async def save(self, records: Any, *, expected_version: int) -> None: ...
+    # Positional-only, deliberately: the two fakes name this parameter for the
+    # set they hold -- `records` for the step store, `rows` for the membership,
+    # each matching the locals it replaced -- and `mypy`'s structural check does
+    # not compare parameter names it is not asked to. Declaring it `/` says what
+    # production actually does (every caller passes it positionally) and stops
+    # `_conforms` from appearing to check a name it cannot.
+    async def save(self, records: Any, /, *, expected_version: int) -> None: ...
 
 
 _step_store_conforms: VersionedStoreShape = FakeStepStore[Any]()

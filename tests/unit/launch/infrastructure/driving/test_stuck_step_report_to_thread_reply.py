@@ -78,7 +78,6 @@ from typing import Any, Final
 import pytest
 
 from commerce_ops.launch.domain.launch_run import Launch
-from tests.support.fakes import InertBackoff as _InertBackoff
 from tests.support.fixtures import STEP_ID, product_id
 from tests.support.values import CatalogProduct as _CatalogProduct
 
@@ -134,6 +133,21 @@ def _launch(*, submitter: str | None = SUBMITTER_ID) -> Launch:
         launch_date=None,
         submitter=submitter,
     )
+
+
+class _InertBackoff:
+    """A backoff record that holds nothing and fails at nothing -- this
+    file asserts on the delivered message, not the backoff stamp.
+
+    Kept local rather than migrated onto `tests.support.fakes.InertBackoff`
+    for the reason its neighbour in
+    `test_stuck_step_report_submitter_fallback.py` states at length: carrying
+    `mark_reported` alone is what makes a report path that reaches for `read`
+    or `note` fail loudly instead of silently.
+    """
+
+    async def mark_reported(self, *args: Any, **kwargs: Any) -> None:
+        return None
 
 
 class _CapturingNotifier:
