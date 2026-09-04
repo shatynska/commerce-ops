@@ -26,11 +26,12 @@ same string by construction rather than by inspection, which is what lets
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Any
 
 from commerce_ops.launch.domain.launch_playbook import StepDefinition
-from commerce_ops.shared.domain.identity import Sku
+from commerce_ops.shared.domain.identity import ProductId, Sku
 from tests.support.fixtures import PRODUCT_NAME, PRODUCT_SKU
 
 #: What a member double's ClickUp identity is, absent a reason to differ.
@@ -174,3 +175,99 @@ class Record:
         self.retired_on: Any = None
         self.unretired_by: str | None = None
         self.unretired_on: Any = None
+
+
+@dataclass
+class TaskMapping:
+    """A launch step's mapping onto its ClickUp task.
+
+    Seven fields against two local shapes, the shorter a strict prefix of the
+    longer -- 12 declarations carry the `retained_*` trio and 7 do not. The trio
+    defaults to `None` because that is what its absence produced:
+    `clickup_sync.py:514-515` and `:536` read all three through
+    `getattr(mapped, name, None)`.
+    """
+
+    product_id: ProductId
+    step_id: str
+    task_id: str
+    last_observed_closed: bool = False
+    retained_name: str | None = None
+    retained_body: str | None = None
+    retained_assignees: tuple[str, ...] | None = None
+
+
+@dataclass
+class PendingRow:
+    """One automated result awaiting confirmation.
+
+    The canonical ten fields, required where the locals require them. Ten of the
+    16 declarations keep their own: three are plain classes, four model
+    supersets -- two adding `extra`, two adding `id` *first*, which would change
+    what every positional construction in those files means -- and three
+    default every required field to a file-local literal, so a zero-argument
+    call that works locally cannot work here.
+    """
+
+    product_id: ProductId
+    step_id: str
+    handler: str
+    proposed_outcome: Any
+    result_text: str
+    produced_at: datetime
+    state: str = "pending"
+    delivered_at: datetime | None = None
+    decided_by: str | None = None
+    decided_at: datetime | None = None
+
+
+@dataclass
+class FakeTask:
+    """A ClickUp task as the sync reads one back.
+
+    **`description` defaults to `None`, and the measurement is why.**
+    `clickup_sync.py:517` reads `getattr(task, "description", None)`, and of the
+    15 declarations 5 carry neither spelling, 5 carry `body` only, 4 carry
+    `description` only and 1 carries both -- so 10 of 15 exercise
+    `task_body = None` today, and a populated default would change them with
+    every check still green. `body` is its own field because nothing in `src/`
+    reads `task.body`; `retained_body` on the *mapping* is what production
+    compares against.
+
+    `assignees` defaults to `()` for the same reason -- `clickup_sync.py:537`
+    reads `getattr(task, "assignees", ())` and 9 of the 15 never declare it.
+
+    `custom_field_values` is a property over `custom_fields`: the second
+    instance of the pattern `Member.identifier` establishes, where the field
+    keeps the locals' spelling and production's spelling is derived from it.
+    `clickup_sync.py:647` reads `getattr(task, "custom_field_values", {})`, so
+    the fall-through was `{}` and an empty `custom_fields` renders exactly that.
+    """
+
+    id: str
+    name: str
+    list_id: str
+    status: str = "to do"
+    closed: bool = False
+    due_date: Any = None
+    body: Any = None
+    description: Any = None
+    assignees: tuple[str, ...] = ()
+    tags: tuple[str, ...] = ()
+    custom_fields: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def custom_field_values(self) -> dict[str, Any]:
+        """The spelling `clickup_sync` reads, over the one the tests assert on."""
+        return self.custom_fields
+
+
+@dataclass(frozen=True)
+class CreatedTask:
+    """What `create_task` hands back -- only `.id` is consumed.
+
+    One body across all 14 declarations, modulo a docstring on one.
+    """
+
+    id: str
+    url: str
