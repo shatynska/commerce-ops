@@ -307,22 +307,21 @@ def _hold(gate: str) -> StepDefinition:
 
 
 def _playbook() -> LaunchPlaybook:
+    unordered = (
+        _step(
+            identifier=RISK_STEP,
+            name="Launch readiness is signed off",
+            gate="graduated",
+            blocking=True,
+            timing_anchor=OffsetAnchor(days=-30),
+        ),
+        *tuple(_hold(gate) for gate in SPECIFIED_GATE_ORDER if gate != "graduated"),
+    )
     return _build_playbook(
-        *tuple(
+        *(
             step
             for gate in SPECIFIED_GATE_ORDER
-            for step in (
-                _step(
-                    identifier=RISK_STEP,
-                    name="Launch readiness is signed off",
-                    gate="graduated",
-                    blocking=True,
-                    timing_anchor=OffsetAnchor(days=-30),
-                ),
-                *tuple(
-                    _hold(gate) for gate in SPECIFIED_GATE_ORDER if gate != "graduated"
-                ),
-            )
+            for step in unordered
             if step.gate == gate
         ),
         filler=_hold,

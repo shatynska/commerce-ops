@@ -283,7 +283,7 @@ Read as a preceding phase, the rule contradicts itself.
          6 declined a third fill mode for three files. That is right at three;
          if `share-the-aggregate-fakes` finds more, the decision is worth
          re-taking rather than inherited.
-- [ ] 6.6 Run `/code-review` over the full diff before calling the change done
+- [x] 6.6 Run `/code-review` over the full diff before calling the change done
       (`AGENTS.md` — *Independent review before completion*).
 - [ ] 6.7 Open the pull request. Nothing reaches `main` except through one
       (`AGENTS.md` — *Deployment and configuration*); archive follows the merge
@@ -332,3 +332,42 @@ building fillers, which silently deleted five real steps from three files; one
 harvested expression not evaluable outside its own `_step`; and the
 `test_metric_step_journalling` divergence above. The first two were found before
 any commit, the third by the whole-object comparison rather than by a red test.
+
+## Code review (task 6.6) — run at `high`, four findings, all acted on
+
+It verified by equivalence rather than by eye: a second worktree at `main`, all
+103 changed modules imported in both trees, every builder compared under ~2,000
+call shapes. **No correctness defect in the migration itself.** The four
+findings and what was done:
+
+1. **[medium] A `**overrides` helper stopped letting an override win.** The
+   local form was `attributes.update(overrides)`; the migrated keyword form
+   makes the same call a `TypeError` for a duplicate keyword. Latent — no
+   current caller passes the three affected keys, so the suite stayed green —
+   and a trap for the next test written against those helpers. **Fixed in all
+   10**, onto `_build_hold(gate, **{"kind": ..., **overrides})`, which is the
+   idiom three sibling files already migrated by the parent change use. Proved:
+   the `_hold` equality run now includes eight override shapes per gate, 1,496
+   comparisons, 0 failures — the shapes that used to raise now reproduce.
+2. **[low] `fillers_first` is inert at every call site.** Verified: all six
+   hand in a blocking step for every gate, so `fillers` is empty and the branch
+   never fires. **Recorded, not removed** — and the reason is in `playbook()`'s
+   docstring. My prover and the review are both right: the parameter *is*
+   needed to reproduce those locals under other inputs, and *is not* reached by
+   what the suite runs today. Reproducing only the exercised subset is the
+   weaker proof this method rejects, so it stays; if a later slice still finds
+   no caller reaching it, that is the point to re-take the decision.
+3. **[low] The ordering comprehension rebuilt its steps once per gate** — 64
+   constructions to produce 8, at import — and its inner generator shadowed the
+   outer `gate`. An artefact of inlining the tuple into the comprehension.
+   **Fixed in all three** by binding `unordered` once.
+4. **[low] A three-line comment recording *why* a step is blocking and anchored
+   30 days out was dropped.** The value survived, the reason did not.
+   **Restored**, and a sweep of the whole diff for `^-\s*#` confirms it was the
+   only comment lost.
+
+Findings 1 and 3 are the same root cause: a mechanical rewrite preserves values
+and loses *contract* — precedence in one case, evaluation count and scoping in
+the other. The equality proof compares return values, so neither was in its
+reach; both needed a reader. That is the argument for `AGENTS.md`'s two
+separate review obligations, and it earned itself here.

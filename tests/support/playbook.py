@@ -123,6 +123,16 @@ def playbook(
     sort `steps`, so the order a caller supplies is the order read back, and it
     is part of `==`. Reordering here to spare a parameter would silently rewrite
     the step tuple that migrated files already assert on.
+
+    **It is inert at all six call sites that pass it, and that is recorded
+    rather than fixed.** Each of the six hands in a blocking step for every
+    gate, so `fillers` is empty and the branch never fires; `filler=` is dead
+    alongside it there. The parameter is justified by what those locals *do*,
+    not by what the suite currently *exercises*: a migration that reproduced
+    only the inputs in use today would be the weaker proof this harness's whole
+    method rejects, and four of the six take arguments that a later test could
+    vary. Worth re-taking as a decision if a future slice finds no caller that
+    reaches it either.
     """
     held = {
         step.gate

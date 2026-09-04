@@ -369,6 +369,9 @@ def _playbook() -> LaunchPlaybook:
             ),
             _step(TITLE_STEP, gate="listable"),
             _step(IMAGES_STEP, gate="listable"),
+            # Blocking, and anchored 30 days before the launch date: an
+            # unsatisfied blocking step already past its due day is what puts
+            # a launch date at risk, which the mark-wording scenario needs.
             _step(UNITS_STEP, gate="listable", discipline=INVENTORY, blocking=True),
             _step(BRIEF_STEP, gate="listable"),
             _step(

@@ -302,20 +302,21 @@ def _hold(gate: str) -> StepDefinition:
 
 
 def _playbook() -> LaunchPlaybook:
+    unordered = (
+        *(
+            _step(COPY_STEP),
+            _step(IMAGES_STEP),
+            _step(UNITS_STEP, discipline=INVENTORY),
+            _step(BRIEF_STEP),
+            _step(PROHIBITED_STEP, hazard=Hazard.PROHIBITED_TACTIC),
+        ),
+        *tuple(_hold(gate) for gate in SPECIFIED_GATE_ORDER),
+    )
     return _build_playbook(
-        *tuple(
+        *(
             step
             for gate in SPECIFIED_GATE_ORDER
-            for step in (
-                *(
-                    _step(COPY_STEP),
-                    _step(IMAGES_STEP),
-                    _step(UNITS_STEP, discipline=INVENTORY),
-                    _step(BRIEF_STEP),
-                    _step(PROHIBITED_STEP, hazard=Hazard.PROHIBITED_TACTIC),
-                ),
-                *tuple(_hold(gate) for gate in SPECIFIED_GATE_ORDER),
-            )
+            for step in unordered
             if step.gate == gate
         ),
         version="last-completed-v1",

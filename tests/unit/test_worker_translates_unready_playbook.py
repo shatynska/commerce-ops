@@ -120,10 +120,12 @@ def anyio_backend() -> str:
 def _hold(gate: str, **overrides: Any) -> StepDefinition:
     return _build_hold(
         gate,
-        handler="fixture.holding_check",
-        kind=StepKind.AUTOMATED,
-        timing_anchor=OffsetAnchor(days=0),
-        **overrides,
+        **{
+            "handler": "fixture.holding_check",
+            "kind": StepKind.AUTOMATED,
+            "timing_anchor": OffsetAnchor(days=0),
+            **overrides,
+        },
     )
 
 
