@@ -151,13 +151,19 @@ Counts here are AST counts. Do not re-derive one by grep.
 
 ## 3. `FakeSlackResponse` — 13 declarations, one body, **proof-exempt**
 
-- [ ] 3.1 Add `FakeSlackResponse(dict[str, Any])` to `tests/support/fakes.py`
+- [x] 3.1 Add `FakeSlackResponse(dict[str, Any])` to `tests/support/fakes.py`
       with its `data` property, its protocol and `_conforms` assignment, and
       `tests/unit/support/test_fake_slack_response.py`. **Declare the number of
-      tests added.** These contract tests are the *primary* check for this name,
+      tests added: **five**.** These contract tests are the *primary* check for this name,
       not a supplement: there is no instance method to intercept and the
       substance is the `dict` base class, so they must cover indexing, the
-      `data` property's copy semantics and the empty payload.
+      `data` property's copy semantics and the empty payload. **Recorded while
+      writing them: `data` is read by nothing — no site in `src/`, none in the
+      Slack SDK or bolt, and no test. It is a fourth candidate for clause (e)'s
+      treatment and is deliberately **not** dropped, because that clause names
+      three cases rather than a category precisely so it cannot be widened at
+      implementation time. `tests/support/fakes.py` records it for whoever owns
+      the next slice.**
 - [ ] 3.2 Instrument, verify, settle, verify. **Record in this file that the
       lockstep proof does not run for this name** (`design.md` Decision 2) — the
       instrument commit's green is `mypy`, clause (b) and the contract tests,

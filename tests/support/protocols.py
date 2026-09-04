@@ -55,9 +55,10 @@ and the derived spellings these doubles expose (`Member.identifier`,
 
 from __future__ import annotations
 
-from typing import Protocol
+from typing import Any, Protocol
 
 from commerce_ops.shared.domain.identity import Sku
+from tests.support.fakes import FakeSlackResponse
 from tests.support.values import CatalogProduct, Member, MemberValue
 
 
@@ -99,3 +100,24 @@ class CatalogProductShape(Protocol):
 
 
 _catalog_product_conforms: CatalogProductShape = CatalogProduct()
+
+
+class SlackResponseShape(Protocol):
+    """What a Slack API response is read as, once the SDK hands one back.
+
+    Two things, and the first is not an attribute: the response is **indexed**,
+    which is why `FakeSlackResponse` subclasses `dict` rather than holding one.
+    `data` is the SDK's own spelling for the whole payload.
+
+    Declared as a property rather than a variable, per this module's rule:
+    `mypy` treats a protocol variable as settable, and the double's `data` is
+    read-only.
+    """
+
+    @property
+    def data(self) -> dict[str, Any]: ...
+
+    def __getitem__(self, key: str, /) -> Any: ...
+
+
+_slack_response_conforms: SlackResponseShape = FakeSlackResponse()
