@@ -43,41 +43,44 @@ Counts here are AST counts. Do not re-derive one by grep.
 
 ## 1. Baseline and instruments
 
-- [ ] 1.1 Record the baseline before anything is edited: collected counts for
+- [x] 1.1 Record the baseline before anything is edited: collected counts for
       `tests/unit`, `tests/agents` and `tests/integration` separately, and pass
       counts and wall time for the commit tier and the integration tier.
       Measured on this worktree at `5e5b19a`: **2,246 / 236 / 159**; commit tier
       **2,482 passed**. **Record what is measured, not what is expected** — if
       the tree disagrees, the tree is right and the disagreement is a finding.
-- [ ] 1.2 Confirm this worktree's `.env.test` still resolves and its database is
+      **Measured: 2,246 / 236 / 159, commit tier 2,482 passed in ~74 s,
+      integration tier 159 passed in 32.7 s. No disagreement.**
+- [x] 1.2 Confirm this worktree's `.env.test` still resolves and its database is
       migrated and seeded (`commerce_ops_harness_test`, alembic head
       `c93f1a70e5d4`). A worktree does not inherit `.env.test`; without it the
       integration tier skips in its entirety while `pre-push` reports `Passed`.
       Migrated is not seeded — a schema-only database fails four tests, each of
       which says so in its own assertion message.
-- [ ] 1.3 Run the integration tier once with `COMMERCE_OPS_REQUIRE_DATABASE=1`.
-      Expected `159 passed`.
-- [ ] 1.4 Take the `assert_identity.py` baseline over `tests/**/*.py` at the
+- [x] 1.3 Run the integration tier once with `COMMERCE_OPS_REQUIRE_DATABASE=1`.
+      Expected `159 passed`. **Measured: 159 passed in 32.7 s.**
+- [x] 1.4 Take the `assert_identity.py` baseline over `tests/**/*.py` at the
       change's base commit and record it. Expected **6,623 / 238 / 759 / 172**
       over 2,192 test functions; its `REPO` constant already points at this
       worktree, and it has no whole-tree mode — call `collect()` and sum by key
-      prefix. Add the `tests/unit/support/` **and `tests/support/`** exclusions
+      prefix. **Measured: 6,623 / 238 / 759 / 172 over 2,192 test functions, as
+      expected.** Add the `tests/unit/support/` **and `tests/support/`** exclusions
       to it now, before any contract test or shared fake exists, so neither is
       written under the pressure of a failing comparison (`design.md`
       Decision 10). Both cost nothing at the baseline: `tests/support/`
       contributes zero nodes to all four kinds today, so the figures above hold
       with the exclusions or without them.
-- [ ] 1.5 Re-run `~/share-the-stateful-fakes/census.py` and `behaviour.py`
+- [x] 1.5 Re-run `~/share-the-stateful-fakes/census.py` and `behaviour.py`
       against the base commit and confirm the population table in `proposal.md`:
       1,046 module-level classes in `tests/`, 803 with behaviour across 190
       names, 482 in the 27 names declared eight times or more, and the nine
       in-scope names at 43 / 38 / 37 / 16 / 15 / 13 / 12 / 9 / 8 = **191
       declarations across 103 files**. A disagreement is a finding, not a
-      transcription error to smooth over.
+      transcription error to smooth over. **Measured: all figures confirmed.**
 
 ## 2. The proof, before the first fake
 
-- [ ] 2.1 Write `tests/support/_paired.py`: the
+- [x] 2.1 Write `tests/support/_paired.py`: the
       `paired(shared, *, build=None, state=None)` decorator of `design.md`
       Decision 2. It **intercepts `__init__`** to capture the local's arguments,
       build the twin — from `build(*args, **kwargs)` where `build` is given and
@@ -109,15 +112,23 @@ Counts here are AST counts. Do not re-derive one by grep.
       an attribute on the local and not the shared is a failure, one differing
       in value is a failure, one only on the shared is a note. Its docstring
       says it is temporary and names task 12.1 as the commit that deletes it.
-- [ ] 2.2 Prove the decorator against the spike's three cases before it meets a
+- [x] 2.2 Prove the decorator against the spike's three cases before it meets a
       real file: a local matching the shared, a local storing less than the
       shared, and a local mutated to skip a state change. The third **must**
       fail. A proof that cannot fail is not a proof, and this is the one task
-      that establishes it can. **These three cases live in the change's
+      that establishes it can. **Done, and the run found two defects in the
+      decorator that the design could not have: the twin was stored on the local
+      before the first state comparison and so read as an attribute the shared
+      fake modelled less of; and `hasattr(SomeClass, "__call__")` is always true
+      — a class is callable — so an unlicensed `__call__` was excused instead of
+      rejected. Both are fixed, and the second is why `_declares()` walks the
+      shared fake's own MRO rather than asking `hasattr`. Two further cases were
+      added beyond the three: an unlicensed dropped name is rejected at
+      decoration, and a licensed one is excused with a note.** **These three cases live in the change's
       scratchpad and are never committed** — committing them under
       `tests/unit/support/` would raise the declared count and lower it again at
       task 12.1, against "only ever rises" (`design.md` Decision 7).
-- [ ] 2.3 Re-take the clause (d) measurement against the base commit: an AST
+- [x] 2.3 Re-take the clause (d) measurement against the base commit: an AST
       pass over the 191 declarations for a write whose target is not `self`, or
       a call to `append`, `add`, `extend`, `update`, `write`, `pop` or `insert`
       on a bare name — the same verb list `design.md` Decision 3(d) states. At
@@ -127,10 +138,14 @@ Counts here are AST counts. Do not re-derive one by grep.
       migrates on the note alone and must be named here rather than left to look
       like a proof that passed. The predicate over-reports local-variable
       assignment inside a method body, so the hits are read, not counted.
-- [ ] 2.4 Check that the nine contract-test module basenames are unique across
+      **Measured: six hits, all `_FakeMembersStore` `_Version`-cell
+      declarations, all already kept under clause (c). The clause excludes
+      nothing this change migrates.**
+- [x] 2.4 Check that the nine contract-test module basenames are unique across
       **all three tiers** — `tests/unit`, `tests/agents` and
       `tests/integration` — before any is committed. At `5e5b19a` all nine are
-      free. Duplicate basenames break collection outright under
+      free. **Checked across all three tiers: all nine free, and
+      `test_paired.py` with them.** Duplicate basenames break collection outright under
       pytest's prepend import mode, which `docs/deferred-work.md` records as a
       live defect that no gate notices.
 
