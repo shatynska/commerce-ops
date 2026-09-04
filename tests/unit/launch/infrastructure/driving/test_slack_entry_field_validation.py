@@ -50,6 +50,8 @@ import pytest
 from fastapi.testclient import TestClient
 from slack_sdk.signature import SignatureVerifier
 
+from tests.support.fakes import FakeSlackResponse as _FakeSlackResponse
+
 SLACK_ENTRY_PATH = "/product_agent/slack/events"  # ASSUMED
 SIGNING_SECRET = "test-product-agent-signing-secret"  # not a real credential
 BOT_TOKEN = "xoxb-test-product-agent-not-a-real-token"  # not a real credential
@@ -75,12 +77,6 @@ REGISTRAR_ATTRIBUTES: tuple[str, ...] = (
 # --------------------------------------------------------------------------
 # Test doubles
 # --------------------------------------------------------------------------
-
-
-class _FakeSlackResponse(dict[str, Any]):
-    @property
-    def data(self) -> dict[str, Any]:
-        return dict(self)
 
 
 class _RecordingSlackApi:

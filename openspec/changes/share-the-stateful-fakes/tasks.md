@@ -164,7 +164,7 @@ Counts here are AST counts. Do not re-derive one by grep.
       three cases rather than a category precisely so it cannot be widened at
       implementation time. `tests/support/fakes.py` records it for whoever owns
       the next slice.**
-- [ ] 3.2 Instrument, verify, settle, verify. **Record in this file that the
+- [x] 3.2 Instrument, verify, settle, verify. **Record in this file that the
       lockstep proof does not run for this name** (`design.md` Decision 2) — the
       instrument commit's green is `mypy`, clause (b) and the contract tests,
       and nothing else. Two of the 13 are in `tests/integration/`
@@ -173,7 +173,9 @@ Counts here are AST counts. Do not re-derive one by grep.
       integration tier with `COMMERCE_OPS_REQUIRE_DATABASE=1`. The instrument
       commit does not: with no decorator to add, it touches neither file
       (`design.md` Decision 9).
-      **Expected: 13 of 13, all aliases.**
+      **Expected: 13 of 13, all aliases. Actual: 13 of 13, all aliases.**
+      Commit tier 2,487 passed (2,482 outside `tests/unit/support/`, 5 inside);
+      integration tier 159 passed with `COMMERCE_OPS_REQUIRE_DATABASE=1`.
 
 ## 4. `FakeHandlers` — 8 declarations, one body
 

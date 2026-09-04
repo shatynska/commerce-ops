@@ -58,6 +58,7 @@ from fastapi.testclient import TestClient
 from slack_sdk.signature import SignatureVerifier
 
 from commerce_ops.omni_agent.infrastructure.driving import slack as slack_adapter
+from tests.support.fakes import FakeSlackResponse as _FakeSlackResponse
 
 SLACK_EVENTS_PATH = "/omni_agent/slack/events"
 SIGNING_SECRET = "test-slack-signing-secret"  # not a real credential
@@ -81,14 +82,6 @@ _MODULES_WITH_CACHED_FACTORIES = (
 # --------------------------------------------------------------------------
 # Test doubles
 # --------------------------------------------------------------------------
-
-
-class _FakeSlackResponse(dict[str, Any]):
-    """Minimal stand-in for `AsyncSlackResponse`, which is dict-like."""
-
-    @property
-    def data(self) -> dict[str, Any]:
-        return dict(self)
 
 
 class _RecordingSlackApi:

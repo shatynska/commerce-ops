@@ -80,6 +80,7 @@ from commerce_ops.launch.domain.launch_playbook import (
     StepStatus,
 )
 from commerce_ops.shared.domain.discipline import Discipline
+from tests.support.fakes import FakeSlackResponse as _FakeSlackResponse
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
 
@@ -192,12 +193,6 @@ def _build_not_ready(playbook: LaunchPlaybook) -> Exception:
 # Test doubles — transcribed from
 # `test_slack_entry_ack_and_failure_visibility.py`
 # ---------------------------------------------------------------------------
-
-
-class _FakeSlackResponse(dict[str, Any]):
-    @property
-    def data(self) -> dict[str, Any]:
-        return dict(self)
 
 
 class _RecordingSlackApi:
