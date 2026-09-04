@@ -96,7 +96,7 @@ from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.launch.infrastructure.driven.clickup_sync import converge_launch
 from commerce_ops.shared.domain.clickup import ClickUpListState
 from commerce_ops.shared.domain.discipline import Discipline
-from commerce_ops.shared.domain.identity import ProductId, Sku
+from commerce_ops.shared.domain.identity import ProductId
 from tests.support.fixtures import (
     ALICE,
     BOHDAN,
@@ -107,6 +107,11 @@ from tests.support.fixtures import (
 )
 from tests.support.playbook import playbook as _build_playbook
 from tests.support.steps import step as _build_step
+from tests.support.values import CatalogProduct as _CatalogProduct
+from tests.support.values import CreatedTask as _CreatedTask
+from tests.support.values import FakeTask as _FakeTask
+from tests.support.values import Member as _Member
+from tests.support.values import TaskMapping as _TaskMapping
 
 pytestmark = pytest.mark.anyio
 
@@ -168,33 +173,12 @@ def _start(playbook: LaunchPlaybook) -> Launch:
 # ---------------------------------------------------------------------------
 
 
-@dataclass(frozen=True)
-class _CatalogProduct:
-    name: str
-    sku: Sku
-
-
 class _FakeCatalog:
     def __init__(self, product: _CatalogProduct) -> None:
         self._product = product
 
     async def __call__(self, product_id: ProductId) -> _CatalogProduct:
         return self._product
-
-
-class _Member:
-    def __init__(
-        self,
-        member_id: str,
-        display_name: str,
-        *,
-        clickup_user_id: str | None,
-        active: bool = True,
-    ) -> None:
-        self.id = member_id
-        self.display_name = display_name
-        self.clickup_user_id = clickup_user_id
-        self.active = active
 
 
 class _FakeMembers:
@@ -227,25 +211,6 @@ def _members() -> _FakeMembers:
             _Member(NO_ACCOUNT, "Chris Newcomer", clickup_user_id=None),
         )
     )
-
-
-@dataclass
-class _FakeTask:
-    id: str
-    name: str
-    list_id: str
-    status: str = "to do"
-    closed: bool = False
-    due_date: Any = None
-    body: Any = None
-    assignees: tuple[str, ...] = ()
-    tags: tuple[str, ...] = ()
-
-
-@dataclass(frozen=True)
-class _CreatedTask:
-    id: str
-    url: str
 
 
 _BODY_KEYS: Final = ("description", "body", "content", "markdown", "text_content")
@@ -388,17 +353,6 @@ class _FakeClickUp:
                 if present:
                     writes.append(body)
         return writes
-
-
-@dataclass
-class _TaskMapping:
-    product_id: ProductId
-    step_id: str
-    task_id: str
-    last_observed_closed: bool = False
-    retained_name: str | None = None
-    retained_body: str | None = None
-    retained_assignees: tuple[str, ...] | None = None
 
 
 class _FakeMapping:

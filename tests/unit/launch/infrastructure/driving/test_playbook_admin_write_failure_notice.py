@@ -151,6 +151,8 @@ from tests.support.html import texts as _texts
 from tests.support.html import tree as _tree
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.steps import step as _build_step
+from tests.support.values import Member as _Member
+from tests.support.values import Record as _Record
 
 # ---------------------------------------------------------------------------
 # The delta's two literal markers, and the three events it binds
@@ -237,20 +239,6 @@ def _step(**overrides: Any) -> StepDefinition:
     return _build_step(**{"identifier": EDITED, "assignees": (ALICE,), **overrides})
 
 
-class _Record:
-    def __init__(self, definition: StepDefinition, display_order: int = 10) -> None:
-        self.definition = definition
-        self.display_order = display_order
-        self.created_by: str | None = None
-        self.created_on: Any = None
-        self.updated_by: str | None = None
-        self.updated_on: Any = None
-        self.retired_by: str | None = None
-        self.retired_on: Any = None
-        self.unretired_by: str | None = None
-        self.unretired_on: Any = None
-
-
 class _FakeStepStore:
     def __init__(self, records: tuple[_Record, ...], version: int = 41) -> None:
         self.records = records
@@ -274,16 +262,6 @@ class _StoreThatCannotPersist(_FakeStepStore):
 
     async def save(self, records: Any, *, expected_version: int) -> None:
         raise RuntimeError("the step set could not be written")
-
-
-class _Member:
-    def __init__(
-        self, member_id: str, display_name: str, *, active: bool = True
-    ) -> None:
-        self.id = member_id
-        self.display_name = display_name
-        self.clickup_user_id: str | None = "clickup-1"
-        self.active = active
 
 
 class _FakeMembers:

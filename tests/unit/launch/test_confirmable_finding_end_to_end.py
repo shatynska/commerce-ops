@@ -100,7 +100,7 @@ from commerce_ops.launch.domain.launch_playbook import (
 from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.launch.infrastructure.driving import automation_pass
 from commerce_ops.shared.domain.discipline import Discipline
-from commerce_ops.shared.domain.identity import ProductId, Sku
+from commerce_ops.shared.domain.identity import ProductId
 from commerce_ops.shared.domain.result import Success
 from tests.support.fixtures import (
     ALICE,
@@ -113,6 +113,8 @@ from tests.support.fixtures import (
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
 from tests.support.steps import step as _build_step
+from tests.support.values import CatalogProduct as _CatalogProduct
+from tests.support.values import MemberValue as _Member
 
 pytestmark = pytest.mark.anyio
 
@@ -200,12 +202,6 @@ def _launch(playbook: LaunchPlaybook) -> Launch:
 # ---------------------------------------------------------------------------
 # Doubles the two halves share
 # ---------------------------------------------------------------------------
-
-
-@dataclass(frozen=True)
-class _CatalogProduct:
-    name: str
-    sku: Sku
 
 
 class _Catalog:
@@ -376,16 +372,6 @@ class _Recordings:
 
     def for_step(self, step_id: str) -> list[dict[str, Any]]:
         return [call for call in self.calls if call.get("step_id") == step_id]
-
-
-@dataclass
-class _Member:
-    id: str
-    display_name: str
-    slack_identity: str
-    active: bool = True
-    clickup_user_id: str | None = None
-    admin: bool = False
 
 
 class _Members:

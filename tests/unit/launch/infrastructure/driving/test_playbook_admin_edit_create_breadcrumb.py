@@ -117,6 +117,8 @@ from tests.support.admin import fake_verify
 from tests.support.fixtures import PRINCIPAL
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.steps import step as _build_step
+from tests.support.values import Member as _FakeMember
+from tests.support.values import Record as _Record
 
 DISCIPLINES: Final = tuple(Discipline)
 A_DISCIPLINE: Final = DISCIPLINES[0]
@@ -155,20 +157,6 @@ _VOID_TAGS: Final = (
 
 def _step(**overrides: Any) -> StepDefinition:
     return _build_step(**{"assignees": (ASSIGNEE,), **overrides})
-
-
-class _Record:
-    def __init__(self, definition: StepDefinition, display_order: int) -> None:
-        self.definition = definition
-        self.display_order = display_order
-        self.created_by: str | None = None
-        self.created_on: Any = None
-        self.updated_by: str | None = None
-        self.updated_on: Any = None
-        self.retired_by: str | None = None
-        self.retired_on: Any = None
-        self.unretired_by: str | None = None
-        self.unretired_on: Any = None
 
 
 class _FakeStepStore:
@@ -217,14 +205,6 @@ def _seeded_store() -> _FakeStepStore:
         ),
     )
     return _FakeStepStore(records)
-
-
-class _FakeMember:
-    def __init__(self, member_id: str, display_name: str) -> None:
-        self.id = member_id
-        self.display_name = display_name
-        self.clickup_user_id: str | None = "clickup-1"
-        self.active = True
 
 
 class _FakeMembers:

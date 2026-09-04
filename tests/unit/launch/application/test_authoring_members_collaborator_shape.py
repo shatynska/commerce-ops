@@ -92,6 +92,8 @@ from commerce_ops.shared.domain.discipline import Discipline
 from tests.support.fixtures import ALICE, ALICE_NAME, PRINCIPAL
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.steps import step as _build_step
+from tests.support.values import Member as _Member
+from tests.support.values import Record as _Record
 
 pytestmark = pytest.mark.anyio
 
@@ -120,20 +122,6 @@ def anyio_backend() -> str:
 
 def _step(**overrides: Any) -> StepDefinition:
     return _build_step(**{"identifier": EDITED, "assignees": (ALICE,), **overrides})
-
-
-class _Record:
-    def __init__(self, definition: StepDefinition, display_order: int = 10) -> None:
-        self.definition = definition
-        self.display_order = display_order
-        self.created_by: str | None = None
-        self.created_on: Any = None
-        self.updated_by: str | None = None
-        self.updated_on: Any = None
-        self.retired_by: str | None = None
-        self.retired_on: Any = None
-        self.unretired_by: str | None = None
-        self.unretired_on: Any = None
 
 
 class _FakeStepStore:
@@ -195,16 +183,6 @@ def _record_named(store: _FakeStepStore, identifier: str) -> Any:
 # ---------------------------------------------------------------------------
 # Members collaborators: the reader, and the store production really injects
 # ---------------------------------------------------------------------------
-
-
-class _Member:
-    def __init__(
-        self, member_id: str, display_name: str, *, active: bool = True
-    ) -> None:
-        self.id = member_id
-        self.display_name = display_name
-        self.clickup_user_id: str | None = "clickup-1"
-        self.active = active
 
 
 class _FakeMembers:

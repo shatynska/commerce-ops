@@ -131,6 +131,8 @@ from tests.support.html import classes as _classes
 from tests.support.html import elements as _elements
 from tests.support.html import tree as _tree
 from tests.support.playbook import gates as _gates
+from tests.support.values import Member as _Member
+from tests.support.values import Record as _Record
 
 _LAUNCH_MODULE_NAME: Final = "commerce_ops.launch.infrastructure.driving.launch_admin"
 _ASSETS_MODULE_NAME: Final = "commerce_ops.shared.infrastructure.driving.admin_assets"
@@ -231,20 +233,6 @@ PLAYBOOK: Final = LaunchPlaybook(
 )
 
 
-class _Record:
-    def __init__(self, definition: StepDefinition, display_order: int) -> None:
-        self.definition = definition
-        self.display_order = display_order
-        self.created_by: str | None = None
-        self.created_on: Any = None
-        self.updated_by: str | None = None
-        self.updated_on: Any = None
-        self.retired_by: str | None = None
-        self.retired_on: Any = None
-        self.unretired_by: str | None = None
-        self.unretired_on: Any = None
-
-
 class _FakeStepStore:
     def __init__(self, records: tuple[_Record, ...], version: int = 41) -> None:
         self.records = records
@@ -265,14 +253,6 @@ def _seeded_steps() -> _FakeStepStore:
             for index, step in enumerate(PLAYBOOK.steps)
         )
     )
-
-
-class _Member:
-    def __init__(self, member_id: str, display_name: str) -> None:
-        self.id = member_id
-        self.display_name = display_name
-        self.clickup_user_id: str | None = "clickup-1"
-        self.active = True
 
 
 class _PlaybookMembers:

@@ -99,6 +99,7 @@ from tests.support.html import inherited as _inherited
 from tests.support.html import size as _size
 from tests.support.html import tree as _tree
 from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
+from tests.support.values import Member as _Member
 
 _LAUNCH_MODULE_NAME: Final = "commerce_ops.launch.infrastructure.driving.launch_admin"
 
@@ -187,14 +188,6 @@ def _members_store() -> _FakeMembersStore:
     """Built off the event loop: these tests are synchronous and drive the
     ASGI app through `TestClient`'s own portal."""
     return asyncio.run(_build_members())
-
-
-class _Member:
-    def __init__(self, member_id: str, display_name: str) -> None:
-        self.id = member_id
-        self.display_name = display_name
-        self.clickup_user_id: str | None = "clickup-1"
-        self.active = True
 
 
 class _FakeMembers:

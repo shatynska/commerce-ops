@@ -64,7 +64,7 @@ from commerce_ops.launch.domain.launch_playbook import (
 from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.launch.infrastructure.driving import automation_pass
 from commerce_ops.shared.domain.access_scope import AccessScope
-from commerce_ops.shared.domain.identity import ProductId, Sku
+from commerce_ops.shared.domain.identity import ProductId
 from tests.support.fixtures import (
     ALICE,
     LAUNCH_DATE,
@@ -75,6 +75,7 @@ from tests.support.fixtures import (
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
 from tests.support.steps import step as _build_step
+from tests.support.values import CatalogProduct as _CatalogProduct
 
 pytestmark = pytest.mark.anyio
 
@@ -155,12 +156,6 @@ def _launch(playbook: LaunchPlaybook) -> Launch:
 # Test doubles (matching `test_automation_pass.py` /
 # `test_retained_record_boundary.py`)
 # ---------------------------------------------------------------------------
-
-
-@dataclass(frozen=True)
-class _CatalogProduct:
-    name: str
-    sku: Sku
 
 
 class _FakeCatalog:

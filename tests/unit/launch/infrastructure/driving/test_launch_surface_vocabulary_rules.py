@@ -183,6 +183,7 @@ from tests.support.html import size as _size
 from tests.support.html import tree as _tree
 from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
+from tests.support.values import Member as _Member
 
 # ---------------------------------------------------------------------------
 # The modules under test, resolved by name
@@ -605,14 +606,6 @@ class _FakeStepStore:
     async def save(self, records: Any, *, expected_version: int) -> None:
         self.records = tuple(records)
         self.version += 1
-
-
-class _Member:
-    def __init__(self, member_id: str, display_name: str) -> None:
-        self.id = member_id
-        self.display_name = display_name
-        self.clickup_user_id: str | None = "clickup-1"
-        self.active = True
 
 
 class _PlaybookMembers:

@@ -92,7 +92,7 @@ from commerce_ops.launch.infrastructure.driven.clickup_sync import (
 )
 from commerce_ops.shared.domain.clickup import ClickUpListState
 from commerce_ops.shared.domain.discipline import Discipline
-from commerce_ops.shared.domain.identity import ProductId, Sku
+from commerce_ops.shared.domain.identity import ProductId
 from tests.support.fixtures import (
     ALICE,
     HANDLER_NAME,
@@ -104,6 +104,11 @@ from tests.support.fixtures import (
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
 from tests.support.steps import step as _build_step
+from tests.support.values import CatalogProduct as _CatalogProduct
+from tests.support.values import CreatedTask as _CreatedTask
+from tests.support.values import FakeTask as _FakeTask
+from tests.support.values import Member
+from tests.support.values import TaskMapping as _TaskMapping
 
 pytestmark = pytest.mark.anyio
 
@@ -185,12 +190,6 @@ def _start(playbook: LaunchPlaybook) -> Launch:
 # ---------------------------------------------------------------------------
 
 
-@dataclass(frozen=True)
-class _CatalogProduct:
-    name: str
-    sku: Sku
-
-
 class _FakeCatalog:
     def __init__(self, product: _CatalogProduct) -> None:
         self._product = product
@@ -199,12 +198,16 @@ class _FakeCatalog:
         return self._product
 
 
-class _Member:
+class _Member(Member):
+    """`Member`, with this file's own ClickUp identity.
+
+    `clickup_user_id` is what these tests assert the sync writes, so the
+    shared default would change what they exercise. The adapter supplies
+    the value rather than relocating the difference.
+    """
+
     def __init__(self, member_id: str, display_name: str) -> None:
-        self.id = member_id
-        self.display_name = display_name
-        self.clickup_user_id: str | None = ALICE_CLICKUP
-        self.active = True
+        super().__init__(member_id, display_name, clickup_user_id=ALICE_CLICKUP)
 
 
 class _FakeMembers:
@@ -218,25 +221,6 @@ class _FakeMembers:
 
     async def __call__(self) -> tuple[_Member, ...]:
         return await self.list_members()
-
-
-@dataclass
-class _FakeTask:
-    id: str
-    name: str
-    list_id: str
-    status: str = "to do"
-    closed: bool = False
-    due_date: Any = None
-    body: Any = None
-    assignees: tuple[str, ...] = ()
-    tags: tuple[str, ...] = ()
-
-
-@dataclass(frozen=True)
-class _CreatedTask:
-    id: str
-    url: str
 
 
 class _FakeClickUp:
@@ -317,17 +301,6 @@ class _FakeClickUp:
         return [
             payload["name"] for called, payload in self.calls if called == "create_task"
         ]
-
-
-@dataclass
-class _TaskMapping:
-    product_id: ProductId
-    step_id: str
-    task_id: str
-    last_observed_closed: bool = False
-    retained_name: str | None = None
-    retained_body: str | None = None
-    retained_assignees: tuple[str, ...] | None = None
 
 
 class _FakeMapping:

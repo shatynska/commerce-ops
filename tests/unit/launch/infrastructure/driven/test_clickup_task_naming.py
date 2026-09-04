@@ -77,11 +77,15 @@ from commerce_ops.launch.infrastructure.driven import clickup_sync
 from commerce_ops.launch.infrastructure.driven.clickup_sync import converge_launch
 from commerce_ops.shared.domain.clickup import ClickUpListState
 from commerce_ops.shared.domain.discipline import Discipline
-from commerce_ops.shared.domain.identity import ProductId, Sku
+from commerce_ops.shared.domain.identity import ProductId
 from tests.support.fixtures import LAUNCH_DATE, PRODUCT_NAME, PRODUCT_SKU, product_id
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
 from tests.support.steps import step as _build_step
+from tests.support.values import CatalogProduct as _CatalogProduct
+from tests.support.values import CreatedTask as _CreatedTask
+from tests.support.values import FakeTask as _FakeTask
+from tests.support.values import TaskMapping as _TaskMapping
 
 pytestmark = pytest.mark.anyio
 
@@ -160,12 +164,6 @@ def _start(playbook: LaunchPlaybook) -> Launch:
 # ---------------------------------------------------------------------------
 
 
-@dataclass(frozen=True)
-class _CatalogProduct:
-    name: str
-    sku: Sku
-
-
 class _FakeCatalog:
     def __init__(self, product: _CatalogProduct) -> None:
         self._product = product
@@ -174,24 +172,6 @@ class _FakeCatalog:
     async def __call__(self, product_id: ProductId) -> _CatalogProduct:
         self.calls.append(product_id)
         return self._product
-
-
-@dataclass
-class _FakeTask:
-    id: str
-    name: str
-    list_id: str
-    description: str | None = None
-    status: str = "to do"
-    closed: bool = False
-    due_date: Any = None
-    tags: tuple[str, ...] = ()
-
-
-@dataclass(frozen=True)
-class _CreatedTask:
-    id: str
-    url: str
 
 
 def _due_date_in(fields: dict[str, Any]) -> tuple[bool, Any]:
@@ -297,19 +277,6 @@ class _FakeClickUp:
 
     def calls_named(self, name: str) -> list[Any]:
         return [payload for called, payload in self.calls if called == name]
-
-
-@dataclass
-class _TaskMapping:
-    product_id: ProductId
-    step_id: str
-    task_id: str
-    last_observed_closed: bool = False
-    # `move-playbook-steps-to-postgres`: the retained last-written
-    # compositions the conditional wording-healing keys on.
-    retained_name: str | None = None
-    retained_body: str | None = None
-    retained_assignees: tuple[str, ...] | None = None
 
 
 class _FakeMapping:

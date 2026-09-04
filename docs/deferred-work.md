@@ -1088,33 +1088,105 @@ widened so that a double written to the minimum keeps passing. It is also
 where a good deal of `automation_pass.py`'s 35 `: Any` annotations come
 from, which is `mypy strict` being satisfied nominally.
 
-**Corrected 2026-09-04, while implementing `share-the-unit-test-harness`.**
-The list above is stale in both directions. Five tolerances still stand and five
-were listed — but they are not the same five, so the unchanged count hides two
-closures and one site that was never recorded. The bullets above also carry line
-numbers that have since moved. Measured against the current source:
+**Corrected twice, and the second correction changes the method.** The first
+(2026-09-04, while implementing `share-the-unit-test-harness`) found the list
+stale in both directions: five stood and five were listed, but not the same
+five. The second (2026-09-04, while implementing `share-the-value-doubles`)
+found *that* list incomplete too — and the reason it keeps going stale is that
+every version of it was assembled by grepping a **spelling**.
 
-| site | what it tolerates | status |
+Measured **structurally** instead — a `getattr` over a loop variable ranging
+across a tuple of string literals, whatever the loop variable is named — `src/`
+carries **ten** such probes, six of them the member-identifier probe:
+
+| site | probe | first recorded |
 |---|---|---|
-| `gate_progression_job.py:256` (`_crossed`) | a fake modelling less than `LaunchProgressed` | stands |
-| `gate_progression_job.py:267` (`_awaiting_gate`) | probes `("awaiting_gate", "gate_id", "current_gate")` | stands |
-| `clickup_sync.py:128` (`_members`) | three shapes: `list_members()`, a callable, a plain iterable | stands |
-| `clickup_sync.py:139` (`_member_identifier`) | probes `("identifier", "id", "member_id")` | **stands, and was recorded nowhere** |
-| `playbook_authoring.py:266` (`member_identifier`) | the same probe, verbatim | **stands** — it was not closed with its neighbour |
-| `automated_decisions.py` (`_member_for`) | three spellings for one member lookup | **closed**, after refusing every decision by every identity in production |
-| `playbook_authoring.py:245` (`_read_members`) | three reader shapes | **closed**, after `'PostgresMembers' object is not iterable` mid-write |
+| `clickup_sync.py:140` | `("identifier", "id", "member_id")` | 2026-09-04 (1st) |
+| `playbook_authoring.py:272` | the same, verbatim | 2026-09-04 (1st) |
+| `playbook_admin.py:321` | the same, verbatim | **2026-09-04 (2nd)** |
+| `activation_readiness.py:204` | the same, verbatim | **2026-09-04 (2nd)** |
+| `roles.py:729` | `("identifier", "member_id", "id")` | **2026-09-04 (2nd)** |
+| `gate_decisions.py:105` | `("identifier", "id", "name")` | **2026-09-04 (2nd)** |
+| `gate_progression_job.py:271` | `("awaiting_gate", "gate_id", "current_gate")` | 2026-09-04 (1st) |
+| `automation_pass.py:209` | `("noted_kind", "outcome_kind", "outcome", "kind", "noted_outcome")` | **2026-09-04 (2nd)** |
+| `automation_pass.py:217` | `("noted_at", "when")` | **2026-09-04 (2nd)** |
+| `automation_pass.py:225` | `("reported_at", "reported", "has_been_reported")` | **2026-09-04 (2nd)** |
 
-The last two entries are why the count moved in both directions: two were
-closed, and one that was never listed is live. `clickup_sync._member_identifier`
-and `playbook_authoring.member_identifier` are the same eight lines in two
-modules.
+Two of the ten — `gate_decisions.py:105` and `roles.py:729`, both member-shape —
+iterate a loop variable named `attribute` rather than `name`, which is exactly
+why a sweep for the literal string `for name in (` found the other eight and
+missed these. **Re-measure by shape, not by spelling; that is the durable part
+of this entry.**
+
+The earlier table's line numbers were **not** stale, and were wrongly reported
+as such in a draft of `share-the-value-doubles`: it anchored each site on the
+enclosing `def` where the table above anchors on the `for`.
+
+**Two tolerances stand that the shape measurement cannot find**, because neither
+is a loop over spellings. Both are live:
+
+| site | what it tolerates |
+|---|---|
+| `gate_progression_job.py:256` (`_crossed`) | `getattr` with a default — a fake modelling less than `LaunchProgressed` |
+| `clickup_sync.py:128` (`_members`) | three *reader shapes*: `list_members()`, a callable, a plain iterable |
+
+Two others were closed, each after failing in production, which is the argument
+for the whole entry: `automated_decisions._member_for` (three spellings for one
+member lookup) refused every decision by every identity, and
+`playbook_authoring._read_members` (three reader shapes) produced
+`'PostgresMembers' object is not iterable` mid-write.
+
+**Where this stands after `share-the-value-doubles` (2026-09-04).** All 52
+member doubles in `tests/` now expose `identifier` — 49 by aliasing a shared
+type whose field is `id` with `identifier` derived from it, 3 through a
+three-line adapter over that type. So the second and third branches of all six
+member-identifier probes are dead: nothing in `tests/` reaches them any more.
+That is what the deletion needed, and the deletion is still not this entry's to
+perform.
 
 Not fixable on its own. A tolerance may only be deleted once the doubles it
-tolerates are complete, so this closes behind **`share-the-test-doubles`** — the
-follow-up carrying the shared fakes, since `share-the-unit-test-harness` shipped
-the builders and cut the fakes — and `unify-launch-adapter-dependencies`
-(protocols naming a shape without naming a forbidden type). Recorded here
-because the finding predates both and outlives either landing alone.
+tolerates are complete. `share-the-value-doubles` completed the value doubles
+and `share-the-stateful-fakes` will complete the rest; both make deletion
+*safe*. **`unify-launch-adapter-dependencies` performs it** — protocols naming a
+shape without naming a type `.importlinter` forbids — and
+`docs/proposed-change-order.md` now orders it after the doubles for that reason.
+Recorded here because the finding predates all of them and outlives any one
+landing alone.
+
+### The member-identifier probes' fall-through branches are now untested
+
+**Found by `/code-review` on `share-the-value-doubles`, 2026-09-04, and it is
+that change succeeding rather than failing.** All 52 member doubles now expose
+`identifier`, so every one of the six member-identifier probes matches on its
+**first** branch. The `"id"` and `"member_id"` branches are unreachable from any
+test.
+
+Demonstrated by mutation: rewriting all six probes to `for name in
+("identifier",)` leaves **2,482 of 2,482 passing** on that branch, where the
+same mutation of only two of them against the pre-change tests produced **177
+failures and 14 errors**.
+
+That is exactly what the change set out to do — a branch no double needs is a
+branch that can be deleted. The cost is that the interval before it *is* deleted
+is unguarded. `playbook_authoring.member_identifier`'s own docstring says the
+`id` branch exists because "a reader that answers rows of its own may spell it
+`id`", and if that branch is reordered, narrowed or dropped early, admin writes
+raise `ValueError: a member exposes no identifier` in production and no test
+reports it.
+
+Worth being clear about what was lost: the old protection was **accidental and
+misleading**. A test double spelling `id` was never evidence that a production
+reader spells `id`; it was evidence that the double modelled the minimum. So
+this entry is not a regression to repair but an interval to close, and the way
+to close it is to delete the branches rather than to re-grow doubles that
+exercise them.
+
+Closes with `unify-launch-adapter-dependencies`, which
+`docs/proposed-change-order.md` now orders after both doubles slices. Until
+then: **do not narrow any of the six probes on the strength of a green suite.**
+The six are `clickup_sync.py:140`, `playbook_authoring.py:272`,
+`playbook_admin.py:321`, `activation_readiness.py:204`, `roles.py:729` and
+`gate_decisions.py:105`.
 
 ### `uv run pytest` fails at collection, and no gate notices
 

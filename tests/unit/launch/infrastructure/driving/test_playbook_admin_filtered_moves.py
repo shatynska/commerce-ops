@@ -138,6 +138,8 @@ from tests.support.admin import fake_verify
 from tests.support.fixtures import PRINCIPAL
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.steps import step as _build_step
+from tests.support.values import Member as _FakeMember
+from tests.support.values import Record as _Record
 
 DISCIPLINES: Final = tuple(Discipline)
 #: `_step`'s default discipline, which the seeded holding steps carry —
@@ -178,20 +180,6 @@ def _step(**overrides: Any) -> StepDefinition:
     return _build_step(
         **{"discipline": HIDDEN_DISCIPLINE, "assignees": (ASSIGNEE,), **overrides}
     )
-
-
-class _Record:
-    def __init__(self, definition: StepDefinition, display_order: int) -> None:
-        self.definition = definition
-        self.display_order = display_order
-        self.created_by: str | None = None
-        self.created_on: Any = None
-        self.updated_by: str | None = None
-        self.updated_on: Any = None
-        self.retired_by: str | None = None
-        self.retired_on: Any = None
-        self.unretired_by: str | None = None
-        self.unretired_on: Any = None
 
 
 class _FakeStepStore:
@@ -634,14 +622,6 @@ def _renaming_the_subject(control: _Control, old: str, new: str) -> _Control:
 # name someone active — which is the rule, not a fixture convenience.
 ASSIGNEE = "prs_01HQ8Z6M4A"
 ASSIGNEE_NAME = "Alice Admin"
-
-
-class _FakeMember:
-    def __init__(self, member_id: str, display_name: str) -> None:
-        self.id = member_id
-        self.display_name = display_name
-        self.clickup_user_id: str | None = "clickup-1"
-        self.active = True
 
 
 class _FakeMembers:

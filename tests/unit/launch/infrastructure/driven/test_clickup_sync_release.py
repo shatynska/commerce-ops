@@ -81,12 +81,17 @@ from commerce_ops.launch.infrastructure.driven.clickup_sync import (
 )
 from commerce_ops.shared.domain.clickup import ClickUpListState
 from commerce_ops.shared.domain.discipline import Discipline
-from commerce_ops.shared.domain.identity import ProductId, Sku
+from commerce_ops.shared.domain.identity import ProductId
 from tests.support.fixtures import LAUNCH_DATE, PRODUCT_NAME, PRODUCT_SKU
 from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
 from tests.support.steps import hold as _build_hold
 from tests.support.steps import step as _build_step
+from tests.support.values import CatalogProduct as _CatalogProduct
+from tests.support.values import CreatedTask as _CreatedTask
+from tests.support.values import FakeTask as _FakeTask
+from tests.support.values import Member as _Member
+from tests.support.values import TaskMapping as _TaskMapping
 
 pytestmark = pytest.mark.anyio
 
@@ -180,26 +185,12 @@ def _advance_to(launch: Launch, playbook: LaunchPlaybook, gate: str) -> Launch:
 # ---------------------------------------------------------------------------
 
 
-@dataclass(frozen=True)
-class _CatalogProduct:
-    name: str
-    sku: Sku
-
-
 class _FakeCatalog:
     def __init__(self, product: _CatalogProduct) -> None:
         self._product = product
 
     async def __call__(self, product_id: ProductId) -> _CatalogProduct:
         return self._product
-
-
-class _Member:
-    def __init__(self, member_id: str, display_name: str) -> None:
-        self.id = member_id
-        self.display_name = display_name
-        self.clickup_user_id: str | None = "clickup-1"
-        self.active = True
 
 
 class _FakeMembers:
@@ -219,25 +210,6 @@ class _FakeMembers:
 
     async def __call__(self) -> tuple[_Member, ...]:
         return await self.list_members()
-
-
-@dataclass
-class _FakeTask:
-    id: str
-    name: str
-    list_id: str
-    status: str = "to do"
-    closed: bool = False
-    due_date: Any = None
-    body: Any = None
-    assignees: tuple[str, ...] = ()
-    tags: tuple[str, ...] = ()
-
-
-@dataclass(frozen=True)
-class _CreatedTask:
-    id: str
-    url: str
 
 
 class _FakeClickUp:
@@ -304,17 +276,6 @@ class _FakeClickUp:
 
     def calls_named(self, name: str) -> list[Any]:
         return [payload for called, payload in self.calls if called == name]
-
-
-@dataclass
-class _TaskMapping:
-    product_id: ProductId
-    step_id: str
-    task_id: str
-    last_observed_closed: bool = False
-    retained_name: str | None = None
-    retained_body: str | None = None
-    retained_assignees: tuple[str, ...] | None = None
 
 
 class _FakeMapping:

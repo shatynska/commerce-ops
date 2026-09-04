@@ -107,6 +107,8 @@ from tests.support.html import size as _size
 from tests.support.html import tree as _tree
 from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
 from tests.support.steps import step as _build_step
+from tests.support.values import Member as _Member
+from tests.support.values import Record as _Record
 
 _LAUNCH_MODULE_NAME: Final = "commerce_ops.launch.infrastructure.driving.launch_admin"
 
@@ -158,20 +160,6 @@ def _step(**overrides: Any) -> StepDefinition:
     return _build_step(**{"assignees": (ALICE,), **overrides})
 
 
-class _Record:
-    def __init__(self, definition: StepDefinition, display_order: int) -> None:
-        self.definition = definition
-        self.display_order = display_order
-        self.created_by: str | None = None
-        self.created_on: Any = None
-        self.updated_by: str | None = None
-        self.updated_on: Any = None
-        self.retired_by: str | None = None
-        self.retired_on: Any = None
-        self.unretired_by: str | None = None
-        self.unretired_on: Any = None
-
-
 class _FakeStepStore:
     def __init__(self, records: tuple[_Record, ...], version: int = 41) -> None:
         self.records = records
@@ -202,14 +190,6 @@ def _seeded_steps() -> _FakeStepStore:
         for gate in SPECIFIED_GATE_ORDER
     ) + (_Record(_step(identifier=EDITED, name="Work of listing.zeta"), 20),)
     return _FakeStepStore(records)
-
-
-class _Member:
-    def __init__(self, member_id: str, display_name: str) -> None:
-        self.id = member_id
-        self.display_name = display_name
-        self.clickup_user_id: str | None = "clickup-1"
-        self.active = True
 
 
 class _FakeMembers:

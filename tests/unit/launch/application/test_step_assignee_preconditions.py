@@ -72,6 +72,8 @@ from tests.support.fixtures import ALICE, ALICE_NAME, BOHDAN, PRINCIPAL
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import opening_for as _opening_for
 from tests.support.steps import step as _build_step
+from tests.support.values import Member as _Member
+from tests.support.values import Record as _Record
 
 pytestmark = pytest.mark.anyio
 
@@ -100,20 +102,6 @@ def _holding_step(gate: str) -> StepDefinition:
     )
 
 
-class _Record:
-    def __init__(self, definition: StepDefinition, display_order: int = 10) -> None:
-        self.definition = definition
-        self.display_order = display_order
-        self.created_by: str | None = None
-        self.created_on: Any = None
-        self.updated_by: str | None = None
-        self.updated_on: Any = None
-        self.retired_by: str | None = None
-        self.retired_on: Any = None
-        self.unretired_by: str | None = None
-        self.unretired_on: Any = None
-
-
 class _FakeStepStore:
     def __init__(self, records: tuple[Any, ...], version: int = 41) -> None:
         self.records = tuple(records)
@@ -128,21 +116,6 @@ class _FakeStepStore:
         self.saves.append((stored, expected_version))
         self.records = stored
         self.version += 1
-
-
-class _Member:
-    def __init__(
-        self,
-        member_id: str,
-        display_name: str,
-        *,
-        active: bool = True,
-        clickup_user_id: str | None = "clickup-1",
-    ) -> None:
-        self.id = member_id
-        self.display_name = display_name
-        self.active = active
-        self.clickup_user_id = clickup_user_id
 
 
 class _FakeMembers:

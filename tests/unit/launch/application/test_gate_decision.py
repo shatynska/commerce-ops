@@ -116,6 +116,7 @@ from commerce_ops.shared.domain.lifecycle_stage import Posture
 from tests.support.fixtures import ALICE, BOHDAN, product_id
 from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
+from tests.support.values import MemberValue as _Member
 
 pytestmark = pytest.mark.anyio
 
@@ -275,16 +276,6 @@ def _launch_at(gate: str, playbook: LaunchPlaybook, *, satisfy: bool = True) -> 
 # ---------------------------------------------------------------------------
 # Test doubles
 # ---------------------------------------------------------------------------
-
-
-@dataclass
-class _Member:
-    id: str
-    display_name: str
-    slack_identity: str
-    active: bool = True
-    clickup_user_id: str | None = None
-    admin: bool = False
 
 
 class _ReaderMembers:

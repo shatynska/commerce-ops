@@ -100,6 +100,7 @@ from commerce_ops.launch.infrastructure.driven.playbook_repository import (
 )
 from commerce_ops.shared.domain.discipline import Discipline
 from tests.support.playbook import SPECIFIED_GATE_ORDER
+from tests.support.values import Member as _Member
 
 pytestmark = pytest.mark.anyio
 
@@ -573,22 +574,6 @@ _REPORT_NAMES: Final = (
     "report_blocked_activations",
     "report_steps_not_ready_to_activate",
 )
-
-
-class _Member:
-    """A membership row for the report's collaborator.
-
-    The report is a function of the step set, the membership and the handler
-    registry; the *seeded set* is what this file has under test, so the
-    other two are doubles here rather than live reads — a live membership
-    would make the assertion depend on who happens to be on it.
-    """
-
-    def __init__(self, member_id: str, display_name: str) -> None:
-        self.id = member_id
-        self.display_name = display_name
-        self.clickup_user_id: str | None = "clickup-1"
-        self.active = True
 
 
 class _FakeMembers:

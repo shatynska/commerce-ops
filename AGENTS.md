@@ -206,13 +206,53 @@ All three tiers arrange from `tests/support/`. It is imported, never collected �
   builder is missing, not that a thirteenth `_FakeSession` is warranted. Add the
   builder.
 
-**The four rules below govern shared *fakes*, which the package does not carry
-yet.** `share-the-unit-test-harness` delivered the constants, the HTML harness,
-the admin session, the fixtures and the step builder; the fakes were cut to a
-follow-up because their `==` is identity, which makes the equality proof the
-value builders were migrated under inexpressible for them. The rules are
-recorded here rather than in that change so they bind whoever writes the first
-one — there is no instance in the tree to copy yet.
+**The rules below govern shared doubles. `tests/support/values.py` carries the
+value ones; the stateful fakes are still to come.**
+`share-the-unit-test-harness` delivered the constants, the HTML harness, the
+admin session, the fixtures and the step builder.
+`share-the-value-doubles` (2026-09-04) added `values.py` — `Member`,
+`MemberValue`, `CatalogProduct`, `Record`, `TaskMapping`, `PendingRow`,
+`FakeTask`, `CreatedTask` — replacing 166 local declarations, so the rules now
+have instances to copy.
+
+**The doubles with *behaviour* remain deferred**, to
+`share-the-stateful-fakes`: `FakeMembers`, `FakeStepStore` and their
+neighbours, whose `==` is identity, which makes the equality proof
+inexpressible for them. That reason is theirs alone. It was once stated of the
+whole population and that was wrong — a double with no behaviour is a value
+wearing a class, and comparing two of them field-by-field is the same proof
+written against fields rather than `==`. It is what the value doubles migrated
+under, and it caught a disagreement two files carried that a green suite did
+not report.
+
+- **A double keeps the locals' field spelling; production's spelling is a
+  derived property.** Production probes by shape where `.importlinter` forbids
+  naming a type, and every local double models the minimum, which is why the
+  probe still carries branches to fall through to. `Member` stores `id` — the
+  spelling all 52 locals used, and the one ten of them pass as a keyword, which
+  a read-only property could not receive — and derives `identifier`, the
+  spelling all six member probes read first. `FakeTask` stores `custom_fields`
+  and derives `custom_field_values`. Both carry the same value by construction
+  rather than by inspection, which is what lets the probe's other branches be
+  deleted. A protocol declares such a name as a `@property`, never as a
+  variable: `mypy` treats a protocol variable as settable, so the variable form
+  makes the `_conforms` line a type error.
+- **Declaration form is part of the contract.** A local migrates onto a shared
+  double only where the two agree on dataclass-ness, `frozen`, `eq` and any
+  `__repr__` the file relies on — field equality says nothing about those, and
+  this suite disagrees on all three for real reasons. Where a name carries a
+  substantial population in both forms it gets **two** shared types rather than
+  one bent across two equality semantics; `Member` and `MemberValue` are that
+  case, at 42 plain against 10 `@dataclass`. **Where two such types also
+  disagree on a default, say so at both of them**: choosing between them then
+  changes a value as well as an equality semantics, which is the one way this
+  arrangement can break the same-value invariant. `clickup_user_id` is that
+  field, and each type's docstring names the trap.
+- **A constructor mismatch is remediable by a three-line adapter; a form or
+  value mismatch is not.** Where the shared type can produce the exact object
+  but cannot take the call site unchanged, the file subclasses it and adapts the
+  signature — the proof still runs over the adapter. Where the values or the
+  form differ, the file keeps its own declaration and the reason is recorded.
 - **A spec-restating constant is a literal there, and is never sourced from
   production.** `SPECIFIED_GATE_ORDER`, `CONFIRMATION_GATES`, `FINAL_GATE`,
   `opening_for` and `gates` state what the specification says the gates are, and

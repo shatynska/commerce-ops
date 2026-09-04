@@ -50,18 +50,7 @@ trigger blocks into one.
 and whether its runs belong in `scheduled-jobs`' freshness history at all.
 Worth `/openspec-explore` before `design.md`.
 
-## 2. `unify-launch-adapter-dependencies`
-
-One dependencies object per process, replacing 11 mutable module globals, 5
-verbatim copies of `_launch_folder_id`, and 6 of `_read_product_or_fail`
-carrying 4 different signatures for the same narrowing.
-
-**Must follow `defer-eager-clickup-convergence`**, which deletes eight of
-those globals outright by moving convergence off the four request-path
-adapters. Re-scope it on arrival rather
-than executing it as written.
-
-## 3. `unify-the-launch-advisory-locks`
+## 2. `unify-the-launch-advisory-locks`
 
 `launch_advisory_lock.py` and `launch_thread_lock.py` are the same module
 twice, differing in one constant — and the load-bearing docstring is already
@@ -72,34 +61,66 @@ so "these must not collide" is checkable by reading four lines.
 `defer-eager-clickup-convergence`, which changes how long the advance lock is
 held and by which process.
 
-## 4. `share-the-test-doubles`
+## 3. `share-the-value-doubles`
 
-The half of `share-the-unit-test-harness` that was cut from it: **455 fake
-declarations across 18 names** — `_Member` (47), `_FakeMembers` (43),
-`_FakeMembersStore` (38), `_FakeStepStore` (37), `_CatalogProduct` (40) and
-their neighbours. Proposed 2026-09-04 from that change's own implementation,
-not from the 2026-09-01 review that produced the rest of this queue.
+**In flight, largely landed.** The value half of the doubles: 166 of 186 local
+declarations across seven names — `_Member` 47 and its twin `_FakeMember` 5,
+`_CatalogProduct` 40, `_Record` 30, `_TaskMapping` 19, `_PendingRow` 16,
+`_FakeTask` 15, `_CreatedTask` 14 — replaced by shared types in
+`tests/support/values.py`.
 
-**Why it was cut rather than finished.** The harness change migrated `_step`
-whole (135 of 135) but reached only 31 of 104 `_hold` and 13 of 95 `_playbook`,
-because both compose *over* `_step`: a local helper built on a customised step
-is not reproducible by a shared one built on the canonical step, however the
-deltas are forwarded. The fakes are that problem with less protection —
-`FakeStepStore() == FakeStepStore()` is identity, so the per-file equivalence
-proof that caught **five** real defects during the harness migration, every one
-of them leaving assertions textually identical and the suite green, cannot be
-expressed for them at all.
+It took this half first because the equivalence proof that caught the parent
+change's defects **is** expressible here: a double with no behaviour is a value
+wearing a class, and comparing two of them field-by-field is that proof written
+against fields rather than `==`. It caught one real disagreement, in two files
+whose `clickup_user_id` the design had recorded wrongly.
 
-**So its design must start from composition**, not discover it: how a shared
-fake held by a shared store held by a shared session stays reproducible, and
-what stands in for an equality proof when `==` is identity. `AGENTS.md`'s
-"The shared harness" section already records the rules it is held to, including
-the same-value invariant that stops a *complete* double redirecting a production
-shape probe.
+Values also come first for composition: these seven are the leaves the stateful
+fakes hold, so sharing a store before sharing the member it holds would repeat
+the parent change's `_hold` failure exactly.
 
-**Order-independent but conflict-prone**, for the same reason its parent was:
-it touches many test files. `docs/deferred-work.md`'s tolerance entry closes
-behind this change, not behind the harness one.
+## 4. `share-the-stateful-fakes`
+
+The other half: the doubles with behaviour — `_FakeMembers` 43,
+`_FakeMembersStore` 38, `_FakeStepStore` 37, `_FakeLaunches` and `_FakePlaybooks`
+32 each, and their neighbours. For these `==` is identity, so the proof above is
+inexpressible and the weaker substitute applies: `_conforms` typing plus a
+per-fake surface-and-behaviour note, which explicitly does *not* catch "same
+surface, different behaviour".
+
+**Brings `tests/unit/support/` with it**, for the shared fakes' own behaviour
+tests — a deliberate exception to the tier layout, and the only proposed thing
+that reaches the same-surface-different-behaviour risk. It is collected, unlike
+`tests/support/`, so it is the one slice whose collected count moves.
+
+**Must follow `share-the-value-doubles`**, which supplies the leaves its stores
+hold.
+
+**Conflict-prone**, like its predecessor: it touches many test files, so it does
+not run concurrently with anything else that edits `tests/` broadly.
+
+## 5. `unify-launch-adapter-dependencies`
+
+One dependencies object per process, replacing 11 mutable module globals, 5
+verbatim copies of `_launch_folder_id`, and 6 of `_read_product_or_fail`
+carrying 4 different signatures for the same narrowing.
+
+**Must follow `defer-eager-clickup-convergence`**, which deletes eight of
+those globals outright by moving convergence off the four request-path
+adapters. Re-scope it on arrival rather
+than executing it as written.
+
+**Must also follow `share-the-value-doubles`, and `share-the-stateful-fakes`**, and this entry is placed last
+for that reason rather than by preference. Deleting the member-identifier
+probe is only safe once every member double supplies `identifier`: measured
+2026-09-04, `src/` carries six copies of that probe and all 52 member doubles
+in `tests/` spell the field `id` alone, so deleting the `id` branch first
+fails them all. `share-the-value-doubles` supplies the spelling and
+`share-the-stateful-fakes` finishes the population; this change is what
+performs the deletion. The probe surface is ten `getattr` shape probes in
+total — `docs/deferred-work.md` records three — and two of the ten are reader
+shapes rather than attribute spellings, so re-measure by shape before
+deleting anything.
 
 ---
 

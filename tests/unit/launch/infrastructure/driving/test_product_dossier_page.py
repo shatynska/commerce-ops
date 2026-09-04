@@ -129,6 +129,7 @@ from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
 from tests.support.admin import fake_verify
 from tests.support.fixtures import MARKETPLACE, PRINCIPAL
 from tests.support.steps import step as _build_step
+from tests.support.values import Member
 
 T_REGISTERED: Final = datetime(2026, 8, 23, 9, 0, tzinfo=UTC)
 T_MOVED: Final = datetime(2026, 8, 24, 10, 30, tzinfo=UTC)
@@ -718,12 +719,16 @@ class _FakeRetainedRead:
         return self.records
 
 
-class _Member:
+class _Member(Member):
+    """`Member`, reached the way this file has always reached it.
+
+    The identifier is pinned and the display name comes first, so the
+    shared constructor cannot take these call sites unchanged. Three
+    lines of adapter keep them, and keep `identifier` with them.
+    """
+
     def __init__(self, display_name: str, *, active: bool = True) -> None:
-        self.id = "prs_01HQ8Z6M4A"
-        self.display_name = display_name
-        self.clickup_user_id: str | None = "clickup-1"
-        self.active = active
+        super().__init__("prs_01HQ8Z6M4A", display_name, active=active)
 
 
 class _FakeMembers:

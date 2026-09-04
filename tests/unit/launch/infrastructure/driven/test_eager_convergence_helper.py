@@ -142,12 +142,16 @@ from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.launch.infrastructure.driven.clickup_sync import converge_launch
 from commerce_ops.shared.domain.clickup import ClickUpListState
 from commerce_ops.shared.domain.discipline import Discipline
-from commerce_ops.shared.domain.identity import ProductId, Sku
+from commerce_ops.shared.domain.identity import ProductId
 from tests.support.fixtures import LAUNCH_DATE, PRODUCT_NAME, PRODUCT_SKU, product_id
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import opening_for as _opening_for
 from tests.support.steps import hold as _build_hold
 from tests.support.steps import step as _build_step
+from tests.support.values import CatalogProduct as _CatalogProduct
+from tests.support.values import CreatedTask as _CreatedTask
+from tests.support.values import FakeTask as _FakeTask
+from tests.support.values import TaskMapping as _TaskMapping
 
 pytestmark = pytest.mark.anyio
 
@@ -263,32 +267,9 @@ class _RecordingConverge:
 # ---------------------------------------------------------------------------
 
 
-@dataclass(frozen=True)
-class _CatalogProduct:
-    name: str
-    sku: Sku
-
-
 class _FakeCatalog:
     async def __call__(self, product_id: ProductId) -> _CatalogProduct:
         return _CatalogProduct(name=PRODUCT_NAME, sku=PRODUCT_SKU)
-
-
-@dataclass
-class _FakeTask:
-    id: str
-    name: str
-    list_id: str
-    #: `converge_launch` reads this (`_as_date(task.due_date)`) for every
-    #: already-mapped task it re-encounters on a later pass; `None` is a
-    #: task with no due date set, which `_as_date` already handles.
-    due_date: Any = None
-
-
-@dataclass(frozen=True)
-class _CreatedTask:
-    id: str
-    url: str
 
 
 class _FakeClickUp:
@@ -344,14 +325,6 @@ class _FakeClickUp:
 
     def calls_named(self, name: str) -> list[Any]:
         return [payload for called, payload in self.calls if called == name]
-
-
-@dataclass
-class _TaskMapping:
-    product_id: ProductId
-    step_id: str
-    task_id: str
-    last_observed_closed: bool = False
 
 
 class _FakeMapping:

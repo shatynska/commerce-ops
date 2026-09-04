@@ -1,12 +1,12 @@
 """The shapes the shared fakes are checked against.
 
-**Intentionally empty, and not an accident.** No protocol is declared here yet
-and nothing imports this module: `share-the-unit-test-harness` delivered the
-constants, the HTML harness, the admin session, the fixtures and the step
-builder, and cut the shared *fakes* to a follow-up change. The rules below are
-what that change is held to, recorded now so the first fake is written against
-them rather than after them. If you are reading this expecting protocols and
-finding none, none were deleted -- they were never written.
+**Populated for the value doubles, still empty for the stateful fakes.**
+`share-the-value-doubles` added `MemberShape` and `CatalogProductShape` below,
+each with the `_conforms` assignment that makes it bite. The doubles with
+behaviour -- `FakeMembers`, `FakeStepStore` and their neighbours -- are deferred
+to `share-the-stateful-fakes`, and their protocols arrive with them. The rules
+below bind those too, and are recorded here rather than in that change so the
+first stateful fake is written against them rather than after them.
 
 
 A `Protocol` declared beside a fake checks nothing on its own: `mypy` compares
@@ -42,9 +42,60 @@ replaced by imports of the real ones -- two definitions of one boundary is the
 disagreement this change exists to end. They live here rather than in `src/`
 only because that change has not landed yet.
 
-Each protocol is added by the task that adds its fake, never up front: the
+Each protocol is added by the task that adds its double, never up front: the
 shape comes from reading the local variants being replaced, so authoring one
 before that reading would be guessing at it.
+
+A protocol here declares what production *reads*, and declares it as a
+`@property` rather than as a variable. `mypy` treats a protocol variable as
+settable, so a read-only property on a double does not satisfy `name: str` --
+and the derived spellings these doubles expose (`Member.identifier`,
+`FakeTask.custom_field_values`) are exactly read-only properties.
 """
 
 from __future__ import annotations
+
+from typing import Protocol
+
+from commerce_ops.shared.domain.identity import Sku
+from tests.support.values import CatalogProduct, Member, MemberValue
+
+
+class MemberShape(Protocol):
+    """What production reads off a member, and nothing more.
+
+    `identifier` is declared as a **property, not a variable**. `mypy` treats a
+    protocol variable as settable, so `identifier: str` would make the
+    `_conforms` assignments below type errors -- the read-only property on the
+    doubles does not satisfy a settable member. The property form is also the
+    truthful one: the six shape probes in `src/` read this name and no
+    production site assigns to it.
+    """
+
+    @property
+    def identifier(self) -> str: ...
+
+    @property
+    def display_name(self) -> str: ...
+
+    @property
+    def active(self) -> bool: ...
+
+
+_member_conforms: MemberShape = Member("prs_01HQ8Z6M4A", "Alice Admin")
+_member_value_conforms: MemberShape = MemberValue(
+    id="prs_01HQ8Z6M4A", display_name="Alice Admin", slack_identity="U-ALICE"
+)
+
+
+class CatalogProductShape(Protocol):
+    """What a launch reads off a catalog product."""
+
+    @property
+    def name(self) -> str: ...
+
+    @property
+    def sku(self) -> Sku: ...
+
+
+_catalog_product_conforms: CatalogProductShape = CatalogProduct()

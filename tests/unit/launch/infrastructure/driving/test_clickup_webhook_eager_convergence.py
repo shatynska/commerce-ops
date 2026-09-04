@@ -80,7 +80,6 @@ import hmac
 import json
 from collections.abc import AsyncIterator, Iterator
 from contextlib import asynccontextmanager
-from dataclasses import dataclass
 from typing import Any, Final
 
 import pytest
@@ -102,6 +101,7 @@ from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import opening_for as _opening_for
 from tests.support.steps import hold as _build_hold
 from tests.support.steps import step as _build_step
+from tests.support.values import TaskMapping as _TaskMapping
 
 WEBHOOK_SECRET: Final = "test-clickup-webhook-secret-not-a-real-credential"
 SIGNATURE_HEADER: Final = "X-Signature"
@@ -177,14 +177,6 @@ def _active_launch() -> Launch:
 # Test doubles — transcribed from
 # `test_clickup_webhook_triggers_the_advance_cascade.py`
 # ---------------------------------------------------------------------------
-
-
-@dataclass
-class _TaskMapping:
-    product_id: ProductId
-    step_id: str
-    task_id: str
-    last_observed_closed: bool = False
 
 
 class _FakeMapping:

@@ -78,8 +78,8 @@ from typing import Any, Final
 import pytest
 
 from commerce_ops.launch.domain.launch_run import Launch
-from commerce_ops.shared.domain.identity import Sku
-from tests.support.fixtures import PRODUCT_NAME, PRODUCT_SKU, STEP_ID, product_id
+from tests.support.fixtures import STEP_ID, product_id
+from tests.support.values import CatalogProduct as _CatalogProduct
 
 pytestmark = pytest.mark.anyio
 
@@ -109,12 +109,6 @@ def _module() -> Any:
             f"{MODULE_PATH} does not exist ({error}); `tasks.md` creates it. "
             "This is the absent-target state per ai-toolkit:testing."
         )
-
-
-@dataclass(frozen=True)
-class _CatalogProduct:
-    name: str = PRODUCT_NAME
-    sku: Sku = PRODUCT_SKU
 
 
 @dataclass(frozen=True)

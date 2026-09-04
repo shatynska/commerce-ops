@@ -87,6 +87,8 @@ from tests.support.html import elements as _elements
 from tests.support.html import flat as _flat
 from tests.support.html import tree as _tree
 from tests.support.steps import step as _build_step
+from tests.support.values import Member as _FakeMember
+from tests.support.values import Record as _Record
 
 A_DISCIPLINE: Final = next(iter(Discipline))
 ASSIGNEE: Final = "prs_01HQ8Z6M4A"
@@ -107,20 +109,6 @@ def _step(**overrides: Any) -> StepDefinition:
     )
 
 
-class _Record:
-    def __init__(self, definition: StepDefinition, display_order: int) -> None:
-        self.definition = definition
-        self.display_order = display_order
-        self.created_by: str | None = None
-        self.created_on: Any = None
-        self.updated_by: str | None = None
-        self.updated_on: Any = None
-        self.retired_by: str | None = None
-        self.retired_on: Any = None
-        self.unretired_by: str | None = None
-        self.unretired_on: Any = None
-
-
 class _FakeStepStore:
     def __init__(self, records: tuple[_Record, ...], version: int = 41) -> None:
         self.records = records
@@ -136,14 +124,6 @@ class _FakeStepStore:
 
 def _seeded_store() -> _FakeStepStore:
     return _FakeStepStore((_Record(_step(), display_order=10),))
-
-
-class _FakeMember:
-    def __init__(self, member_id: str, display_name: str) -> None:
-        self.id = member_id
-        self.display_name = display_name
-        self.clickup_user_id: str | None = "clickup-1"
-        self.active = True
 
 
 class _FakeMembers:

@@ -101,11 +101,12 @@ from commerce_ops.launch.domain.launch_playbook import (
 from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.launch.infrastructure.driving import automation_pass
 from commerce_ops.shared.domain.discipline import Discipline
-from commerce_ops.shared.domain.identity import ProductId, Sku
+from commerce_ops.shared.domain.identity import ProductId
 from commerce_ops.shared.domain.result import Success
 from tests.support.fixtures import LAUNCH_DATE, PRODUCT_NAME, PRODUCT_SKU, product_id
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
+from tests.support.values import CatalogProduct as _CatalogProduct
 
 pytestmark = pytest.mark.anyio
 
@@ -197,12 +198,6 @@ def _launch(playbook: LaunchPlaybook) -> Launch:
 # ---------------------------------------------------------------------------
 # Test doubles — duplicated
 # ---------------------------------------------------------------------------
-
-
-@dataclass(frozen=True)
-class _CatalogProduct:
-    name: str
-    sku: Sku
 
 
 class _FakeCatalog:

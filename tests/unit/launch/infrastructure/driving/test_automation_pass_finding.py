@@ -120,7 +120,7 @@ from commerce_ops.launch.domain.launch_playbook import (
 from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.launch.infrastructure.driving import automation_pass
 from commerce_ops.shared.domain.discipline import Discipline
-from commerce_ops.shared.domain.identity import ProductId, Sku
+from commerce_ops.shared.domain.identity import ProductId
 from commerce_ops.shared.domain.result import Failure, Success
 from tests.support.fixtures import (
     HANDLER_NAME,
@@ -131,6 +131,8 @@ from tests.support.fixtures import (
 )
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
+from tests.support.values import CatalogProduct as _CatalogProduct
+from tests.support.values import PendingRow as _PendingRow
 
 pytestmark = pytest.mark.anyio
 
@@ -222,12 +224,6 @@ def _launch(playbook: LaunchPlaybook, product_id: ProductId = PRODUCT_ID) -> Lau
 # ---------------------------------------------------------------------------
 
 
-@dataclass(frozen=True)
-class _CatalogProduct:
-    name: str
-    sku: Sku
-
-
 class _FakeCatalog:
     def __init__(self) -> None:
         self.reads: list[ProductId] = []
@@ -280,20 +276,6 @@ class _FakeHandlers:
 
     def get(self, name: str, default: Any = None) -> Any:
         return self._handlers.get(name, default)
-
-
-@dataclass
-class _PendingRow:
-    product_id: ProductId
-    step_id: str
-    handler: str
-    proposed_outcome: Any
-    result_text: str
-    produced_at: datetime
-    state: str = "pending"
-    delivered_at: datetime | None = None
-    decided_by: str | None = None
-    decided_at: datetime | None = None
 
 
 class _FakeResults:

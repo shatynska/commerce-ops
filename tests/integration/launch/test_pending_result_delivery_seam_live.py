@@ -96,7 +96,6 @@ import json
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
-from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, Final
 
@@ -120,6 +119,7 @@ from tests.support.fixtures import HANDLER_NAME, LAUNCH_DATE, MARKETPLACE, STEP_
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import opening_for as _opening_for
 from tests.support.steps import step as _build_step
+from tests.support.values import CatalogProduct as _CatalogProduct
 
 pytestmark = pytest.mark.anyio
 
@@ -261,12 +261,6 @@ class _CapturingPoster:
 
 async def _fake_thread_seam(*args: Any, **kwargs: Any) -> tuple[str, str | None]:
     return SLACK_THREAD_TS, CONFIRMER_SLACK
-
-
-@dataclass(frozen=True)
-class _CatalogProduct:
-    name: str
-    sku: Sku
 
 
 def _install_slack(monkeypatch: pytest.MonkeyPatch) -> _CapturingPoster:
