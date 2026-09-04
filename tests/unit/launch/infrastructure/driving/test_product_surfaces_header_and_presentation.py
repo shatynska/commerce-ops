@@ -111,11 +111,10 @@ from commerce_ops.launch.infrastructure.driving import (
 )
 from commerce_ops.shared.domain.access_scope import AccessScope
 from commerce_ops.shared.domain.identity import ProductId, Sku
-from tests.support._paired import paired as _paired
 from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
 from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
 from tests.support.admin import fake_verify
-from tests.support.fakes import FakeStepStore as _Shared
+from tests.support.fakes import FakeStepStore
 from tests.support.fixtures import ALICE, ALICE_NAME, MARKETPLACE, PRINCIPAL
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.steps import step as _build_step
@@ -431,18 +430,7 @@ class _StepRecord:
         self.unretired_on: Any = None
 
 
-@_paired(_Shared)
-class _FakeStepStore:
-    def __init__(self, records: tuple[_StepRecord, ...], version: int = 41) -> None:
-        self.records = records
-        self.version = version
-
-    async def load(self) -> tuple[tuple[Any, ...], int]:
-        return self.records, self.version
-
-    async def save(self, records: Any, *, expected_version: int) -> None:
-        self.records = tuple(records)
-        self.version += 1
+_FakeStepStore = FakeStepStore[_StepRecord]
 
 
 class _PlaybookMembers:

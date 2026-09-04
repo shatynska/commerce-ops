@@ -22,6 +22,7 @@ left to look like a proof that passed.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from datetime import date
 from typing import Any, ClassVar
 
@@ -164,7 +165,7 @@ class FakeHandlerRegistry:
         return self._names
 
 
-class FakeStepStore:
+class FakeStepStore[RowT]:
     """The playbook's step set, held in memory with its version.
 
     Mirrors the port `playbook_authoring` declares: `load()` answers the rows
@@ -182,17 +183,27 @@ class FakeStepStore:
     **It records `saves` and eleven locals did not.** A licensed superset: no
     production reader probes the attribute, so a file that never reads it
     cannot tell.
+
+    **Generic in its row type, and each file binds the parameter its own local
+    declaration bound.** The thirty-seven locals annotated `records` three ways
+    -- `_Record`, `_StepRecord` and `Any` -- and seven files then read a row
+    back out through a helper declaring the concrete return type. A shared store
+    fixed at `tuple[Any, ...]` makes those seven helpers return `Any` from a
+    function declared otherwise, which `mypy --strict` refuses. So the settle
+    line is `_FakeStepStore = FakeStepStore[_Record]` rather than a bare alias,
+    read off the local's own annotation, and every annotation site in the file
+    keeps the type it had.
     """
 
-    def __init__(self, records: tuple[Any, ...] = (), version: int = 41) -> None:
+    def __init__(self, records: tuple[RowT, ...] = (), version: int = 41) -> None:
         self.records = tuple(records)
         self.version = version
-        self.saves: list[tuple[tuple[Any, ...], int]] = []
+        self.saves: list[tuple[tuple[RowT, ...], int]] = []
 
-    async def load(self) -> tuple[tuple[Any, ...], int]:
+    async def load(self) -> tuple[tuple[RowT, ...], int]:
         return (self.records, self.version)
 
-    async def save(self, records: Any, *, expected_version: int) -> None:
+    async def save(self, records: Iterable[RowT], *, expected_version: int) -> None:
         assert expected_version == self.version, (
             "conditional persistence violated: save() called with a stale "
             f"expected_version {expected_version} against {self.version}"

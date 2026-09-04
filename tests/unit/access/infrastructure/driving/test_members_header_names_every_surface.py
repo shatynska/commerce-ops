@@ -84,11 +84,10 @@ from commerce_ops.launch.domain.launch_playbook import (
 from commerce_ops.launch.infrastructure.driving import (
     playbook_admin as playbook_module,
 )
-from tests.support._paired import paired as _paired
 from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
 from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
 from tests.support.admin import fake_verify
-from tests.support.fakes import FakeStepStore as _Shared
+from tests.support.fakes import FakeStepStore
 from tests.support.html import Node as _Node
 from tests.support.html import all_text as _all_text
 from tests.support.html import ancestors as _ancestors
@@ -202,18 +201,7 @@ class _FakeMembers:
         return await self.list_members()
 
 
-@_paired(_Shared)
-class _FakeStepStore:
-    def __init__(self) -> None:
-        self.records: tuple[Any, ...] = ()
-        self.version = 41
-
-    async def load(self) -> tuple[tuple[Any, ...], int]:
-        return self.records, self.version
-
-    async def save(self, records: Any, *, expected_version: int) -> None:
-        self.records = tuple(records)
-        self.version += 1
+_FakeStepStore = FakeStepStore[Any]
 
 
 class _EmptyLaunchStore:

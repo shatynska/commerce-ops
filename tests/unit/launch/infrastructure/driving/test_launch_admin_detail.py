@@ -133,12 +133,10 @@ from commerce_ops.shared.domain.access_scope import AccessScope
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId, Sku
 from commerce_ops.shared.domain.lifecycle_stage import Launching
-from tests.support._paired import paired as _paired
 from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
 from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
 from tests.support.admin import fake_verify
-from tests.support.fakes import FakeStepStore as _Shared
-from tests.support.fakes import StubDate
+from tests.support.fakes import FakeStepStore, StubDate
 from tests.support.fixtures import MARKETPLACE
 from tests.support.html import HX_VERBS as _HX_VERBS
 from tests.support.html import Node as _Node
@@ -533,21 +531,7 @@ class _Catalog:
         return None
 
 
-@_paired(_Shared)
-class _FakeStepStore:
-    """The playbook-admin page's own store, so its router can be mounted
-    beside the launch one for the header scenario."""
-
-    def __init__(self) -> None:
-        self.records: tuple[Any, ...] = ()
-        self.version = 41
-
-    async def load(self) -> tuple[tuple[Any, ...], int]:
-        return self.records, self.version
-
-    async def save(self, records: Any, *, expected_version: int) -> None:
-        self.records = tuple(records)
-        self.version += 1
+_FakeStepStore = FakeStepStore[Any]
 
 
 class _FakeMembers:

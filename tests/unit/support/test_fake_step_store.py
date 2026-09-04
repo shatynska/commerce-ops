@@ -24,7 +24,9 @@ def anyio_backend() -> str:
 async def test_an_empty_store_loads_no_rows_at_the_opening_version() -> None:
     """41 is the version every one of the thirty-seven declarations opened at,
     bar two that pinned their own; it is a literal, not a meaning."""
-    assert await FakeStepStore().load() == ((), 41)
+    empty: FakeStepStore[str] = FakeStepStore()
+
+    assert await empty.load() == ((), 41)
 
 
 async def test_loads_back_the_rows_it_was_given_as_a_tuple() -> None:
@@ -65,9 +67,24 @@ async def test_a_stale_write_is_refused_rather_than_accepted_quietly() -> None:
 
 
 async def test_rows_are_stored_as_a_tuple_whatever_sequence_arrives() -> None:
-    store = FakeStepStore()
+    store: FakeStepStore[str] = FakeStepStore()
 
     await store.save(["first", "second"], expected_version=41)
 
     rows, _ = await store.load()
     assert rows == ("first", "second")
+
+
+async def test_is_generic_in_its_row_type() -> None:
+    """Each file binds the parameter its own local declaration bound.
+
+    Seven of the thirty-seven read a row back through a helper declaring the
+    concrete return type; a store fixed at `tuple[Any, ...]` would make those
+    helpers return `Any` from a function declared otherwise, which
+    `mypy --strict` refuses. The settle line carries the parameter instead.
+    """
+    store: FakeStepStore[str] = FakeStepStore(records=("first",))
+
+    rows, _ = await store.load()
+
+    assert rows == ("first",)

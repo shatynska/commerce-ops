@@ -96,8 +96,7 @@ from commerce_ops.launch.domain.launch_playbook import (
     StepStatus,
 )
 from commerce_ops.shared.domain.discipline import Discipline
-from tests.support._paired import paired as _paired
-from tests.support.fakes import FakeStepStore as _Shared
+from tests.support.fakes import FakeStepStore
 from tests.support.fixtures import PRINCIPAL
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
@@ -172,33 +171,7 @@ class _SeededRecord:
         self.unretired_on: Any = None
 
 
-@_paired(_Shared)
-class _FakeStepStore:
-    """In-memory step-set store with the optimistic set-version.
-
-    `load()` returns every stored record — retired included, per
-    `design.md` Decision 4 — together with the current set-version.
-    `save()` persists a replacement set conditionally on the version it
-    was loaded at, then bumps the version (`design.md` Decision 7).
-    """
-
-    def __init__(self, records: tuple[Any, ...], version: int = 41) -> None:
-        self.records = records
-        self.version = version
-        self.saves: list[tuple[tuple[Any, ...], int]] = []
-
-    async def load(self) -> tuple[tuple[Any, ...], int]:
-        return self.records, self.version
-
-    async def save(self, records: Any, *, expected_version: int) -> None:
-        assert expected_version == self.version, (
-            "conditional persistence violated: save() called with a stale "
-            f"expected_version {expected_version} against {self.version}"
-        )
-        stored = tuple(records)
-        self.saves.append((stored, expected_version))
-        self.records = stored
-        self.version += 1
+_FakeStepStore = FakeStepStore[Any]
 
 
 def _seeded_store(extra: tuple[Any, ...] = (), version: int = 41) -> _FakeStepStore:

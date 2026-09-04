@@ -77,11 +77,10 @@ from commerce_ops.launch.infrastructure.driving import (
     playbook_admin as page_module,
 )
 from commerce_ops.shared.domain.discipline import Discipline
-from tests.support._paired import paired as _paired
 from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
 from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
 from tests.support.admin import fake_verify
-from tests.support.fakes import FakeStepStore as _Shared
+from tests.support.fakes import FakeStepStore
 from tests.support.fixtures import PRINCIPAL
 from tests.support.html import Node as _Node
 from tests.support.html import Text as _Text
@@ -111,18 +110,7 @@ def _step(**overrides: Any) -> StepDefinition:
     )
 
 
-@_paired(_Shared)
-class _FakeStepStore:
-    def __init__(self, records: tuple[_Record, ...], version: int = 41) -> None:
-        self.records = records
-        self.version = version
-
-    async def load(self) -> tuple[tuple[Any, ...], int]:
-        return self.records, self.version
-
-    async def save(self, records: Any, *, expected_version: int) -> None:
-        self.records = tuple(records)
-        self.version += 1
+_FakeStepStore = FakeStepStore[_Record]
 
 
 def _seeded_store() -> _FakeStepStore:

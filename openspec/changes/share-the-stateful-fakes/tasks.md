@@ -293,7 +293,7 @@ Counts here are AST counts. Do not re-derive one by grep.
       state the initial state, the `load` return shape, the version bump, the
       `saves` record and the stale-write assertion; declare the number added.
       **Six tests added; `tests/unit/support/` now collects 28.**
-- [ ] 8.2 Instrument, verify, settle, verify. **Expected: 36 of 37 — 34 aliases
+- [x] 8.2 Instrument, verify, settle, verify. **Expected: 36 of 37 — 34 aliases
       and 2 adapters, 1 kept.** Eight bodies differ only in whether they record
       `saves` or assert on the version, which is a licensed superset and a
       deliberate strengthening respectively; record the `AGENTS.md` completeness
@@ -301,10 +301,13 @@ Counts here are AST counts. Do not re-derive one by grep.
       constructing records from `StepDefinition`s and the body carrying
       `supersede()`. The one kept carries a `loads` counter, which needs a
       method override rather than a constructor.
-- [ ] 8.3 Where the strict assertion makes a previously-passing test fail, the
+- [x] 8.3 Where the strict assertion makes a previously-passing test fail, the
       proof reports it at the instrument commit. Record the file, keep its own
       declaration, and state the reason — do not weaken the shared fake to
-      accommodate it.
+      accommodate it. **None did. The strengthening is inert across all 34
+      paired declarations: no test in the suite saves against a stale version,
+      so eighteen files gained an assertion that never fires today and will
+      fire the first time one does.**
 
 ## 9. `FakeMembersStore` — 38 declarations, fifteen bodies
 
