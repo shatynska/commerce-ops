@@ -56,6 +56,7 @@ from commerce_ops.shared.domain.discipline import Discipline
 from tests.support.fixtures import ALICE, PRINCIPAL
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.steps import step as _build_step
+from tests.support.values import Member as _Member
 
 pytestmark = pytest.mark.anyio
 
@@ -102,14 +103,6 @@ class _FakeStepStore:
         self.saves.append((stored, expected_version))
         self.records = stored
         self.version += 1
-
-
-class _Member:
-    def __init__(self, member_id: str, display_name: str) -> None:
-        self.id = member_id
-        self.display_name = display_name
-        self.clickup_user_id: str | None = "clickup-1"
-        self.active = True
 
 
 class _FakeMembers:

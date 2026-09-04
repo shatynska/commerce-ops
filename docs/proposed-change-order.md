@@ -50,18 +50,7 @@ trigger blocks into one.
 and whether its runs belong in `scheduled-jobs`' freshness history at all.
 Worth `/openspec-explore` before `design.md`.
 
-## 2. `unify-launch-adapter-dependencies`
-
-One dependencies object per process, replacing 11 mutable module globals, 5
-verbatim copies of `_launch_folder_id`, and 6 of `_read_product_or_fail`
-carrying 4 different signatures for the same narrowing.
-
-**Must follow `defer-eager-clickup-convergence`**, which deletes eight of
-those globals outright by moving convergence off the four request-path
-adapters. Re-scope it on arrival rather
-than executing it as written.
-
-## 3. `unify-the-launch-advisory-locks`
+## 2. `unify-the-launch-advisory-locks`
 
 `launch_advisory_lock.py` and `launch_thread_lock.py` are the same module
 twice, differing in one constant — and the load-bearing docstring is already
@@ -72,7 +61,7 @@ so "these must not collide" is checkable by reading four lines.
 `defer-eager-clickup-convergence`, which changes how long the advance lock is
 held and by which process.
 
-## 4. `share-the-test-doubles`
+## 3. `share-the-test-doubles`
 
 The half of `share-the-unit-test-harness` that was cut from it: **455 fake
 declarations across 18 names** — `_Member` (47), `_FakeMembers` (43),
@@ -97,9 +86,36 @@ what stands in for an equality proof when `==` is identity. `AGENTS.md`'s
 the same-value invariant that stops a *complete* double redirecting a production
 shape probe.
 
-**Order-independent but conflict-prone**, for the same reason its parent was:
-it touches many test files. `docs/deferred-work.md`'s tolerance entry closes
-behind this change, not behind the harness one.
+**Conflict-prone**, for the same reason its parent was: it touches many test
+files, so it does not run concurrently with anything else that edits `tests/`
+broadly. It is **not** order-independent, though its parent's entry said so:
+`unify-launch-adapter-dependencies` must follow it, which is why that entry now
+sits last. `docs/deferred-work.md`'s tolerance entry does not close behind this
+change either — these slices make the deletion safe and
+`unify-launch-adapter-dependencies` performs it.
+
+## 4. `unify-launch-adapter-dependencies`
+
+One dependencies object per process, replacing 11 mutable module globals, 5
+verbatim copies of `_launch_folder_id`, and 6 of `_read_product_or_fail`
+carrying 4 different signatures for the same narrowing.
+
+**Must follow `defer-eager-clickup-convergence`**, which deletes eight of
+those globals outright by moving convergence off the four request-path
+adapters. Re-scope it on arrival rather
+than executing it as written.
+
+**Must also follow `share-the-value-doubles`**, and this entry is placed last
+for that reason rather than by preference. Deleting the member-identifier
+probe is only safe once every member double supplies `identifier`: measured
+2026-09-04, `src/` carries six copies of that probe and all 52 member doubles
+in `tests/` spell the field `id` alone, so deleting the `id` branch first
+fails them all. `share-the-value-doubles` supplies the spelling and
+`share-the-stateful-fakes` finishes the population; this change is what
+performs the deletion. The probe surface is ten `getattr` shape probes in
+total — `docs/deferred-work.md` records three — and two of the ten are reader
+shapes rather than attribute spellings, so re-measure by shape before
+deleting anything.
 
 ---
 

@@ -151,6 +151,7 @@ from tests.support.html import texts as _texts
 from tests.support.html import tree as _tree
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.steps import step as _build_step
+from tests.support.values import Member as _Member
 
 # ---------------------------------------------------------------------------
 # The delta's two literal markers, and the three events it binds
@@ -274,16 +275,6 @@ class _StoreThatCannotPersist(_FakeStepStore):
 
     async def save(self, records: Any, *, expected_version: int) -> None:
         raise RuntimeError("the step set could not be written")
-
-
-class _Member:
-    def __init__(
-        self, member_id: str, display_name: str, *, active: bool = True
-    ) -> None:
-        self.id = member_id
-        self.display_name = display_name
-        self.clickup_user_id: str | None = "clickup-1"
-        self.active = active
 
 
 class _FakeMembers:

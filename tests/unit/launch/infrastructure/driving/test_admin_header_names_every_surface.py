@@ -107,6 +107,7 @@ from tests.support.html import size as _size
 from tests.support.html import tree as _tree
 from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
 from tests.support.steps import step as _build_step
+from tests.support.values import Member as _Member
 
 _LAUNCH_MODULE_NAME: Final = "commerce_ops.launch.infrastructure.driving.launch_admin"
 
@@ -202,14 +203,6 @@ def _seeded_steps() -> _FakeStepStore:
         for gate in SPECIFIED_GATE_ORDER
     ) + (_Record(_step(identifier=EDITED, name="Work of listing.zeta"), 20),)
     return _FakeStepStore(records)
-
-
-class _Member:
-    def __init__(self, member_id: str, display_name: str) -> None:
-        self.id = member_id
-        self.display_name = display_name
-        self.clickup_user_id: str | None = "clickup-1"
-        self.active = True
 
 
 class _FakeMembers:

@@ -105,6 +105,7 @@ import pytest
 from commerce_ops.launch.application.thread_establishment import resolve_mention_target
 from commerce_ops.launch.domain.launch_run import Launch
 from tests.support.fixtures import ALICE_NAME, STEP_ID, product_id
+from tests.support.values import MemberValue as _Member
 
 pytestmark = pytest.mark.anyio
 
@@ -149,20 +150,6 @@ def anyio_backend() -> str:
 # ---------------------------------------------------------------------------
 # Doubles
 # ---------------------------------------------------------------------------
-
-
-@dataclass
-class _Member:
-    """The member shape, copied from `_Member` in
-    `tests/unit/launch/application/test_automated_decision_members_shape.py`
-    rather than re-invented, so the two files correct together."""
-
-    id: str
-    display_name: str
-    slack_identity: str | None
-    active: bool = True
-    clickup_user_id: str | None = None
-    admin: bool = False
 
 
 class _ReaderMembers:

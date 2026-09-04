@@ -48,3 +48,34 @@ before that reading would be guessing at it.
 """
 
 from __future__ import annotations
+
+from typing import Protocol
+
+from tests.support.values import Member, MemberValue
+
+
+class MemberShape(Protocol):
+    """What production reads off a member, and nothing more.
+
+    `identifier` is declared as a **property, not a variable**. `mypy` treats a
+    protocol variable as settable, so `identifier: str` would make the
+    `_conforms` assignments below type errors -- the read-only property on the
+    doubles does not satisfy a settable member. The property form is also the
+    truthful one: the six shape probes in `src/` read this name and no
+    production site assigns to it.
+    """
+
+    @property
+    def identifier(self) -> str: ...
+
+    @property
+    def display_name(self) -> str: ...
+
+    @property
+    def active(self) -> bool: ...
+
+
+_member_conforms: MemberShape = Member("prs_01HQ8Z6M4A", "Alice Admin")
+_member_value_conforms: MemberShape = MemberValue(
+    id="prs_01HQ8Z6M4A", display_name="Alice Admin", slack_identity="U-ALICE"
+)

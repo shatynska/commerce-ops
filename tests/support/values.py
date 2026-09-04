@@ -1,0 +1,105 @@
+"""The value doubles the suite arranges around.
+
+A type here stands in for a production collaborator and **is not one**. It never
+imports a value from production and never validates: `access.domain.members`'s
+own `Member` is `@dataclass(frozen=True, slots=True)` with a `__post_init__`
+that rejects an empty `slack_identity`, and 42 of the 52 local member doubles
+this module replaces never supply one. Using the real type would edit every
+construction site in the suite, which is a different change --
+`unify-launch-adapter-dependencies` owns it.
+
+**Every type here declares one form, and the form is part of the contract.** A
+local declaration migrates onto a shared type only where the two agree on
+dataclass-ness, `frozen`, `eq` and any `__repr__` the file relies on -- field
+equality says nothing about those, and this suite disagrees on all of them for
+real reasons. That is why `Member` and `MemberValue` are two types rather than
+one bent across two equality semantics.
+
+**The field spellings are the locals', and the production spellings arrive as
+properties.** Production reads a member's identifier through a shape probe at
+six sites, first branch `identifier`; all 52 locals spell that field `id`. So
+`id` stays the field -- ten files pass it as a keyword and a read-only property
+cannot receive one -- and `identifier` is derived from it. The two carry the
+same string by construction rather than by inspection, which is what lets
+`unify-launch-adapter-dependencies` delete the probe's remaining branches.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+#: What a member double's ClickUp identity is, absent a reason to differ.
+CLICKUP_USER_ID = "clickup-1"
+
+
+class Member:
+    """One known human, as the suite's plain-class doubles model them.
+
+    A plain class, so equality is identity and instances are hashable --
+    matching the 42 local declarations this replaces. `MemberValue` is the
+    same subject in `@dataclass` form, for the ten that compare by field.
+
+    `slack_identity` and `admin` are modelled here and are declared by none of
+    the 42. Both are supersets rather than displacements: no `getattr` probe in
+    `src/` reads either, `admin` being read only as a direct attribute on
+    production's own type. `slack_identity` defaults to `None` because that is
+    what its absence produced at the three sites that do read it by shape --
+    `gate_decisions.py:94`, `automated_decisions.py:125` and
+    `thread_establishment.py:224` -- and a truthy default would start matching
+    the two `==` comparisons among them.
+    """
+
+    def __init__(
+        self,
+        member_id: str,
+        display_name: str,
+        *,
+        slack_identity: str | None = None,
+        clickup_user_id: str | None = CLICKUP_USER_ID,
+        admin: bool = False,
+        active: bool = True,
+    ) -> None:
+        self.id = member_id
+        self.display_name = display_name
+        self.slack_identity = slack_identity
+        self.clickup_user_id = clickup_user_id
+        self.admin = admin
+        self.active = active
+
+    @property
+    def identifier(self) -> str:
+        """The spelling every production probe reads first.
+
+        The same string as `id`, because it *is* `id`. Production cannot name
+        `access`'s type from `launch` -- `.importlinter` forbids it -- so it
+        reads a shape instead, and every double modelling only `id` is why that
+        probe still carries an `id` branch to fall through to.
+        """
+        return self.id
+
+
+@dataclass
+class MemberValue:
+    """One known human, for the files that compare members by field.
+
+    `@dataclass`, so equality is structural and instances are unhashable --
+    matching the ten local declarations this replaces, which are exactly the
+    ten that construct with `id=` as a keyword.
+
+    `clickup_user_id` defaults to `None` here and to `CLICKUP_USER_ID` on
+    `Member`, because the two populations genuinely disagree and the
+    disagreement falls along the same line as the form split. Neither type has
+    to compromise, which is the second thing two types buy.
+    """
+
+    id: str
+    display_name: str
+    slack_identity: str | None
+    active: bool = True
+    clickup_user_id: str | None = None
+    admin: bool = False
+
+    @property
+    def identifier(self) -> str:
+        """As `Member.identifier`, and for the same reason."""
+        return self.id

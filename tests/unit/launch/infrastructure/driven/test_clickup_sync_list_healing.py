@@ -167,6 +167,7 @@ from tests.support.fixtures import (
 from tests.support.playbook import CONFIRMATION_GATES
 from tests.support.playbook import playbook as _build_playbook
 from tests.support.steps import step as _build_step
+from tests.support.values import Member as _Member
 
 pytestmark = pytest.mark.anyio
 
@@ -335,16 +336,6 @@ class _FakeCatalog:
 
     async def __call__(self, product_id: ProductId) -> _CatalogProduct:
         return self._product
-
-
-class _Member:
-    def __init__(
-        self, member_id: str, display_name: str, *, clickup_user_id: str | None
-    ) -> None:
-        self.id = member_id
-        self.display_name = display_name
-        self.clickup_user_id = clickup_user_id
-        self.active = True
 
 
 class _FakeMembers:

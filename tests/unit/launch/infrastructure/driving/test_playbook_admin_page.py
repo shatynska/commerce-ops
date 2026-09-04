@@ -93,6 +93,7 @@ from tests.support.admin import fake_verify
 from tests.support.fixtures import PRINCIPAL
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.steps import step as _build_step
+from tests.support.values import Member as _FakeMember
 
 DISCIPLINES: Final = tuple(Discipline)
 A_DISCIPLINE: Final = DISCIPLINES[0]
@@ -367,14 +368,6 @@ def _fill(fields: dict[str, str], **by_substring: str) -> dict[str, str]:
 # name someone active — which is the rule, not a fixture convenience.
 ASSIGNEE = "prs_01HQ8Z6M4A"
 ASSIGNEE_NAME = "Alice Admin"
-
-
-class _FakeMember:
-    def __init__(self, member_id: str, display_name: str) -> None:
-        self.id = member_id
-        self.display_name = display_name
-        self.clickup_user_id: str | None = "clickup-1"
-        self.active = True
 
 
 class _FakeMembers:

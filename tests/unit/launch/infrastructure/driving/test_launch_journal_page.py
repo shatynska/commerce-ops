@@ -146,6 +146,7 @@ from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
 from tests.support.admin import fake_verify
 from tests.support.fixtures import MARKETPLACE
 from tests.support.playbook import gates as _gates
+from tests.support.values import Member as _FakeMember
 
 _ASSETS_MODULE_NAME: Final = "commerce_ops.shared.infrastructure.driving.admin_assets"
 
@@ -349,14 +350,6 @@ class _FakeStepStore:
     async def save(self, records: Any, *, expected_version: int) -> None:
         self.records = tuple(records)
         self.version += 1
-
-
-class _FakeMember:
-    def __init__(self, member_id: str, display_name: str) -> None:
-        self.id = member_id
-        self.display_name = display_name
-        self.clickup_user_id: str | None = "clickup-1"
-        self.active = True
 
 
 class _FakeMembers:

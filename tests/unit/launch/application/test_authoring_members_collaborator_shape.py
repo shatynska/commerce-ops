@@ -92,6 +92,7 @@ from commerce_ops.shared.domain.discipline import Discipline
 from tests.support.fixtures import ALICE, ALICE_NAME, PRINCIPAL
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.steps import step as _build_step
+from tests.support.values import Member as _Member
 
 pytestmark = pytest.mark.anyio
 
@@ -195,16 +196,6 @@ def _record_named(store: _FakeStepStore, identifier: str) -> Any:
 # ---------------------------------------------------------------------------
 # Members collaborators: the reader, and the store production really injects
 # ---------------------------------------------------------------------------
-
-
-class _Member:
-    def __init__(
-        self, member_id: str, display_name: str, *, active: bool = True
-    ) -> None:
-        self.id = member_id
-        self.display_name = display_name
-        self.clickup_user_id: str | None = "clickup-1"
-        self.active = active
 
 
 class _FakeMembers:

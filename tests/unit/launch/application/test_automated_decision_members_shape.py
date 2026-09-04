@@ -148,6 +148,7 @@ from tests.support.fixtures import (
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
 from tests.support.steps import step as _build_step
+from tests.support.values import MemberValue as _Member
 
 pytestmark = pytest.mark.anyio
 
@@ -240,16 +241,6 @@ def _launch(playbook: LaunchPlaybook) -> Launch:
 # ---------------------------------------------------------------------------
 # Members collaborators: the stated shape, and the store production injects
 # ---------------------------------------------------------------------------
-
-
-@dataclass
-class _Member:
-    id: str
-    display_name: str
-    slack_identity: str
-    active: bool = True
-    clickup_user_id: str | None = None
-    admin: bool = False
 
 
 class _ReaderMembers:

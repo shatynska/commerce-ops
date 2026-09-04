@@ -32,13 +32,13 @@ subprocess driver script (`design.md` — Context).
 
 ## 1. Baseline and instruments
 
-- [ ] 1.1 Record the baseline before anything is edited: collected counts for
+- [x] 1.1 Record the baseline before anything is edited: collected counts for
       `tests/unit`, `tests/agents` and `tests/integration` separately, and
       pass counts and wall time for the commit tier and the integration tier.
       Expected `2,246 / 236 / 159`; commit tier `2,482 passed`. **Record what is
       measured, not what is expected** — if the tree disagrees with the parent
       change's numbers, the tree is right and the disagreement is a finding.
-- [ ] 1.2 Configure this worktree's `.env.test`. A worktree does not inherit it
+- [x] 1.2 Configure this worktree's `.env.test`. A worktree does not inherit it
       (`.env.*` is gitignored and `git worktree add` carries none), and until it
       is configured the integration tier skips in its entirety while `pre-push`
       reports `Passed` — a merged pull request has already claimed a tier that
@@ -48,10 +48,10 @@ subprocess driver script (`design.md` — Context).
       `uv run python -m commerce_ops.seed_playbook`. Migrated is not seeded: a
       schema-only database fails four tests, and each says so in its own
       assertion message.
-- [ ] 1.3 Run the integration tier once, with `COMMERCE_OPS_REQUIRE_DATABASE=1`
+- [x] 1.3 Run the integration tier once, with `COMMERCE_OPS_REQUIRE_DATABASE=1`
       so a skipping tier fails rather than reporting green. Expected
       `159 passed`.
-- [ ] 1.4 Copy `~/share-the-test-doubles/assert_identity.py` into the change's
+- [x] 1.4 Copy `~/share-the-test-doubles/assert_identity.py` into the change's
       scratchpad. Its path constant is **`REPO`** (line 30), not `ROOT`, and it
       already points at this worktree — repoint it only if implementation moves
       elsewhere. Its CLI takes `<before-rev> <after-rev> [path ...]` and prints
@@ -61,7 +61,11 @@ subprocess driver script (`design.md` — Context).
       Expect 6,623 `ast.Assert`, 238 `pytest.raises`, 757 helper-style
       `Expr(Call)`, 172 `@parametrize`. A count that disagrees means the tree
       moved; record the new one and use it.
-- [ ] 1.5 **Record the queue ordering before any migration begins**, not at the
+
+      **Measured 2026-09-04 over 340 files: 6,623 / 238 / 759 / 172.** The
+      helper-style count is 759, not 757; the other three match. 759 is the
+      baseline in force.
+- [x] 1.5 **Record the queue ordering before any migration begins**, not at the
       end. `docs/proposed-change-order.md` lists
       `unify-launch-adapter-dependencies` at §2, ahead of the doubles at §4,
       with a recorded dependency only on `defer-eager-clickup-convergence` — and
@@ -73,7 +77,7 @@ subprocess driver script (`design.md` — Context).
       Record in that entry that it must follow `share-the-value-doubles`, and
       place the entries accordingly. (The §4 split is a completion record and
       stays at 10.2.)
-- [ ] 1.6 Write the comparison helper `design.md` Decision 2 specifies
+- [x] 1.6 Write the comparison helper `design.md` Decision 2 specifies
       (`_fields`: dataclass fields shallow, else `vars`). **The instrument commit
       adds it to the tree and the settle commit removes it**, because the
       instrumented classes live in ~150 tree files and cannot import a
@@ -83,18 +87,18 @@ subprocess driver script (`design.md` — Context).
 
 ## 2. `tests/support/values.py` and its protocols
 
-- [ ] 2.1 Create `tests/support/values.py` with a module docstring stating what
+- [x] 2.1 Create `tests/support/values.py` with a module docstring stating what
       the module is for and, explicitly, that a type here is a **double** and
       never sources a value from production — `AGENTS.md`'s rule, and the reason
       `Member` below is not `access.domain.members.Member`.
-- [ ] 2.2 Name the types **publicly** in `values.py` — `Member`, not `_Member` —
+- [x] 2.2 Name the types **publicly** in `values.py` — `Member`, not `_Member` —
       and alias them at the call site. A module-private name imported across
       modules is a contradiction. **`tests/support/__init__.py` stays empty**:
       its shipped docstring records that modules here are imported by path and
       "never re-exported from this file, so the package cannot become one
       namespace everything pulls from". That is the parent change's decision and
       this change extends it rather than reversing it.
-- [ ] 2.3 Run one AST measurement pass over `tests/` before any type is written,
+- [x] 2.3 Run one AST measurement pass over `tests/` before any type is written,
       recording per declaration: field set, each field's default, declaration
       form (plain / `@dataclass` / `frozen`), **every call site's argument shape
       — name, position and optionality — against the local's `__init__`
@@ -104,7 +108,7 @@ subprocess driver script (`design.md` — Context).
       The constructor measure is clause (c) and it is not optional:
       `test_product_dossier_page.py:721` passes clauses (a) and (b) and would
       `TypeError` at collection.
-- [ ] 2.4 Add each protocol to `tests/support/protocols.py` **in the task that
+- [x] 2.4 Add each protocol to `tests/support/protocols.py` **in the task that
       adds its type**, never ahead of it, and add the `_conforms` assignment
       beside the type. Do not edit the module docstring's statement that these
       protocols are temporary and that `unify-launch-adapter-dependencies`
@@ -131,20 +135,20 @@ it does:
 Any frequency threshold excludes it; Goal 3 requires it, because three of the
 five sit directly opposite `playbook_admin.py:321`.
 
-- [ ] 3.1 From the 2.3 pass, tabulate the 52 declarations: 37 plain `_Member`,
+- [x] 3.1 From the 2.3 pass, tabulate the 52 declarations: 37 plain `_Member`,
       10 `@dataclass` `_Member`, 5 plain `_FakeMember`. Confirm the two sets
       measured in `design.md` Decision 1 — the ten declaring `@dataclass` and
       the ten constructing with `id=` — are still identical. **If they have
       diverged, stop and re-derive Decision 5 before writing anything**; the
       two-type split rests on that identity.
-- [ ] 3.2 Record, for the 37 plain declarations, whether any test relies on
+- [x] 3.2 Record, for the 37 plain declarations, whether any test relies on
       identity inequality — two distinct instances carrying equal field values
       and asserted unequal — or uses a member as a set element or dict key. The
       migration does not depend on the answer (the shared `Member` is a plain
       class, so nothing changes for them), but it is `design.md` Open Question 2
       and it is cheap to answer while the corpus is open. Record it for
       `unify-launch-adapter-dependencies`.
-- [ ] 3.3 Add **`Member`** to `values.py`: plain class, field `id`, read-only
+- [x] 3.3 Add **`Member`** to `values.py`: plain class, field `id`, read-only
       `identifier` property returning `self.id`, `clickup_user_id` defaulting to
       `'clickup-1'`, **`slack_identity` typed `str | None` and defaulting to
       `None`**, `admin=False`, `active=True`. State the declaration form in a
@@ -159,7 +163,7 @@ five sit directly opposite `playbook_admin.py:321`.
       truthy identity they never had and start matching those two comparisons
       where they used to fall through. This is a displacement under the
       same-value invariant, not a superset.
-- [ ] 3.4 Add **`MemberValue`**: `@dataclass`, field `id`, the same `identifier`
+- [x] 3.4 Add **`MemberValue`**: `@dataclass`, field `id`, the same `identifier`
       property, `clickup_user_id` defaulting to `None`, `slack_identity` typed
       `str | None` — all ten of its files declare it, and
       `test_mention_resolution_namespace.py:233` passes `None` deliberately.
@@ -170,7 +174,7 @@ five sit directly opposite `playbook_admin.py:321`.
       variable form makes the `_conforms` assignment a type error on the one
       line it exists to justify (`design.md` Decision 7). One `_conforms`
       assignment per type, both against `MemberShape`.
-- [ ] 3.4a Handle the one clause-(c) failure. `test_product_dossier_page.py:721`
+- [x] 3.4a Handle the one clause-(c) failure. `test_product_dossier_page.py:721`
       declares `__init__(self, display_name, *, active=True)` with `id` pinned,
       and constructs `_Member(ALICE_RENAMED)` at 1350 and
       `_Member(ALICE, active=False)` at 1378 — the display name in the position
@@ -178,7 +182,7 @@ five sit directly opposite `playbook_admin.py:321`.
       subclass** over `Member`, not its own declaration: excluding it would
       leave a member double spelling only `id`, and Goal 3 needs all 52. Count
       it as an adapter in the record, not as a clean migration.
-- [ ] 3.5 **Instrument.** Keep every local; add the shared import and the
+- [x] 3.5 **Instrument.** Keep every local; add the shared import and the
       field-equality assertion over the intersection, failing with both mappings
       named. Run the commit tier **and the integration tier** — the latter so
       that `tests/integration/launch/test_seeded_step_fields.py:578` has its
@@ -188,13 +192,13 @@ five sit directly opposite `playbook_admin.py:321`.
       four integration declarations, under three other names, *are* constructed,
       and for those the instrument-time tier is what makes the proof run. Every failure is a real difference; fix the
       shared default or exclude the file, never weaken the assertion.
-- [ ] 3.5a Record that `test_seeded_step_fields.py`'s `_Member` is **never
+- [x] 3.5a Record that `test_seeded_step_fields.py`'s `_Member` is **never
       constructed** — that file's `_FakeMembers.list_members` returns `()` and
       the class appears only in annotations — so Decision 2's proof is not
       skipped for it but inapplicable. It migrates on clauses (a)–(c) and
       `mypy` alone. Say so; an inapplicable proof recorded as a passing one is
       the silence this task list exists to prevent.
-- [ ] 3.6 Record the same-value checks **once each, not per file**. Two
+- [x] 3.6 Record the same-value checks **once each, not per file**. Two
       displacements, not one.
 
       **`identifier` over `id`**, at six probe sites — `clickup_sync.py:140`,
@@ -213,23 +217,54 @@ five sit directly opposite `playbook_admin.py:321`.
       **record its result** rather than its expected result. If it is read
       anywhere by shape, it is a third displacement and the default follows the
       invariant, not convenience.
-- [ ] 3.7 **Settle.** Delete each local class and add
+- [x] 3.7 **Settle.** Delete each local class and add
       `from tests.support.values import Member as _Member` — or `MemberValue as
       _Member`, or `Member as _FakeMember` — on its own `from` line. `I001` is
       enforced and `combine_as_imports = false`, so a merged import is split
       straight back. Anchor the class removal on `decorator_list[0]` where the
       class is decorated, or the `@dataclass` is orphaned onto the next
       declaration.
-- [ ] 3.8 Run `assert_identity.py` across the commit pair — the commit before
+- [x] 3.8 Run `assert_identity.py` across the commit pair — the commit before
       3.5 against the commit after 3.7, never against the instrument commit
       itself, which adds an assertion by construction (`design.md` Decision 8).
       Four multisets identical, `def test_` count unchanged. Run the commit tier
       and `mypy`.
-- [ ] 3.9 Record any file not migrated and why, and record the adapter from 3.4a
+- [x] 3.9 Record any file not migrated and why, and record the adapter from 3.4a
       separately from the clean migrations. The expectation is **52 of 52 — 51
       clean and 1 adapter**. A shortfall is a finding to record, and, since Goal
       3 requires all 52 to expose `identifier`, a shortfall must also record
       which probe sites it leaves live.
+
+      **The record: 52 of 52 — 49 clean and 3 adapters.** 39 alias `Member`
+      (34 `_Member`, 5 `_FakeMember`), 10 alias `MemberValue`, 3 adapt.
+
+      The extra two adapters are a finding, and they are one `design.md` said
+      could not happen. Decision 5 states that "the plain locals hard-code
+      `'clickup-1'`"; two of the 42 hard-code `"clickup-alice"` —
+      `test_clickup_automated_steps_leave_loop.py:202` and
+      `test_clickup_non_active_steps_leave_loop.py:164`, both via a module
+      constant `ALICE_CLICKUP`. The instrument caught it on the first run, in
+      all 7 tests that construct through them, which is the proof doing exactly
+      what it exists for.
+
+      They take an adapter rather than staying local, restoring the remedy
+      Decision 5 originally named for this field — "declare a three-line
+      subclass overriding that one default, or stay unmigrated; Decision 2's
+      proof decides which, per file" — which was dropped when the two-type split
+      was believed to absorb the whole `clickup_user_id` disagreement. It did
+      not. The adapter is licensed here on the same ground as the clause-(c)
+      one: the shared type can produce the exact object, the adapter supplies
+      the pinned value rather than relocating a difference, and **the proof
+      still ran over it and passed**. Both files are `clickup_sync` tests
+      sitting opposite `clickup_sync.py:140`, so leaving them local would have
+      cost Goal 3 two of its 52 for three lines.
+
+      Verification: commit tier **2,482 passed** (baseline exactly), integration
+      **159 passed** with `COMMERCE_OPS_REQUIRE_DATABASE=1`, `mypy` clean over
+      520 files, `ruff check`/`format` clean, and `assert_identity.py` across
+      the pair reports all four node kinds identical in every one of the 53
+      changed files with the `def test_` count unchanged at 453.
+      **142 insertions, 479 deletions.**
 
 ## 4. `CatalogProduct` — 40 declarations, expectation 31
 

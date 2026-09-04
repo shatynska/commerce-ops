@@ -87,6 +87,7 @@ from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
 from tests.support.steps import hold as _build_hold
 from tests.support.steps import step as _build_step
+from tests.support.values import Member as _Member
 
 pytestmark = pytest.mark.anyio
 
@@ -192,14 +193,6 @@ class _FakeCatalog:
 
     async def __call__(self, product_id: ProductId) -> _CatalogProduct:
         return self._product
-
-
-class _Member:
-    def __init__(self, member_id: str, display_name: str) -> None:
-        self.id = member_id
-        self.display_name = display_name
-        self.clickup_user_id: str | None = "clickup-1"
-        self.active = True
 
 
 class _FakeMembers:

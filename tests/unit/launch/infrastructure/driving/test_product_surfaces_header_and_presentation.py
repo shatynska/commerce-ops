@@ -117,6 +117,7 @@ from tests.support.admin import fake_verify
 from tests.support.fixtures import ALICE, ALICE_NAME, MARKETPLACE, PRINCIPAL
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.steps import step as _build_step
+from tests.support.values import Member as _Member
 
 #: An unexpired session whose principal has since lost the admin
 #: declaration. It presents to the page exactly as any other refusal.
@@ -439,14 +440,6 @@ class _FakeStepStore:
     async def save(self, records: Any, *, expected_version: int) -> None:
         self.records = tuple(records)
         self.version += 1
-
-
-class _Member:
-    def __init__(self, member_id: str, display_name: str) -> None:
-        self.id = member_id
-        self.display_name = display_name
-        self.clickup_user_id: str | None = "clickup-1"
-        self.active = True
 
 
 class _PlaybookMembers:

@@ -104,6 +104,7 @@ from tests.support.fixtures import (
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
 from tests.support.steps import step as _build_step
+from tests.support.values import Member
 
 pytestmark = pytest.mark.anyio
 
@@ -199,12 +200,16 @@ class _FakeCatalog:
         return self._product
 
 
-class _Member:
+class _Member(Member):
+    """`Member`, with this file's own ClickUp identity.
+
+    `clickup_user_id` is what these tests assert the sync writes, so the
+    shared default would change what they exercise. The adapter supplies
+    the value rather than relocating the difference.
+    """
+
     def __init__(self, member_id: str, display_name: str) -> None:
-        self.id = member_id
-        self.display_name = display_name
-        self.clickup_user_id: str | None = ALICE_CLICKUP
-        self.active = True
+        super().__init__(member_id, display_name, clickup_user_id=ALICE_CLICKUP)
 
 
 class _FakeMembers:

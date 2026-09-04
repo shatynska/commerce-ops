@@ -65,6 +65,7 @@ from commerce_ops.launch.domain.launch_playbook import (
 from commerce_ops.shared.domain.discipline import Discipline
 from tests.support.fixtures import ALICE, BOHDAN
 from tests.support.steps import step as _build_step
+from tests.support.values import Member as _Member
 
 A_DISCIPLINE: Final = Discipline("strategy")
 ANOTHER_DISCIPLINE: Final = Discipline("price")
@@ -76,14 +77,6 @@ def _step(**overrides: Any) -> StepDefinition:
     return _build_step(
         **{"discipline": A_DISCIPLINE, "assignees": (ALICE,), **overrides}
     )
-
-
-class _Member:
-    def __init__(self, member_id: str, display_name: str, *, active: bool) -> None:
-        self.id = member_id
-        self.display_name = display_name
-        self.clickup_user_id: str | None = "clickup-1"
-        self.active = active
 
 
 class _FakeMembers:

@@ -131,6 +131,7 @@ from commerce_ops.shared.domain.identity import ProductId
 from tests.support.fixtures import ALICE, product_id
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import opening_for as _opening_for
+from tests.support.values import MemberValue as _Member
 
 pytestmark = pytest.mark.anyio
 
@@ -240,16 +241,6 @@ def _launch_at_commit(*, satisfy: bool = True) -> Launch:
 # ---------------------------------------------------------------------------
 # Test doubles
 # ---------------------------------------------------------------------------
-
-
-@dataclass
-class _Member:
-    id: str
-    display_name: str
-    slack_identity: str
-    active: bool = True
-    clickup_user_id: str | None = None
-    admin: bool = False
 
 
 class _ReaderMembers:
