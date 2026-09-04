@@ -215,14 +215,17 @@ Counts here are AST counts. Do not re-derive one by grep.
       carry, so no call site needs one. As with `FakeSlackResponse`, these tests
       are the primary check: they cover `today()` returning the class attribute,
       and a subclass overriding it.
-- [ ] 5.2 Instrument, verify, settle, verify. **Record that the lockstep proof
+- [x] 5.2 Instrument, verify, settle, verify. **Record that the lockstep proof
       does not run for this name** — no instance is constructed and `today` is a
       classmethod, so there is nothing to intercept (`design.md` Decision 2).
       **Expected: 15 of 15, all adapters** — each file keeps a two-line subclass
       setting its own `_today`, replacing five lines. One file additionally
       builds a subclass dynamically
       (`type("_FixedDate", (_StubDate,), {"_today": day})`); confirm it still
-      resolves through the adapter.
+      resolves through the adapter. **Actual: 15 of 15, all adapters. All 15
+      locals were byte-identical and all set `_today` from a per-module
+      `RENDER_DATE`, so each adapter is two lines against six. The dynamic
+      subclass still resolves, and is covered by a contract test.**
 
 ## 6. `InertBackoff` — 9 declarations, two bodies
 

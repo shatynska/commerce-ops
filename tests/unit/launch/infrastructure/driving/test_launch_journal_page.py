@@ -144,6 +144,7 @@ from commerce_ops.shared.domain.lifecycle_stage import Launching
 from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
 from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
 from tests.support.admin import fake_verify
+from tests.support.fakes import StubDate
 from tests.support.fixtures import MARKETPLACE
 from tests.support.playbook import gates as _gates
 from tests.support.values import Member as _FakeMember
@@ -415,12 +416,8 @@ def _install_journal(
 _fake_verify = fake_verify(PRINCIPAL)
 
 
-class _StubDate(date):
-    _today: date = RENDER_DATE
-
-    @classmethod
-    def today(cls) -> date:  # type: ignore[override]
-        return cls._today
+class _StubDate(StubDate):
+    _today = RENDER_DATE
 
 
 _CLOCK_NAMES: Final = ("today", "current_date", "now", "clock", "render_date")

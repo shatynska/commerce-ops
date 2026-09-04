@@ -147,6 +147,7 @@ from commerce_ops.shared.domain.lifecycle_stage import (
 from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
 from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
 from tests.support.admin import fake_verify
+from tests.support.fakes import StubDate
 from tests.support.fixtures import MARKETPLACE
 from tests.support.html import HX_VERBS as _HX_VERBS
 from tests.support.html import Node as _Node
@@ -631,15 +632,8 @@ def _install(
 _fake_verify = fake_verify(PRINCIPAL)
 
 
-class _StubDate(date):
-    """Stands in for the module's own `date`, so `date.today()` inside the
-    page answers with the day a test renders on."""
-
-    _today: date = RENDER_DATE
-
-    @classmethod
-    def today(cls) -> date:  # type: ignore[override]
-        return cls._today
+class _StubDate(StubDate):
+    _today = RENDER_DATE
 
 
 _CLOCK_NAMES: Final = ("today", "current_date", "now", "clock", "render_date")
