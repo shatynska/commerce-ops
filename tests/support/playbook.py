@@ -29,9 +29,17 @@ to the question it is asking.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Final
 
-from commerce_ops.launch.domain.launch_playbook import Gate, GateOpening
+from commerce_ops.launch.domain.launch_playbook import (
+    Gate,
+    GateOpening,
+    LaunchPlaybook,
+    StepDefinition,
+    StepStatus,
+)
+from tests.support.steps import hold
 
 #: The eight gate identifiers in the order the specification fixes them.
 #: Hand-maintained against the specification, never imported from production.
@@ -78,4 +86,48 @@ def gates() -> tuple[Gate, ...]:
             opening=opening_for(identifier),
         )
         for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1)
+    )
+
+
+#: `playbook()` takes a `gates` parameter, matching what the local variants
+#: spelled, so the module-level name above is unreachable from inside it.
+_specified_gates = gates
+
+
+def playbook(
+    *steps: StepDefinition,
+    version: str = "test-v1",
+    gates: tuple[Gate, ...] | None = None,
+    fill_unheld: bool = True,
+    filler: Callable[[str], StepDefinition] = hold,
+    held_must_be_active: bool = False,
+) -> LaunchPlaybook:
+    """A playbook carrying `steps`, with every unheld gate filled.
+
+    `filler` has **no canonical default worth trusting**, which is why it is a
+    parameter rather than a fixed `hold`. Of the 69 local `_playbook` variants
+    that fill unheld gates, 36 fill with an *automated* step and 33 with a human
+    one -- an almost even split, so any single choice is wrong for about half.
+    A migrated file passes its own `_hold`.
+
+    `held_must_be_active` is likewise a real disagreement: 85 of 95 variants
+    compute the held set as `step.blocking`, and 10 add `step.status is
+    StepStatus.ACTIVE`. Normalising the minority would change which gates those
+    tests see as held.
+    """
+    held = {
+        step.gate
+        for step in steps
+        if step.blocking
+        and (not held_must_be_active or step.status is StepStatus.ACTIVE)
+    }
+    fillers: tuple[StepDefinition, ...] = ()
+    if fill_unheld:
+        fillers = tuple(
+            filler(gate) for gate in SPECIFIED_GATE_ORDER if gate not in held
+        )
+    return LaunchPlaybook(
+        version=version,
+        gates=_specified_gates() if gates is None else gates,
+        steps=(*steps, *fillers),
     )
