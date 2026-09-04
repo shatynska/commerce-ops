@@ -1,12 +1,14 @@
 # Proposed change order
 
 **Status: working queue.** Eight changes were proposed on 2026-09-01 from a
-review of the work merged between 2026-08-28 and 2026-09-01. **Three remain.**
-`restore-the-skipped-unit-tests` and `fix-launch-thread-mentions` were
-implemented and archived on 2026-09-01, and
+review of the work merged between 2026-08-28 and 2026-09-01. **Three remain**,
+one of which was not among the eight. `restore-the-skipped-unit-tests` and
+`fix-launch-thread-mentions` were implemented and archived on 2026-09-01, and
 `await-the-subcategory-advisors-graph` and `inject-the-thread-anchor-poster`
-on 2026-09-02, and `share-the-unit-test-harness` on 2026-09-04; all five
-entries were deleted, per the rule below. The rest exist as a `proposal.md`
+on 2026-09-02, and `share-the-unit-test-harness` and its first follow-up
+`share-the-value-doubles` on 2026-09-04; all six entries were deleted, per the
+rule below. `share-the-stateful-fakes` is the second half of that follow-up and
+is the entry here that the 2026-09-01 review did not produce. The rest exist as a `proposal.md`
 on their own branch and are unimplemented — except where one is in flight,
 which this file does not track, since a queue that also tracked progress
 would need updating twice. This document records the order
@@ -61,25 +63,7 @@ so "these must not collide" is checkable by reading four lines.
 `defer-eager-clickup-convergence`, which changes how long the advance lock is
 held and by which process.
 
-## 3. `share-the-value-doubles`
-
-**In flight, largely landed.** The value half of the doubles: 166 of 186 local
-declarations across seven names — `_Member` 47 and its twin `_FakeMember` 5,
-`_CatalogProduct` 40, `_Record` 30, `_TaskMapping` 19, `_PendingRow` 16,
-`_FakeTask` 15, `_CreatedTask` 14 — replaced by shared types in
-`tests/support/values.py`.
-
-It took this half first because the equivalence proof that caught the parent
-change's defects **is** expressible here: a double with no behaviour is a value
-wearing a class, and comparing two of them field-by-field is that proof written
-against fields rather than `==`. It caught one real disagreement, in two files
-whose `clickup_user_id` the design had recorded wrongly.
-
-Values also come first for composition: these seven are the leaves the stateful
-fakes hold, so sharing a store before sharing the member it holds would repeat
-the parent change's `_hold` failure exactly.
-
-## 4. `share-the-stateful-fakes`
+## 3. `share-the-stateful-fakes`
 
 The other half: the doubles with behaviour — `_FakeMembers` 43,
 `_FakeMembersStore` 38, `_FakeStepStore` 37, `_FakeLaunches` and `_FakePlaybooks`
@@ -93,13 +77,20 @@ tests — a deliberate exception to the tier layout, and the only proposed thing
 that reaches the same-surface-different-behaviour risk. It is collected, unlike
 `tests/support/`, so it is the one slice whose collected count moves.
 
-**Must follow `share-the-value-doubles`**, which supplies the leaves its stores
-hold.
+**`share-the-value-doubles` landed first** (archived 2026-09-04) and supplies
+the leaves these stores hold: `Member`, `CatalogProduct`, `Record`,
+`TaskMapping`, `PendingRow`, `FakeTask`, `CreatedTask` in
+`tests/support/values.py`. A shared store holding *shared* members is
+reproducible across files; one holding each file's own is the parent change's
+`_hold` problem again. Whether that ordering was worth it is testable rather
+than assumed: if these stores still cap at a partial hit rate, partition the
+findings on whether the file's leaf migrated — the claim is only about the
+migrated partition.
 
 **Conflict-prone**, like its predecessor: it touches many test files, so it does
 not run concurrently with anything else that edits `tests/` broadly.
 
-## 5. `unify-launch-adapter-dependencies`
+## 4. `unify-launch-adapter-dependencies`
 
 One dependencies object per process, replacing 11 mutable module globals, 5
 verbatim copies of `_launch_folder_id`, and 6 of `_read_product_or_fail`
@@ -110,17 +101,24 @@ those globals outright by moving convergence off the four request-path
 adapters. Re-scope it on arrival rather
 than executing it as written.
 
-**Must also follow `share-the-value-doubles`, and `share-the-stateful-fakes`**, and this entry is placed last
-for that reason rather than by preference. Deleting the member-identifier
-probe is only safe once every member double supplies `identifier`: measured
-2026-09-04, `src/` carries six copies of that probe and all 52 member doubles
-in `tests/` spell the field `id` alone, so deleting the `id` branch first
-fails them all. `share-the-value-doubles` supplies the spelling and
-`share-the-stateful-fakes` finishes the population; this change is what
-performs the deletion. The probe surface is ten `getattr` shape probes in
-total — `docs/deferred-work.md` records three — and two of the ten are reader
-shapes rather than attribute spellings, so re-measure by shape before
-deleting anything.
+**Must also follow `share-the-stateful-fakes`**, and this entry is placed last
+for that reason rather than by preference.
+
+The member-identifier half of its warrant is already met.
+`share-the-value-doubles` (archived 2026-09-04) gave all 52 member doubles an
+`identifier`, so the second and third branches of all six member-identifier
+probes are now unreachable from any test — proven there by mutation. What is
+*not* yet met is `clickup_sync._members`, which probes three reader shapes and
+sits opposite the stateful `FakeMembers` this change must wait for.
+
+Two cautions carried from that work. The probe surface is **ten** `getattr`
+shape probes, and `docs/deferred-work.md` now records the measurement *method*
+beside them, because every spelling-based sweep of this ground has come back
+stale — re-measure structurally, and note that two of the ten are reader shapes
+rather than attribute spellings and so fall outside that measurement entirely.
+And the six member probes' fall-through branches are currently *untested*
+rather than unused: **do not narrow one on the strength of a green suite** until
+this change deletes it deliberately.
 
 ---
 
