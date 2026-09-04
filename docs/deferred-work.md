@@ -1088,11 +1088,62 @@ widened so that a double written to the minimum keeps passing. It is also
 where a good deal of `automation_pass.py`'s 35 `: Any` annotations come
 from, which is `mypy strict` being satisfied nominally.
 
+**Corrected 2026-09-04, while implementing `share-the-unit-test-harness`.**
+The list above is stale in both directions. Five tolerances still stand and five
+were listed — but they are not the same five, so the unchanged count hides two
+closures and one site that was never recorded. The bullets above also carry line
+numbers that have since moved. Measured against the current source:
+
+| site | what it tolerates | status |
+|---|---|---|
+| `gate_progression_job.py:256` (`_crossed`) | a fake modelling less than `LaunchProgressed` | stands |
+| `gate_progression_job.py:267` (`_awaiting_gate`) | probes `("awaiting_gate", "gate_id", "current_gate")` | stands |
+| `clickup_sync.py:128` (`_members`) | three shapes: `list_members()`, a callable, a plain iterable | stands |
+| `clickup_sync.py:139` (`_member_identifier`) | probes `("identifier", "id", "member_id")` | **stands, and was recorded nowhere** |
+| `playbook_authoring.py:266` (`member_identifier`) | the same probe, verbatim | **stands** — it was not closed with its neighbour |
+| `automated_decisions.py` (`_member_for`) | three spellings for one member lookup | **closed**, after refusing every decision by every identity in production |
+| `playbook_authoring.py:245` (`_read_members`) | three reader shapes | **closed**, after `'PostgresMembers' object is not iterable` mid-write |
+
+The last two entries are why the count moved in both directions: two were
+closed, and one that was never listed is live. `clickup_sync._member_identifier`
+and `playbook_authoring.member_identifier` are the same eight lines in two
+modules.
+
 Not fixable on its own. A tolerance may only be deleted once the doubles it
-tolerates are complete, so this closes behind `share-the-unit-test-harness`
-(complete builders) and `unify-launch-adapter-dependencies` (protocols
-naming a shape without naming a forbidden type) — recorded here because
-the finding predates both and outlives either landing alone.
+tolerates are complete, so this closes behind **`share-the-test-doubles`** — the
+follow-up carrying the shared fakes, since `share-the-unit-test-harness` shipped
+the builders and cut the fakes — and `unify-launch-adapter-dependencies`
+(protocols naming a shape without naming a forbidden type). Recorded here
+because the finding predates both and outlives either landing alone.
+
+### `uv run pytest` fails at collection, and no gate notices
+
+`AGENTS.md` documents the test command as `uv run pytest`. On `main` it does not
+run: `testpaths` names all three tiers, and two basenames repeat across them —
+`test_product_hazard_categories.py` in `tests/unit/catalog/domain/` and
+`tests/integration/catalog/`, and `test_placeholder.py` in `tests/unit/` and
+`tests/integration/`. Under pytest's `prepend` import mode, with no `__init__.py`
+in those directories, both import as the same top-level module and collection is
+interrupted with `import file mismatch`.
+
+**Every gate invokes the tiers separately** — `pre-commit` and CI both run
+`pytest tests/unit tests/agents` and then `pytest tests/integration` — so none
+of them ever hits it. Only the documented command does, which is why it has
+survived: the failure is invisible to exactly the population that would fix it.
+
+Found 2026-09-04 while taking a whole-suite baseline for
+`share-the-unit-test-harness`, which measured per tier instead and recorded why.
+
+**Two fixes, and they differ in scope.** Rename one file of each pair, which is
+two commits and no semantics; or add the missing `__init__.py` files, of which
+only 9 of roughly 70 test directories have one. `share-the-unit-test-harness`'s
+`design.md` Decision 1 considered the second and rejected it as unnecessary
+scope — this finding is the evidence against that judgement, since those
+absences have already cost the project its documented test command.
+
+**Trigger to close.** Anyone running `uv run pytest` and believing the result;
+or the next change that adds a test file whose basename already exists in
+another tier.
 
 ### Migration `1a2b3c4d5e6f` carries a hand-invented revision id
 

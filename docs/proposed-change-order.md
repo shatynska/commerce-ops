@@ -1,11 +1,12 @@
 # Proposed change order
 
 **Status: working queue.** Eight changes were proposed on 2026-09-01 from a
-review of the work merged between 2026-08-28 and 2026-09-01. **Four remain.**
+review of the work merged between 2026-08-28 and 2026-09-01. **Three remain.**
 `restore-the-skipped-unit-tests` and `fix-launch-thread-mentions` were
 implemented and archived on 2026-09-01, and
 `await-the-subcategory-advisors-graph` and `inject-the-thread-anchor-poster`
-on 2026-09-02; all four entries were deleted, per the rule below. The rest exist as a `proposal.md`
+on 2026-09-02, and `share-the-unit-test-harness` on 2026-09-04; all five
+entries were deleted, per the rule below. The rest exist as a `proposal.md`
 on their own branch and are unimplemented — except where one is in flight,
 which this file does not track, since a queue that also tracked progress
 would need updating twice. This document records the order
@@ -71,26 +72,34 @@ so "these must not collide" is checkable by reading four lines.
 `defer-eager-clickup-convergence`, which changes how long the advance lock is
 held and by which process.
 
-## 4. `share-the-unit-test-harness`
+## 4. `share-the-test-doubles`
 
-162,335 lines of tests against 23,629 of source, across 272 test files and
-**four** `conftest.py` files. Eleven separate `_FakeSession` classes. This is
-what turned one added keyword argument into the 24-test outage
-`restore-the-skipped-unit-tests` cleaned up, and it is why production code
-carries `getattr` tolerances for doubles that model less than their subject.
+The half of `share-the-unit-test-harness` that was cut from it: **455 fake
+declarations across 18 names** — `_Member` (47), `_FakeMembers` (43),
+`_FakeMembersStore` (38), `_FakeStepStore` (37), `_CatalogProduct` (40) and
+their neighbours. Proposed 2026-09-04 from that change's own implementation,
+not from the 2026-09-01 review that produced the rest of this queue.
 
-**Last**, because it touches nearly every test file and will conflict with
-anything else in flight. Its precondition — `restore-the-skipped-unit-tests`
-landed, so no file being migrated is one nobody has seen run — is now met.
+**Why it was cut rather than finished.** The harness change migrated `_step`
+whole (135 of 135) but reached only 31 of 104 `_hold` and 13 of 95 `_playbook`,
+because both compose *over* `_step`: a local helper built on a customised step
+is not reproducible by a shared one built on the canonical step, however the
+deltas are forwarded. The fakes are that problem with less protection —
+`FakeStepStore() == FakeStepStore()` is identity, so the per-file equivalence
+proof that caught **five** real defects during the harness migration, every one
+of them leaving assertions textually identical and the suite green, cannot be
+expressed for them at all.
 
-**Rebase it onto `rename-the-roster-to-members`, not the reverse.** That
-change renames the people directory to members across 219 files, 126 of them
-under `tests/`, and thirteen test files change name with their subject. Once
-it merges, rebase onto it; this entry is already *last*, so the ordering
-costs nothing — but
-it is recorded here because this file is the one place cross-change ordering
-lives, and a dependency that exists only in a merged change's `proposal.md`
-is one nobody reads at the moment it matters.
+**So its design must start from composition**, not discover it: how a shared
+fake held by a shared store held by a shared session stays reproducible, and
+what stands in for an equality proof when `==` is identity. `AGENTS.md`'s
+"The shared harness" section already records the rules it is held to, including
+the same-value invariant that stops a *complete* double redirecting a production
+shape probe.
+
+**Order-independent but conflict-prone**, for the same reason its parent was:
+it touches many test files. `docs/deferred-work.md`'s tolerance entry closes
+behind this change, not behind the harness one.
 
 ---
 
