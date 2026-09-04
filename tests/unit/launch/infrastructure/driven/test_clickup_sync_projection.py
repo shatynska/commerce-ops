@@ -105,6 +105,9 @@ from tests.support.playbook import gates as _gates
 from tests.support.steps import hold as _build_hold
 from tests.support.steps import step as _build_step
 from tests.support.values import CatalogProduct as _CatalogProduct
+from tests.support.values import CreatedTask as _CreatedTask
+from tests.support.values import FakeTask as _FakeTask
+from tests.support.values import TaskMapping as _TaskMapping
 
 pytestmark = pytest.mark.anyio
 
@@ -236,27 +239,6 @@ class _FakeCatalog:
         return self._product
 
 
-@dataclass
-class _FakeTask:
-    """A ClickUp task as the fake holds it, and as `list_tasks` reports it."""
-
-    id: str
-    name: str
-    list_id: str
-    status: str = "to do"
-    closed: bool = False
-    due_date: Any = None
-    tags: tuple[str, ...] = ()
-
-
-@dataclass(frozen=True)
-class _CreatedTask:
-    """What `create_task` hands back -- only `.id` is consumed."""
-
-    id: str
-    url: str
-
-
 def _due_date_in(fields: dict[str, Any]) -> tuple[bool, Any]:
     """Any due-date-bearing field in a create/update payload.
 
@@ -357,19 +339,6 @@ class _FakeClickUp:
 
     def calls_named(self, name: str) -> list[Any]:
         return [payload for called, payload in self.calls if called == name]
-
-
-@dataclass
-class _TaskMapping:
-    product_id: ProductId
-    step_id: str
-    task_id: str
-    last_observed_closed: bool = False
-    # `move-playbook-steps-to-postgres`: the retained last-written
-    # compositions the conditional wording-healing keys on.
-    retained_name: str | None = None
-    retained_body: str | None = None
-    retained_assignees: tuple[str, ...] | None = None
 
 
 class _FakeMapping:

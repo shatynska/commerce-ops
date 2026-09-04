@@ -132,6 +132,7 @@ from tests.support.fixtures import (
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
 from tests.support.values import CatalogProduct as _CatalogProduct
+from tests.support.values import PendingRow as _PendingRow
 
 pytestmark = pytest.mark.anyio
 
@@ -275,20 +276,6 @@ class _FakeHandlers:
 
     def get(self, name: str, default: Any = None) -> Any:
         return self._handlers.get(name, default)
-
-
-@dataclass
-class _PendingRow:
-    product_id: ProductId
-    step_id: str
-    handler: str
-    proposed_outcome: Any
-    result_text: str
-    produced_at: datetime
-    state: str = "pending"
-    delivered_at: datetime | None = None
-    decided_by: str | None = None
-    decided_at: datetime | None = None
 
 
 class _FakeResults:

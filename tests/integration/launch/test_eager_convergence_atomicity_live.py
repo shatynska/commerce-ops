@@ -106,7 +106,6 @@ import inspect
 import uuid
 from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager
-from dataclasses import dataclass
 from types import ModuleType
 from typing import Any, Final
 
@@ -144,6 +143,8 @@ from tests.support.playbook import opening_for as _opening_for
 from tests.support.steps import hold as _build_hold
 from tests.support.steps import step as _build_step
 from tests.support.values import CatalogProduct as _CatalogProduct
+from tests.support.values import CreatedTask as _CreatedTask
+from tests.support.values import FakeTask as _FakeTask
 
 pytestmark = pytest.mark.anyio
 
@@ -260,23 +261,6 @@ async def _persist_launch(engine: AsyncEngine, launch: Launch) -> None:
 # ---------------------------------------------------------------------------
 # A fake ClickUp — in-memory, transcribed from `test_clickup_sync_projection.py`
 # ---------------------------------------------------------------------------
-
-
-@dataclass
-class _FakeTask:
-    id: str
-    name: str
-    list_id: str
-    #: `converge_launch` reads this (`_as_date(task.due_date)`) for every
-    #: already-mapped task it re-encounters; `None` is a task with no due
-    #: date set, which `_as_date` already handles.
-    due_date: Any = None
-
-
-@dataclass(frozen=True)
-class _CreatedTask:
-    id: str
-    url: str
 
 
 class _FakeClickUp:

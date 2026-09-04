@@ -109,6 +109,7 @@ from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
 from tests.support.steps import step as _build_step
 from tests.support.values import MemberValue as _Member
+from tests.support.values import PendingRow as _PendingRow
 
 pytestmark = pytest.mark.anyio
 
@@ -214,20 +215,6 @@ def _members() -> _FakeMembers:
             active=False,
         ),
     )
-
-
-@dataclass
-class _PendingRow:
-    product_id: ProductId
-    step_id: str
-    handler: str
-    proposed_outcome: Any
-    result_text: str
-    produced_at: datetime
-    state: str = "pending"
-    delivered_at: datetime | None = None
-    decided_by: str | None = None
-    decided_at: datetime | None = None
 
 
 class _FakeResults:

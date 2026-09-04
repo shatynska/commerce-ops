@@ -89,6 +89,9 @@ from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
 from tests.support.steps import step as _build_step
 from tests.support.values import CatalogProduct as _CatalogProduct
+from tests.support.values import CreatedTask as _CreatedTask
+from tests.support.values import FakeTask as _FakeTask
+from tests.support.values import TaskMapping as _TaskMapping
 
 pytestmark = pytest.mark.anyio
 
@@ -170,24 +173,6 @@ class _FakeCatalog:
 
     async def __call__(self, product_id: ProductId) -> _CatalogProduct:
         return self._product
-
-
-@dataclass
-class _FakeTask:
-    id: str
-    name: str
-    list_id: str
-    description: str | None = None
-    status: str = "to do"
-    closed: bool = False
-    due_date: Any = None
-    tags: tuple[str, ...] = ()
-
-
-@dataclass(frozen=True)
-class _CreatedTask:
-    id: str
-    url: str
 
 
 def _due_date_in(fields: dict[str, Any]) -> tuple[bool, Any]:
@@ -308,18 +293,6 @@ class _FakeClickUp:
             and payload["task_id"] == task_id
             and "description" in payload["fields"]
         ]
-
-
-@dataclass
-class _TaskMapping:
-    product_id: ProductId
-    step_id: str
-    task_id: str
-    last_observed_closed: bool = False
-    # INVENTED (tasks.md 2.2): the retained last-written compositions.
-    retained_name: str | None = None
-    retained_body: str | None = None
-    retained_assignees: tuple[str, ...] | None = None
 
 
 class _FakeMapping:

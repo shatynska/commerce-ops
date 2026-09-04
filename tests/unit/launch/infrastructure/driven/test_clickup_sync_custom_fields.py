@@ -153,7 +153,10 @@ from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import playbook as _build_playbook
 from tests.support.steps import step as _build_step
 from tests.support.values import CatalogProduct as _CatalogProduct
+from tests.support.values import CreatedTask as _CreatedTask
+from tests.support.values import FakeTask as _FakeTask
 from tests.support.values import Member as _Member
+from tests.support.values import TaskMapping as _TaskMapping
 
 pytestmark = pytest.mark.anyio
 
@@ -420,43 +423,6 @@ def _members() -> _FakeMembers:
     return _FakeMembers((_Member(ALICE, "Alice Admin", clickup_user_id=ALICE_CLICKUP),))
 
 
-@dataclass
-class _FakeTask:
-    id: str
-    name: str
-    list_id: str
-    status: str = "to do"
-    closed: bool = False
-    due_date: Any = None
-    body: Any = None
-    description: Any = None
-    assignees: tuple[str, ...] = ()
-    tags: tuple[str, ...] = ()
-    custom_fields: dict[str, Any] = field(default_factory=dict)
-
-    @property
-    def custom_field_values(self) -> dict[str, Any]:
-        """Fixture correction: the spelling the domain object carries.
-
-        No artifact fixes the attribute's name -- the manifest records that
-        as an open question, and the client tests probe both spellings. This
-        fake pinned one; the read reports the other. Aliasing rather than
-        renaming keeps every assertion here written against `custom_fields`
-        valid while letting the pass find what it actually looks for. Without
-        it the pass reads an empty mapping for every task, so every task
-        looks unvalued and is written again on every pass -- which is the
-        write storm these scenarios exist to catch, hidden by the fixture
-        rather than by the code.
-        """
-        return self.custom_fields
-
-
-@dataclass(frozen=True)
-class _CreatedTask:
-    id: str
-    url: str
-
-
 def _custom_fields_in(payload: Mapping[str, Any]) -> tuple[bool, Any]:
     """Any Custom Field claim on a create payload. Returns (present, value).
 
@@ -637,17 +603,6 @@ class _FakeClickUp:
             (payload["task_id"], payload["field_id"], payload["value"])
             for payload in self.calls_named("set_task_field")
         ]
-
-
-@dataclass
-class _TaskMapping:
-    product_id: ProductId
-    step_id: str
-    task_id: str
-    last_observed_closed: bool = False
-    retained_name: str | None = None
-    retained_body: str | None = None
-    retained_assignees: tuple[str, ...] | None = None
 
 
 class _FakeMapping:

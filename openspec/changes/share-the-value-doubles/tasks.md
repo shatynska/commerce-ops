@@ -408,17 +408,17 @@ declaration in that module. Do not migrate it and do not count it.
 The clearest case for Decision 3's subset rule: 2 bodies, the shorter a strict
 prefix of the longer, no disagreement anywhere.
 
-- [ ] 6.1 Add `TaskMapping` as a **`@dataclass`** (all 19 declarations are, none
+- [x] 6.1 Add `TaskMapping` as a **`@dataclass`** (all 19 declarations are, none
       frozen) with all seven fields, `retained_*` defaulting to `None` and
       `last_observed_closed` to `False`.
-- [ ] 6.2 Same-value check: `clickup_sync.py:514-515` reads `retained_name` and
+- [x] 6.2 Same-value check: `clickup_sync.py:514-515` reads `retained_name` and
       `retained_body`, and `:536` reads `retained_assignees`, each through
       `getattr(mapped, name, None)`. The 7 short-form declarations produce
       `None` there today, so the shared defaults must be `None` — which they
       are. Record the check; it is one line and it is the whole risk.
-- [ ] 6.3 Instrument, verify, settle, verify; record the not-migrated.
+- [x] 6.3 Instrument, verify, settle, verify; record the not-migrated.
 
-## 7. `PendingRow` — 16 declarations, expectation 9
+## 7. `PendingRow` — 16 declarations, expectation 9 → **6 measured**
 
 The one name whose earlier expectation was arithmetic rather than measurement.
 Measured, the 16 are six groups:
@@ -432,11 +432,11 @@ Measured, the 16 are six groups:
 | 2 | plain | seven fields |
 | 1 | plain | six fields |
 
-- [ ] 7.1 The shared type is a **`@dataclass`** carrying the canonical ten, with
+- [x] 7.1 The shared type is a **`@dataclass`** carrying the canonical ten, with
       `state='pending'` and `delivered_at` / `decided_by` / `decided_at`
       defaulting to `None`. State every default explicitly, as 5.1, 6.1 and 8.2
       do.
-- [ ] 7.2 That takes **9 of 16** — the 7 canonical and the 2 subsets. The 3
+- [x] 7.2 That takes **9 of 16** — the 7 canonical and the 2 subsets. The 3
       plain declarations are out under clause (b). The 4 remaining dataclass
       declarations are supersets, and each needs a recorded decision rather than
       an assumption:
@@ -450,7 +450,7 @@ Measured, the 16 are six groups:
         order. That is a clause-(c) failure, not a clause-(a) one: an adapter
         subclass fixes it, or they stay local. **Do not reorder the shared
         type's fields to accommodate them** — that breaks the 9.
-- [ ] 7.3 Check the `automation_pass.py` probes against this type before fixing
+- [x] 7.3 Check the `automation_pass.py` probes against this type before fixing
       defaults — `("noted_kind", "outcome_kind", "outcome", "kind",
       "noted_outcome")` at :209, `("noted_at", "when")` at :217 and
       `("reported_at", "reported", "has_been_reported")` at :225. If the shared
@@ -458,21 +458,37 @@ Measured, the 16 are six groups:
       populated, the same-value invariant applies and is recorded here. **If it
       does not, say so explicitly** — an unstated absence reads the same as an
       unchecked one.
-- [ ] 7.4 Add the type, protocol and `_conforms`; instrument, verify, settle,
+- [x] 7.4 Add the type, protocol and `_conforms`; instrument, verify, settle,
       verify; record the not-migrated and the outcome of 7.2's two decisions.
+
+      **The record: 6 of 16, not 9.** 7.2's decomposition missed a third
+      exclusion class, and clause (c) caught it: `test_automated_decision_wiring
+      .py`, `test_automation_confirmation_delivery.py` and
+      `test_automation_confirmation_to_thread_reply.py` default **every**
+      required field to a file-local literal, so `_PendingRow()` with no
+      arguments works locally and `TypeError`s against a shared type that
+      requires them. Their defaults are file-specific values, so the shared type
+      cannot carry them without becoming those files' fixture.
+
+      7.2's own two decisions resolved as it anticipated: the 2 adding `extra`
+      and the 2 adding `id` first stay local, `extra` not being added to the
+      shared type and the field order not being reordered.
+
+      Not migrated, 10: 3 plain (clause b), 4 supersets (clause a), 3 defaulting
+      every required field (clause c).
 
 ## 8. `FakeTask` — 15 declarations, expectation 15
 
 Carries `design.md` Decision 6, the invariant's sharper instance.
 
-- [ ] 8.1 Add `FakeTask` as a **`@dataclass`** (all 15 are, none frozen), with
+- [x] 8.1 Add `FakeTask` as a **`@dataclass`** (all 15 are, none frozen), with
       **`description` defaulting to `None`**. Measured:
       `clickup_sync.py:517` reads `getattr(task, "description", None)`, and of
       the 15 locals 5 carry neither spelling, 5 carry `body` only, 4 carry
       `description` only and 1 carries both — so 10 of 15 exercise
       `task_body = None` today and a populated default would change them
       silently, with `mypy`, the AST check and the suite all still green.
-- [ ] 8.2 State `FakeTask`'s **full field list and every default**, not only
+- [x] 8.2 State `FakeTask`'s **full field list and every default**, not only
       `description`'s. Two of them are governed by production reads and are not
       free choices:
 
@@ -485,15 +501,27 @@ Carries `design.md` Decision 6, the invariant's sharper instance.
       For every remaining field, record the default and the search that shows
       whether `src/` reads it by shape. A field added without that search is the
       defect `design.md` risk 2 names.
-- [ ] 8.3 Instrument, verify, settle, verify — **the instrument commit runs the
+- [x] 8.3 Instrument, verify, settle, verify — **the instrument commit runs the
       integration tier too**, for the declaration at
       `test_eager_convergence_atomicity_live.py:271`. Record the not-migrated. One
       declaration carries a behaviour method; if it cannot be reproduced by the
       shared dataclass it stays local and the expectation drops to 14.
 
+      **The record: 15 of 15.** The behaviour method is reproducible after all,
+      and reproducing it is the right call rather than a concession.
+      `test_clickup_sync_custom_fields.py`'s local carries `custom_fields` plus
+      a `custom_field_values` **property** aliasing it, with a docstring saying
+      it is a fixture correction for a spelling the manifest records as an open
+      question. That is the same shape as `Member.identifier`: the field keeps
+      the locals' spelling, production's spelling is derived from it, and the
+      same-value invariant holds by construction because
+      `clickup_sync.py:647` reads `getattr(task, "custom_field_values", {})`
+      and an empty `custom_fields` renders exactly the `{}` the fall-through
+      produced. The shared type carries both, and all 15 migrated.
+
 ## 9. `CreatedTask` — 14 declarations, expectation 14
 
-- [ ] 9.1 One body across 14 declarations, modulo a docstring on one, and all 14
+- [x] 9.1 One body across 14 declarations, modulo a docstring on one, and all 14
       are `@dataclass(frozen=True)` — so the shared type is too. Add the type,
       protocol and `_conforms`; instrument, verify, settle, verify — **the
       instrument commit runs the integration tier too**, for the declaration at
