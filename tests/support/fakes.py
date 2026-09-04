@@ -44,3 +44,34 @@ class FakeSlackResponse(dict[str, Any]):
     @property
     def data(self) -> dict[str, Any]:
         return dict(self)
+
+
+class FakeHandlers:
+    """The step-handler registry, in the both-shapes form the suite records.
+
+    A container answering `__contains__` and `names()`, plus `resolve` and
+    `get`. `automation_pass:770` asks the membership question directly --
+    `name in handlers` -- and resolves only then, so `__contains__` is a call
+    production makes rather than a convention it probes for; both
+    `_registered_names` sites read `names()`, which every one of the eight local
+    declarations provided, so nothing this fake carries displaces a branch.
+
+    `resolve` raises `KeyError` for a name it never held and `get` answers the
+    default, matching the eight and matching production's own comment that
+    "`resolve` is free to raise for a name it never held".
+    """
+
+    def __init__(self, **handlers: Any) -> None:
+        self._handlers = dict(handlers)
+
+    def __contains__(self, name: object) -> bool:
+        return name in self._handlers
+
+    def names(self) -> tuple[str, ...]:
+        return tuple(self._handlers)
+
+    def resolve(self, name: str) -> Any:
+        return self._handlers[name]
+
+    def get(self, name: str, default: Any = None) -> Any:
+        return self._handlers.get(name, default)

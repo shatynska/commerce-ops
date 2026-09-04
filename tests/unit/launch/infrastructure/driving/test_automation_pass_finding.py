@@ -122,6 +122,8 @@ from commerce_ops.launch.infrastructure.driving import automation_pass
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
 from commerce_ops.shared.domain.result import Failure, Success
+from tests.support._paired import paired as _paired
+from tests.support.fakes import FakeHandlers as _Shared
 from tests.support.fixtures import (
     HANDLER_NAME,
     LAUNCH_DATE,
@@ -261,6 +263,7 @@ class _ScriptedHandler:
         return bool(self.contexts)
 
 
+@_paired(_Shared)
 class _FakeHandlers:
     def __init__(self, **handlers: Any) -> None:
         self._handlers = dict(handlers)

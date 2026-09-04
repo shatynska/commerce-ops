@@ -93,6 +93,8 @@ from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.launch.infrastructure.driving import automation_pass
 from commerce_ops.shared.domain.access_scope import AccessScope
 from commerce_ops.shared.domain.identity import ProductId
+from tests.support._paired import paired as _paired
+from tests.support.fakes import FakeHandlers as _Shared
 from tests.support.fixtures import (
     ALICE,
     LAUNCH_DATE,
@@ -215,6 +217,7 @@ class _ScriptedHandler:
         return self.resolution
 
 
+@_paired(_Shared)
 class _FakeHandlers:
     def __init__(self, **handlers: Any) -> None:
         self._handlers = dict(handlers)

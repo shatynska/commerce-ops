@@ -153,6 +153,8 @@ from commerce_ops.launch.domain.launch_run import (
 from commerce_ops.launch.infrastructure.driving import automation_pass
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
+from tests.support._paired import paired as _paired
+from tests.support.fakes import FakeHandlers as _Shared
 from tests.support.fixtures import (
     ALICE,
     HANDLER_NAME,
@@ -359,6 +361,7 @@ class _RaisingHandler:
         return bool(self.contexts)
 
 
+@_paired(_Shared)
 class _FakeHandlers:
     """The step-handler registry, in the both-shapes form
     `tests/unit/launch/application/test_step_activation.py` records: a

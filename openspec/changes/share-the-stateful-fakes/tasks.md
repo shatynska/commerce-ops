@@ -179,7 +179,7 @@ Counts here are AST counts. Do not re-derive one by grep.
 
 ## 4. `FakeHandlers` — 8 declarations, one body
 
-- [ ] 4.1 Add `FakeHandlers` (`__contains__`, `get`, `names`, `resolve`, over
+- [x] 4.1 Add `FakeHandlers` (`__contains__`, `get`, `names`, `resolve`, over
       `**handlers`), its protocol and `_conforms`, and its contract tests.
       Declare the number of tests added. The contract tests state the absent-key
       behaviour explicitly: `get` returns the default, `resolve` raises
@@ -187,9 +187,13 @@ Counts here are AST counts. Do not re-derive one by grep.
 - [ ] 4.2 Instrument, verify, settle, verify. **Expected: 8 of 8, all aliases.**
       The wrapped set includes `__contains__`, which is a dunder and is the
       surface production calls at `automation_pass:770`.
-- [ ] 4.3 Record the same-value check for `_registered_names`: every one of the
+- [x] 4.3 Record the same-value check for `_registered_names`: every one of the
       8 already provides `names()`, so the probe's first branch already fires
       and the shared fake displaces nothing (`design.md` Decision 6).
+      **Confirmed: all 8 declare `names()`, so both `_registered_names` sites
+      take their first branch before and after. `__contains__` is kept because
+      `automation_pass:770` calls `name in handlers` directly -- a call, not a
+      convention -- and `get` is carried because all 8 declared it.**
 
 ## 5. `StubDate` — 15 declarations, one body, **proof-exempt**
 

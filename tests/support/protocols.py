@@ -58,7 +58,7 @@ from __future__ import annotations
 from typing import Any, Protocol
 
 from commerce_ops.shared.domain.identity import Sku
-from tests.support.fakes import FakeSlackResponse
+from tests.support.fakes import FakeHandlers, FakeSlackResponse
 from tests.support.values import CatalogProduct, Member, MemberValue
 
 
@@ -121,3 +121,28 @@ class SlackResponseShape(Protocol):
 
 
 _slack_response_conforms: SlackResponseShape = FakeSlackResponse()
+
+
+class HandlerRegistryShape(Protocol):
+    """What production reads off a step-handler registry.
+
+    Three things, and `names` is the one a probe chooses on:
+    `activation_readiness._registered_names` and
+    `playbook_authoring._registered_names` both call it if it is callable and
+    otherwise iterate the registry itself. Every double in this suite provides
+    it, so the iteration branch is unreachable from `tests/` -- which is why
+    `FakeHandlerRegistry` may drop `__iter__` under clause (e) and why this
+    protocol does not declare it.
+
+    `__contains__` and `resolve` are calls rather than conventions:
+    `automation_pass:770` evaluates `name in handlers` and resolves only then.
+    """
+
+    def names(self) -> tuple[str, ...]: ...
+
+    def __contains__(self, name: object, /) -> bool: ...
+
+    def resolve(self, name: str, /) -> Any: ...
+
+
+_handlers_conforms: HandlerRegistryShape = FakeHandlers()
