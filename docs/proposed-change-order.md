@@ -6,12 +6,14 @@ one of which was not among the eight. `restore-the-skipped-unit-tests` and
 `fix-launch-thread-mentions` were implemented and archived on 2026-09-01, and
 `await-the-subcategory-advisors-graph` and `inject-the-thread-anchor-poster`
 on 2026-09-02, and `share-the-unit-test-harness` and its first follow-up
-`share-the-value-doubles` on 2026-09-04; all six entries were deleted, per the
-rule below. `share-the-stateful-fakes` is the second half of that follow-up and
-is the entry here that the 2026-09-01 review did not produce. The rest exist as a `proposal.md`
-on their own branch and are unimplemented — except where one is in flight,
-which this file does not track, since a queue that also tracked progress
-would need updating twice. This document records the order
+`share-the-value-doubles` and `share-the-stateful-fakes` on 2026-09-04; all
+seven entries were deleted, per the rule below. `share-the-aggregate-fakes` is
+what that last one left behind and is the entry here that the 2026-09-01 review
+did not produce; **it is the one entry with no `proposal.md` yet**, and it is
+recorded anyway because the ordering constraint on it is real and lives nowhere
+else. The others exist as a `proposal.md` on their own branch and are
+unimplemented — except where one is in flight, which this file does not track,
+since a queue that also tracked progress would need updating twice. This document records the order
 they should be worked in and the dependencies between them, because that
 ordering is a real constraint and it lives nowhere else — a proposal states
 its own sequencing notes, but nothing reads all of them together.
