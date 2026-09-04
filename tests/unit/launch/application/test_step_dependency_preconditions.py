@@ -87,10 +87,8 @@ from commerce_ops.launch.domain.launch_playbook import (
 from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
-from tests.support._paired import paired as _paired
 from tests.support.fakes import FakeHandlerRegistry as _FakeHandlerRegistry
-from tests.support.fakes import FakeMembers as _MembersShared
-from tests.support.fakes import FakeStepStore
+from tests.support.fakes import FakeMembers, FakeStepStore
 from tests.support.fixtures import ALICE, ALICE_NAME, PRINCIPAL
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import opening_for as _opening_for
@@ -133,22 +131,9 @@ def _holding_step(gate: str) -> StepDefinition:
 _FakeStepStore = FakeStepStore[Any]
 
 
-@_paired(
-    _MembersShared,
-    build_from=lambda local: _MembersShared(local.members_rows),
-    state={"members_rows": "_members"},
-)
-class _FakeMembers:
+class _FakeMembers(FakeMembers):
     def __init__(self) -> None:
-        self.members_rows = (_Member(ALICE, ALICE_NAME),)
-
-    async def list_members(self) -> tuple[_Member, ...]:
-        return self.members_rows
-
-    members = list_members
-
-    async def __call__(self) -> tuple[_Member, ...]:
-        return await self.list_members()
+        super().__init__((_Member(ALICE, ALICE_NAME),))
 
 
 def _store(extra: tuple[_Record, ...] = ()) -> _FakeStepStore:

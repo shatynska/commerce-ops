@@ -461,7 +461,7 @@ Counts here are AST counts. Do not re-derive one by grep.
       roster, the ordering `list_members` returns, and `member()` on a present
       and an absent identifier; declare the number added. **Five tests added;
       `tests/unit/support/` now collects 46.**
-- [ ] 11.3 Instrument, verify, settle, verify. **Both** commits run the
+- [x] 11.3 Instrument, verify, settle, verify. **Both** commits run the
       integration tier with `COMMERCE_OPS_REQUIRE_DATABASE=1`
       (`test_seeded_step_fields.py:579`). **Expected: 41 of 43 — 8 aliases and
       33 adapters, 2 kept.** By constructor signature the 43 split 20 with no
@@ -474,6 +474,42 @@ Counts here are AST counts. Do not re-derive one by grep.
       `test_step_assignee_preconditions.py` (`reads`) — each of which puts an
       attribute on the local that the shared fake has not, which is Decision 2's
       first failure row. They carry no `@paired` line in the committed tree.
+
+      **Actual: 41 of 43 — 8 aliases and 33 adapters, 2 kept, exactly as
+      expected. But only 17 of the 41 could be paired**, and the 24 that could
+      not are the design's own fourth blind spot rather than a defect:
+
+      - **20 build a fresh roster inside `list_members` on every call.** There
+        is no stored state to seed a twin from, and `values.Member` is a plain
+        class whose `==` is identity by design — so no twin, however built, can
+        compare equal, and the local is not even self-consistent across two
+        calls. Inexpressible, not merely unproven.
+      - **4 store the roster as a `list` where the shared fake stores a
+        `tuple`.** A private representation that every read normalises away, and
+        the state comparison correctly reports it. The comparator was **not**
+        weakened to accept it; those four migrate on clauses (a)–(c).
+
+      **The decorator grew a second, weaker mode for the nine it could still
+      reach** — `build_from`, which seeds the twin from the *constructed local*
+      rather than building it independently. It is a deviation from the
+      reviewed `design.md` Decision 2, taken deliberately and recorded here
+      rather than smuggled: without it those nine join the exempt population,
+      and with it the pairing still establishes what risk 3 is about — that
+      `list_members()` returns the same tuple in the same order and `member()`
+      resolves the same way. What it gives up is stated at the decorator and at
+      every call site: for those nine the shared fake's *constructor* is proved
+      by the adapter reproducing the roster literally, and by nothing else.
+
+      Pairing totals: 17 declarations, 195 constructions, 379 calls, no
+      divergence; one built but never called (`test_product_dossier_page`). The
+      30 notes emitted were all silent pairings for the two dropped spellings,
+      which is clause (e) working as written.
+
+      The **settle** commit ran the integration tier (159 passed); the
+      instrument commit did not, because the one integration declaration
+      (`test_seeded_step_fields.py:579`) is among the 20 exempt and so carries
+      no decorator — the same correction Decision 9 already records for
+      `FakeSlackResponse`.
 - [ ] 11.4 Record the resulting reader-shape population: how many members
       readers in `tests/` now present `list_members` alone, and what remains —
       `_StoreShapedMembers`, `_ReaderMembers`, `_Members`, and the module-level

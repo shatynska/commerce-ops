@@ -57,7 +57,7 @@ from commerce_ops.launch.domain.launch_playbook import (
     StepStatus,
 )
 from commerce_ops.shared.domain.discipline import Discipline
-from tests.support.fakes import FakeHandlerRegistry, FakeStepStore
+from tests.support.fakes import FakeHandlerRegistry, FakeMembers, FakeStepStore
 from tests.support.fixtures import ALICE, BOHDAN, PRINCIPAL
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.steps import step as _build_step
@@ -85,14 +85,11 @@ def _step(**overrides: Any) -> StepDefinition:
 _FakeStepStore = FakeStepStore[Any]
 
 
-class _FakeMembers:
-    async def list_members(self) -> tuple[_Member, ...]:
-        return (_Member(ALICE, "Alice Admin"), _Member(BOHDAN, "Bohdan Confirmer"))
-
-    members = list_members
-
-    async def __call__(self) -> tuple[_Member, ...]:
-        return await self.list_members()
+class _FakeMembers(FakeMembers):
+    def __init__(self) -> None:
+        super().__init__(
+            (_Member(ALICE, "Alice Admin"), _Member(BOHDAN, "Bohdan Confirmer"))
+        )
 
 
 class _FakeHandlerRegistry(FakeHandlerRegistry):

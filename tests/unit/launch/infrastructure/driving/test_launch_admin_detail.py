@@ -137,8 +137,8 @@ from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
 from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
 from tests.support.admin import fake_verify
 from tests.support.fakes import FakeCatalogPort as _Catalog
+from tests.support.fakes import FakeMembers, FakeStepStore, StubDate
 from tests.support.fakes import FakeMembersStore as _FakeMembersStore
-from tests.support.fakes import FakeStepStore, StubDate
 from tests.support.fixtures import MARKETPLACE
 from tests.support.html import HX_VERBS as _HX_VERBS
 from tests.support.html import Node as _Node
@@ -499,14 +499,9 @@ def _members_store() -> _FakeMembersStore:
 _FakeStepStore = FakeStepStore[Any]
 
 
-class _FakeMembers:
-    async def list_members(self) -> tuple[_Member, ...]:
-        return (_Member("prs_01HQ8Z6M4A", "Alice Admin"),)
-
-    members = list_members
-
-    async def __call__(self) -> tuple[_Member, ...]:
-        return await self.list_members()
+class _FakeMembers(FakeMembers):
+    def __init__(self) -> None:
+        super().__init__((_Member("prs_01HQ8Z6M4A", "Alice Admin"),))
 
 
 # ---------------------------------------------------------------------------

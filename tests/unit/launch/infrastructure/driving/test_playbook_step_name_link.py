@@ -80,7 +80,7 @@ from commerce_ops.shared.domain.discipline import Discipline
 from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
 from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
 from tests.support.admin import fake_verify
-from tests.support.fakes import FakeStepStore
+from tests.support.fakes import FakeMembers, FakeStepStore
 from tests.support.fixtures import PRINCIPAL
 from tests.support.html import Node as _Node
 from tests.support.html import Text as _Text
@@ -117,9 +117,9 @@ def _seeded_store() -> _FakeStepStore:
     return _FakeStepStore((_Record(_step(), display_order=10),))
 
 
-class _FakeMembers:
-    async def list_members(self) -> tuple[_FakeMember, ...]:
-        return (_FakeMember(ASSIGNEE, ASSIGNEE_NAME),)
+class _FakeMembers(FakeMembers):
+    def __init__(self) -> None:
+        super().__init__((_FakeMember(ASSIGNEE, ASSIGNEE_NAME),))
 
 
 _fake_verify = fake_verify(PRINCIPAL)

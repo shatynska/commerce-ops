@@ -158,12 +158,10 @@ from commerce_ops.launch.infrastructure.driving import (
     playbook_admin as page_module,
 )
 from commerce_ops.shared.domain.discipline import Discipline
-from tests.support._paired import paired as _paired
 from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
 from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
 from tests.support.admin import fake_verify
-from tests.support.fakes import FakeMembers as _MembersShared
-from tests.support.fakes import FakeStepStore
+from tests.support.fakes import FakeMembers, FakeStepStore
 from tests.support.fixtures import ALICE, ALICE_NAME, BOHDAN, BOHDAN_NAME, PRINCIPAL
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.steps import step as _build_step
@@ -264,26 +262,15 @@ def _step(**overrides: Any) -> StepDefinition:
 _FakeStepStore = FakeStepStore[_Record]
 
 
-@_paired(
-    _MembersShared,
-    build_from=lambda local: _MembersShared(local.members_rows),
-    state={"members_rows": "_members"},
-)
-class _FakeMembers:
+class _FakeMembers(FakeMembers):
     def __init__(self) -> None:
-        self.members_rows = (
-            _Member(ALICE, ALICE_NAME, active=True),
-            _Member(BOHDAN, BOHDAN_NAME, active=True),
-            _Member(CHRIS_DEPARTED, CHRIS_NAME, active=False),
+        super().__init__(
+            (
+                _Member(ALICE, ALICE_NAME, active=True),
+                _Member(BOHDAN, BOHDAN_NAME, active=True),
+                _Member(CHRIS_DEPARTED, CHRIS_NAME, active=False),
+            )
         )
-
-    async def list_members(self) -> tuple[_Member, ...]:
-        return self.members_rows
-
-    members = list_members
-
-    async def __call__(self) -> tuple[_Member, ...]:
-        return await self.list_members()
 
 
 #: The step every edit-surface test edits: active, human, non-blocking,

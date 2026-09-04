@@ -96,6 +96,7 @@ from commerce_ops.launch.domain.launch_playbook import (
 from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
+from tests.support.fakes import FakeMembers
 from tests.support.fixtures import (
     ALICE,
     ALICE_NAME,
@@ -191,14 +192,9 @@ def _launch(playbook: LaunchPlaybook) -> Launch:
 # ---------------------------------------------------------------------------
 
 
-class _FakeMembers:
-    """Answers `list_members` and nothing else — the one stated shape."""
-
-    def __init__(self, *members: _Member) -> None:
-        self._members = list(members)
-
-    async def list_members(self) -> tuple[_Member, ...]:
-        return tuple(self._members)
+class _FakeMembers(FakeMembers):
+    def __init__(self, *members: Any) -> None:
+        super().__init__(members)
 
 
 def _members() -> _FakeMembers:

@@ -89,10 +89,8 @@ from commerce_ops.launch.domain.launch_playbook import (
     StepStatus,
 )
 from commerce_ops.shared.domain.discipline import Discipline
-from tests.support._paired import paired as _paired
 from tests.support.fakes import FakeHandlerRegistry as _FakeHandlerRegistry
-from tests.support.fakes import FakeMembers as _MembersShared
-from tests.support.fakes import FakeStepStore
+from tests.support.fakes import FakeMembers, FakeStepStore
 from tests.support.fixtures import ALICE, ALICE_NAME, PRINCIPAL
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.steps import step as _build_step
@@ -176,21 +174,9 @@ def _record_named(store: _FakeStepStore, identifier: str) -> Any:
 # ---------------------------------------------------------------------------
 
 
-@_paired(
-    _MembersShared,
-    build_from=lambda local: _MembersShared(local.members_rows),
-    state={"members_rows": "_members"},
-)
-class _FakeMembers:
-    """A collaborator answering the stated shape — case 1."""
-
+class _FakeMembers(FakeMembers):
     def __init__(self, members: tuple[_Member, ...] | None = None) -> None:
-        self.members_rows = (
-            (_Member(ALICE, ALICE_NAME),) if members is None else members
-        )
-
-    async def list_members(self) -> tuple[_Member, ...]:
-        return self.members_rows
+        super().__init__((_Member(ALICE, ALICE_NAME),) if members is None else members)
 
 
 class _StoreShapedCollaborator:

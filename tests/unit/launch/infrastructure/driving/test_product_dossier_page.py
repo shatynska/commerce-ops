@@ -124,11 +124,10 @@ from commerce_ops.launch.infrastructure.driving import (
 from commerce_ops.shared.domain.access_scope import AccessScope
 from commerce_ops.shared.domain.identity import Asin, ProductId, Sku
 from commerce_ops.shared.domain.lifecycle_stage import Launching, Retired
-from tests.support._paired import paired as _paired
 from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
 from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
 from tests.support.admin import fake_verify
-from tests.support.fakes import FakeMembers as _MembersShared
+from tests.support.fakes import FakeMembers
 from tests.support.fixtures import MARKETPLACE, PRINCIPAL
 from tests.support.steps import step as _build_step
 from tests.support.values import Member
@@ -733,13 +732,9 @@ class _Member(Member):
         super().__init__("prs_01HQ8Z6M4A", display_name, active=active)
 
 
-@_paired(_MembersShared, build_from=lambda local: _MembersShared(local._members))
-class _FakeMembers:
-    def __init__(self, *members: _Member) -> None:
-        self._members = members
-
-    async def list_members(self) -> tuple[_Member, ...]:
-        return self._members
+class _FakeMembers(FakeMembers):
+    def __init__(self, *members: Any) -> None:
+        super().__init__(members)
 
 
 # ---------------------------------------------------------------------------

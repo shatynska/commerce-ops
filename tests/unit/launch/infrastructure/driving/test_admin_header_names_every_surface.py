@@ -93,8 +93,8 @@ from commerce_ops.shared.domain.discipline import Discipline
 from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
 from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
 from tests.support.admin import fake_verify
+from tests.support.fakes import FakeMembers, FakeStepStore
 from tests.support.fakes import FakeMembersStore as _FakeMembersStore
-from tests.support.fakes import FakeStepStore
 from tests.support.fixtures import ALICE
 from tests.support.html import Node as _Node
 from tests.support.html import all_text as _all_text
@@ -181,14 +181,9 @@ def _seeded_steps() -> _FakeStepStore:
     return _FakeStepStore(records)
 
 
-class _FakeMembers:
-    async def list_members(self) -> tuple[_Member, ...]:
-        return (_Member(ALICE, "Alice Admin"),)
-
-    members = list_members
-
-    async def __call__(self) -> tuple[_Member, ...]:
-        return await self.list_members()
+class _FakeMembers(FakeMembers):
+    def __init__(self) -> None:
+        super().__init__((_Member(ALICE, "Alice Admin"),))
 
 
 async def _build_members() -> _FakeMembersStore:

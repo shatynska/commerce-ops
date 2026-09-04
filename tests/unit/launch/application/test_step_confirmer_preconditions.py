@@ -73,9 +73,8 @@ from commerce_ops.launch.domain.launch_playbook import (
     StepStatus,
 )
 from commerce_ops.shared.domain.discipline import Discipline
-from tests.support._paired import paired as _paired
 from tests.support.fakes import FakeHandlerRegistry, FakeMembersStore, FakeStepStore
-from tests.support.fakes import FakeMembers as _MembersShared
+from tests.support.fakes import FakeMembers as _FakeMembers
 from tests.support.fixtures import ALICE, ALICE_NAME, BOHDAN, PRINCIPAL
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.steps import step as _build_step
@@ -134,20 +133,6 @@ def _holding_step(gate: str) -> StepDefinition:
 
 
 _FakeStepStore = FakeStepStore[Any]
-
-
-@_paired(_MembersShared, state={"members_rows": "_members"})
-class _FakeMembers:
-    def __init__(self, members: tuple[_Member, ...]) -> None:
-        self.members_rows = members
-
-    async def list_members(self) -> tuple[_Member, ...]:
-        return self.members_rows
-
-    members = list_members
-
-    async def __call__(self) -> tuple[_Member, ...]:
-        return await self.list_members()
 
 
 class _FakeHandlerRegistry(FakeHandlerRegistry):

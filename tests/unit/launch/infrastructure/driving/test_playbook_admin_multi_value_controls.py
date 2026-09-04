@@ -144,7 +144,7 @@ from commerce_ops.shared.domain.discipline import Discipline
 from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
 from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
 from tests.support.admin import fake_verify
-from tests.support.fakes import FakeStepStore
+from tests.support.fakes import FakeMembers, FakeStepStore
 from tests.support.fixtures import ALICE, ALICE_NAME, BOHDAN, PRINCIPAL
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.steps import step as _build_step
@@ -270,18 +270,15 @@ def _step(**overrides: Any) -> StepDefinition:
 _FakeStepStore = FakeStepStore[_Record]
 
 
-class _FakeMembers:
-    async def list_members(self) -> tuple[_Member, ...]:
-        return (
-            _Member(ALICE, ALICE_NAME),
-            _Member(BOHDAN, BOHDAN_NAME),
-            _Member(CHRIS, CHRIS_NAME, active=False),
+class _FakeMembers(FakeMembers):
+    def __init__(self) -> None:
+        super().__init__(
+            (
+                _Member(ALICE, ALICE_NAME),
+                _Member(BOHDAN, BOHDAN_NAME),
+                _Member(CHRIS, CHRIS_NAME, active=False),
+            )
         )
-
-    members = list_members
-
-    async def __call__(self) -> tuple[_Member, ...]:
-        return await self.list_members()
 
 
 def _seeded_store() -> _FakeStepStore:

@@ -157,8 +157,7 @@ from commerce_ops.launch.infrastructure.driven.clickup_sync import (
 )
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
-from tests.support._paired import paired as _paired
-from tests.support.fakes import FakeMembers as _MembersShared
+from tests.support.fakes import FakeMembers as _FakeMembers
 from tests.support.fixtures import (
     ALICE,
     LAUNCH_DATE,
@@ -336,26 +335,6 @@ class _FakeCatalog:
 
     async def __call__(self, product_id: ProductId) -> _CatalogProduct:
         return self._product
-
-
-@_paired(_MembersShared)
-class _FakeMembers:
-    def __init__(self, members: tuple[_Member, ...]) -> None:
-        self._members = members
-
-    async def list_members(self) -> tuple[_Member, ...]:
-        return self._members
-
-    members = list_members
-
-    async def member(self, member_id: str) -> _Member | None:
-        for member in self._members:
-            if member.id == member_id:
-                return member
-        return None
-
-    async def __call__(self) -> tuple[_Member, ...]:
-        return await self.list_members()
 
 
 def _members() -> _FakeMembers:
