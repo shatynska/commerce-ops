@@ -111,9 +111,11 @@ from commerce_ops.launch.infrastructure.driving import (
 )
 from commerce_ops.shared.domain.access_scope import AccessScope
 from commerce_ops.shared.domain.identity import ProductId, Sku
+from tests.support._paired import paired as _paired
 from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
 from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
 from tests.support.admin import fake_verify
+from tests.support.fakes import FakeMembersStore as _MembersStoreShared
 from tests.support.fakes import FakeStepStore
 from tests.support.fixtures import ALICE, ALICE_NAME, MARKETPLACE, PRINCIPAL
 from tests.support.playbook import SPECIFIED_GATE_ORDER
@@ -438,6 +440,7 @@ class _PlaybookMembers:
         return (_Member(ALICE, ALICE_NAME),)
 
 
+@_paired(_MembersStoreShared)
 class _FakeMembersStore:
     def __init__(self, rows: tuple[Any, ...] = (), version: int = 13) -> None:
         self.rows = tuple(rows)

@@ -73,7 +73,9 @@ from commerce_ops.launch.domain.launch_playbook import (
     StepStatus,
 )
 from commerce_ops.shared.domain.discipline import Discipline
+from tests.support._paired import paired as _paired
 from tests.support.fakes import FakeHandlerRegistry, FakeStepStore
+from tests.support.fakes import FakeMembersStore as _MembersStoreShared
 from tests.support.fixtures import ALICE, ALICE_NAME, BOHDAN, PRINCIPAL
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.steps import step as _build_step
@@ -152,6 +154,10 @@ class _FakeHandlerRegistry(FakeHandlerRegistry):
         super().__init__(names)
 
 
+@_paired(
+    _MembersStoreShared,
+    build=lambda rows=(), version=7: _MembersStoreShared(rows, version),
+)
 class _FakeMembersStore:
     """The members store `access`'s own write use cases take — see
     `test_step_assignee_preconditions.py`'s identical double."""

@@ -212,3 +212,41 @@ class FakeStepStore[RowT]:
         self.saves.append((stored, expected_version))
         self.records = stored
         self.version += 1
+
+
+class FakeMembersStore:
+    """The membership, held in memory with its version.
+
+    The same port shape as `FakeStepStore` -- `load()` answers the rows and the
+    version, `save()` replaces them and moves the version on -- for the set
+    `access.application.members` edits. It is a separate declaration rather than
+    the same one because the two populations disagree on the opening version
+    (13 against 41) and on the parameter's name, and a shared type bent across
+    both would take a default from one of them arbitrarily.
+
+    Unlike the step store it is **not generic**: all 38 local declarations
+    annotated `rows` as `tuple[Any, ...]`, so there is no row type to bind.
+
+    **It asserts on a stale write, and thirty of the thirty-eight did not.** As
+    with the step store, a deliberate strengthening the lockstep proof makes
+    safe to take: a file that saves against a version it did not read fails at
+    the instrument commit rather than passing quietly forever.
+    """
+
+    def __init__(self, rows: tuple[Any, ...] = (), version: int = 13) -> None:
+        self.rows = tuple(rows)
+        self.version = version
+        self.saves: list[tuple[tuple[Any, ...], int]] = []
+
+    async def load(self) -> tuple[tuple[Any, ...], int]:
+        return (self.rows, self.version)
+
+    async def save(self, rows: Any, *, expected_version: int) -> None:
+        assert expected_version == self.version, (
+            "conditional persistence violated: save() called with a stale "
+            f"expected_version {expected_version} against {self.version}"
+        )
+        stored = tuple(rows)
+        self.saves.append((stored, expected_version))
+        self.rows = stored
+        self.version += 1

@@ -63,6 +63,7 @@ from commerce_ops.shared.domain.identity import Sku
 from tests.support.fakes import (
     FakeHandlerRegistry,
     FakeHandlers,
+    FakeMembersStore,
     FakeSlackResponse,
     FakeStepStore,
     InertBackoff,
@@ -223,4 +224,5 @@ class VersionedStoreShape(Protocol):
     async def save(self, records: Any, *, expected_version: int) -> None: ...
 
 
-_step_store_conforms: VersionedStoreShape = FakeStepStore()
+_step_store_conforms: VersionedStoreShape = FakeStepStore[Any]()
+_members_store_conforms: VersionedStoreShape = FakeMembersStore()

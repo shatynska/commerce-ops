@@ -144,9 +144,11 @@ from commerce_ops.shared.domain.lifecycle_stage import (
     Retired,
     SteadyState,
 )
+from tests.support._paired import paired as _paired
 from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
 from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
 from tests.support.admin import fake_verify
+from tests.support.fakes import FakeMembersStore as _MembersStoreShared
 from tests.support.fakes import StubDate
 from tests.support.fixtures import MARKETPLACE
 from tests.support.html import HX_VERBS as _HX_VERBS
@@ -531,6 +533,7 @@ class _FakePlaybooks:
         return self._playbook
 
 
+@_paired(_MembersStoreShared)
 class _FakeMembersStore:
     def __init__(self, rows: tuple[Any, ...] = (), version: int = 13) -> None:
         self.rows = tuple(rows)

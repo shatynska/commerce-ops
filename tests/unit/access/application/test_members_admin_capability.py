@@ -58,7 +58,9 @@ from commerce_ops.access.application import (
     deactivate_member,
     resolve_admin_capability,
 )
+from tests.support._paired import paired as _paired
 from tests.support.admin import ADMIN_IDENTITY
+from tests.support.fakes import FakeMembersStore as _MembersStoreShared
 from tests.support.fixtures import PRINCIPAL
 
 pytestmark = pytest.mark.anyio
@@ -78,6 +80,10 @@ def anyio_backend() -> str:
 # ---------------------------------------------------------------------------
 
 
+@_paired(
+    _MembersStoreShared,
+    build=lambda rows=(), version=5: _MembersStoreShared(rows, version),
+)
 class _FakeMembersStore:
     def __init__(self, rows: tuple[Any, ...] = (), version: int = 5) -> None:
         self.rows = tuple(rows)

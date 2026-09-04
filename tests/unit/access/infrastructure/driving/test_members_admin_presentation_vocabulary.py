@@ -109,9 +109,11 @@ from commerce_ops.access.infrastructure.driving import members_admin as page_mod
 from commerce_ops.launch.infrastructure.driving import (
     playbook_admin as other_surface_module,
 )
+from tests.support._paired import paired as _paired
 from tests.support.admin import ADMIN_IDENTITY, fake_verify
 from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
 from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
+from tests.support.fakes import FakeMembersStore as _MembersStoreShared
 from tests.support.fixtures import PRINCIPAL
 
 #: The shared asset route this change adds. Resolved by name so that its
@@ -214,6 +216,7 @@ _VOID_TAGS: Final = (
 # ---------------------------------------------------------------------------
 
 
+@_paired(_MembersStoreShared)
 class _FakeMembersStore:
     def __init__(self, rows: tuple[Any, ...] = (), version: int = 13) -> None:
         self.rows = tuple(rows)

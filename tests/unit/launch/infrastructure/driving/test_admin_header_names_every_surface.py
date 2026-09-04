@@ -90,9 +90,11 @@ from commerce_ops.launch.infrastructure.driving import (
     playbook_admin as page_module,
 )
 from commerce_ops.shared.domain.discipline import Discipline
+from tests.support._paired import paired as _paired
 from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
 from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
 from tests.support.admin import fake_verify
+from tests.support.fakes import FakeMembersStore as _MembersStoreShared
 from tests.support.fakes import FakeStepStore
 from tests.support.fixtures import ALICE
 from tests.support.html import Node as _Node
@@ -190,6 +192,7 @@ class _FakeMembers:
         return await self.list_members()
 
 
+@_paired(_MembersStoreShared)
 class _FakeMembersStore:
     def __init__(self, rows: tuple[Any, ...] = (), version: int = 13) -> None:
         self.rows = tuple(rows)

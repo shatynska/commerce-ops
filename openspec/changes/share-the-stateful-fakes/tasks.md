@@ -355,10 +355,14 @@ Counts here are AST counts. Do not re-derive one by grep.
 
 ## 9. `FakeMembersStore` — 38 declarations, fifteen bodies
 
-- [ ] 9.1 Add `FakeMembersStore(rows=(), version=13)`, recording `saves` and
+- [x] 9.1 Add `FakeMembersStore(rows=(), version=13)`, recording `saves` and
       asserting on the stale write, with its protocol, `_conforms` and contract
       tests; declare the number added. Record the completeness search for
-      `saves`, as at 8.2.
+      `saves`, as at 8.2. **Six tests added; `tests/unit/support/` now collects
+      35. Not generic, unlike the step store: all 38 locals annotated `rows` as
+      `tuple[Any, ...]`, so there is no row type to bind. The `saves`
+      completeness note fired 42 times across the tier and was the only note
+      emitted -- no silent pairings, no other superset.**
 - [ ] 9.2 Instrument, verify, settle, verify. **Expected: 29 of 38 — 22 aliases
       and 7 adapters, 9 kept.** The nine are the six declarations threading an
       external `_Version` cell and exposing `version` as a property, the two

@@ -104,7 +104,9 @@ from commerce_ops.access.application import (
 )
 from commerce_ops.access.domain.members import InvalidMembersError
 from commerce_ops.shared.domain.identity import ProductId
+from tests.support._paired import paired as _paired
 from tests.support.admin import ADMIN_IDENTITY
+from tests.support.fakes import FakeMembersStore as _MembersStoreShared
 from tests.support.fixtures import PRINCIPAL
 
 pytestmark = pytest.mark.anyio
@@ -133,6 +135,10 @@ def anyio_backend() -> str:
 # ---------------------------------------------------------------------------
 
 
+@_paired(
+    _MembersStoreShared,
+    build=lambda rows=(), version=7: _MembersStoreShared(rows, version),
+)
 class _FakeMembersStore:
     """In-memory whole-set members store with the optimistic set-version.
 
