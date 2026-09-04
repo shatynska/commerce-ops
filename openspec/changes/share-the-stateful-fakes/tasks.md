@@ -386,6 +386,13 @@ Counts here are AST counts. Do not re-derive one by grep.
       every name in scope there are exactly **four** such writes in three files,
       and the other two files are keeps already, so this does not recur.
 
+      **`assert_identity` reports six files changed, and all six are the same
+      node again** — the fake's own stale-write `assert`, three in the bare
+      spelling and three with the message, one per file, nothing gained and no
+      test count moving. The same accounting as task 8.2's fourth point: the
+      assertion moved into `tests/support/fakes.py`, which Decision 10 excludes,
+      and it went from 8 files to all 29.
+
       Pairing totals: 28 declarations, 231 constructions, 996 calls, no
       divergence, and every one exercised — no declaration was built without
       being called. The only note emitted across the whole tier was
