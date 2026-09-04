@@ -89,6 +89,8 @@ from commerce_ops.launch.domain.launch_playbook import (
     StepStatus,
 )
 from commerce_ops.shared.domain.discipline import Discipline
+from tests.support._paired import paired as _paired
+from tests.support.fakes import FakeStepStore as _Shared
 from tests.support.fixtures import PRINCIPAL
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.steps import step as _build_step
@@ -146,6 +148,7 @@ class _OrderedRecord:
         self.unretired_on: Any = None
 
 
+@_paired(_Shared)
 class _FakeStepStore:
     """In-memory step-set store with the optimistic set-version, as
     `test_playbook_authoring.py` invented it and the implementation

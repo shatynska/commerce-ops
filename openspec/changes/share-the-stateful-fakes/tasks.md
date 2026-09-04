@@ -287,11 +287,12 @@ Counts here are AST counts. Do not re-derive one by grep.
 
 ## 8. `FakeStepStore` — 37 declarations, eleven bodies
 
-- [ ] 8.1 Add `FakeStepStore(records=(), version=41)` — records `saves`, and
+- [x] 8.1 Add `FakeStepStore(records=(), version=41)` — records `saves`, and
       **asserts `expected_version == self.version` inside `save`**
       (`design.md` Risks). Its protocol, `_conforms`, and contract tests that
       state the initial state, the `load` return shape, the version bump, the
       `saves` record and the stale-write assertion; declare the number added.
+      **Six tests added; `tests/unit/support/` now collects 28.**
 - [ ] 8.2 Instrument, verify, settle, verify. **Expected: 36 of 37 — 34 aliases
       and 2 adapters, 1 kept.** Eight bodies differ only in whether they record
       `saves` or assert on the version, which is a licensed superset and a

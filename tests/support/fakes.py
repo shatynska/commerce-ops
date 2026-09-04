@@ -162,3 +162,42 @@ class FakeHandlerRegistry:
 
     def names(self) -> frozenset[str]:
         return self._names
+
+
+class FakeStepStore:
+    """The playbook's step set, held in memory with its version.
+
+    Mirrors the port `playbook_authoring` declares: `load()` answers the rows
+    and the version, `save()` replaces them and moves the version on.
+
+    **It asserts on a stale write, and eighteen of the thirty-seven local
+    declarations did not.** That is a deliberate strengthening rather than a
+    reproduction: a fake that silently accepts `expected_version` from an
+    earlier read is a fake that hides the optimistic-concurrency defect the
+    real store exists to catch. The lockstep proof is what makes the
+    strengthening safe to take -- a file whose test saves against a stale
+    version fails loudly at the instrument commit, where the local's silence is
+    compared against this assertion, and keeps its own declaration.
+
+    **It records `saves` and eleven locals did not.** A licensed superset: no
+    production reader probes the attribute, so a file that never reads it
+    cannot tell.
+    """
+
+    def __init__(self, records: tuple[Any, ...] = (), version: int = 41) -> None:
+        self.records = tuple(records)
+        self.version = version
+        self.saves: list[tuple[tuple[Any, ...], int]] = []
+
+    async def load(self) -> tuple[tuple[Any, ...], int]:
+        return (self.records, self.version)
+
+    async def save(self, records: Any, *, expected_version: int) -> None:
+        assert expected_version == self.version, (
+            "conditional persistence violated: save() called with a stale "
+            f"expected_version {expected_version} against {self.version}"
+        )
+        stored = tuple(records)
+        self.saves.append((stored, expected_version))
+        self.records = stored
+        self.version += 1

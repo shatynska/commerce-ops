@@ -98,7 +98,9 @@ from commerce_ops.launch.domain.launch_playbook import (
 )
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import MetricId
+from tests.support._paired import paired as _paired
 from tests.support.fakes import FakeHandlerRegistry
+from tests.support.fakes import FakeStepStore as _Shared
 from tests.support.fixtures import ALICE, BOHDAN, PRINCIPAL
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.steps import step as _build_step
@@ -139,6 +141,7 @@ def _step(**overrides: Any) -> StepDefinition:
     return _build_step(**{"assignees": (ALICE,), **overrides})
 
 
+@_paired(_Shared)
 class _FakeStepStore:
     def __init__(self, records: tuple[Any, ...], version: int = 41) -> None:
         self.records = tuple(records)

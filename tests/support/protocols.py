@@ -64,6 +64,7 @@ from tests.support.fakes import (
     FakeHandlerRegistry,
     FakeHandlers,
     FakeSlackResponse,
+    FakeStepStore,
     InertBackoff,
     StubDate,
 )
@@ -204,3 +205,22 @@ class BackoffShape(Protocol):
 
 
 _inert_backoff_conforms: BackoffShape = InertBackoff()
+
+
+class VersionedStoreShape(Protocol):
+    """What a use case reads off a versioned set it edits.
+
+    The same two calls `playbook_authoring` declares for the step set and
+    `access.application.members` for the membership: read the rows with their
+    version, write them back against the version you read. Declared here rather
+    than imported, because `unify-launch-adapter-dependencies` owns the
+    production-side protocols and two definitions of one boundary is the
+    disagreement this work exists to end.
+    """
+
+    async def load(self) -> tuple[Any, int]: ...
+
+    async def save(self, records: Any, *, expected_version: int) -> None: ...
+
+
+_step_store_conforms: VersionedStoreShape = FakeStepStore()

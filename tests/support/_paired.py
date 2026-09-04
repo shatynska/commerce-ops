@@ -45,9 +45,13 @@ _T = TypeVar("_T")
 #: as an attribute the shared fake models less of.
 _TWIN = "_paired_twin"
 
-#: Every decorated class, and how many paired calls it actually made. A
-#: declaration that migrated with a count of zero is proved by nothing, and
-#: task 12.3 names it rather than letting a green commit read as evidence.
+#: Every decorated class, and how much the pairing actually did for it:
+#: constructions, where the initial state was compared, and method calls, where
+#: a return value, an exception and the state after were. A declaration that
+#: migrated with both at zero is proved by nothing, and one with calls at zero
+#: is proved only at construction -- task 12.3 names either rather than letting
+#: a green commit read as evidence it is not.
+PAIRED_BUILDS: Counter[str] = Counter()
 PAIRED_CALLS: Counter[str] = Counter()
 
 #: `(class name, method name)` pairs that clause (e) licenses the shared fake to
@@ -167,6 +171,7 @@ def paired(
 
     def decorate(local: type[_T]) -> type[_T]:
         label = f"{local.__module__}.{local.__name__}"
+        PAIRED_BUILDS[label] += 0
         PAIRED_CALLS[label] += 0
 
         wrapped = _callables(local)
@@ -190,6 +195,7 @@ def paired(
 
         def __init__(self: Any, *args: Any, **kwargs: Any) -> None:
             original_init(self, *args, **kwargs)
+            PAIRED_BUILDS[label] += 1
             twin = (
                 build(*args, **kwargs) if build is not None else shared(*args, **kwargs)
             )
@@ -264,4 +270,15 @@ def _report() -> None:
     """Write the per-class paired-call counts where a task asked for them."""
     destination = os.environ.get("PAIRED_REPORT")
     if destination:
-        Path(destination).write_text(json.dumps(dict(PAIRED_CALLS), indent=1))
+        Path(destination).write_text(
+            json.dumps(
+                {
+                    label: {
+                        "builds": PAIRED_BUILDS[label],
+                        "calls": PAIRED_CALLS[label],
+                    }
+                    for label in sorted(PAIRED_CALLS)
+                },
+                indent=1,
+            )
+        )

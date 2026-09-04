@@ -83,9 +83,11 @@ from commerce_ops.launch.infrastructure.driving import (
 )
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import MetricId
+from tests.support._paired import paired as _paired
 from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
 from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
 from tests.support.admin import fake_verify
+from tests.support.fakes import FakeStepStore as _Shared
 from tests.support.fixtures import ALICE, ALICE_NAME, PRINCIPAL
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.steps import step as _build_step
@@ -115,6 +117,7 @@ def _step(**overrides: Any) -> StepDefinition:
     )
 
 
+@_paired(_Shared)
 class _FakeStepStore:
     def __init__(self, records: tuple[_Record, ...], version: int = 41) -> None:
         self.records = records

@@ -96,6 +96,8 @@ from commerce_ops.launch.domain.launch_playbook import (
     StepStatus,
 )
 from commerce_ops.shared.domain.discipline import Discipline
+from tests.support._paired import paired as _paired
+from tests.support.fakes import FakeStepStore as _Shared
 from tests.support.fixtures import PRINCIPAL
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
@@ -170,6 +172,7 @@ class _SeededRecord:
         self.unretired_on: Any = None
 
 
+@_paired(_Shared)
 class _FakeStepStore:
     """In-memory step-set store with the optimistic set-version.
 
