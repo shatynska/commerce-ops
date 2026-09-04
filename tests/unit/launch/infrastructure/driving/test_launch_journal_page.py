@@ -148,7 +148,7 @@ from tests.support.fakes import FakeCatalogPort as _Catalog
 from tests.support.fakes import FakeMembers, FakeStepStore, StubDate
 from tests.support.fakes import FakeMembersStore as _FakeMembersStore
 from tests.support.fixtures import MARKETPLACE
-from tests.support.playbook import gates as _gates
+from tests.support.playbook import playbook as _build_playbook
 from tests.support.values import Member as _FakeMember
 
 _ASSETS_MODULE_NAME: Final = "commerce_ops.shared.infrastructure.driving.admin_assets"
@@ -224,10 +224,10 @@ def _step(identifier: str, **overrides: Any) -> StepDefinition:
 
 
 def _playbook() -> LaunchPlaybook:
-    return LaunchPlaybook(
+    return _build_playbook(
+        _step("strategy.commitment-agreed"),
         version="journal-page-v1",
-        gates=_gates(),
-        steps=(_step("strategy.commitment-agreed"),),
+        fill_unheld=False,
     )
 
 

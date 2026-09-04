@@ -106,8 +106,7 @@ from commerce_ops.shared.domain.result import Success
 from tests.support.fakes import FakeHandlers as _FakeHandlers
 from tests.support.fakes import InertBackoff as _InertBackoff
 from tests.support.fixtures import LAUNCH_DATE, PRODUCT_NAME, PRODUCT_SKU, product_id
-from tests.support.playbook import SPECIFIED_GATE_ORDER
-from tests.support.playbook import gates as _gates
+from tests.support.playbook import playbook as _build_playbook
 from tests.support.steps import hold as _build_hold
 from tests.support.values import CatalogProduct as _CatalogProduct
 
@@ -174,9 +173,11 @@ def _hold(gate: str) -> StepDefinition:
 
 
 def _playbook(*steps: StepDefinition) -> LaunchPlaybook:
-    held = {step.gate for step in steps if step.blocking}
-    fillers = tuple(_hold(gate) for gate in SPECIFIED_GATE_ORDER if gate not in held)
-    return LaunchPlaybook(version="hazard-v1", gates=_gates(), steps=(*steps, *fillers))
+    return _build_playbook(
+        *steps,
+        version="hazard-v1",
+        filler=_hold,
+    )
 
 
 def _launch(playbook: LaunchPlaybook) -> Launch:

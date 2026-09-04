@@ -184,7 +184,7 @@ from tests.support.html import flat as _flat
 from tests.support.html import size as _size
 from tests.support.html import tree as _tree
 from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
-from tests.support.playbook import gates as _gates
+from tests.support.playbook import playbook as _build_playbook
 from tests.support.values import Member as _Member
 
 # ---------------------------------------------------------------------------
@@ -363,22 +363,29 @@ def _step(identifier: str, **overrides: Any) -> StepDefinition:
 def _playbook() -> LaunchPlaybook:
     """Steps at three gates only, so the gate *sequence* the detail page
     renders is distinguishable from the gate *groups* it renders."""
-    steps = (
-        _step(COMMIT_STEP, gate="commit", blocking=True),
-        _step(TITLE_STEP, gate="listable"),
-        _step(IMAGES_STEP, gate="listable", timing_anchor=OffsetAnchor(days=-20)),
-        _step(
-            UNITS_STEP,
-            gate="listable",
-            blocking=True,
-            discipline=INVENTORY,
-            timing_anchor=OffsetAnchor(days=365),
+    return _build_playbook(
+        *(
+            _step(COMMIT_STEP, gate="commit", blocking=True),
+            _step(TITLE_STEP, gate="listable"),
+            _step(IMAGES_STEP, gate="listable", timing_anchor=OffsetAnchor(days=-20)),
+            _step(
+                UNITS_STEP,
+                gate="listable",
+                blocking=True,
+                discipline=INVENTORY,
+                timing_anchor=OffsetAnchor(days=365),
+            ),
+            _step(PROHIBITED_STEP, gate="ignition", hazard=Hazard.PROHIBITED_TACTIC),
+            _step(
+                UNTOUCHED_STEP, gate="ignition", timing_anchor=OffsetAnchor(days=365)
+            ),
+            _step(
+                NOT_STARTED_STEP, gate="ignition", timing_anchor=OffsetAnchor(days=365)
+            ),
         ),
-        _step(PROHIBITED_STEP, gate="ignition", hazard=Hazard.PROHIBITED_TACTIC),
-        _step(UNTOUCHED_STEP, gate="ignition", timing_anchor=OffsetAnchor(days=365)),
-        _step(NOT_STARTED_STEP, gate="ignition", timing_anchor=OffsetAnchor(days=365)),
+        version="vocabulary-v1",
+        fill_unheld=False,
     )
-    return LaunchPlaybook(version="vocabulary-v1", gates=_gates(), steps=steps)
 
 
 PLAYBOOK: Final = _playbook()

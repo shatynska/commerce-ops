@@ -86,8 +86,7 @@ from commerce_ops.launch.domain.launch_playbook import (
 from commerce_ops.launch.domain.launch_run import Launch, Provenance
 from commerce_ops.shared.domain.discipline import Discipline
 from tests.support.fixtures import ALICE, HANDLER_NAME, LAUNCH_DATE, STEP_ID, product_id
-from tests.support.playbook import SPECIFIED_GATE_ORDER
-from tests.support.playbook import gates as _gates
+from tests.support.playbook import playbook as _build_playbook
 from tests.support.steps import hold as _build_hold
 from tests.support.steps import step as _build_step
 from tests.support.values import CatalogProduct as _CatalogProduct
@@ -137,9 +136,10 @@ def _hold(gate: str) -> StepDefinition:
 
 
 def _playbook() -> LaunchPlaybook:
-    step = _step()
-    fillers = tuple(_hold(gate) for gate in SPECIFIED_GATE_ORDER)
-    return LaunchPlaybook(version="test-v1", gates=_gates(), steps=(step, *fillers))
+    return _build_playbook(
+        _step(),
+        filler=_hold,
+    )
 
 
 def _launch() -> Launch:

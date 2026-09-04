@@ -101,6 +101,7 @@ def playbook(
     fill_unheld: bool = True,
     filler: Callable[[str], StepDefinition] = hold,
     held_must_be_active: bool = False,
+    fillers_first: bool = False,
 ) -> LaunchPlaybook:
     """A playbook carrying `steps`, with every unheld gate filled.
 
@@ -114,6 +115,14 @@ def playbook(
     compute the held set as `step.blocking`, and 10 add `step.status is
     StepStatus.ACTIVE`. Normalising the minority would change which gates those
     tests see as held.
+
+    `fillers_first` puts the fillers *ahead* of `steps` instead of after them,
+    for the 8 variants that build `(*fillers, *steps)`. **It cannot be
+    normalised away, and that is a fact about the subject rather than about
+    this builder**: `LaunchPlaybook.__post_init__` sorts `gates` and does not
+    sort `steps`, so the order a caller supplies is the order read back, and it
+    is part of `==`. Reordering here to spare a parameter would silently rewrite
+    the step tuple that migrated files already assert on.
     """
     held = {
         step.gate
@@ -126,8 +135,9 @@ def playbook(
         fillers = tuple(
             filler(gate) for gate in SPECIFIED_GATE_ORDER if gate not in held
         )
+    ordered = (*fillers, *steps) if fillers_first else (*steps, *fillers)
     return LaunchPlaybook(
         version=version,
         gates=_specified_gates() if gates is None else gates,
-        steps=(*steps, *fillers),
+        steps=ordered,
     )

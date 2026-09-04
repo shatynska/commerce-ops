@@ -131,8 +131,7 @@ from tests.support.fixtures import (
     PRODUCT_SKU,
     product_id,
 )
-from tests.support.playbook import SPECIFIED_GATE_ORDER
-from tests.support.playbook import gates as _gates
+from tests.support.playbook import playbook as _build_playbook
 from tests.support.steps import hold as _build_hold
 from tests.support.values import CatalogProduct as _CatalogProduct
 from tests.support.values import PendingRow as _PendingRow
@@ -198,9 +197,10 @@ def _hold(gate: str) -> StepDefinition:
 
 
 def _playbook(*steps: StepDefinition) -> LaunchPlaybook:
-    held = {step.gate for step in steps if step.blocking}
-    fillers = tuple(_hold(gate) for gate in SPECIFIED_GATE_ORDER if gate not in held)
-    return LaunchPlaybook(version="test-v1", gates=_gates(), steps=(*steps, *fillers))
+    return _build_playbook(
+        *steps,
+        filler=_hold,
+    )
 
 
 def _launch(playbook: LaunchPlaybook, product_id: ProductId = PRODUCT_ID) -> Launch:

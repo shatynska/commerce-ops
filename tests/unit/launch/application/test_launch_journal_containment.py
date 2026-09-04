@@ -78,7 +78,6 @@ from commerce_ops.launch.application import (
     record_step_outcome,
 )
 from commerce_ops.launch.domain.launch_playbook import (
-    Gate,
     LaunchPlaybook,
     Satisfied,
     StepDefinition,
@@ -96,7 +95,7 @@ from commerce_ops.shared.domain.identity import MetricId, ProductId
 from commerce_ops.shared.domain.lifecycle_stage import Posture, SteadyState
 from tests.support.fixtures import product_id
 from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
-from tests.support.playbook import opening_for as _opening_for
+from tests.support.playbook import playbook as _build_playbook
 from tests.support.steps import hold as _build_hold
 from tests.support.steps import step as _build_step
 
@@ -251,16 +250,12 @@ def _hold(gate: str) -> StepDefinition:
 
 
 def _playbook() -> LaunchPlaybook:
-    gates = tuple(
-        Gate(
-            identifier=identifier,
-            position=position,
-            opening=_opening_for(identifier),
-        )
-        for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1)
+    return _build_playbook(
+        *(*(_hold(gate) for gate in SPECIFIED_GATE_ORDER), _step()),
+        version="journal-v1",
+        filler=_hold,
+        fillers_first=True,
     )
-    steps = (*(_hold(gate) for gate in SPECIFIED_GATE_ORDER), _step())
-    return LaunchPlaybook(version="journal-v1", gates=gates, steps=steps)
 
 
 def _provenance(**overrides: Any) -> Provenance:

@@ -163,7 +163,7 @@ from tests.support.html import size as _size
 from tests.support.html import texts as _texts
 from tests.support.html import tree as _tree
 from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
-from tests.support.playbook import gates as _gates
+from tests.support.playbook import playbook as _build_playbook
 from tests.support.steps import hold as _build_hold
 from tests.support.steps import step as _build_step
 
@@ -353,21 +353,27 @@ def _playbook() -> LaunchPlaybook:
     what decides each launch's at-risk state, so the launch date alone
     distinguishes an at-risk launch from a healthy one.
     """
-    risk = _step(
-        identifier=RISK_STEP,
-        name="Launch readiness is signed off",
-        gate="graduated",
-        blocking=True,
-        timing_anchor=OffsetAnchor(days=-30),
+    return _build_playbook(
+        *tuple(
+            step
+            for gate in SPECIFIED_GATE_ORDER
+            for step in (
+                _step(
+                    identifier=RISK_STEP,
+                    name="Launch readiness is signed off",
+                    gate="graduated",
+                    blocking=True,
+                    timing_anchor=OffsetAnchor(days=-30),
+                ),
+                *tuple(
+                    _hold(gate) for gate in SPECIFIED_GATE_ORDER if gate != "graduated"
+                ),
+            )
+            if step.gate == gate
+        ),
+        filler=_hold,
+        fillers_first=True,
     )
-    fillers = tuple(_hold(gate) for gate in SPECIFIED_GATE_ORDER if gate != "graduated")
-    ordered = tuple(
-        step
-        for gate in SPECIFIED_GATE_ORDER
-        for step in (risk, *fillers)
-        if step.gate == gate
-    )
-    return LaunchPlaybook(version="test-v1", gates=_gates(), steps=ordered)
 
 
 PLAYBOOK: Final = _playbook()

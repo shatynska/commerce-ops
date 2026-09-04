@@ -66,7 +66,6 @@ import pytest
 
 from commerce_ops.launch.application import record_step_outcome
 from commerce_ops.launch.domain.launch_playbook import (
-    Gate,
     LaunchPlaybook,
     OffsetAnchor,
     Satisfied,
@@ -76,8 +75,8 @@ from commerce_ops.launch.domain.launch_playbook import (
 from commerce_ops.launch.domain.launch_run import Launch, Provenance
 from commerce_ops.shared.domain.identity import ProductId
 from tests.support.fixtures import product_id
-from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
-from tests.support.playbook import opening_for as _opening_for
+from tests.support.playbook import CONFIRMATION_GATES
+from tests.support.playbook import playbook as _build_playbook
 from tests.support.steps import hold as _build_hold
 
 pytestmark = pytest.mark.anyio
@@ -105,14 +104,9 @@ def _playbook() -> LaunchPlaybook:
     """No metric condition anywhere, deliberately: the scenario is stated
     over the *last outstanding* condition being satisfied, so the gate's
     only condition must be the step this test records."""
-    gates = tuple(
-        Gate(identifier=identifier, position=position, opening=_opening_for(identifier))
-        for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1)
-    )
-    return LaunchPlaybook(
+    return _build_playbook(
         version="recording-v1",
-        gates=gates,
-        steps=tuple(_hold(gate) for gate in SPECIFIED_GATE_ORDER),
+        filler=_hold,
     )
 
 

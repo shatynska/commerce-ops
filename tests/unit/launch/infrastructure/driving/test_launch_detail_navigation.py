@@ -171,7 +171,7 @@ from tests.support.html import inherited as _inherited
 from tests.support.html import size as _size
 from tests.support.html import tree as _tree
 from tests.support.playbook import SPECIFIED_GATE_ORDER
-from tests.support.playbook import gates as _gates
+from tests.support.playbook import playbook as _build_playbook
 
 # ---------------------------------------------------------------------------
 # The modules under test, resolved by name
@@ -288,15 +288,18 @@ def _playbook() -> LaunchPlaybook:
     """Steps at three of the eight gates, so the gate *sequence* is
     findable as the one region naming every gate while holding no served
     step — the locator `test_launch_admin_detail.py` established."""
-    steps = (
-        _step(COMMIT_STEP, gate="commit", blocking=True),
-        _step(TITLE_STEP, gate="listable"),
-        _step(IMAGES_STEP, gate="listable"),
-        _step(UNITS_STEP, gate="listable", discipline=INVENTORY, blocking=True),
-        _step(PROHIBITED_STEP, gate="ignition", hazard=Hazard.PROHIBITED_TACTIC),
-        _step(UNTOUCHED_STEP, gate="ignition"),
+    return _build_playbook(
+        *(
+            _step(COMMIT_STEP, gate="commit", blocking=True),
+            _step(TITLE_STEP, gate="listable"),
+            _step(IMAGES_STEP, gate="listable"),
+            _step(UNITS_STEP, gate="listable", discipline=INVENTORY, blocking=True),
+            _step(PROHIBITED_STEP, gate="ignition", hazard=Hazard.PROHIBITED_TACTIC),
+            _step(UNTOUCHED_STEP, gate="ignition"),
+        ),
+        version="navigation-v1",
+        fill_unheld=False,
     )
-    return LaunchPlaybook(version="navigation-v1", gates=_gates(), steps=steps)
 
 
 PLAYBOOK: Final = _playbook()

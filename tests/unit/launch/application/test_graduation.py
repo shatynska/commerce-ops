@@ -69,7 +69,6 @@ from commerce_ops.launch.application import (
     advance_gate,
 )
 from commerce_ops.launch.domain.launch_playbook import (
-    Gate,
     LaunchPlaybook,
     OffsetAnchor,
     Satisfied,
@@ -86,8 +85,8 @@ from commerce_ops.launch.domain.launch_run import (
 from commerce_ops.shared.domain.identity import ProductId
 from commerce_ops.shared.domain.lifecycle_stage import Posture, SteadyState
 from tests.support.fixtures import product_id
-from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
-from tests.support.playbook import opening_for as _opening_for
+from tests.support.playbook import CONFIRMATION_GATES
+from tests.support.playbook import playbook as _build_playbook
 from tests.support.steps import hold as _build_hold
 
 pytestmark = pytest.mark.anyio
@@ -120,12 +119,9 @@ def _playbook() -> LaunchPlaybook:
     """A coherent playbook with no metric conditions and only the holding
     fillers the gate-holding floor requires; once they are satisfied,
     only the approval requirements remain."""
-    gates = tuple(
-        Gate(identifier=identifier, position=position, opening=_opening_for(identifier))
-        for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1)
+    return _build_playbook(
+        filler=_hold,
     )
-    steps = tuple(_hold(gate) for gate in SPECIFIED_GATE_ORDER)
-    return LaunchPlaybook(version="test-v1", gates=gates, steps=steps)
 
 
 def _approval(**overrides: Any) -> GateApproval:

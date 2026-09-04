@@ -167,7 +167,7 @@ from tests.support.html import flat as _flat
 from tests.support.html import size as _size
 from tests.support.html import tree as _tree
 from tests.support.playbook import SPECIFIED_GATE_ORDER
-from tests.support.playbook import gates as _gates
+from tests.support.playbook import playbook as _build_playbook
 from tests.support.steps import hold as _build_hold
 
 # ---------------------------------------------------------------------------
@@ -302,21 +302,25 @@ def _hold(gate: str) -> StepDefinition:
 
 
 def _playbook() -> LaunchPlaybook:
-    named = (
-        _step(COPY_STEP),
-        _step(IMAGES_STEP),
-        _step(UNITS_STEP, discipline=INVENTORY),
-        _step(BRIEF_STEP),
-        _step(PROHIBITED_STEP, hazard=Hazard.PROHIBITED_TACTIC),
+    return _build_playbook(
+        *tuple(
+            step
+            for gate in SPECIFIED_GATE_ORDER
+            for step in (
+                *(
+                    _step(COPY_STEP),
+                    _step(IMAGES_STEP),
+                    _step(UNITS_STEP, discipline=INVENTORY),
+                    _step(BRIEF_STEP),
+                    _step(PROHIBITED_STEP, hazard=Hazard.PROHIBITED_TACTIC),
+                ),
+                *tuple(_hold(gate) for gate in SPECIFIED_GATE_ORDER),
+            )
+            if step.gate == gate
+        ),
+        version="last-completed-v1",
+        filler=_hold,
     )
-    holds = tuple(_hold(gate) for gate in SPECIFIED_GATE_ORDER)
-    ordered = tuple(
-        step
-        for gate in SPECIFIED_GATE_ORDER
-        for step in (*named, *holds)
-        if step.gate == gate
-    )
-    return LaunchPlaybook(version="last-completed-v1", gates=_gates(), steps=ordered)
 
 
 PLAYBOOK: Final = _playbook()

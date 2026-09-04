@@ -79,7 +79,6 @@ from typing import Any, Final
 import pytest
 
 from commerce_ops.launch.domain.launch_playbook import (
-    Gate,
     LaunchPlaybook,
     OffsetAnchor,
     Satisfied,
@@ -93,8 +92,7 @@ from commerce_ops.launch.domain.launch_run import (
 )
 from commerce_ops.shared.domain.identity import ProductId
 from tests.support.fixtures import ALICE, product_id
-from tests.support.playbook import SPECIFIED_GATE_ORDER
-from tests.support.playbook import opening_for as _opening_for
+from tests.support.playbook import playbook as _build_playbook
 from tests.support.steps import hold as _build_hold
 from tests.support.values import MemberValue as _Member
 
@@ -143,14 +141,9 @@ def _hold(gate: str) -> StepDefinition:
 
 
 def _playbook() -> LaunchPlaybook:
-    gates = tuple(
-        Gate(identifier=identifier, position=position, opening=_opening_for(identifier))
-        for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1)
-    )
-    return LaunchPlaybook(
+    return _build_playbook(
         version="progression-v1",
-        gates=gates,
-        steps=tuple(_hold(gate) for gate in SPECIFIED_GATE_ORDER),
+        filler=_hold,
     )
 
 

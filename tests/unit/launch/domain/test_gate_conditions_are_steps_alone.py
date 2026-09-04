@@ -81,6 +81,7 @@ from commerce_ops.launch.domain.launch_playbook import (
 from commerce_ops.shared.domain.discipline import Discipline
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import opening_for as _opening_for
+from tests.support.playbook import playbook as _build_playbook
 from tests.support.steps import hold as _build_hold
 from tests.support.steps import step as _build_step
 
@@ -136,7 +137,11 @@ def _fill(steps: tuple[StepDefinition, ...]) -> tuple[StepDefinition, ...]:
 
 
 def _playbook(steps: tuple[StepDefinition, ...] = ()) -> LaunchPlaybook:
-    return LaunchPlaybook(version="steps-alone-v1", gates=_gates(), steps=_fill(steps))
+    return _build_playbook(
+        *_fill(steps),
+        version="steps-alone-v1",
+        filler=_hold,
+    )
 
 
 # ---------------------------------------------------------------------------

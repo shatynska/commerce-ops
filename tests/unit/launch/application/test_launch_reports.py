@@ -91,7 +91,7 @@ from commerce_ops.shared.domain.access_scope import AccessScope
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
 from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
-from tests.support.playbook import gates as _gates
+from tests.support.playbook import playbook as _build_playbook
 from tests.support.steps import hold as _build_hold
 from tests.support.steps import step as _build_step
 
@@ -162,8 +162,10 @@ def _fillers(steps: tuple[StepDefinition, ...]) -> tuple[StepDefinition, ...]:
 
 
 def _playbook(steps: tuple[StepDefinition, ...] = ()) -> LaunchPlaybook:
-    return LaunchPlaybook(
-        version="test-v1", gates=_gates(), steps=(*steps, *_fillers(steps))
+    return _build_playbook(
+        *steps,
+        *_fillers(steps),
+        filler=_hold,
     )
 
 

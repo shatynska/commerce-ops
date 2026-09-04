@@ -85,7 +85,6 @@ from procrastinate import job_context, jobs
 import commerce_ops.launch.infrastructure.driving.clickup_webhook as webhook_module
 import commerce_ops.worker  # noqa: F401 -- importing a root registers its work
 from commerce_ops.launch.domain.launch_playbook import (
-    Gate,
     LaunchPlaybook,
     Satisfied,
     StepDefinition,
@@ -95,8 +94,7 @@ from commerce_ops.launch.domain.launch_playbook import (
 from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.launch.infrastructure.driven.clickup_sync import ClickUpSyncError
 from commerce_ops.shared.domain.identity import ProductId
-from tests.support.playbook import SPECIFIED_GATE_ORDER
-from tests.support.playbook import opening_for as _opening_for
+from tests.support.playbook import playbook as _build_playbook
 from tests.support.steps import hold as _build_hold
 from tests.support.steps import step as _build_step
 from tests.support.values import TaskMapping as _TaskMapping
@@ -140,14 +138,10 @@ def _hold(gate: str) -> StepDefinition:
 
 
 def _playbook() -> LaunchPlaybook:
-    gates = tuple(
-        Gate(identifier=identifier, position=position, opening=_opening_for(identifier))
-        for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1)
+    return _build_playbook(
+        *(_step(),),
+        filler=_hold,
     )
-    steps = (_step(),)
-    held = {step.gate for step in steps if step.blocking}
-    fillers = tuple(_hold(gate) for gate in SPECIFIED_GATE_ORDER if gate not in held)
-    return LaunchPlaybook(version="test-v1", gates=gates, steps=(*steps, *fillers))
 
 
 def _launch_for(product_id: ProductId) -> Launch:

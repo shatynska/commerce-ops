@@ -124,7 +124,6 @@ import pytest
 
 import commerce_ops.launch.application as launch_application
 from commerce_ops.launch.domain.launch_playbook import (
-    Gate,
     LaunchPlaybook,
     OffsetAnchor,
     Satisfied,
@@ -142,7 +141,7 @@ from commerce_ops.shared.domain.identity import MetricId, ProductId
 from commerce_ops.shared.domain.lifecycle_stage import Posture
 from tests.support.fixtures import product_id
 from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
-from tests.support.playbook import opening_for as _opening_for
+from tests.support.playbook import playbook as _build_playbook
 from tests.support.steps import hold as _build_hold
 
 pytestmark = pytest.mark.anyio
@@ -203,18 +202,9 @@ def _playbook() -> LaunchPlaybook:
     the launch report cannot answer (delta R1) — and so the case a pass
     judging readiness from the report would flood the journal at.
     """
-    gates = tuple(
-        Gate(
-            identifier=identifier,
-            position=position,
-            opening=_opening_for(identifier),
-        )
-        for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1)
-    )
-    return LaunchPlaybook(
+    return _build_playbook(
         version="progression-v1",
-        gates=gates,
-        steps=tuple(_hold(gate) for gate in SPECIFIED_GATE_ORDER),
+        filler=_hold,
     )
 
 

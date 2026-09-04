@@ -92,8 +92,7 @@ from commerce_ops.shared.domain.access_scope import AccessScope
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
 from tests.support.fixtures import STEP_ID, product_id
-from tests.support.playbook import SPECIFIED_GATE_ORDER
-from tests.support.playbook import gates as _gates
+from tests.support.playbook import playbook as _build_playbook
 from tests.support.steps import hold as _build_hold
 
 pytestmark = pytest.mark.anyio
@@ -156,11 +155,11 @@ def _hold(gate: str) -> StepDefinition:
 
 
 def _playbook() -> LaunchPlaybook:
-    fillers = tuple(_hold(gate) for gate in SPECIFIED_GATE_ORDER)
-    return LaunchPlaybook(
+    return _build_playbook(
+        _step(STEP_ID),
+        _step(OTHER_STEP_ID),
         version="finding-report-v1",
-        gates=_gates(),
-        steps=(_step(STEP_ID), _step(OTHER_STEP_ID), *fillers),
+        filler=_hold,
     )
 
 

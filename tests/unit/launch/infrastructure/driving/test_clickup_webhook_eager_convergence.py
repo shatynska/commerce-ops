@@ -88,7 +88,6 @@ from fastapi.testclient import TestClient
 
 import commerce_ops.launch.infrastructure.driving.clickup_webhook as webhook_module
 from commerce_ops.launch.domain.launch_playbook import (
-    Gate,
     LaunchPlaybook,
     StepDefinition,
     StepKind,
@@ -98,7 +97,7 @@ from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.shared.domain.identity import ProductId
 from tests.support.fixtures import LAUNCH_DATE, product_id
 from tests.support.playbook import SPECIFIED_GATE_ORDER
-from tests.support.playbook import opening_for as _opening_for
+from tests.support.playbook import playbook as _build_playbook
 from tests.support.steps import hold as _build_hold
 from tests.support.steps import step as _build_step
 from tests.support.values import TaskMapping as _TaskMapping
@@ -159,11 +158,10 @@ def _fill(steps: tuple[StepDefinition, ...]) -> tuple[StepDefinition, ...]:
 
 
 def _playbook() -> LaunchPlaybook:
-    gates = tuple(
-        Gate(identifier=identifier, position=position, opening=_opening_for(identifier))
-        for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1)
+    return _build_playbook(
+        *_fill((_step(),)),
+        filler=_hold,
     )
-    return LaunchPlaybook(version="test-v1", gates=gates, steps=_fill((_step(),)))
 
 
 def _active_launch() -> Launch:

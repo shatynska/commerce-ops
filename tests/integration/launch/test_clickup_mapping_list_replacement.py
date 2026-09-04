@@ -105,7 +105,6 @@ from commerce_ops.catalog.infrastructure.driven.product_repository import (
     CatalogProductRepository,
 )
 from commerce_ops.launch.domain.launch_playbook import (
-    Gate,
     LaunchPlaybook,
     StepDefinition,
     StepKind,
@@ -118,8 +117,7 @@ from commerce_ops.launch.infrastructure.driven.launch_repository import LaunchRe
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId, Sku
 from tests.support.fixtures import LAUNCH_DATE, MARKETPLACE
-from tests.support.playbook import SPECIFIED_GATE_ORDER
-from tests.support.playbook import opening_for as _opening_for
+from tests.support.playbook import playbook as _build_playbook
 from tests.support.steps import hold as _build_hold
 from tests.support.steps import step as _build_step
 
@@ -259,18 +257,16 @@ def _hold(gate: str) -> StepDefinition:
 
 
 def _playbook() -> LaunchPlaybook:
-    gates = tuple(
-        Gate(identifier=identifier, position=position, opening=_opening_for(identifier))
-        for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1)
+    return _build_playbook(
+        *(
+            _step(identifier=OPEN_STEP_ID),
+            _step(identifier=OTHER_OPEN_STEP_ID),
+            _step(
+                identifier=SPARED_STEP_ID, gate="commit", discipline=Discipline.FINANCE
+            ),
+        ),
+        filler=_hold,
     )
-    steps = (
-        _step(identifier=OPEN_STEP_ID),
-        _step(identifier=OTHER_OPEN_STEP_ID),
-        _step(identifier=SPARED_STEP_ID, gate="commit", discipline=Discipline.FINANCE),
-    )
-    held = {step.gate for step in steps if step.blocking}
-    fillers = tuple(_hold(gate) for gate in SPECIFIED_GATE_ORDER if gate not in held)
-    return LaunchPlaybook(version="test-v1", gates=gates, steps=(*steps, *fillers))
 
 
 def _start(product_id: ProductId, playbook: LaunchPlaybook) -> Launch:

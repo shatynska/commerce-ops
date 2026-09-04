@@ -46,6 +46,7 @@ from commerce_ops.launch.domain.launch_playbook import (
 from commerce_ops.shared.domain.discipline import Discipline
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import opening_for as _opening_for
+from tests.support.playbook import playbook as _build_playbook
 from tests.support.steps import hold as _build_hold
 from tests.support.steps import step as _build_step
 
@@ -103,10 +104,10 @@ def _playbook(
     gates: tuple[Gate, ...] | None = None,
     steps: tuple[StepDefinition, ...] = (),
 ) -> LaunchPlaybook:
-    return LaunchPlaybook(
-        version="test-v1",
+    return _build_playbook(
+        *_fill(steps),
         gates=specified_gates() if gates is None else gates,
-        steps=_fill(steps),
+        filler=_hold,
     )
 
 

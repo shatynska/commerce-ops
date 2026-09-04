@@ -113,6 +113,7 @@ from commerce_ops.shared.domain.lifecycle_stage import Posture
 from tests.support.fixtures import ALICE, BOHDAN, product_id
 from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
+from tests.support.playbook import playbook as _build_playbook
 from tests.support.steps import hold as _build_hold
 from tests.support.values import MemberValue as _Member
 
@@ -190,10 +191,9 @@ def _hold(gate: str, **overrides: Any) -> StepDefinition:
 
 
 def _playbook() -> LaunchPlaybook:
-    return LaunchPlaybook(
+    return _build_playbook(
         version="progression-v1",
-        gates=_gates(),
-        steps=tuple(_hold(gate) for gate in SPECIFIED_GATE_ORDER),
+        filler=_hold,
     )
 
 

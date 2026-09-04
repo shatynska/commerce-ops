@@ -96,7 +96,7 @@ from commerce_ops.launch.domain.launch_playbook import (
     StepStatus,
 )
 from tests.support.playbook import SPECIFIED_GATE_ORDER
-from tests.support.playbook import gates as _gates
+from tests.support.playbook import playbook as _build_playbook
 from tests.support.steps import hold as _build_hold
 from tests.support.steps import step as _build_step
 
@@ -122,7 +122,10 @@ def _holding_steps(
 
 
 def _playbook(steps: tuple[StepDefinition, ...]) -> LaunchPlaybook:
-    return LaunchPlaybook(version="test-v1", gates=_gates(), steps=steps)
+    return _build_playbook(
+        *steps,
+        fill_unheld=False,
+    )
 
 
 def _ready_playbook() -> LaunchPlaybook:

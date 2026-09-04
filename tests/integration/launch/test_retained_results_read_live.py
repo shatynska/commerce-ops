@@ -107,7 +107,6 @@ from commerce_ops.catalog.infrastructure.driven.product_repository import (
     CatalogProductRepository,
 )
 from commerce_ops.launch.domain.launch_playbook import (
-    Gate,
     LaunchPlaybook,
     Satisfied,
     StepDefinition,
@@ -123,8 +122,8 @@ from commerce_ops.launch.infrastructure.driven.launch_repository import LaunchRe
 from commerce_ops.shared.domain.access_scope import AccessScope
 from commerce_ops.shared.domain.identity import ProductId, Sku
 from tests.support.fixtures import HANDLER_NAME, LAUNCH_DATE, MARKETPLACE
-from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
-from tests.support.playbook import opening_for as _opening_for
+from tests.support.playbook import CONFIRMATION_GATES
+from tests.support.playbook import playbook as _build_playbook
 from tests.support.steps import hold as _build_hold
 from tests.support.steps import step as _build_step
 
@@ -362,13 +361,10 @@ def _hold(gate: str) -> StepDefinition:
 
 
 def _playbook() -> LaunchPlaybook:
-    gates = tuple(
-        Gate(identifier=identifier, position=position, opening=_opening_for(identifier))
-        for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1)
+    return _build_playbook(
+        *(_step(), _step(identifier=SECOND_STEP, name="List the demanded fields")),
+        filler=_hold,
     )
-    fillers = tuple(_hold(gate) for gate in SPECIFIED_GATE_ORDER)
-    steps = (_step(), _step(identifier=SECOND_STEP, name="List the demanded fields"))
-    return LaunchPlaybook(version="test-v1", gates=gates, steps=(*steps, *fillers))
 
 
 def _graduate(launch: Launch, playbook: LaunchPlaybook) -> Launch:
