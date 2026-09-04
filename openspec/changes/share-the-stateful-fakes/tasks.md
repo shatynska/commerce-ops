@@ -510,16 +510,33 @@ Counts here are AST counts. Do not re-derive one by grep.
       (`test_seeded_step_fields.py:579`) is among the 20 exempt and so carries
       no decorator — the same correction Decision 9 already records for
       `FakeSlackResponse`.
-- [ ] 11.4 Record the resulting reader-shape population: how many members
+- [x] 11.4 Record the resulting reader-shape population: how many members
       readers in `tests/` now present `list_members` alone, and what remains —
       `_StoreShapedMembers`, `_ReaderMembers`, `_Members`, and the module-level
-      `_members()` at 17 call sites. This is what
-      `unify-launch-adapter-dependencies` inherits, and it is a measurement, not
-      a claim that the branches are dead.
+      `_members()` at 17 call sites. This is what `unify-launch-adapter-dependencies` inherits, and it is a
+      measurement, not a claim that the branches are dead.
+
+      **Measured at head.** Seventeen class declarations in `tests/` still
+      declare `list_members` themselves; **thirteen present that shape alone**
+      and **four present more than one**. Of the four, two are this change's own
+      keeps (`test_step_activation`, `test_step_assignee_preconditions`, both
+      carrying a call counter) and two are `_PlaybookMembers`, a name outside
+      this change's scope. Every one of the 41 migrated `_FakeMembers` presents
+      `list_members` alone.
+
+      **The callable convention is still live**, and by a wider margin than the
+      proposal estimated: **23 module-level `_members()` reader functions**
+      across the three tiers, not the 17 call sites it named. Together with
+      `_StoreShapedMembers`, `_ReaderMembers` (five declarations), `_Members`
+      and `_FailingMembers`, that is what keeps
+      `clickup_sync._members`'s and `activation_readiness._members_of`'s second
+      and third branches reachable. **The successor must not narrow either probe
+      on the strength of this change**; what it inherits is a narrowed
+      population and an exact census of the remainder.
 
 ## 12. Close out
 
-- [ ] 12.1 Delete `tests/support/_paired.py` in the last settle commit. A proof
+- [x] 12.1 Delete `tests/support/_paired.py` in the last settle commit. A proof
       that outlives its migration is a permanent dependency on a temporary
       arrangement. The declared `tests/unit/support/` count does not move: the
       decorator's own cases were never committed (task 2.2).
