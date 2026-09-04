@@ -26,6 +26,9 @@ from collections.abc import Iterable
 from datetime import date
 from typing import Any, ClassVar
 
+from commerce_ops.catalog.domain.product import Product
+from commerce_ops.shared.domain.identity import ProductId
+
 
 class FakeSlackResponse(dict[str, Any]):
     """What a stubbed `AsyncWebClient.api_call` answers with.
@@ -250,3 +253,42 @@ class FakeMembersStore:
         self.saves.append((stored, expected_version))
         self.rows = stored
         self.version += 1
+
+
+class FakeCatalogPort:
+    """The catalog's two reads, over a fixed set of products.
+
+    `fails` makes both reads raise, which is the outage *Product identities
+    cannot be read at all* is about; a product absent from `products` is one the
+    catalog cannot resolve, and `get_product_by_id` answers `None` for it.
+
+    **`fails` is a superset over eight of the sixteen locals**, and a licensed
+    one: it is a constructor keyword defaulting `False`, reachable only where a
+    call site sets it, and no production reader probes for the attribute --
+    searched across `src/` at the commit that added it. The eight that never
+    pass it cannot tell it is there.
+
+    The two reads take `*_args, **_kwargs` after the identifier because the
+    call sites pass a scope the double does not model; two declarations in the
+    population go further and *sniff* their arguments for a `ProductId`, which
+    is a different behaviour and keeps them out of this fake.
+    """
+
+    def __init__(self, *products: Product, fails: bool = False) -> None:
+        self.products = tuple(products)
+        self.fails = fails
+
+    async def get_product_by_id(
+        self, product_id: ProductId, *_args: Any, **_kwargs: Any
+    ) -> Product | None:
+        if self.fails:
+            raise ConnectionError("the catalog store is unreachable")
+        for product in self.products:
+            if product.id == product_id:
+                return product
+        return None
+
+    async def list_products(self, *_args: Any, **_kwargs: Any) -> tuple[Product, ...]:
+        if self.fails:
+            raise ConnectionError("the catalog store is unreachable")
+        return self.products

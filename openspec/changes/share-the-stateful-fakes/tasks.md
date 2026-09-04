@@ -409,12 +409,15 @@ Counts here are AST counts. Do not re-derive one by grep.
 
 ## 10. `FakeCatalogPort` — 16 declarations of `_Catalog`, seven bodies
 
-- [ ] 10.1 Add `FakeCatalogPort(*products, fails: bool = False)` with
+- [x] 10.1 Add `FakeCatalogPort(*products, fails: bool = False)` with
       `get_product_by_id` and `list_products`, its protocol, `_conforms` and
       contract tests; declare the number added. `fails` is in the shared fake
       because two measured declarations need it, not because it might be wanted;
       record the completeness search establishing that no production reader
-      probes it.
+      probes it. **Six tests added; `tests/unit/support/` now collects 41.
+      Searched: nothing in `src/` names `fails` or reads it by `getattr`, and
+      `launch_admin` calls `list_products` and `get_product_by_id` by name. The
+      eight declarations that never pass `fails` cannot tell it is there.**
 - [ ] 10.2 Instrument, verify, settle, verify. **Expected: 12 of 16 — 12
       aliases, 4 kept.** The kept are the two declarations that sniff their
       arguments for a `ProductId` rather than taking one positionally, the one

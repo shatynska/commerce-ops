@@ -61,6 +61,7 @@ from typing import Any, Protocol
 
 from commerce_ops.shared.domain.identity import Sku
 from tests.support.fakes import (
+    FakeCatalogPort,
     FakeHandlerRegistry,
     FakeHandlers,
     FakeMembersStore,
@@ -226,3 +227,21 @@ class VersionedStoreShape(Protocol):
 
 _step_store_conforms: VersionedStoreShape = FakeStepStore[Any]()
 _members_store_conforms: VersionedStoreShape = FakeMembersStore()
+
+
+class CatalogPortShape(Protocol):
+    """The two catalog reads a launch surface makes.
+
+    Both take a scope after the identifier that the doubles do not model, which
+    is why the shape declares them loosely: what production reads is the two
+    names and their answers, not the argument list.
+    """
+
+    async def get_product_by_id(
+        self, product_id: Any, *args: Any, **kwargs: Any
+    ) -> Any: ...
+
+    async def list_products(self, *args: Any, **kwargs: Any) -> Any: ...
+
+
+_catalog_port_conforms: CatalogPortShape = FakeCatalogPort()
