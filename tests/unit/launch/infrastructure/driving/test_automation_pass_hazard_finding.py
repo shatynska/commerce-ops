@@ -103,9 +103,8 @@ from commerce_ops.launch.infrastructure.driving import automation_pass
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
 from commerce_ops.shared.domain.result import Success
-from tests.support._paired import paired as _paired
 from tests.support.fakes import FakeHandlers as _FakeHandlers
-from tests.support.fakes import InertBackoff as _Shared
+from tests.support.fakes import InertBackoff as _InertBackoff
 from tests.support.fixtures import LAUNCH_DATE, PRODUCT_NAME, PRODUCT_SKU, product_id
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
@@ -351,21 +350,6 @@ class _FakeRecorder:
     async def __call__(self, product_id: Any, value: Any) -> object:
         self.calls.append((product_id, value))
         return object()
-
-
-@_paired(_Shared)
-class _InertBackoff:
-    async def read(self, *args: Any, **kwargs: Any) -> None:
-        return None
-
-    async def note(self, *args: Any, **kwargs: Any) -> None:
-        return None
-
-    async def mark_reported(self, *args: Any, **kwargs: Any) -> None:
-        return None
-
-    async def rollback(self) -> None:
-        return None
 
 
 class _InertNotifier:

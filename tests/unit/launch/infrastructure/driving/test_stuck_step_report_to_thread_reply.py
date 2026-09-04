@@ -78,8 +78,7 @@ from typing import Any, Final
 import pytest
 
 from commerce_ops.launch.domain.launch_run import Launch
-from tests.support._paired import paired as _paired
-from tests.support.fakes import InertBackoff as _Shared
+from tests.support.fakes import InertBackoff as _InertBackoff
 from tests.support.fixtures import STEP_ID, product_id
 from tests.support.values import CatalogProduct as _CatalogProduct
 
@@ -135,15 +134,6 @@ def _launch(*, submitter: str | None = SUBMITTER_ID) -> Launch:
         launch_date=None,
         submitter=submitter,
     )
-
-
-@_paired(_Shared)
-class _InertBackoff:
-    """A backoff record that holds nothing and fails at nothing -- this
-    file asserts on the delivered message, not the backoff stamp."""
-
-    async def mark_reported(self, *args: Any, **kwargs: Any) -> None:
-        return None
 
 
 class _CapturingNotifier:

@@ -65,9 +65,8 @@ from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.launch.infrastructure.driving import automation_pass
 from commerce_ops.shared.domain.access_scope import AccessScope
 from commerce_ops.shared.domain.identity import ProductId
-from tests.support._paired import paired as _paired
 from tests.support.fakes import FakeHandlers as _FakeHandlers
-from tests.support.fakes import InertBackoff as _Shared
+from tests.support.fakes import InertBackoff as _InertBackoff
 from tests.support.fixtures import (
     ALICE,
     LAUNCH_DATE,
@@ -347,21 +346,6 @@ def _pass_entry() -> Any:
         f"{automation_pass.__name__} under any of {_ENTRY_NAMES} — correct "
         "this file's probe to the implemented name"
     )
-
-
-@_paired(_Shared)
-class _InertBackoff:
-    async def read(self, *args: Any, **kwargs: Any) -> None:
-        return None
-
-    async def note(self, *args: Any, **kwargs: Any) -> None:
-        return None
-
-    async def mark_reported(self, *args: Any, **kwargs: Any) -> None:
-        return None
-
-    async def rollback(self) -> None:
-        return None
 
 
 class _InertNotifier:

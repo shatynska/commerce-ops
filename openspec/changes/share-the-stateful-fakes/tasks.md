@@ -233,7 +233,10 @@ Counts here are AST counts. Do not re-derive one by grep.
       `note`, `read`, `rollback`), its protocol and `_conforms`, and contract
       tests asserting each returns `None`; declare the number added. **Four
       tests added; `tests/unit/support/` now collects 18.**
-- [ ] 6.2 Instrument, verify, settle, verify. **Expected: 9 of 9, all aliases.**
+- [x] 6.2 Instrument, verify, settle, verify. **Expected: 9 of 9, all aliases.
+      Actual: 9 of 9, all aliases.** The pairing fired 95 times across the nine
+      before the decorator came off, the two minimal declarations included
+      (9 and 6 calls on `mark_reported`), with no divergence.
 - [x] 6.3 Record the same-value check for the two declarations that carry
       `mark_reported` alone: the shared fake adds three methods, each returning
       `None`. Confirm by search across `tests/` and `src/` that no site probes
