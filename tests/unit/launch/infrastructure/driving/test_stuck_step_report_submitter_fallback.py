@@ -168,6 +168,18 @@ class _Step:
 
 
 class _InertBackoff:
+    """A backoff record carrying `mark_reported` and **nothing else**, kept
+    local rather than migrated onto `tests.support.fakes.InertBackoff`.
+
+    The absence is the assertion. `_report_stuck_step` must not read or note
+    the backoff on this path; if it regressed to doing so, the missing method
+    raises `AttributeError`, `_contained` catches it, and the `rollback()` it
+    then attempts raises too, surfacing as `BackoffStoreUnrestorable`. The
+    shared fake models all four methods, so the same regression would return
+    `None` four times and pass green. Completeness is the right default and
+    this is the file where it costs a guard.
+    """
+
     async def mark_reported(self, *args: Any, **kwargs: Any) -> None:
         return None
 

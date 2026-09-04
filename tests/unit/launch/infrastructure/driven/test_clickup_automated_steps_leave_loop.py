@@ -93,6 +93,7 @@ from commerce_ops.launch.infrastructure.driven.clickup_sync import (
 from commerce_ops.shared.domain.clickup import ClickUpListState
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
+from tests.support.fakes import FakeMembers
 from tests.support.fixtures import (
     ALICE,
     HANDLER_NAME,
@@ -210,17 +211,9 @@ class _Member(Member):
         super().__init__(member_id, display_name, clickup_user_id=ALICE_CLICKUP)
 
 
-class _FakeMembers:
-    async def list_members(self) -> tuple[_Member, ...]:
-        return (_Member(ALICE, "Alice Admin"),)
-
-    members = list_members
-
-    async def member(self, member_id: str) -> _Member | None:
-        return _Member(ALICE, "Alice Admin") if member_id == ALICE else None
-
-    async def __call__(self) -> tuple[_Member, ...]:
-        return await self.list_members()
+class _FakeMembers(FakeMembers):
+    def __init__(self) -> None:
+        super().__init__((_Member(ALICE, "Alice Admin"),))
 
 
 class _FakeClickUp:

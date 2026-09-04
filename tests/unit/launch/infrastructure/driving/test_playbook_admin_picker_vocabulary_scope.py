@@ -124,6 +124,8 @@ from commerce_ops.shared.domain.lifecycle_stage import Launching
 from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
 from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
 from tests.support.admin import fake_verify
+from tests.support.fakes import FakeMembersStore as _FakeMembersStore
+from tests.support.fakes import FakeStepStore, StubDate
 from tests.support.fixtures import ALICE, ALICE_NAME, MARKETPLACE
 from tests.support.html import HX_VERBS as _HX_VERBS
 from tests.support.html import Node as _Node
@@ -233,17 +235,7 @@ PLAYBOOK: Final = LaunchPlaybook(
 )
 
 
-class _FakeStepStore:
-    def __init__(self, records: tuple[_Record, ...], version: int = 41) -> None:
-        self.records = records
-        self.version = version
-
-    async def load(self) -> tuple[tuple[Any, ...], int]:
-        return self.records, self.version
-
-    async def save(self, records: Any, *, expected_version: int) -> None:
-        self.records = tuple(records)
-        self.version += 1
+_FakeStepStore = FakeStepStore[_Record]
 
 
 def _seeded_steps() -> _FakeStepStore:
@@ -263,19 +255,6 @@ class _PlaybookMembers:
 
     async def __call__(self) -> tuple[_Member, ...]:
         return await self.list_members()
-
-
-class _FakeMembersStore:
-    def __init__(self, rows: tuple[Any, ...] = (), version: int = 13) -> None:
-        self.rows = tuple(rows)
-        self.version = version
-
-    async def load(self) -> tuple[tuple[Any, ...], int]:
-        return self.rows, self.version
-
-    async def save(self, rows: Any, *, expected_version: int) -> None:
-        self.rows = tuple(rows)
-        self.version += 1
 
 
 async def _build_members() -> _FakeMembersStore:
@@ -443,12 +422,8 @@ def _install_any(
 _fake_verify = fake_verify(PRINCIPAL)
 
 
-class _StubDate(date):
-    _today: date = RENDER_DATE
-
-    @classmethod
-    def today(cls) -> date:  # type: ignore[override]
-        return cls._today
+class _StubDate(StubDate):
+    _today = RENDER_DATE
 
 
 def _render_on(monkeypatch: pytest.MonkeyPatch, module: ModuleType, day: date) -> None:

@@ -1122,13 +1122,26 @@ The earlier table's line numbers were **not** stale, and were wrongly reported
 as such in a draft of `share-the-value-doubles`: it anchored each site on the
 enclosing `def` where the table above anchors on the `for`.
 
-**Two tolerances stand that the shape measurement cannot find**, because neither
-is a loop over spellings. Both are live:
+**Five tolerances stand that the shape measurement cannot find**, because none
+is a loop over spellings. All five are live:
 
 | site | what it tolerates |
 |---|---|
 | `gate_progression_job.py:256` (`_crossed`) | `getattr` with a default — a fake modelling less than `LaunchProgressed` |
 | `clickup_sync.py:128` (`_members`) | three *reader shapes*: `list_members()`, a callable, a plain iterable |
+| `activation_readiness.py:179` (`_members_of`) | the same three reader shapes |
+| `activation_readiness.py:150` (`_registered_names`) | two reader shapes: `names()` or a plain iterable |
+| `playbook_authoring.py:389` (`_registered_names`) | the same two |
+
+**The last three were found by `share-the-stateful-fakes` (2026-09-04), and how
+they were missed is the durable part.** A *reader* shape is a function resolving
+one value through more than one calling convention — a `getattr` for a named
+method, a `callable()` test, or a bare fall-through over the collaborator
+itself. It matches no spelling-shaped pattern, so every sweep of this ground
+found `clickup_sync` alone. Measure for the *shape of the resolution*, not for
+the names it tries. Note that `_crossed` is a fourth kind again — a `getattr`
+with a default over a single spelling — and is grouped here only because it,
+too, is invisible to a spelling sweep.
 
 Two others were closed, each after failing in production, which is the argument
 for the whole entry: `automated_decisions._member_for` (three spellings for one
@@ -1144,10 +1157,23 @@ member-identifier probes are dead: nothing in `tests/` reaches them any more.
 That is what the deletion needed, and the deletion is still not this entry's to
 perform.
 
+**Where the reader shapes stand after `share-the-stateful-fakes` (2026-09-04),
+which is a narrowing and not a closure.** All 20 handler-name doubles present
+`names()` alone — `FakeHandlerRegistry.__iter__` was dropped, licensed by
+mutating every local `__iter__` to raise and finding the commit tier still
+green — so both `_registered_names` sites take their first branch from
+`tests/`. The members side is narrower but **not** empty: 41 of the 43
+`_FakeMembers` present `list_members()` alone, and what still supplies the other
+two conventions is 23 module-level `_members()` reader functions, five
+`_ReaderMembers`, `_StoreShapedMembers`, `_Members`, `_FailingMembers`, two
+`_PlaybookMembers` and this change's own two keeps. **Do not narrow
+`clickup_sync._members` or `activation_readiness._members_of` on the strength of
+that change**; the population is measured, the branches are not dead.
+
 Not fixable on its own. A tolerance may only be deleted once the doubles it
 tolerates are complete. `share-the-value-doubles` completed the value doubles
-and `share-the-stateful-fakes` will complete the rest; both make deletion
-*safe*. **`unify-launch-adapter-dependencies` performs it** — protocols naming a
+and `share-the-stateful-fakes` completed 175 of the 191 stateful declarations in
+its scope; both make deletion *safer*, and neither makes it complete. **`unify-launch-adapter-dependencies` performs it** — protocols naming a
 shape without naming a type `.importlinter` forbids — and
 `docs/proposed-change-order.md` now orders it after the doubles for that reason.
 Recorded here because the finding predates all of them and outlives any one

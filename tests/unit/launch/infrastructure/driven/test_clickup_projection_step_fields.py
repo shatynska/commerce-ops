@@ -97,6 +97,7 @@ from commerce_ops.launch.infrastructure.driven.clickup_sync import converge_laun
 from commerce_ops.shared.domain.clickup import ClickUpListState
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
+from tests.support.fakes import FakeMembers as _FakeMembers
 from tests.support.fixtures import (
     ALICE,
     BOHDAN,
@@ -179,28 +180,6 @@ class _FakeCatalog:
 
     async def __call__(self, product_id: ProductId) -> _CatalogProduct:
         return self._product
-
-
-class _FakeMembers:
-    """The members reader, offering several plausible call shapes so a
-    correction to the seam is one line here."""
-
-    def __init__(self, members: tuple[_Member, ...]) -> None:
-        self._members = members
-
-    async def list_members(self) -> tuple[_Member, ...]:
-        return self._members
-
-    members = list_members
-
-    async def member(self, member_id: str) -> _Member | None:
-        for member in self._members:
-            if member.id == member_id:
-                return member
-        return None
-
-    async def __call__(self) -> tuple[_Member, ...]:
-        return await self.list_members()
 
 
 def _members() -> _FakeMembers:

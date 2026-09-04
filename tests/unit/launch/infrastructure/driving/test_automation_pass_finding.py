@@ -122,6 +122,8 @@ from commerce_ops.launch.infrastructure.driving import automation_pass
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
 from commerce_ops.shared.domain.result import Failure, Success
+from tests.support.fakes import FakeHandlers as _FakeHandlers
+from tests.support.fakes import InertBackoff as _InertBackoff
 from tests.support.fixtures import (
     HANDLER_NAME,
     LAUNCH_DATE,
@@ -261,23 +263,6 @@ class _ScriptedHandler:
         return bool(self.contexts)
 
 
-class _FakeHandlers:
-    def __init__(self, **handlers: Any) -> None:
-        self._handlers = dict(handlers)
-
-    def __contains__(self, name: object) -> bool:
-        return name in self._handlers
-
-    def names(self) -> tuple[str, ...]:
-        return tuple(self._handlers)
-
-    def resolve(self, name: str) -> Any:
-        return self._handlers[name]
-
-    def get(self, name: str, default: Any = None) -> Any:
-        return self._handlers.get(name, default)
-
-
 class _FakeResults:
     def __init__(self) -> None:
         self.rows: list[_PendingRow] = []
@@ -383,20 +368,6 @@ class _FakeRecorder:
         if self.failing:
             raise RuntimeError("simulated recording failure")
         return object()
-
-
-class _InertBackoff:
-    async def read(self, *args: Any, **kwargs: Any) -> None:
-        return None
-
-    async def note(self, *args: Any, **kwargs: Any) -> None:
-        return None
-
-    async def mark_reported(self, *args: Any, **kwargs: Any) -> None:
-        return None
-
-    async def rollback(self) -> None:
-        return None
 
 
 class _InertNotifier:

@@ -170,6 +170,8 @@ from commerce_ops.shared.domain.lifecycle_stage import (
 from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
 from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
 from tests.support.admin import fake_verify
+from tests.support.fakes import FakeMembersStore as _FakeMembersStore
+from tests.support.fakes import FakeStepStore, StubDate
 from tests.support.fixtures import MARKETPLACE
 from tests.support.html import Node as _Node
 from tests.support.html import all_text as _all_text
@@ -527,19 +529,6 @@ class _FakePlaybooks:
         return PLAYBOOK
 
 
-class _FakeMembersStore:
-    def __init__(self, rows: tuple[Any, ...] = (), version: int = 13) -> None:
-        self.rows = tuple(rows)
-        self.version = version
-
-    async def load(self) -> tuple[tuple[Any, ...], int]:
-        return self.rows, self.version
-
-    async def save(self, rows: Any, *, expected_version: int) -> None:
-        self.rows = tuple(rows)
-        self.version += 1
-
-
 async def _build_members() -> _FakeMembersStore:
     store = _FakeMembersStore()
     await create_member(
@@ -593,19 +582,7 @@ class _StepRecord:
         self.unretired_on: Any = None
 
 
-class _FakeStepStore:
-    def __init__(
-        self, records: tuple[_StepRecord, ...] = (), version: int = 41
-    ) -> None:
-        self.records = records
-        self.version = version
-
-    async def load(self) -> tuple[tuple[Any, ...], int]:
-        return self.records, self.version
-
-    async def save(self, records: Any, *, expected_version: int) -> None:
-        self.records = tuple(records)
-        self.version += 1
+_FakeStepStore = FakeStepStore[_StepRecord]
 
 
 class _PlaybookMembers:
@@ -719,12 +696,8 @@ def _install_any(
 _fake_verify = fake_verify(PRINCIPAL)
 
 
-class _StubDate(date):
-    _today: date = RENDER_DATE
-
-    @classmethod
-    def today(cls) -> date:  # type: ignore[override]
-        return cls._today
+class _StubDate(StubDate):
+    _today = RENDER_DATE
 
 
 _CLOCK_NAMES: Final = ("today", "current_date", "now", "clock", "render_date")

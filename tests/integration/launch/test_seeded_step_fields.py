@@ -99,8 +99,8 @@ from commerce_ops.launch.infrastructure.driven.playbook_repository import (
     PlaybookRepository,
 )
 from commerce_ops.shared.domain.discipline import Discipline
+from tests.support.fakes import FakeMembers
 from tests.support.playbook import SPECIFIED_GATE_ORDER
-from tests.support.values import Member as _Member
 
 pytestmark = pytest.mark.anyio
 
@@ -576,14 +576,9 @@ _REPORT_NAMES: Final = (
 )
 
 
-class _FakeMembers:
-    async def list_members(self) -> tuple[_Member, ...]:
-        return ()
-
-    members = list_members
-
-    async def __call__(self) -> tuple[_Member, ...]:
-        return await self.list_members()
+class _FakeMembers(FakeMembers):
+    def __init__(self) -> None:
+        super().__init__(())
 
 
 class _EmptyRegistry:

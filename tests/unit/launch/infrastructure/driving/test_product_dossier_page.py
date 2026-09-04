@@ -127,6 +127,7 @@ from commerce_ops.shared.domain.lifecycle_stage import Launching, Retired
 from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
 from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
 from tests.support.admin import fake_verify
+from tests.support.fakes import FakeMembers
 from tests.support.fixtures import MARKETPLACE, PRINCIPAL
 from tests.support.steps import step as _build_step
 from tests.support.values import Member
@@ -731,12 +732,9 @@ class _Member(Member):
         super().__init__("prs_01HQ8Z6M4A", display_name, active=active)
 
 
-class _FakeMembers:
-    def __init__(self, *members: _Member) -> None:
-        self._members = members
-
-    async def list_members(self) -> tuple[_Member, ...]:
-        return self._members
+class _FakeMembers(FakeMembers):
+    def __init__(self, *members: Any) -> None:
+        super().__init__(members)
 
 
 # ---------------------------------------------------------------------------

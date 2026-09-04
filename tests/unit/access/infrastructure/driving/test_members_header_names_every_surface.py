@@ -87,6 +87,8 @@ from commerce_ops.launch.infrastructure.driving import (
 from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
 from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
 from tests.support.admin import fake_verify
+from tests.support.fakes import FakeMembers, FakeStepStore
+from tests.support.fakes import FakeMembersStore as _FakeMembersStore
 from tests.support.html import Node as _Node
 from tests.support.html import all_text as _all_text
 from tests.support.html import ancestors as _ancestors
@@ -155,22 +157,6 @@ _PLAYBOOK_MEMBERS_SEAMS: Final = (
 # ---------------------------------------------------------------------------
 
 
-class _FakeMembersStore:
-    def __init__(self, rows: tuple[Any, ...] = (), version: int = 13) -> None:
-        self.rows = tuple(rows)
-        self.version = version
-        self.saves: list[tuple[tuple[Any, ...], int]] = []
-
-    async def load(self) -> tuple[tuple[Any, ...], int]:
-        return self.rows, self.version
-
-    async def save(self, rows: Any, *, expected_version: int) -> None:
-        stored = tuple(rows)
-        self.saves.append((stored, expected_version))
-        self.rows = stored
-        self.version += 1
-
-
 async def _build_members() -> _FakeMembersStore:
     store = _FakeMembersStore()
     await create_member(
@@ -190,27 +176,12 @@ def _members_store() -> _FakeMembersStore:
     return asyncio.run(_build_members())
 
 
-class _FakeMembers:
-    async def list_members(self) -> tuple[_Member, ...]:
-        return (_Member("prs_01HQ8Z6M4A", "Alice Admin"),)
-
-    members = list_members
-
-    async def __call__(self) -> tuple[_Member, ...]:
-        return await self.list_members()
-
-
-class _FakeStepStore:
+class _FakeMembers(FakeMembers):
     def __init__(self) -> None:
-        self.records: tuple[Any, ...] = ()
-        self.version = 41
+        super().__init__((_Member("prs_01HQ8Z6M4A", "Alice Admin"),))
 
-    async def load(self) -> tuple[tuple[Any, ...], int]:
-        return self.records, self.version
 
-    async def save(self, records: Any, *, expected_version: int) -> None:
-        self.records = tuple(records)
-        self.version += 1
+_FakeStepStore = FakeStepStore[Any]
 
 
 class _EmptyLaunchStore:

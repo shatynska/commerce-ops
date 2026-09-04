@@ -146,6 +146,7 @@ from commerce_ops.launch.domain.launch_run import (
 from commerce_ops.shared.domain.access_scope import AccessScope
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
+from tests.support.fakes import FakeStepStore
 from tests.support.fixtures import PRINCIPAL
 from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
@@ -357,23 +358,9 @@ class _Record:
         self.unretired_on: Any = None
 
 
-class _FakeStepStore:
+class _FakeStepStore(FakeStepStore[_Record]):
     def __init__(self, definitions: tuple[StepDefinition, ...]) -> None:
-        self.records: tuple[Any, ...] = tuple(
-            _Record(definition) for definition in definitions
-        )
-        self.version = 41
-
-    async def load(self) -> tuple[tuple[Any, ...], int]:
-        return self.records, self.version
-
-    async def save(self, records: Any, *, expected_version: int) -> None:
-        assert expected_version == self.version, (
-            "conditional persistence violated: save() called with a stale "
-            f"expected_version {expected_version} against {self.version}"
-        )
-        self.records = tuple(records)
-        self.version += 1
+        super().__init__(tuple(_Record(definition) for definition in definitions))
 
 
 def _served_playbook_of(store: _FakeStepStore) -> LaunchPlaybook:

@@ -113,6 +113,7 @@ from commerce_ops.launch.domain.launch_playbook import (
 from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
+from tests.support.fakes import FakeMembers
 from tests.support.fixtures import (
     ALICE,
     ALICE_NAME,
@@ -205,21 +206,9 @@ def _launch(playbook: LaunchPlaybook) -> Launch:
 # ---------------------------------------------------------------------------
 
 
-class _FakeMembers:
-    """Answers `list_members` and nothing else — the one stated shape.
-
-    It used to answer six spellings at once so that any implementation
-    was satisfied. Keeping that would mean this file could not tell a
-    correctly wired deployment from the mis-wired one that shipped, since
-    a double satisfying every shape is satisfied by a caller reaching for
-    any of them. One shape, so a caller reaching for another fails here.
-    """
-
-    def __init__(self, *members: _Member) -> None:
-        self._members = list(members)
-
-    async def list_members(self) -> tuple[_Member, ...]:
-        return tuple(self._members)
+class _FakeMembers(FakeMembers):
+    def __init__(self, *members: Any) -> None:
+        super().__init__(members)
 
 
 def _members() -> _FakeMembers:

@@ -122,6 +122,8 @@ from commerce_ops.shared.domain.discipline import Discipline
 from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
 from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
 from tests.support.admin import fake_verify
+from tests.support.fakes import FakeMembers, FakeStepStore
+from tests.support.fakes import FakeMembersStore as _FakeMembersStore
 from tests.support.fixtures import ALICE, ALICE_NAME, BOHDAN, BOHDAN_NAME, PRINCIPAL
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.steps import step as _build_step
@@ -203,37 +205,18 @@ def _step(**overrides: Any) -> StepDefinition:
     return _build_step(**{"assignees": (ALICE,), **overrides})
 
 
-class _FakeStepStore:
-    def __init__(self, records: tuple[_Record, ...], version: int = 41) -> None:
-        self.records = records
-        self.version = version
-        self.saves: list[tuple[tuple[Any, ...], int]] = []
-
-    async def load(self) -> tuple[tuple[Any, ...], int]:
-        return self.records, self.version
-
-    async def save(self, records: Any, *, expected_version: int) -> None:
-        stored = tuple(records)
-        self.saves.append((stored, expected_version))
-        self.records = stored
-        self.version += 1
+_FakeStepStore = FakeStepStore[_Record]
 
 
-class _FakeMembers:
+class _FakeMembers(FakeMembers):
     def __init__(self) -> None:
-        self.members_rows = (
-            _Member(ALICE, ALICE_NAME, active=True),
-            _Member(BOHDAN, BOHDAN_NAME, active=True),
-            _Member(CHRIS_DEPARTED, CHRIS_NAME, active=False),
+        super().__init__(
+            (
+                _Member(ALICE, ALICE_NAME, active=True),
+                _Member(BOHDAN, BOHDAN_NAME, active=True),
+                _Member(CHRIS_DEPARTED, CHRIS_NAME, active=False),
+            )
         )
-
-    async def list_members(self) -> tuple[_Member, ...]:
-        return self.members_rows
-
-    members = list_members
-
-    async def __call__(self) -> tuple[_Member, ...]:
-        return await self.list_members()
 
 
 def _seeded_store() -> _FakeStepStore:
@@ -258,22 +241,6 @@ def _seeded_store() -> _FakeStepStore:
 # ---------------------------------------------------------------------------
 # The membership-store double (see test_members_admin_page.py)
 # ---------------------------------------------------------------------------
-
-
-class _FakeMembersStore:
-    def __init__(self, rows: tuple[Any, ...] = (), version: int = 13) -> None:
-        self.rows = tuple(rows)
-        self.version = version
-        self.saves: list[tuple[tuple[Any, ...], int]] = []
-
-    async def load(self) -> tuple[tuple[Any, ...], int]:
-        return self.rows, self.version
-
-    async def save(self, rows: Any, *, expected_version: int) -> None:
-        stored = tuple(rows)
-        self.saves.append((stored, expected_version))
-        self.rows = stored
-        self.version += 1
 
 
 async def _build_members_store() -> _FakeMembersStore:

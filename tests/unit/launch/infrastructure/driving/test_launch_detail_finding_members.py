@@ -127,6 +127,9 @@ from commerce_ops.shared.domain.lifecycle_stage import Launching
 from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
 from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
 from tests.support.admin import fake_verify
+from tests.support.fakes import FakeCatalogPort as _Catalog
+from tests.support.fakes import FakeMembersStore as _FakeMembersStore
+from tests.support.fakes import StubDate
 from tests.support.fixtures import MARKETPLACE
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
@@ -415,19 +418,6 @@ class _FakePlaybooks:
         return self._playbook
 
 
-class _FakeMembersStore:
-    def __init__(self, rows: tuple[Any, ...] = (), version: int = 13) -> None:
-        self.rows = tuple(rows)
-        self.version = version
-
-    async def load(self) -> tuple[tuple[Any, ...], int]:
-        return self.rows, self.version
-
-    async def save(self, rows: Any, *, expected_version: int) -> None:
-        self.rows = tuple(rows)
-        self.version += 1
-
-
 async def _build_members() -> _FakeMembersStore:
     store = _FakeMembersStore()
     await create_member(
@@ -439,22 +429,6 @@ async def _build_members() -> _FakeMembersStore:
         admin=True,
     )
     return store
-
-
-class _Catalog:
-    def __init__(self, *products: Product) -> None:
-        self.products = tuple(products)
-
-    async def list_products(self, *_args: Any, **_kwargs: Any) -> tuple[Product, ...]:
-        return self.products
-
-    async def get_product_by_id(
-        self, product_id: ProductId, *_args: Any, **_kwargs: Any
-    ) -> Product | None:
-        for product in self.products:
-            if product.id == product_id:
-                return product
-        return None
 
 
 # ---------------------------------------------------------------------------
@@ -494,12 +468,8 @@ def _install(
 _fake_verify = fake_verify(PRINCIPAL)
 
 
-class _StubDate(date):
-    _today: date = RENDER_DATE
-
-    @classmethod
-    def today(cls) -> date:  # type: ignore[override]
-        return cls._today
+class _StubDate(StubDate):
+    _today = RENDER_DATE
 
 
 def _render_on(monkeypatch: pytest.MonkeyPatch, module: ModuleType, day: date) -> None:

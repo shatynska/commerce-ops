@@ -73,6 +73,8 @@ from commerce_ops.launch.domain.launch_playbook import (
     StepStatus,
 )
 from commerce_ops.shared.domain.discipline import Discipline
+from tests.support.fakes import FakeHandlerRegistry, FakeMembersStore, FakeStepStore
+from tests.support.fakes import FakeMembers as _FakeMembers
 from tests.support.fixtures import ALICE, ALICE_NAME, BOHDAN, PRINCIPAL
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.steps import step as _build_step
@@ -130,66 +132,17 @@ def _holding_step(gate: str) -> StepDefinition:
     )
 
 
-class _FakeStepStore:
-    def __init__(self, records: tuple[Any, ...], version: int = 41) -> None:
-        self.records = tuple(records)
-        self.version = version
-        self.saves: list[tuple[tuple[Any, ...], int]] = []
-
-    async def load(self) -> tuple[tuple[Any, ...], int]:
-        return self.records, self.version
-
-    async def save(self, records: Any, *, expected_version: int) -> None:
-        stored = tuple(records)
-        self.saves.append((stored, expected_version))
-        self.records = stored
-        self.version += 1
+_FakeStepStore = FakeStepStore[Any]
 
 
-class _FakeMembers:
-    def __init__(self, members: tuple[_Member, ...]) -> None:
-        self.members_rows = members
-
-    async def list_members(self) -> tuple[_Member, ...]:
-        return self.members_rows
-
-    members = list_members
-
-    async def __call__(self) -> tuple[_Member, ...]:
-        return await self.list_members()
-
-
-class _FakeHandlerRegistry:
+class _FakeHandlerRegistry(FakeHandlerRegistry):
     def __init__(self, names: frozenset[str] = frozenset({HANDLER_NAME})) -> None:
-        self._names = names
-
-    def __contains__(self, name: object) -> bool:
-        return name in self._names
-
-    def __iter__(self) -> Any:
-        return iter(self._names)
-
-    def names(self) -> frozenset[str]:
-        return self._names
+        super().__init__(names)
 
 
-class _FakeMembersStore:
-    """The members store `access`'s own write use cases take — see
-    `test_step_assignee_preconditions.py`'s identical double."""
-
+class _FakeMembersStore(FakeMembersStore):
     def __init__(self, rows: tuple[Any, ...] = (), version: int = 7) -> None:
-        self.rows = tuple(rows)
-        self.version = version
-        self.saves: list[tuple[tuple[Any, ...], int]] = []
-
-    async def load(self) -> tuple[tuple[Any, ...], int]:
-        return self.rows, self.version
-
-    async def save(self, rows: Any, *, expected_version: int) -> None:
-        stored = tuple(rows)
-        self.saves.append((stored, expected_version))
-        self.rows = stored
-        self.version += 1
+        super().__init__(rows, version)
 
 
 _MEMBERS_ID_NAMES: Final = ("id", "member_id", "identifier")

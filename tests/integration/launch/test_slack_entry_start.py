@@ -113,6 +113,7 @@ from commerce_ops.launch.infrastructure.driven.launch_repository import LaunchRe
 from commerce_ops.main import app
 from commerce_ops.shared.domain.access_scope import AccessScope
 from commerce_ops.shared.domain.identity import Sku
+from tests.support.fakes import FakeSlackResponse as _FakeSlackResponse
 
 pytestmark = pytest.mark.anyio
 
@@ -259,12 +260,6 @@ class _DrainsDeferredListeners:
         spawned = asyncio.all_tasks() - before - {asyncio.current_task()}
         if spawned:
             await asyncio.wait(spawned, timeout=_DRAIN_TIMEOUT_SECONDS)
-
-
-class _FakeSlackResponse(dict[str, Any]):
-    @property
-    def data(self) -> dict[str, Any]:
-        return dict(self)
 
 
 class _RecordingSlackApi:

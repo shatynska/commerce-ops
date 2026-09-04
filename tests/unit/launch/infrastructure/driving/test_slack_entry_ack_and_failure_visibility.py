@@ -68,6 +68,7 @@ from slack_sdk.signature import SignatureVerifier
 
 from commerce_ops.catalog.domain.product import Product
 from commerce_ops.shared.domain.identity import MarketplaceId, Sku
+from tests.support.fakes import FakeSlackResponse as _FakeSlackResponse
 
 SLACK_ENTRY_PATH = "/product_agent/slack/events"  # ASSUMED
 SIGNING_SECRET = "test-product-agent-signing-secret"  # not a real credential
@@ -125,12 +126,6 @@ _DEFERRED_WORK_TIMEOUT_SECONDS = SLOW_PERSISTENCE_SECONDS + 5.0
 # --------------------------------------------------------------------------
 # Test doubles
 # --------------------------------------------------------------------------
-
-
-class _FakeSlackResponse(dict[str, Any]):
-    @property
-    def data(self) -> dict[str, Any]:
-        return dict(self)
 
 
 class _RecordingSlackApi:

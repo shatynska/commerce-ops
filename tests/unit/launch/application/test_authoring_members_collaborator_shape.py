@@ -89,6 +89,8 @@ from commerce_ops.launch.domain.launch_playbook import (
     StepStatus,
 )
 from commerce_ops.shared.domain.discipline import Discipline
+from tests.support.fakes import FakeHandlerRegistry as _FakeHandlerRegistry
+from tests.support.fakes import FakeMembers, FakeStepStore
 from tests.support.fixtures import ALICE, ALICE_NAME, PRINCIPAL
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.steps import step as _build_step
@@ -124,20 +126,7 @@ def _step(**overrides: Any) -> StepDefinition:
     return _build_step(**{"identifier": EDITED, "assignees": (ALICE,), **overrides})
 
 
-class _FakeStepStore:
-    def __init__(self, records: tuple[Any, ...], version: int = 41) -> None:
-        self.records = tuple(records)
-        self.version = version
-        self.saves: list[tuple[tuple[Any, ...], int]] = []
-
-    async def load(self) -> tuple[tuple[Any, ...], int]:
-        return self.records, self.version
-
-    async def save(self, records: Any, *, expected_version: int) -> None:
-        stored = tuple(records)
-        self.saves.append((stored, expected_version))
-        self.records = stored
-        self.version += 1
+_FakeStepStore = FakeStepStore[Any]
 
 
 def _store(extra: tuple[_Record, ...] = ()) -> _FakeStepStore:
@@ -185,16 +174,9 @@ def _record_named(store: _FakeStepStore, identifier: str) -> Any:
 # ---------------------------------------------------------------------------
 
 
-class _FakeMembers:
-    """A collaborator answering the stated shape — case 1."""
-
+class _FakeMembers(FakeMembers):
     def __init__(self, members: tuple[_Member, ...] | None = None) -> None:
-        self.members_rows = (
-            (_Member(ALICE, ALICE_NAME),) if members is None else members
-        )
-
-    async def list_members(self) -> tuple[_Member, ...]:
-        return self.members_rows
+        super().__init__((_Member(ALICE, ALICE_NAME),) if members is None else members)
 
 
 class _StoreShapedCollaborator:
@@ -220,20 +202,6 @@ class _StoreShapedCollaborator:
     async def save(self, rows: Any, *, expected_version: int) -> None:
         self.rows = tuple(rows)
         self.version += 1
-
-
-class _FakeHandlerRegistry:
-    def __init__(self, names: frozenset[str] = frozenset()) -> None:
-        self._names = names
-
-    def __contains__(self, name: object) -> bool:
-        return name in self._names
-
-    def __iter__(self) -> Any:
-        return iter(self._names)
-
-    def names(self) -> frozenset[str]:
-        return self._names
 
 
 # ---------------------------------------------------------------------------

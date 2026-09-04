@@ -92,6 +92,9 @@ from commerce_ops.launch.domain.launch_playbook import (
     StepStatus,
 )
 from commerce_ops.shared.domain.discipline import Discipline
+from tests.support.fakes import FakeHandlerRegistry as _FakeHandlerRegistry
+from tests.support.fakes import FakeMembers as _FakeMembers
+from tests.support.fakes import FakeStepStore
 from tests.support.fixtures import PRINCIPAL
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.steps import step as _build_step
@@ -147,51 +150,7 @@ def _holding_step(gate: str, **overrides: Any) -> StepDefinition:
 # ---------------------------------------------------------------------------
 
 
-class _FakeStepStore:
-    def __init__(self, records: tuple[Any, ...], version: int = 41) -> None:
-        self.records = tuple(records)
-        self.version = version
-        self.saves: list[tuple[tuple[Any, ...], int]] = []
-
-    async def load(self) -> tuple[tuple[Any, ...], int]:
-        return self.records, self.version
-
-    async def save(self, records: Any, *, expected_version: int) -> None:
-        assert expected_version == self.version, (
-            "conditional persistence violated: save() called with a stale "
-            f"expected_version {expected_version} against {self.version}"
-        )
-        stored = tuple(records)
-        self.saves.append((stored, expected_version))
-        self.records = stored
-        self.version += 1
-
-
-class _FakeMembers:
-    def __init__(self, members: tuple[_Member, ...]) -> None:
-        self._members = members
-
-    async def list_members(self) -> tuple[_Member, ...]:
-        return self._members
-
-    members = list_members
-
-    async def __call__(self) -> tuple[_Member, ...]:
-        return await self.list_members()
-
-
-class _FakeHandlerRegistry:
-    def __init__(self, names: frozenset[str]) -> None:
-        self._names = names
-
-    def __contains__(self, name: object) -> bool:
-        return name in self._names
-
-    def __iter__(self) -> Any:
-        return iter(self._names)
-
-    def names(self) -> frozenset[str]:
-        return self._names
+_FakeStepStore = FakeStepStore[Any]
 
 
 def _members() -> _FakeMembers:

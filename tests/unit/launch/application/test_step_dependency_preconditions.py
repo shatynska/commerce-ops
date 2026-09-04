@@ -87,6 +87,8 @@ from commerce_ops.launch.domain.launch_playbook import (
 from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
+from tests.support.fakes import FakeHandlerRegistry as _FakeHandlerRegistry
+from tests.support.fakes import FakeMembers, FakeStepStore
 from tests.support.fixtures import ALICE, ALICE_NAME, PRINCIPAL
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import opening_for as _opening_for
@@ -126,47 +128,12 @@ def _holding_step(gate: str) -> StepDefinition:
     )
 
 
-class _FakeStepStore:
-    def __init__(self, records: tuple[Any, ...], version: int = 41) -> None:
-        self.records = tuple(records)
-        self.version = version
-        self.saves: list[tuple[tuple[Any, ...], int]] = []
-
-    async def load(self) -> tuple[tuple[Any, ...], int]:
-        return self.records, self.version
-
-    async def save(self, records: Any, *, expected_version: int) -> None:
-        stored = tuple(records)
-        self.saves.append((stored, expected_version))
-        self.records = stored
-        self.version += 1
+_FakeStepStore = FakeStepStore[Any]
 
 
-class _FakeMembers:
+class _FakeMembers(FakeMembers):
     def __init__(self) -> None:
-        self.members_rows = (_Member(ALICE, ALICE_NAME),)
-
-    async def list_members(self) -> tuple[_Member, ...]:
-        return self.members_rows
-
-    members = list_members
-
-    async def __call__(self) -> tuple[_Member, ...]:
-        return await self.list_members()
-
-
-class _FakeHandlerRegistry:
-    def __init__(self, names: frozenset[str] = frozenset()) -> None:
-        self._names = names
-
-    def __contains__(self, name: object) -> bool:
-        return name in self._names
-
-    def __iter__(self) -> Any:
-        return iter(self._names)
-
-    def names(self) -> frozenset[str]:
-        return self._names
+        super().__init__((_Member(ALICE, ALICE_NAME),))
 
 
 def _store(extra: tuple[_Record, ...] = ()) -> _FakeStepStore:

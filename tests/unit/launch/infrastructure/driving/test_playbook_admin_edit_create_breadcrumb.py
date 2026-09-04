@@ -114,6 +114,7 @@ from commerce_ops.shared.domain.discipline import Discipline
 from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
 from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
 from tests.support.admin import fake_verify
+from tests.support.fakes import FakeMembers, FakeStepStore
 from tests.support.fixtures import PRINCIPAL
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.steps import step as _build_step
@@ -159,17 +160,7 @@ def _step(**overrides: Any) -> StepDefinition:
     return _build_step(**{"assignees": (ASSIGNEE,), **overrides})
 
 
-class _FakeStepStore:
-    def __init__(self, records: tuple[_Record, ...], version: int = 41) -> None:
-        self.records = records
-        self.version = version
-
-    async def load(self) -> tuple[tuple[Any, ...], int]:
-        return self.records, self.version
-
-    async def save(self, records: Any, *, expected_version: int) -> None:
-        self.records = tuple(records)
-        self.version += 1
+_FakeStepStore = FakeStepStore[_Record]
 
 
 def _seeded_store() -> _FakeStepStore:
@@ -207,9 +198,9 @@ def _seeded_store() -> _FakeStepStore:
     return _FakeStepStore(records)
 
 
-class _FakeMembers:
-    async def list_members(self) -> tuple[_FakeMember, ...]:
-        return (_FakeMember(ASSIGNEE, ASSIGNEE_NAME),)
+class _FakeMembers(FakeMembers):
+    def __init__(self) -> None:
+        super().__init__((_FakeMember(ASSIGNEE, ASSIGNEE_NAME),))
 
 
 # ---------------------------------------------------------------------------

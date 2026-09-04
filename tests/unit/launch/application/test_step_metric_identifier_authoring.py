@@ -98,6 +98,7 @@ from commerce_ops.launch.domain.launch_playbook import (
 )
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import MetricId
+from tests.support.fakes import FakeHandlerRegistry, FakeMembers, FakeStepStore
 from tests.support.fixtures import ALICE, BOHDAN, PRINCIPAL
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.steps import step as _build_step
@@ -138,41 +139,19 @@ def _step(**overrides: Any) -> StepDefinition:
     return _build_step(**{"assignees": (ALICE,), **overrides})
 
 
-class _FakeStepStore:
-    def __init__(self, records: tuple[Any, ...], version: int = 41) -> None:
-        self.records = tuple(records)
-        self.version = version
-        self.saves: list[tuple[tuple[Any, ...], int]] = []
-
-    async def load(self) -> tuple[tuple[Any, ...], int]:
-        return self.records, self.version
-
-    async def save(self, records: Any, *, expected_version: int) -> None:
-        stored = tuple(records)
-        self.saves.append((stored, expected_version))
-        self.records = stored
-        self.version += 1
+_FakeStepStore = FakeStepStore[Any]
 
 
-class _FakeMembers:
-    async def list_members(self) -> tuple[_Member, ...]:
-        return (_Member(ALICE, "Alice Admin"), _Member(BOHDAN, "Bohdan Confirmer"))
-
-    members = list_members
-
-    async def __call__(self) -> tuple[_Member, ...]:
-        return await self.list_members()
+class _FakeMembers(FakeMembers):
+    def __init__(self) -> None:
+        super().__init__(
+            (_Member(ALICE, "Alice Admin"), _Member(BOHDAN, "Bohdan Confirmer"))
+        )
 
 
-class _FakeHandlerRegistry:
-    def __contains__(self, name: object) -> bool:
-        return name == "price.buy_box_check"
-
-    def __iter__(self) -> Any:
-        return iter(("price.buy_box_check",))
-
-    def names(self) -> frozenset[str]:
-        return frozenset({"price.buy_box_check"})
+class _FakeHandlerRegistry(FakeHandlerRegistry):
+    def __init__(self) -> None:
+        super().__init__(frozenset({"price.buy_box_check"}))
 
 
 def _store(extra: tuple[_Record, ...] = ()) -> _FakeStepStore:

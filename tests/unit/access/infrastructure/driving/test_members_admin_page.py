@@ -87,6 +87,7 @@ from commerce_ops.access.infrastructure.driving import members_admin as page_mod
 from tests.support.admin import ADMIN_IDENTITY, fake_verify
 from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
 from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
+from tests.support.fakes import FakeMembersStore as _FakeMembersStore
 from tests.support.fixtures import PRINCIPAL
 
 SECOND_ADMIN_IDENTITY: Final = "U02BOB"
@@ -109,26 +110,6 @@ _YEAR: Final = str(datetime.now(UTC).year)
 # ---------------------------------------------------------------------------
 # The members store double (see test_members_writes.py)
 # ---------------------------------------------------------------------------
-
-
-class _FakeMembersStore:
-    def __init__(self, rows: tuple[Any, ...] = (), version: int = 13) -> None:
-        self.rows = tuple(rows)
-        self.version = version
-        self.saves: list[tuple[tuple[Any, ...], int]] = []
-
-    async def load(self) -> tuple[tuple[Any, ...], int]:
-        return self.rows, self.version
-
-    async def save(self, rows: Any, *, expected_version: int) -> None:
-        assert expected_version == self.version, (
-            "conditional persistence violated: save() called with a stale "
-            f"expected_version {expected_version} against {self.version}"
-        )
-        stored = tuple(rows)
-        self.saves.append((stored, expected_version))
-        self.rows = stored
-        self.version += 1
 
 
 _ID_NAMES: Final = ("id", "member_id", "identifier")

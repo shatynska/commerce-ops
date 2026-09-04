@@ -63,6 +63,8 @@ from commerce_ops.launch.domain.launch_playbook import (
     StepStatus,
 )
 from commerce_ops.shared.domain.discipline import Discipline
+from tests.support.fakes import FakeHandlerRegistry as _FakeHandlerRegistry
+from tests.support.fakes import FakeMembers as _FakeMembers
 from tests.support.fixtures import ALICE, BOHDAN
 from tests.support.steps import step as _build_step
 from tests.support.values import Member as _Member
@@ -77,33 +79,6 @@ def _step(**overrides: Any) -> StepDefinition:
     return _build_step(
         **{"discipline": A_DISCIPLINE, "assignees": (ALICE,), **overrides}
     )
-
-
-class _FakeMembers:
-    def __init__(self, members: tuple[_Member, ...]) -> None:
-        self._members = members
-
-    async def list_members(self) -> tuple[_Member, ...]:
-        return self._members
-
-    members = list_members
-
-    async def __call__(self) -> tuple[_Member, ...]:
-        return await self.list_members()
-
-
-class _FakeHandlerRegistry:
-    def __init__(self, names: frozenset[str]) -> None:
-        self._names = names
-
-    def __contains__(self, name: object) -> bool:
-        return name in self._names
-
-    def __iter__(self) -> Any:
-        return iter(self._names)
-
-    def names(self) -> frozenset[str]:
-        return self._names
 
 
 def _members(*, bohdan_active: bool = True) -> _FakeMembers:

@@ -1,12 +1,9 @@
 """The shapes the shared fakes are checked against.
 
-**Populated for the value doubles, still empty for the stateful fakes.**
-`share-the-value-doubles` added `MemberShape` and `CatalogProductShape` below,
-each with the `_conforms` assignment that makes it bite. The doubles with
-behaviour -- `FakeMembers`, `FakeStepStore` and their neighbours -- are deferred
-to `share-the-stateful-fakes`, and their protocols arrive with them. The rules
-below bind those too, and are recorded here rather than in that change so the
-first stateful fake is written against them rather than after them.
+**Populated for both kinds now.** `share-the-value-doubles` added
+`MemberShape` and `CatalogProductShape`; `share-the-stateful-fakes` added the
+seven below them, one per stateful fake, each with the `_conforms` assignment
+that makes it bite.
 
 
 A `Protocol` declared beside a fake checks nothing on its own: `mypy` compares
@@ -55,9 +52,22 @@ and the derived spellings these doubles expose (`Member.identifier`,
 
 from __future__ import annotations
 
-from typing import Protocol
+from collections.abc import Iterable
+from datetime import date
+from typing import Any, Protocol
 
 from commerce_ops.shared.domain.identity import Sku
+from tests.support.fakes import (
+    FakeCatalogPort,
+    FakeHandlerRegistry,
+    FakeHandlers,
+    FakeMembers,
+    FakeMembersStore,
+    FakeSlackResponse,
+    FakeStepStore,
+    InertBackoff,
+    StubDate,
+)
 from tests.support.values import CatalogProduct, Member, MemberValue
 
 
@@ -99,3 +109,163 @@ class CatalogProductShape(Protocol):
 
 
 _catalog_product_conforms: CatalogProductShape = CatalogProduct()
+
+
+class SlackResponseShape(Protocol):
+    """What a Slack API response is read as, once the SDK hands one back.
+
+    Two things, and the first is not an attribute: the response is **indexed**,
+    which is why `FakeSlackResponse` subclasses `dict` rather than holding one.
+    `data` is the SDK's own spelling for the whole payload.
+
+    Declared as a property rather than a variable, per this module's rule:
+    `mypy` treats a protocol variable as settable, and the double's `data` is
+    read-only.
+    """
+
+    @property
+    def data(self) -> dict[str, Any]: ...
+
+    def __getitem__(self, key: str, /) -> Any: ...
+
+
+_slack_response_conforms: SlackResponseShape = FakeSlackResponse()
+
+
+class HandlerNamesShape(Protocol):
+    """What production reads off any step-handler registry.
+
+    `names` is the one a probe chooses on:
+    `activation_readiness._registered_names` and
+    `playbook_authoring._registered_names` both call it if it is callable and
+    otherwise iterate the registry itself. Every double in this suite provides
+    it, so the iteration branch is unreachable -- which is why
+    `FakeHandlerRegistry` may drop `__iter__` under clause (e) and why this
+    protocol does not declare it. It is declared as returning an `Iterable`
+    rather than a concrete type because the two doubles disagree, as their
+    populations did: a tuple for `FakeHandlers`, a `frozenset` for
+    `FakeHandlerRegistry`, and `_registered_names` only iterates it.
+
+    `__contains__` is a call rather than a convention: `automation_pass:770`
+    evaluates `name in handlers` and resolves only then.
+    """
+
+    def names(self) -> Iterable[str]: ...
+
+    def __contains__(self, name: object, /) -> bool: ...
+
+
+class HandlerRegistryShape(HandlerNamesShape, Protocol):
+    """A registry that also resolves, which is the population `automation_pass`
+    reaches after its membership test passes."""
+
+    def resolve(self, name: str, /) -> Any: ...
+
+
+_handlers_conforms: HandlerRegistryShape = FakeHandlers()
+_handler_registry_conforms: HandlerNamesShape = FakeHandlerRegistry()
+
+
+class DateShape(Protocol):
+    """What a page reads off the `date` it was handed.
+
+    `_conforms` for this one takes the **class-object** form,
+    `type[DateShape]`, and that is a second `mypy` trap worth recording beside
+    the `@property` rule above: `date` requires three constructor arguments, so
+    `DateShape = StubDate()` cannot be written, and the surface production reads
+    is a classmethod rather than an instance attribute. `type[DateShape]` asks
+    whether instances of the class satisfy the protocol without constructing
+    one.
+    """
+
+    @classmethod
+    def today(cls) -> date: ...
+
+
+_stub_date_conforms: type[DateShape] = StubDate
+
+
+class BackoffShape(Protocol):
+    """What `automation_pass` calls on a step's backoff record.
+
+    Four names, all called directly -- `:404`, `:531`, `:673`, `:713` -- and
+    none of them probed for. `read` answers the record or `None`; the inert
+    double answers `None`, which production reads as "no backoff recorded".
+    """
+
+    async def read(self, product_id: Any, step_id: str) -> Any: ...
+
+    async def note(
+        self, product_id: Any, step_id: str, outcome: Any, when: Any
+    ) -> None: ...
+
+    async def mark_reported(self, product_id: Any, step_id: str, when: Any) -> None: ...
+
+    async def rollback(self) -> None: ...
+
+
+_inert_backoff_conforms: BackoffShape = InertBackoff()
+
+
+class VersionedStoreShape(Protocol):
+    """What a use case reads off a versioned set it edits.
+
+    The same two calls `playbook_authoring` declares for the step set and
+    `access.application.members` for the membership: read the rows with their
+    version, write them back against the version you read. Declared here rather
+    than imported, because `unify-launch-adapter-dependencies` owns the
+    production-side protocols and two definitions of one boundary is the
+    disagreement this work exists to end.
+    """
+
+    async def load(self) -> tuple[Any, int]: ...
+
+    # Positional-only, deliberately: the two fakes name this parameter for the
+    # set they hold -- `records` for the step store, `rows` for the membership,
+    # each matching the locals it replaced -- and `mypy`'s structural check does
+    # not compare parameter names it is not asked to. Declaring it `/` says what
+    # production actually does (every caller passes it positionally) and stops
+    # `_conforms` from appearing to check a name it cannot.
+    async def save(self, records: Any, /, *, expected_version: int) -> None: ...
+
+
+_step_store_conforms: VersionedStoreShape = FakeStepStore[Any]()
+_members_store_conforms: VersionedStoreShape = FakeMembersStore()
+
+
+class CatalogPortShape(Protocol):
+    """The two catalog reads a launch surface makes.
+
+    Both take a scope after the identifier that the doubles do not model, which
+    is why the shape declares them loosely: what production reads is the two
+    names and their answers, not the argument list.
+    """
+
+    async def get_product_by_id(
+        self, product_id: Any, *args: Any, **kwargs: Any
+    ) -> Any: ...
+
+    async def list_products(self, *args: Any, **kwargs: Any) -> Any: ...
+
+
+_catalog_port_conforms: CatalogPortShape = FakeCatalogPort()
+
+
+class MembersReaderShape(Protocol):
+    """The one shape a members reader presents.
+
+    Both members probes -- `clickup_sync._members:128` and
+    `activation_readiness._members_of:179` -- accept three conventions: this
+    method, a callable, or a bare iterable. This protocol declares only the
+    first, because that is the one every double in the suite now presents and
+    the one `unify-launch-adapter-dependencies` will narrow the probes to. The
+    other two conventions are not gone from the suite: `_StoreShapedMembers`,
+    `_ReaderMembers`, `_Members` and a module-level `_members()` still supply
+    them, which is why this change narrows the population and does not claim
+    the branches are dead.
+    """
+
+    async def list_members(self) -> Any: ...
+
+
+_members_conforms: MembersReaderShape = FakeMembers()
