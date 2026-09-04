@@ -100,7 +100,6 @@ database, so the tier genuinely ran).
 from __future__ import annotations
 
 import inspect
-import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -110,8 +109,6 @@ import pytest
 
 from commerce_ops.launch.domain import launch_run
 from commerce_ops.launch.domain.launch_playbook import (
-    Gate,
-    GateOpening,
     Hazard,
     InProgress,
     LaunchPlaybook,
@@ -124,25 +121,11 @@ from commerce_ops.launch.domain.launch_playbook import (
 )
 from commerce_ops.launch.domain.launch_run import Launch, Provenance
 from commerce_ops.shared.domain.discipline import Discipline
-from commerce_ops.shared.domain.identity import ProductId
+from tests.support.fixtures import STEP_ID, product_id
+from tests.support.playbook import SPECIFIED_GATE_ORDER
+from tests.support.playbook import gates as _gates
 
-# SPECIFIED (`launch-playbook`, unchanged): the eight gates, in order.
-SPECIFIED_GATE_ORDER: Final = (
-    "commit",
-    "order",
-    "listable",
-    "stock-ready",
-    "live",
-    "ignition",
-    "phase-one-complete",
-    "graduated",
-)
-CONFIRMATION_GATES: Final = frozenset(
-    {"commit", "order", "phase-one-complete", "graduated"}
-)
-
-PRODUCT_ID: Final = ProductId(str(uuid.uuid4()))
-STEP_ID: Final = "listing.sub-category"
+PRODUCT_ID: Final = product_id()
 WHEN: Final = datetime(2027, 1, 6, 9, 30, tzinfo=UTC)
 LATER: Final = datetime(2027, 1, 7, 9, 30, tzinfo=UTC)
 
@@ -167,19 +150,6 @@ _UNSET: Final = object()
 
 def _any_discipline() -> Discipline:
     return next(iter(Discipline))
-
-
-def _opening_for(identifier: str) -> GateOpening:
-    if identifier in CONFIRMATION_GATES:
-        return GateOpening.REQUIRES_CONFIRMATION
-    return GateOpening.AUTOMATIC
-
-
-def _gates() -> tuple[Gate, ...]:
-    return tuple(
-        Gate(identifier=identifier, position=position, opening=_opening_for(identifier))
-        for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1)
-    )
 
 
 def _step(identifier: str, **overrides: Any) -> StepDefinition:

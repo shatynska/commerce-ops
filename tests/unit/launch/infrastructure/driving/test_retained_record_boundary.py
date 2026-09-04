@@ -74,9 +74,8 @@ worktree root — 1232 passed, 96 skipped, 0 failed (2026-08-27).
 from __future__ import annotations
 
 import inspect
-import uuid
 from dataclasses import dataclass, field
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 from typing import Any, Final
 
 import pytest
@@ -84,45 +83,30 @@ import pytest
 import commerce_ops.launch.application as launch_application
 from commerce_ops.launch.application import StepResolution
 from commerce_ops.launch.domain.launch_playbook import (
-    Gate,
-    GateOpening,
-    Hazard,
     InProgress,
     LaunchPlaybook,
-    OffsetAnchor,
     Satisfied,
-    Scope,
     StepDefinition,
     StepKind,
-    StepStatus,
 )
 from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.launch.infrastructure.driving import automation_pass
 from commerce_ops.shared.domain.access_scope import AccessScope
-from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId, Sku
+from tests.support.fixtures import (
+    ALICE,
+    LAUNCH_DATE,
+    PRODUCT_NAME,
+    PRODUCT_SKU,
+    product_id,
+)
+from tests.support.playbook import SPECIFIED_GATE_ORDER
+from tests.support.playbook import gates as _gates
+from tests.support.steps import step as _build_step
 
 pytestmark = pytest.mark.anyio
 
-SPECIFIED_GATE_ORDER: Final = (
-    "commit",
-    "order",
-    "listable",
-    "stock-ready",
-    "live",
-    "ignition",
-    "phase-one-complete",
-    "graduated",
-)
-
-CONFIRMATION_GATES: Final = frozenset(
-    {"commit", "order", "phase-one-complete", "graduated"}
-)
-
-PRODUCT_ID: Final = ProductId(str(uuid.uuid4()))
-PRODUCT_NAME: Final = "Bamboo Cutting Board"
-PRODUCT_SKU: Final = Sku("BCB-2027-01")
-
+PRODUCT_ID: Final = product_id()
 CONFIRMABLE_STEP: Final = "listing.sub-category"
 UNCONFIRMED_STEP: Final = "listing.needs-no-confirmation"
 NON_TERMINAL_STEP: Final = "listing.still-running"
@@ -131,8 +115,6 @@ CONFIRMABLE_HANDLER: Final = "listing.subcategory_advisor"
 UNCONFIRMED_HANDLER: Final = "listing.records_at_once"
 NON_TERMINAL_HANDLER: Final = "listing.reports_progress"
 
-ALICE: Final = "prs_01HQ8Z6M4A"
-LAUNCH_DATE: Final = date(2027, 3, 2)
 NOW: Final = datetime(2027, 1, 6, 9, 30, tzinfo=UTC)
 
 HELD_TEXT: Final = "Home and Kitchen, Cutting Boards."
@@ -150,38 +132,15 @@ def anyio_backend() -> str:
 # ---------------------------------------------------------------------------
 
 
-def _opening_for(identifier: str) -> GateOpening:
-    if identifier in CONFIRMATION_GATES:
-        return GateOpening.REQUIRES_CONFIRMATION
-    return GateOpening.AUTOMATIC
-
-
-def _gates() -> tuple[Gate, ...]:
-    return tuple(
-        Gate(identifier=identifier, position=position, opening=_opening_for(identifier))
-        for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1)
-    )
-
-
 def _step(**overrides: Any) -> StepDefinition:
-    attributes: dict[str, Any] = {
-        "identifier": CONFIRMABLE_STEP,
-        "name": "Choose the sub-category node",
-        "description": None,
-        "gate": "listable",
-        "discipline": next(iter(Discipline)),
-        "scope": Scope.PRODUCT,
-        "timing_anchor": OffsetAnchor(days=-7),
-        "blocking": False,
-        "kind": StepKind.HUMAN,
-        "status": StepStatus.ACTIVE,
-        "hazard": Hazard.NONE,
-        "assignees": (ALICE,),
-        "handler": None,
-        "provenance": None,
-    }
-    attributes.update(overrides)
-    return StepDefinition(**attributes)
+    return _build_step(
+        **{
+            "identifier": CONFIRMABLE_STEP,
+            "name": "Choose the sub-category node",
+            "assignees": (ALICE,),
+            **overrides,
+        }
+    )
 
 
 def _automated(identifier: str, handler: str, **overrides: Any) -> StepDefinition:

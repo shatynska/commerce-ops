@@ -146,11 +146,10 @@ from __future__ import annotations
 import inspect
 import json
 import logging
-import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any, Final
 
 import pytest
@@ -159,48 +158,31 @@ import commerce_ops.launch.application as launch_application
 import commerce_ops.main as composition_root
 from commerce_ops.access.application import create_member
 from commerce_ops.launch.domain.launch_playbook import (
-    Gate,
-    GateOpening,
-    Hazard,
     LaunchPlaybook,
-    OffsetAnchor,
     Satisfied,
-    Scope,
     StepDefinition,
     StepKind,
-    StepStatus,
 )
 from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.launch.infrastructure.driving import automation_confirmation
-from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
+from tests.support.fixtures import (
+    ALICE_NAME,
+    HANDLER_NAME,
+    LAUNCH_DATE,
+    STEP_ID,
+    product_id,
+)
+from tests.support.playbook import SPECIFIED_GATE_ORDER
+from tests.support.playbook import gates as _gates
+from tests.support.steps import step as _build_step
 
 pytestmark = pytest.mark.anyio
 
-SPECIFIED_GATE_ORDER: Final = (
-    "commit",
-    "order",
-    "listable",
-    "stock-ready",
-    "live",
-    "ignition",
-    "phase-one-complete",
-    "graduated",
-)
-
-CONFIRMATION_GATES: Final = frozenset(
-    {"commit", "order", "phase-one-complete", "graduated"}
-)
-
-PRODUCT_ID: Final = ProductId(str(uuid.uuid4()))
-STEP_ID: Final = "listing.sub-category"
-HANDLER_NAME: Final = "listing.subcategory_advisor"
-
+PRODUCT_ID: Final = product_id()
 ALICE_SLACK: Final = "U01ALICE"
-ALICE_NAME: Final = "Alice Admin"
 BOOTSTRAP_PRINCIPAL: Final = "bootstrap"
 
-LAUNCH_DATE: Final = date(2027, 3, 2)
 PRODUCED_AT: Final = datetime(2027, 1, 6, 9, 30, tzinfo=UTC)
 DECIDED_AT: Final = datetime(2027, 1, 6, 10, 0, tzinfo=UTC)
 
@@ -314,39 +296,17 @@ def sessionless(monkeypatch: pytest.MonkeyPatch) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _opening_for(identifier: str) -> GateOpening:
-    if identifier in CONFIRMATION_GATES:
-        return GateOpening.REQUIRES_CONFIRMATION
-    return GateOpening.AUTOMATIC
-
-
-def _gates() -> tuple[Gate, ...]:
-    return tuple(
-        Gate(identifier=identifier, position=position, opening=_opening_for(identifier))
-        for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1)
-    )
-
-
 def _step(**overrides: Any) -> StepDefinition:
-    attributes: dict[str, Any] = {
-        "identifier": STEP_ID,
-        "name": "Choose the sub-category node",
-        "description": None,
-        "gate": "listable",
-        "discipline": next(iter(Discipline)),
-        "scope": Scope.PRODUCT,
-        "timing_anchor": OffsetAnchor(days=-7),
-        "blocking": False,
-        "kind": StepKind.AUTOMATED,
-        "confirmer": None,
-        "status": StepStatus.ACTIVE,
-        "hazard": Hazard.NONE,
-        "assignees": (),
-        "handler": HANDLER_NAME,
-        "provenance": None,
-    }
-    attributes.update(overrides)
-    return StepDefinition(**attributes)
+    return _build_step(
+        **{
+            "identifier": STEP_ID,
+            "name": "Choose the sub-category node",
+            "kind": StepKind.AUTOMATED,
+            "confirmer": None,
+            "handler": HANDLER_NAME,
+            **overrides,
+        }
+    )
 
 
 def _hold(gate: str) -> StepDefinition:

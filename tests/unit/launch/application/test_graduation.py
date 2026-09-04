@@ -57,7 +57,6 @@ leaves the advance standing with no stage changed.
 
 from __future__ import annotations
 
-import uuid
 from datetime import UTC, datetime
 from typing import Any, Final
 
@@ -71,7 +70,6 @@ from commerce_ops.launch.application import (
 )
 from commerce_ops.launch.domain.launch_playbook import (
     Gate,
-    GateOpening,
     Hazard,
     LaunchPlaybook,
     OffsetAnchor,
@@ -91,26 +89,13 @@ from commerce_ops.launch.domain.launch_run import (
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
 from commerce_ops.shared.domain.lifecycle_stage import Posture, SteadyState
+from tests.support.fixtures import product_id
+from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
+from tests.support.playbook import opening_for as _opening_for
 
 pytestmark = pytest.mark.anyio
 
-# SPECIFIED (launch-playbook spec, unchanged): the eight gates, in order.
-SPECIFIED_GATE_ORDER: Final = (
-    "commit",
-    "order",
-    "listable",
-    "stock-ready",
-    "live",
-    "ignition",
-    "phase-one-complete",
-    "graduated",
-)
-
-CONFIRMATION_GATES: Final = frozenset(
-    {"commit", "order", "phase-one-complete", "graduated"}
-)
-
-PRODUCT_ID: Final = ProductId(str(uuid.uuid4()))
+PRODUCT_ID: Final = product_id()
 APPROVED_AT: Final = datetime(2027, 7, 1, 10, 0, tzinfo=UTC)
 APPROVER: Final = "Helen"
 
@@ -118,12 +103,6 @@ APPROVER: Final = "Helen"
 @pytest.fixture(scope="module")
 def anyio_backend() -> str:
     return "asyncio"
-
-
-def _opening_for(identifier: str) -> GateOpening:
-    if identifier in CONFIRMATION_GATES:
-        return GateOpening.REQUIRES_CONFIRMATION
-    return GateOpening.AUTOMATIC
 
 
 def _hold(gate: str) -> StepDefinition:

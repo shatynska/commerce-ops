@@ -90,6 +90,8 @@ from typing import Any, Final
 import pytest
 import yaml
 
+from tests.support.playbook import SPECIFIED_GATE_ORDER
+
 _ROOT: Final = Path(__file__).resolve().parents[3]
 _VENDORED: Final = _ROOT / "alembic" / "data" / "playbook_reference.yaml"
 _REFERENCE: Final = _ROOT / "docs" / "reference" / "product-launch.md"
@@ -120,19 +122,6 @@ qualitative criteria, so there is no quantity for an identifier to name.
 #: SPECIFIED (`tasks.md` 3.4): the vendored set moves from 352 to 358 and
 #: equals the reference document's ID-bearing row count.
 SEEDED_COUNT: Final = 358
-
-#: SPECIFIED (main spec, unchanged): the eight gates. Named here because
-#: a metric identifier must carry none of them.
-SPECIFIED_GATE_ORDER: Final = (
-    "commit",
-    "order",
-    "listable",
-    "stock-ready",
-    "live",
-    "ignition",
-    "phase-one-complete",
-    "graduated",
-)
 
 #: INVENTED — see the module docstring. Enough spelled-out numbers to
 #: catch the delta's own counterexample, `sixty-to-eighty-units`.

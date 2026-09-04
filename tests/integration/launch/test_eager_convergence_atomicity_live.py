@@ -107,7 +107,6 @@ import uuid
 from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from datetime import date
 from types import ModuleType
 from typing import Any, Final
 
@@ -125,11 +124,7 @@ from commerce_ops.catalog.infrastructure.driven.product_repository import (
 )
 from commerce_ops.launch.domain.launch_playbook import (
     Gate,
-    GateOpening,
-    Hazard,
     LaunchPlaybook,
-    OffsetAnchor,
-    Scope,
     StepDefinition,
     StepKind,
     StepStatus,
@@ -142,27 +137,15 @@ from commerce_ops.launch.infrastructure.driven.launch_repository import (
     LaunchRepository,
 )
 from commerce_ops.shared.domain.clickup import ClickUpListState
-from commerce_ops.shared.domain.discipline import Discipline
-from commerce_ops.shared.domain.identity import MarketplaceId, ProductId, Sku
+from commerce_ops.shared.domain.identity import ProductId, Sku
+from tests.support.fixtures import LAUNCH_DATE, MARKETPLACE
+from tests.support.playbook import SPECIFIED_GATE_ORDER
+from tests.support.playbook import opening_for as _opening_for
+from tests.support.steps import hold as _build_hold
+from tests.support.steps import step as _build_step
 
 pytestmark = pytest.mark.anyio
 
-SPECIFIED_GATE_ORDER: Final = (
-    "commit",
-    "order",
-    "listable",
-    "stock-ready",
-    "live",
-    "ignition",
-    "phase-one-complete",
-    "graduated",
-)
-CONFIRMATION_GATES: Final = frozenset(
-    {"commit", "order", "phase-one-complete", "graduated"}
-)
-
-MARKETPLACE: Final = MarketplaceId("ATVPDKIKX0DER")
-LAUNCH_DATE: Final = date(2027, 3, 2)
 STEP_ID: Final = "listing.title-conforms"
 SECOND_STEP_ID: Final = "listing.images-conform"
 FOLDER_ID: Final = "90110042424"
@@ -196,28 +179,8 @@ def _unique_sku() -> Sku:
     return Sku(f"EC-{uuid.uuid4().hex[:12].upper()}")
 
 
-def _opening_for(identifier: str) -> GateOpening:
-    if identifier in CONFIRMATION_GATES:
-        return GateOpening.REQUIRES_CONFIRMATION
-    return GateOpening.AUTOMATIC
-
-
 def _step(**overrides: Any) -> StepDefinition:
-    attributes: dict[str, Any] = {
-        "identifier": STEP_ID,
-        "name": "Work this step asks for",
-        "gate": "listable",
-        "discipline": next(iter(Discipline)),
-        "scope": Scope.PRODUCT,
-        "timing_anchor": OffsetAnchor(days=-7),
-        "blocking": False,
-        "kind": StepKind.HUMAN,
-        "status": StepStatus.ACTIVE,
-        "hazard": Hazard.NONE,
-        "provenance": None,
-    }
-    attributes.update(overrides)
-    return StepDefinition(**attributes)
+    return _build_step(**{"identifier": STEP_ID, **overrides})
 
 
 def _second_step() -> StepDefinition:
@@ -225,13 +188,12 @@ def _second_step() -> StepDefinition:
 
 
 def _hold(gate: str) -> StepDefinition:
-    return _step(
-        identifier=f"hold.{gate}",
-        gate=gate,
-        blocking=True,
+    return _build_hold(
+        gate,
         kind=StepKind.AUTOMATED,
         status=StepStatus.ACTIVE,
         handler="fixture.holding_check",
+        name="Work this step asks for",
     )
 
 

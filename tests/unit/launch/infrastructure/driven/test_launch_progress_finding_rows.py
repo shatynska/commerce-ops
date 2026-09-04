@@ -99,8 +99,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from commerce_ops.launch.domain import launch_run
 from commerce_ops.launch.domain.launch_playbook import (
-    Gate,
-    GateOpening,
     Hazard,
     LaunchPlaybook,
     OffsetAnchor,
@@ -119,26 +117,14 @@ from commerce_ops.launch.infrastructure.driven.models import (
 )
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
+from tests.support.fixtures import STEP_ID
+from tests.support.playbook import SPECIFIED_GATE_ORDER
+from tests.support.playbook import gates as _gates
 
 pytestmark = pytest.mark.anyio
 
-SPECIFIED_GATE_ORDER: Final = (
-    "commit",
-    "order",
-    "listable",
-    "stock-ready",
-    "live",
-    "ignition",
-    "phase-one-complete",
-    "graduated",
-)
-CONFIRMATION_GATES: Final = frozenset(
-    {"commit", "order", "phase-one-complete", "graduated"}
-)
-
 ROW_ID: Final = uuid.uuid4()
 PRODUCT_ID: Final = ProductId(str(ROW_ID))
-STEP_ID: Final = "listing.sub-category"
 WHEN: Final = datetime(2027, 1, 6, 9, 30, tzinfo=UTC)
 
 EVIDENCE: Final = "Home & Kitchen > Kitchen & Dining > Cutting Boards."
@@ -158,19 +144,6 @@ def anyio_backend() -> str:
 # ---------------------------------------------------------------------------
 # Domain fixtures
 # ---------------------------------------------------------------------------
-
-
-def _opening_for(identifier: str) -> GateOpening:
-    if identifier in CONFIRMATION_GATES:
-        return GateOpening.REQUIRES_CONFIRMATION
-    return GateOpening.AUTOMATIC
-
-
-def _gates() -> tuple[Gate, ...]:
-    return tuple(
-        Gate(identifier=identifier, position=position, opening=_opening_for(identifier))
-        for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1)
-    )
 
 
 def _step(identifier: str, **overrides: Any) -> StepDefinition:

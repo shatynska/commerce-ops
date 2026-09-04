@@ -122,10 +122,8 @@ from __future__ import annotations
 
 import asyncio
 import importlib
-from collections.abc import Iterator
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import UTC, date, datetime
-from html.parser import HTMLParser
 from types import ModuleType
 from typing import Any, Final
 
@@ -137,8 +135,6 @@ from commerce_ops.access.application import create_member
 from commerce_ops.access.infrastructure.driving import members_admin as members_module
 from commerce_ops.catalog.domain.product import Product
 from commerce_ops.launch.domain.launch_playbook import (
-    Gate,
-    GateOpening,
     Hazard,
     LaunchPlaybook,
     NotStarted,
@@ -164,13 +160,29 @@ from commerce_ops.launch.infrastructure.driving import (
 )
 from commerce_ops.shared.domain.access_scope import AccessScope
 from commerce_ops.shared.domain.discipline import Discipline
-from commerce_ops.shared.domain.identity import MarketplaceId, ProductId, Sku
+from commerce_ops.shared.domain.identity import ProductId, Sku
 from commerce_ops.shared.domain.lifecycle_stage import (
     Launching,
     Posture,
     Retired,
     SteadyState,
 )
+from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
+from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
+from tests.support.admin import fake_verify
+from tests.support.fixtures import MARKETPLACE
+from tests.support.html import Node as _Node
+from tests.support.html import all_text as _all_text
+from tests.support.html import ancestors as _ancestors
+from tests.support.html import carries as _carries
+from tests.support.html import classes as _classes
+from tests.support.html import element_hidden as _element_hidden
+from tests.support.html import elements as _elements
+from tests.support.html import flat as _flat
+from tests.support.html import size as _size
+from tests.support.html import tree as _tree
+from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
+from tests.support.playbook import gates as _gates
 
 # ---------------------------------------------------------------------------
 # The modules under test, resolved by name
@@ -217,28 +229,9 @@ def _assets_module() -> ModuleType:
 # Fixed vocabulary and DERIVED fixture values
 # ---------------------------------------------------------------------------
 
-SPECIFIED_GATE_ORDER: Final = (
-    "commit",
-    "order",
-    "listable",
-    "stock-ready",
-    "live",
-    "ignition",
-    "phase-one-complete",
-    "graduated",
-)
-CONFIRMATION_GATES: Final = frozenset(
-    {"commit", "order", "phase-one-complete", "graduated"}
-)
-
 LISTING: Final = Discipline("listing")
 INVENTORY: Final = Discipline("inventory")
-MARKETPLACE: Final = MarketplaceId("ATVPDKIKX0DER")
-
 PRINCIPAL: Final = "U01ALICE"
-_SESSION_COOKIE: Final = "admin_session"
-_SESSION_VALUE: Final = "a-verified-admin-session"
-
 RECORDED_AT: Final = datetime(2027, 1, 5, 12, 0, tzinfo=UTC)
 APPROVED_AT: Final = datetime(2027, 1, 6, 9, 0, tzinfo=UTC)
 RECORDER: Final = "Nadia Recorder"
@@ -322,29 +315,6 @@ _WORDS: Final[dict[str, tuple[str, ...]]] = {
     ),
 }
 
-_VOID_TAGS: Final = (
-    "area",
-    "base",
-    "br",
-    "col",
-    "embed",
-    "hr",
-    "img",
-    "input",
-    "link",
-    "meta",
-    "param",
-    "source",
-    "track",
-    "wbr",
-)
-_HIDDEN_CLASSES: Final = (
-    "hidden",
-    "is-hidden",
-    "d-none",
-    "sr-only",
-    "visually-hidden",
-)
 _MONTHS: Final = (
     "january",
     "february",
@@ -364,19 +334,6 @@ _MONTHS: Final = (
 # ---------------------------------------------------------------------------
 # Domain builders
 # ---------------------------------------------------------------------------
-
-
-def _opening_for(identifier: str) -> GateOpening:
-    if identifier in CONFIRMATION_GATES:
-        return GateOpening.REQUIRES_CONFIRMATION
-    return GateOpening.AUTOMATIC
-
-
-def _gates() -> tuple[Gate, ...]:
-    return tuple(
-        Gate(identifier=identifier, position=position, opening=_opening_for(identifier))
-        for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1)
-    )
 
 
 def _step(identifier: str, **overrides: Any) -> StepDefinition:
@@ -766,9 +723,7 @@ def _install_any(
     )
 
 
-async def _fake_verify(*args: Any, **kwargs: Any) -> str | None:
-    haystack = " ".join(str(value) for value in (*args, *kwargs.values()))
-    return PRINCIPAL if _SESSION_VALUE in haystack else None
+_fake_verify = fake_verify(PRINCIPAL)
 
 
 class _StubDate(date):
@@ -997,74 +952,6 @@ def _vocabulary(world: _World) -> str:
 # ---------------------------------------------------------------------------
 
 
-@dataclass
-class _Text:
-    text: str
-
-
-@dataclass
-class _Node:
-    tag: str
-    attrs: dict[str, str]
-    parent: _Node | None
-    children: list[_Node | _Text] = field(default_factory=list)
-
-
-class _TreeParser(HTMLParser):
-    def __init__(self) -> None:
-        super().__init__(convert_charrefs=True)
-        self.root = _Node("#document", {}, None)
-        self._stack: list[_Node] = [self.root]
-
-    def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        self._stack[-1].children.append(
-            _Node(tag, {k: v or "" for k, v in attrs}, self._stack[-1])
-        )
-
-    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        node = _Node(tag, {k: v or "" for k, v in attrs}, self._stack[-1])
-        self._stack[-1].children.append(node)
-        if tag not in _VOID_TAGS:
-            self._stack.append(node)
-
-    def handle_endtag(self, tag: str) -> None:
-        for index in range(len(self._stack) - 1, 0, -1):
-            if self._stack[index].tag == tag:
-                del self._stack[index:]
-                return
-
-    def handle_data(self, data: str) -> None:
-        if data.strip():
-            self._stack[-1].children.append(_Text(_flat(data)))
-
-
-def _flat(text: str) -> str:
-    return " ".join(text.split())
-
-
-def _tree(html: str) -> _Node:
-    parser = _TreeParser()
-    parser.feed(html)
-    return parser.root
-
-
-def _elements(node: _Node) -> Iterator[_Node]:
-    for child in node.children:
-        if isinstance(child, _Node):
-            yield child
-            yield from _elements(child)
-
-
-def _all_text(node: _Node) -> str:
-    found: list[str] = []
-    for child in node.children:
-        if isinstance(child, _Text):
-            found.append(child.text)
-        else:
-            found.append(_all_text(child))
-    return " ".join(part for part in found if part).lower()
-
-
 def _attribute_text(node: _Node) -> str:
     parts = [
         value
@@ -1079,14 +966,6 @@ def _haystack(node: _Node) -> str:
     return f"{_all_text(node)} {_attribute_text(node)}"
 
 
-def _classes(node: _Node) -> set[str]:
-    return set(node.attrs.get("class", "").split())
-
-
-def _carries(node: _Node, marker: str) -> bool:
-    return marker in _classes(node)
-
-
 def _says(node: _Node, key: str) -> bool:
     return any(word in _haystack(node) for word in _WORDS[key])
 
@@ -1095,35 +974,10 @@ def _holds(node: _Node, needle: str) -> bool:
     return needle.lower() in _haystack(node)
 
 
-def _ancestors(node: _Node) -> Iterator[_Node]:
-    walker = node.parent
-    while walker is not None and walker.tag != "#document":
-        yield walker
-        walker = walker.parent
-
-
 def _siblings(node: _Node) -> list[_Node]:
     if node.parent is None:
         return [node]
     return [child for child in node.parent.children if isinstance(child, _Node)]
-
-
-def _size(node: _Node) -> int:
-    return 1 + sum(1 for _ in _elements(node))
-
-
-def _element_hidden(node: _Node) -> bool:
-    attrs = node.attrs
-    if "hidden" in attrs and attrs["hidden"].lower() != "false":
-        return True
-    if attrs.get("aria-hidden", "").lower() == "true":
-        return True
-    style = attrs.get("style", "").replace(" ", "").lower()
-    if "display:none" in style or "visibility:hidden" in style:
-        return True
-    return any(
-        name in _HIDDEN_CLASSES for name in attrs.get("class", "").lower().split()
-    )
 
 
 def _renders_date(node: _Node, day: date) -> bool:

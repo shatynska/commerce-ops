@@ -83,61 +83,44 @@ failed, 0 skipped.
 from __future__ import annotations
 
 import importlib
-import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 from typing import Any, Final
 
 import pytest
 
 from commerce_ops.launch.application import StepResolution, accept_automated_result
 from commerce_ops.launch.domain.launch_playbook import (
-    Gate,
-    GateOpening,
-    Hazard,
     LaunchPlaybook,
-    OffsetAnchor,
     Satisfied,
-    Scope,
     StepDefinition,
     StepKind,
-    StepStatus,
 )
 from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.launch.infrastructure.driving import automation_pass
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId, Sku
 from commerce_ops.shared.domain.result import Success
+from tests.support.fixtures import (
+    ALICE,
+    ALICE_NAME,
+    LAUNCH_DATE,
+    PRODUCT_NAME,
+    PRODUCT_SKU,
+    product_id,
+)
+from tests.support.playbook import SPECIFIED_GATE_ORDER
+from tests.support.playbook import gates as _gates
+from tests.support.steps import step as _build_step
 
 pytestmark = pytest.mark.anyio
 
-SPECIFIED_GATE_ORDER: Final = (
-    "commit",
-    "order",
-    "listable",
-    "stock-ready",
-    "live",
-    "ignition",
-    "phase-one-complete",
-    "graduated",
-)
-CONFIRMATION_GATES: Final = frozenset(
-    {"commit", "order", "phase-one-complete", "graduated"}
-)
-
-PRODUCT_ID: Final = ProductId(str(uuid.uuid4()))
-PRODUCT_NAME: Final = "Bamboo Cutting Board"
-PRODUCT_SKU: Final = Sku("BCB-2027-01")
-
+PRODUCT_ID: Final = product_id()
 STEP_ID: Final = "strategy.compliance-screen"
 HANDLER_NAME: Final = "strategy.compliance_screen"
 
-ALICE: Final = "prs_01HQ8Z6M4A"
 ALICE_SLACK: Final = "U01ALICE"
-ALICE_NAME: Final = "Alice Admin"
-
-LAUNCH_DATE: Final = date(2027, 3, 2)
 PRODUCED_AT: Final = datetime(2027, 1, 6, 9, 30, tzinfo=UTC)
 DECIDED_AT: Final = datetime(2027, 1, 6, 10, 0, tzinfo=UTC)
 
@@ -174,39 +157,17 @@ def _any_discipline() -> Discipline:
     return next(iter(Discipline))
 
 
-def _opening_for(identifier: str) -> GateOpening:
-    if identifier in CONFIRMATION_GATES:
-        return GateOpening.REQUIRES_CONFIRMATION
-    return GateOpening.AUTOMATIC
-
-
-def _gates() -> tuple[Gate, ...]:
-    return tuple(
-        Gate(identifier=identifier, position=position, opening=_opening_for(identifier))
-        for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1)
-    )
-
-
 def _step(**overrides: Any) -> StepDefinition:
-    attributes: dict[str, Any] = {
-        "identifier": STEP_ID,
-        "name": "Screen for hazardous categories",
-        "description": None,
-        "gate": "listable",
-        "discipline": _any_discipline(),
-        "scope": Scope.PRODUCT,
-        "timing_anchor": OffsetAnchor(days=-7),
-        "blocking": False,
-        "kind": StepKind.AUTOMATED,
-        "status": StepStatus.ACTIVE,
-        "hazard": Hazard.NONE,
-        "assignees": (),
-        "confirmer": ALICE,
-        "handler": HANDLER_NAME,
-        "provenance": None,
-    }
-    attributes.update(overrides)
-    return StepDefinition(**attributes)
+    return _build_step(
+        **{
+            "identifier": STEP_ID,
+            "name": "Screen for hazardous categories",
+            "kind": StepKind.AUTOMATED,
+            "confirmer": ALICE,
+            "handler": HANDLER_NAME,
+            **overrides,
+        }
+    )
 
 
 def _hold(gate: str) -> StepDefinition:

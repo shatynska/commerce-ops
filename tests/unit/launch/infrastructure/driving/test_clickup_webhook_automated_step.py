@@ -62,11 +62,9 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
-import uuid
 from collections.abc import AsyncIterator, Iterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from datetime import date
 from typing import Any, Final
 
 import pytest
@@ -75,11 +73,7 @@ from fastapi.testclient import TestClient
 
 from commerce_ops.launch.domain.launch_playbook import (
     Gate,
-    GateOpening,
-    Hazard,
     LaunchPlaybook,
-    OffsetAnchor,
-    Scope,
     StepDefinition,
     StepKind,
     StepStatus,
@@ -88,32 +82,17 @@ from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.launch.infrastructure.driving import clickup_webhook as webhook_module
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
-
-SPECIFIED_GATE_ORDER: Final = (
-    "commit",
-    "order",
-    "listable",
-    "stock-ready",
-    "live",
-    "ignition",
-    "phase-one-complete",
-    "graduated",
-)
-
-CONFIRMATION_GATES: Final = frozenset(
-    {"commit", "order", "phase-one-complete", "graduated"}
-)
+from tests.support.fixtures import ALICE, HANDLER_NAME, LAUNCH_DATE, product_id
+from tests.support.playbook import SPECIFIED_GATE_ORDER
+from tests.support.playbook import opening_for as _opening_for
+from tests.support.steps import step as _build_step
 
 WEBHOOK_SECRET: Final = "test-clickup-webhook-secret-not-a-real-credential"
 SIGNATURE_HEADER: Final = "X-Signature"
 
-PRODUCT_ID: Final = ProductId(str(uuid.uuid4()))
+PRODUCT_ID: Final = product_id()
 STEP_ID: Final = "lp.listing.007"
 TASK_ID: Final = "8x2mapped"
-LAUNCH_DATE: Final = date(2027, 3, 2)
-
-HANDLER_NAME: Final = "listing.subcategory_advisor"
-ALICE: Final = "prs_01HQ8Z6M4A"
 ACTOR_USERNAME: Final = "helen.shatynska"
 
 
@@ -126,30 +105,15 @@ def _any_discipline() -> Discipline:
     return next(iter(Discipline))
 
 
-def _opening_for(identifier: str) -> GateOpening:
-    if identifier in CONFIRMATION_GATES:
-        return GateOpening.REQUIRES_CONFIRMATION
-    return GateOpening.AUTOMATIC
-
-
 def _step(**overrides: Any) -> StepDefinition:
-    attributes: dict[str, Any] = {
-        "identifier": STEP_ID,
-        "name": "Choose the sub-category node",
-        "gate": "listable",
-        "discipline": _any_discipline(),
-        "scope": Scope.PRODUCT,
-        "timing_anchor": OffsetAnchor(days=-7),
-        "blocking": False,
-        "kind": StepKind.HUMAN,
-        "status": StepStatus.ACTIVE,
-        "hazard": Hazard.NONE,
-        "assignees": (ALICE,),
-        "handler": None,
-        "provenance": None,
-    }
-    attributes.update(overrides)
-    return StepDefinition(**attributes)
+    return _build_step(
+        **{
+            "identifier": STEP_ID,
+            "name": "Choose the sub-category node",
+            "assignees": (ALICE,),
+            **overrides,
+        }
+    )
 
 
 def _automated_step() -> StepDefinition:

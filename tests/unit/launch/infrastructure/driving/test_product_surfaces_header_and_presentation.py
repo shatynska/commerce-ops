@@ -101,12 +101,7 @@ from commerce_ops.access.application import create_member
 from commerce_ops.access.infrastructure.driving import members_admin as members_module
 from commerce_ops.catalog.domain.product import Product
 from commerce_ops.launch.domain.launch_playbook import (
-    Hazard,
-    OffsetAnchor,
-    Scope,
     StepDefinition,
-    StepKind,
-    StepStatus,
 )
 from commerce_ops.launch.infrastructure.driving import (
     playbook_admin as playbook_module,
@@ -115,36 +110,24 @@ from commerce_ops.launch.infrastructure.driving import (
     product_dossier as page_module,
 )
 from commerce_ops.shared.domain.access_scope import AccessScope
-from commerce_ops.shared.domain.discipline import Discipline
-from commerce_ops.shared.domain.identity import MarketplaceId, ProductId, Sku
+from commerce_ops.shared.domain.identity import ProductId, Sku
+from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
+from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
+from tests.support.admin import fake_verify
+from tests.support.fixtures import ALICE, ALICE_NAME, MARKETPLACE, PRINCIPAL
+from tests.support.playbook import SPECIFIED_GATE_ORDER
+from tests.support.steps import step as _build_step
 
-PRINCIPAL: Final = "helen"
-_SESSION_COOKIE: Final = "admin_session"
-_SESSION_VALUE: Final = "a-verified-admin-session"
 #: An unexpired session whose principal has since lost the admin
 #: declaration. It presents to the page exactly as any other refusal.
 _REVOKED_SESSION_VALUE: Final = "a-session-whose-principal-lost-admin"
 
-MARKETPLACE: Final = MarketplaceId("ATVPDKIKX0DER")
 T_REGISTERED: Final = datetime(2026, 8, 23, 9, 0, tzinfo=UTC)
 
 SKU: Final = "BCB-2027-01"
 NAME: Final = "Bamboo Cutting Board"
 
-ALICE: Final = "prs_01HQ8Z6M4A"
-ALICE_NAME: Final = "Alice Admin"
 MEMBER_ADMIN_IDENTITY: Final = "U01ALICE"
-
-SPECIFIED_GATE_ORDER: Final = (
-    "commit",
-    "order",
-    "listable",
-    "stock-ready",
-    "live",
-    "ignition",
-    "phase-one-complete",
-    "graduated",
-)
 
 _ASSETS_MODULE_NAME: Final = "commerce_ops.shared.infrastructure.driving.admin_assets"
 
@@ -369,9 +352,7 @@ def _install(
     )
 
 
-async def _fake_verify(*args: Any, **kwargs: Any) -> str | None:
-    haystack = " ".join(str(value) for value in (*args, *kwargs.values()))
-    return PRINCIPAL if _SESSION_VALUE in haystack else None
+_fake_verify = fake_verify(PRINCIPAL)
 
 
 class _FakeScopeResolution:
@@ -430,24 +411,7 @@ def _product() -> Product:
 
 
 def _step(**overrides: Any) -> StepDefinition:
-    attributes: dict[str, Any] = {
-        "identifier": "listing.title-conforms",
-        "name": "Work this step asks for",
-        "description": None,
-        "gate": "listable",
-        "discipline": next(iter(Discipline)),
-        "scope": Scope.PRODUCT,
-        "timing_anchor": OffsetAnchor(days=-7),
-        "blocking": False,
-        "kind": StepKind.HUMAN,
-        "status": StepStatus.ACTIVE,
-        "hazard": Hazard.NONE,
-        "assignees": (ALICE,),
-        "handler": None,
-        "provenance": None,
-    }
-    attributes.update(overrides)
-    return StepDefinition(**attributes)
+    return _build_step(**{"assignees": (ALICE,), **overrides})
 
 
 class _StepRecord:

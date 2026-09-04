@@ -137,14 +137,16 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from commerce_ops.launch.domain.launch_playbook import (
-    Hazard,
-    OffsetAnchor,
-    Scope,
     StepDefinition,
-    StepKind,
     StepStatus,
 )
 from commerce_ops.shared.domain.discipline import Discipline
+from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
+from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
+from tests.support.admin import fake_verify
+from tests.support.fixtures import ALICE, ALICE_NAME, BOHDAN, PRINCIPAL
+from tests.support.playbook import SPECIFIED_GATE_ORDER
+from tests.support.steps import step as _build_step
 
 page_module: ModuleType = importlib.import_module(
     "commerce_ops.launch.infrastructure.driving.playbook_admin"
@@ -173,27 +175,9 @@ _NAMES_OF_FIELD: Final[dict[str, tuple[str, ...]]] = {
 #: INVENTED. The element a "control per value" is taken to be.
 _VALUE_INPUT_TYPES: Final = ("checkbox",)
 
-SPECIFIED_GATE_ORDER: Final = (
-    "commit",
-    "order",
-    "listable",
-    "stock-ready",
-    "live",
-    "ignition",
-    "phase-one-complete",
-    "graduated",
-)
-
-PRINCIPAL: Final = "helen"
-_SESSION_COOKIE: Final = "admin_session"
-_SESSION_VALUE: Final = "a-verified-admin-session"
-
 LISTING: Final = Discipline("listing")
 INVENTORY: Final = Discipline("inventory")
 
-ALICE: Final = "prs_01HQ8Z6M4A"
-ALICE_NAME: Final = "Alice Admin"
-BOHDAN: Final = "prs_01HQ8Z6M4B"
 BOHDAN_NAME: Final = "Bohdan Builder"
 CHRIS: Final = "prs_01HQ8Z6M4C"
 CHRIS_NAME: Final = "Chris Departed"
@@ -267,26 +251,17 @@ _REFERENCE_ATTRIBUTES: Final = (
 
 
 def _step(**overrides: Any) -> StepDefinition:
-    attributes: dict[str, Any] = {
-        "identifier": EDITED,
-        "name": EDITED_NAME,
-        "description": None,
-        "gate": "listable",
-        "discipline": LISTING,
-        "scope": Scope.PRODUCT,
-        "timing_anchor": OffsetAnchor(days=-7),
-        "blocking": False,
-        "kind": StepKind.HUMAN,
-        "status": StepStatus.ACTIVE,
-        "hazard": Hazard.NONE,
-        "assignees": (ALICE,),
-        "handler": None,
-        "provenance": None,
-        "starts_at_gate": None,
-        "after_steps": (),
-    }
-    attributes.update(overrides)
-    return StepDefinition(**attributes)
+    return _build_step(
+        **{
+            "identifier": EDITED,
+            "name": EDITED_NAME,
+            "discipline": LISTING,
+            "assignees": (ALICE,),
+            "starts_at_gate": None,
+            "after_steps": (),
+            **overrides,
+        }
+    )
 
 
 class _Record:
@@ -813,9 +788,7 @@ def _fault_texts(form: _Form, name: str) -> list[tuple[_Node, str]]:
 # ---------------------------------------------------------------------------
 
 
-async def _fake_verify(*args: Any, **kwargs: Any) -> str | None:
-    haystack = " ".join(str(value) for value in (*args, *kwargs.values()))
-    return PRINCIPAL if _SESSION_VALUE in haystack else None
+_fake_verify = fake_verify(PRINCIPAL)
 
 
 _MEMBERS_ATTRIBUTES: Final = ("members", "read_members", "members_reader")

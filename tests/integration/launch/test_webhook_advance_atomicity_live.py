@@ -123,7 +123,8 @@ from commerce_ops.launch.infrastructure.driven.launch_repository import LaunchRe
 from commerce_ops.launch.infrastructure.driven.playbook_repository import (
     PlaybookRepository,
 )
-from commerce_ops.shared.domain.identity import MarketplaceId, ProductId, Sku
+from commerce_ops.shared.domain.identity import ProductId, Sku
+from tests.support.fixtures import MARKETPLACE
 
 pytestmark = pytest.mark.anyio
 
@@ -134,7 +135,6 @@ CONFIRMATION_MODULE_PATH: Final = (
     "commerce_ops.launch.infrastructure.driving.gate_confirmation"
 )
 
-MARKETPLACE: Final = MarketplaceId("ATVPDKIKX0DER")
 LAUNCH_DATE: Final = date(2027, 9, 1)
 NOW: Final = datetime(2027, 5, 3, 9, 15, tzinfo=UTC)
 

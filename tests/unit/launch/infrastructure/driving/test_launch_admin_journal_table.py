@@ -97,10 +97,8 @@ from __future__ import annotations
 
 import asyncio
 import importlib
-from collections.abc import Iterator
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import UTC, date, datetime
-from html.parser import HTMLParser
 from types import ModuleType
 from typing import Any, Final
 
@@ -111,13 +109,21 @@ from fastapi.testclient import TestClient
 from commerce_ops.access.application import create_member, list_members
 from commerce_ops.catalog.domain.product import Product
 from commerce_ops.launch.domain.launch_playbook import (
-    Gate,
-    GateOpening,
     LaunchPlaybook,
 )
 from commerce_ops.launch.domain.launch_run import Launch
-from commerce_ops.shared.domain.identity import MarketplaceId, ProductId, Sku
+from commerce_ops.shared.domain.identity import ProductId, Sku
 from commerce_ops.shared.domain.lifecycle_stage import Launching
+from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
+from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
+from tests.support.admin import fake_verify
+from tests.support.fixtures import MARKETPLACE
+from tests.support.html import Node as _Node
+from tests.support.html import all_text as _all_text
+from tests.support.html import elements as _elements
+from tests.support.html import flat as _flat
+from tests.support.html import tree as _tree
+from tests.support.playbook import gates as _gates
 
 # ---------------------------------------------------------------------------
 # The module under test, resolved by name
@@ -152,22 +158,7 @@ def _journal_seam(module: ModuleType) -> str:
 # Fixed vocabulary and fixture values
 # ---------------------------------------------------------------------------
 
-SPECIFIED_GATE_ORDER: Final = (
-    "commit",
-    "order",
-    "listable",
-    "stock-ready",
-    "live",
-    "ignition",
-    "phase-one-complete",
-    "graduated",
-)
-
-MARKETPLACE: Final = MarketplaceId("ATVPDKIKX0DER")
 PRINCIPAL: Final = "U01ALICE"
-_SESSION_COOKIE: Final = "admin_session"
-_SESSION_VALUE: Final = "a-verified-admin-session"
-
 RENDER_DATE: Final = date(2027, 4, 1)
 LAUNCH_DATE: Final = date(2027, 4, 15)
 T_REGISTERED: Final = datetime(2026, 8, 23, 9, 0, tzinfo=UTC)
@@ -180,28 +171,6 @@ CATEGORY_MARKERS: Final[dict[str, str]] = {
     "blocked": "category-blocked",
     "admin": "category-admin",
 }
-
-
-#: Gates whose coherence rule requires human confirmation to open
-#: (`launch-playbook`) — the same set every sibling test file fixes.
-CONFIRMATION_GATES: Final = frozenset(
-    {"commit", "order", "phase-one-complete", "graduated"}
-)
-
-
-def _gates() -> tuple[Gate, ...]:
-    return tuple(
-        Gate(
-            identifier=identifier,
-            position=position,
-            opening=(
-                GateOpening.REQUIRES_CONFIRMATION
-                if identifier in CONFIRMATION_GATES
-                else GateOpening.AUTOMATIC
-            ),
-        )
-        for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1)
-    )
 
 
 #: A playbook holding the eight specified gates and no step at all — the
@@ -358,9 +327,7 @@ def _install(
     )
 
 
-async def _fake_verify(*args: Any, **kwargs: Any) -> str | None:
-    haystack = " ".join(str(value) for value in (*args, *kwargs.values()))
-    return PRINCIPAL if _SESSION_VALUE in haystack else None
+_fake_verify = fake_verify(PRINCIPAL)
 
 
 class _StubDate(date):
@@ -486,92 +453,6 @@ def _world(monkeypatch: pytest.MonkeyPatch, journal_entries: tuple[Any, ...]) ->
 # ---------------------------------------------------------------------------
 # An HTML tree
 # ---------------------------------------------------------------------------
-
-
-@dataclass
-class _Text:
-    text: str
-
-
-@dataclass
-class _Node:
-    tag: str
-    attrs: dict[str, str]
-    parent: _Node | None
-    children: list[_Node | _Text] = field(default_factory=list)
-
-
-_VOID_TAGS: Final = (
-    "area",
-    "base",
-    "br",
-    "col",
-    "embed",
-    "hr",
-    "img",
-    "input",
-    "link",
-    "meta",
-    "param",
-    "source",
-    "track",
-    "wbr",
-)
-
-
-class _TreeParser(HTMLParser):
-    def __init__(self) -> None:
-        super().__init__(convert_charrefs=True)
-        self.root = _Node("#document", {}, None)
-        self._stack: list[_Node] = [self.root]
-
-    def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        self._stack[-1].children.append(
-            _Node(tag, {k: v or "" for k, v in attrs}, self._stack[-1])
-        )
-
-    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        node = _Node(tag, {k: v or "" for k, v in attrs}, self._stack[-1])
-        self._stack[-1].children.append(node)
-        if tag not in _VOID_TAGS:
-            self._stack.append(node)
-
-    def handle_endtag(self, tag: str) -> None:
-        for index in range(len(self._stack) - 1, 0, -1):
-            if self._stack[index].tag == tag:
-                del self._stack[index:]
-                return
-
-    def handle_data(self, data: str) -> None:
-        if data.strip():
-            self._stack[-1].children.append(_Text(_flat(data)))
-
-
-def _flat(text: str) -> str:
-    return " ".join(text.split())
-
-
-def _tree(html: str) -> _Node:
-    parser = _TreeParser()
-    parser.feed(html)
-    return parser.root
-
-
-def _elements(node: _Node) -> Iterator[_Node]:
-    for child in node.children:
-        if isinstance(child, _Node):
-            yield child
-            yield from _elements(child)
-
-
-def _all_text(node: _Node) -> str:
-    found: list[str] = []
-    for child in node.children:
-        if isinstance(child, _Text):
-            found.append(child.text)
-        else:
-            found.append(_all_text(child))
-    return " ".join(part for part in found if part).lower()
 
 
 def _holds(node: _Node, needle: str) -> bool:

@@ -84,8 +84,6 @@ from typing import Any, Final
 import pytest
 
 from commerce_ops.launch.domain.launch_playbook import (
-    Gate,
-    GateOpening,
     Hazard,
     LaunchPlaybook,
     OffsetAnchor,
@@ -104,26 +102,14 @@ from commerce_ops.launch.domain.launch_run import (
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import MetricId, ProductId
 from commerce_ops.shared.domain.lifecycle_stage import Posture
+from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
+from tests.support.playbook import gates as _gates
 
 pytestmark = pytest.mark.anyio
 
 MODULE_PATH: Final = "commerce_ops.launch.infrastructure.driving.gate_progression_job"
 
-SPECIFIED_GATE_ORDER: Final = (
-    "commit",
-    "order",
-    "listable",
-    "stock-ready",
-    "live",
-    "ignition",
-    "phase-one-complete",
-    "graduated",
-)
 FINAL_GATE: Final = SPECIFIED_GATE_ORDER[-1]
-
-CONFIRMATION_GATES: Final = frozenset(
-    {"commit", "order", "phase-one-complete", "graduated"}
-)
 
 CROSSING: Final = ProductId(str(uuid.uuid4()))
 UNCHANGED: Final = ProductId(str(uuid.uuid4()))
@@ -155,12 +141,6 @@ def anyio_backend() -> str:
 # ---------------------------------------------------------------------------
 
 
-def _opening_for(identifier: str) -> GateOpening:
-    if identifier in CONFIRMATION_GATES:
-        return GateOpening.REQUIRES_CONFIRMATION
-    return GateOpening.AUTOMATIC
-
-
 def _hold(gate: str, **overrides: Any) -> StepDefinition:
     attributes: dict[str, Any] = {
         "identifier": f"hold.{gate}",
@@ -180,17 +160,6 @@ def _hold(gate: str, **overrides: Any) -> StepDefinition:
     }
     attributes.update(overrides)
     return StepDefinition(**attributes)
-
-
-def _gates() -> tuple[Gate, ...]:
-    return tuple(
-        Gate(
-            identifier=identifier,
-            position=position,
-            opening=_opening_for(identifier),
-        )
-        for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1)
-    )
 
 
 def _ready_playbook() -> LaunchPlaybook:

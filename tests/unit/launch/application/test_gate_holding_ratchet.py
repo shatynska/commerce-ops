@@ -86,30 +86,18 @@ from commerce_ops.launch.application import (
     update_step,
 )
 from commerce_ops.launch.domain.launch_playbook import (
-    Hazard,
     InvalidPlaybookError,
-    OffsetAnchor,
-    Scope,
     StepDefinition,
     StepKind,
     StepStatus,
 )
 from commerce_ops.shared.domain.discipline import Discipline
+from tests.support.fixtures import PRINCIPAL
+from tests.support.playbook import SPECIFIED_GATE_ORDER
+from tests.support.steps import step as _build_step
 
 pytestmark = pytest.mark.anyio
 
-SPECIFIED_GATE_ORDER: Final = (
-    "commit",
-    "order",
-    "listable",
-    "stock-ready",
-    "live",
-    "ignition",
-    "phase-one-complete",
-    "graduated",
-)
-
-PRINCIPAL: Final = "helen"
 A_DISCIPLINE: Final = next(iter(Discipline))
 MEMBER_ACTIVE: Final = "prs_01HQ8Z6M4A"
 
@@ -134,24 +122,7 @@ def anyio_backend() -> str:
 
 
 def _step(**overrides: Any) -> StepDefinition:
-    attributes: dict[str, Any] = {
-        "identifier": "listing.title-conforms",
-        "name": "Work this step asks for",
-        "description": None,
-        "gate": "listable",
-        "discipline": A_DISCIPLINE,
-        "scope": Scope.PRODUCT,
-        "timing_anchor": OffsetAnchor(days=-7),
-        "blocking": False,
-        "kind": StepKind.HUMAN,
-        "status": StepStatus.ACTIVE,
-        "hazard": Hazard.NONE,
-        "assignees": (MEMBER_ACTIVE,),
-        "handler": None,
-        "provenance": None,
-    }
-    attributes.update(overrides)
-    return StepDefinition(**attributes)
+    return _build_step(**{"assignees": (MEMBER_ACTIVE,), **overrides})
 
 
 def _holding_step(gate: str, **overrides: Any) -> StepDefinition:

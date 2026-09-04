@@ -129,8 +129,6 @@ from fastapi.testclient import TestClient
 from commerce_ops.access.application import create_member
 from commerce_ops.catalog.domain.product import Product
 from commerce_ops.launch.domain.launch_playbook import (
-    Gate,
-    GateOpening,
     LaunchPlaybook,
     OffsetAnchor,
     Scope,
@@ -143,34 +141,20 @@ from commerce_ops.launch.infrastructure.driving import (
     launch_admin as page_module,
 )
 from commerce_ops.shared.domain.discipline import Discipline
-from commerce_ops.shared.domain.identity import MarketplaceId, ProductId, Sku
+from commerce_ops.shared.domain.identity import ProductId, Sku
 from commerce_ops.shared.domain.lifecycle_stage import Launching
+from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
+from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
+from tests.support.admin import fake_verify
+from tests.support.fixtures import MARKETPLACE
+from tests.support.playbook import gates as _gates
 
 # ---------------------------------------------------------------------------
 # Fixed vocabulary and DERIVED fixture values
 # ---------------------------------------------------------------------------
 
-SPECIFIED_GATE_ORDER: Final = (
-    "commit",
-    "order",
-    "listable",
-    "stock-ready",
-    "live",
-    "ignition",
-    "phase-one-complete",
-    "graduated",
-)
-CONFIRMATION_GATES: Final = frozenset(
-    {"commit", "order", "phase-one-complete", "graduated"}
-)
-
 LISTING: Final = Discipline("listing")
-MARKETPLACE: Final = MarketplaceId("ATVPDKIKX0DER")
-
 PRINCIPAL: Final = "U01ALICE"
-_SESSION_COOKIE: Final = "admin_session"
-_SESSION_VALUE: Final = "a-verified-admin-session"
-
 T_REGISTERED: Final = datetime(2026, 8, 23, 9, 0, tzinfo=UTC)
 RENDER_DATE: Final = date(2027, 4, 1)
 LAUNCH_DATE: Final = date(2027, 12, 1)
@@ -206,19 +190,6 @@ _VOID_TAGS: Final = (
 # ---------------------------------------------------------------------------
 # Domain builders
 # ---------------------------------------------------------------------------
-
-
-def _opening_for(identifier: str) -> GateOpening:
-    if identifier in CONFIRMATION_GATES:
-        return GateOpening.REQUIRES_CONFIRMATION
-    return GateOpening.AUTOMATIC
-
-
-def _gates() -> tuple[Gate, ...]:
-    return tuple(
-        Gate(identifier=identifier, position=position, opening=_opening_for(identifier))
-        for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1)
-    )
 
 
 def _step(identifier: str, **overrides: Any) -> StepDefinition:
@@ -394,9 +365,7 @@ def _install_journal(
     )
 
 
-async def _fake_verify(*args: Any, **kwargs: Any) -> str | None:
-    haystack = " ".join(str(value) for value in (*args, *kwargs.values()))
-    return PRINCIPAL if _SESSION_VALUE in haystack else None
+_fake_verify = fake_verify(PRINCIPAL)
 
 
 class _StubDate(date):

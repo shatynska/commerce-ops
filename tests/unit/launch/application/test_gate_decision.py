@@ -86,7 +86,6 @@ commit `656f1c4`, clean tree: `uv run pytest tests/unit tests/agents` —
 from __future__ import annotations
 
 import inspect
-import uuid
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from typing import Any, Final
@@ -96,8 +95,6 @@ import pytest
 import commerce_ops.launch.application as launch_application
 from commerce_ops.launch.application import UnreadableMembersError
 from commerce_ops.launch.domain.launch_playbook import (
-    Gate,
-    GateOpening,
     Hazard,
     LaunchPlaybook,
     OffsetAnchor,
@@ -116,32 +113,19 @@ from commerce_ops.launch.domain.launch_run import (
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import MetricId, ProductId
 from commerce_ops.shared.domain.lifecycle_stage import Posture
+from tests.support.fixtures import ALICE, BOHDAN, product_id
+from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
+from tests.support.playbook import gates as _gates
 
 pytestmark = pytest.mark.anyio
 
-SPECIFIED_GATE_ORDER: Final = (
-    "commit",
-    "order",
-    "listable",
-    "stock-ready",
-    "live",
-    "ignition",
-    "phase-one-complete",
-    "graduated",
-)
 FINAL_GATE: Final = SPECIFIED_GATE_ORDER[-1]
 
-CONFIRMATION_GATES: Final = frozenset(
-    {"commit", "order", "phase-one-complete", "graduated"}
-)
+PRODUCT_ID: Final = product_id()
 
-PRODUCT_ID: Final = ProductId(str(uuid.uuid4()))
-
-ALICE: Final = "prs_01HQ8Z6M4A"
 ALICE_SLACK: Final = "U01ALICE"
 ALICE_NAME: Final = "Alice Ordinary"
 
-BOHDAN: Final = "prs_01HQ8Z6M4B"
 BOHDAN_SLACK: Final = "U02BOHDAN"
 BOHDAN_NAME: Final = "Bohdan Retired"
 
@@ -196,12 +180,6 @@ def anyio_backend() -> str:
 # ---------------------------------------------------------------------------
 
 
-def _opening_for(identifier: str) -> GateOpening:
-    if identifier in CONFIRMATION_GATES:
-        return GateOpening.REQUIRES_CONFIRMATION
-    return GateOpening.AUTOMATIC
-
-
 def _hold(gate: str, **overrides: Any) -> StepDefinition:
     attributes: dict[str, Any] = {
         "identifier": f"hold.{gate}",
@@ -221,17 +199,6 @@ def _hold(gate: str, **overrides: Any) -> StepDefinition:
     }
     attributes.update(overrides)
     return StepDefinition(**attributes)
-
-
-def _gates() -> tuple[Gate, ...]:
-    return tuple(
-        Gate(
-            identifier=identifier,
-            position=position,
-            opening=_opening_for(identifier),
-        )
-        for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1)
-    )
 
 
 def _playbook() -> LaunchPlaybook:

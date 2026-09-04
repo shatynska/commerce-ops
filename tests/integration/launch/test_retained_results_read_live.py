@@ -95,7 +95,7 @@ import inspect
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 from typing import Any, Final
 
 import pytest
@@ -108,15 +108,10 @@ from commerce_ops.catalog.infrastructure.driven.product_repository import (
 )
 from commerce_ops.launch.domain.launch_playbook import (
     Gate,
-    GateOpening,
-    Hazard,
     LaunchPlaybook,
-    OffsetAnchor,
     Satisfied,
-    Scope,
     StepDefinition,
     StepKind,
-    StepStatus,
 )
 from commerce_ops.launch.domain.launch_run import (
     ApprovalDecision,
@@ -126,33 +121,17 @@ from commerce_ops.launch.domain.launch_run import (
 )
 from commerce_ops.launch.infrastructure.driven.launch_repository import LaunchRepository
 from commerce_ops.shared.domain.access_scope import AccessScope
-from commerce_ops.shared.domain.discipline import Discipline
-from commerce_ops.shared.domain.identity import MarketplaceId, ProductId, Sku
+from commerce_ops.shared.domain.identity import ProductId, Sku
+from tests.support.fixtures import HANDLER_NAME, LAUNCH_DATE, MARKETPLACE
+from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
+from tests.support.playbook import opening_for as _opening_for
+from tests.support.steps import step as _build_step
 
 pytestmark = pytest.mark.anyio
 
-SPECIFIED_GATE_ORDER: Final = (
-    "commit",
-    "order",
-    "listable",
-    "stock-ready",
-    "live",
-    "ignition",
-    "phase-one-complete",
-    "graduated",
-)
-
-CONFIRMATION_GATES: Final = frozenset(
-    {"commit", "order", "phase-one-complete", "graduated"}
-)
-
-MARKETPLACE: Final = MarketplaceId("ATVPDKIKX0DER")
 FIRST_STEP: Final = "listing.sub-category"
 SECOND_STEP: Final = "listing.compliance-fields"
-HANDLER_NAME: Final = "listing.subcategory_advisor"
 ALICE: Final = "Alice Admin"
-LAUNCH_DATE: Final = date(2027, 3, 2)
-
 OLDEST: Final = datetime(2027, 1, 6, 9, 30, tzinfo=UTC)
 MIDDLE: Final = datetime(2027, 1, 7, 9, 30, tzinfo=UTC)
 NEWEST: Final = datetime(2027, 1, 8, 9, 30, tzinfo=UTC)
@@ -358,31 +337,17 @@ def _unique_sku() -> Sku:
     return Sku(f"RR-{uuid.uuid4().hex[:12].upper()}")
 
 
-def _opening_for(identifier: str) -> GateOpening:
-    if identifier in CONFIRMATION_GATES:
-        return GateOpening.REQUIRES_CONFIRMATION
-    return GateOpening.AUTOMATIC
-
-
 def _step(**overrides: Any) -> StepDefinition:
-    attributes: dict[str, Any] = {
-        "identifier": FIRST_STEP,
-        "name": "Choose the sub-category node",
-        "gate": "listable",
-        "discipline": next(iter(Discipline)),
-        "scope": Scope.PRODUCT,
-        "timing_anchor": OffsetAnchor(days=-7),
-        "blocking": False,
-        "kind": StepKind.AUTOMATED,
-        "status": StepStatus.ACTIVE,
-        "confirmer": "prs_confirmer",
-        "hazard": Hazard.NONE,
-        "assignees": (),
-        "handler": HANDLER_NAME,
-        "provenance": None,
-    }
-    attributes.update(overrides)
-    return StepDefinition(**attributes)
+    return _build_step(
+        **{
+            "identifier": FIRST_STEP,
+            "name": "Choose the sub-category node",
+            "kind": StepKind.AUTOMATED,
+            "confirmer": "prs_confirmer",
+            "handler": HANDLER_NAME,
+            **overrides,
+        }
+    )
 
 
 def _hold(gate: str) -> StepDefinition:

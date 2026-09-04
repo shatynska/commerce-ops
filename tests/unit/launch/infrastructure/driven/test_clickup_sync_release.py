@@ -57,19 +57,14 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 from typing import Any, Final
 
 import pytest
 
 from commerce_ops.launch.domain.launch_playbook import (
-    Gate,
-    GateOpening,
-    Hazard,
     LaunchPlaybook,
-    OffsetAnchor,
     Satisfied,
-    Scope,
     StepDefinition,
     StepKind,
     StepStatus,
@@ -87,30 +82,17 @@ from commerce_ops.launch.infrastructure.driven.clickup_sync import (
 from commerce_ops.shared.domain.clickup import ClickUpListState
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId, Sku
+from tests.support.fixtures import LAUNCH_DATE, PRODUCT_NAME, PRODUCT_SKU
+from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
+from tests.support.playbook import gates as _gates
+from tests.support.steps import hold as _build_hold
+from tests.support.steps import step as _build_step
 
 pytestmark = pytest.mark.anyio
 
-SPECIFIED_GATE_ORDER: Final = (
-    "commit",
-    "order",
-    "listable",
-    "stock-ready",
-    "live",
-    "ignition",
-    "phase-one-complete",
-    "graduated",
-)
-CONFIRMATION_GATES: Final = frozenset(
-    {"commit", "order", "phase-one-complete", "graduated"}
-)
-
 PRODUCT_ID: Final = ProductId("6f1d5b1c-6f0e-4d0f-9d84-6b0a1f1d5b1c")
-PRODUCT_NAME: Final = "Bamboo Cutting Board"
-PRODUCT_SKU: Final = Sku("BCB-2027-01")
-
 FOLDER_ID: Final = "90110042424"
 
-LAUNCH_DATE: Final = date(2027, 3, 2)
 RECORDED_AT: Final = datetime(2027, 1, 5, 12, 0, tzinfo=UTC)
 
 A_DISCIPLINE: Final = next(iter(Discipline))
@@ -129,52 +111,13 @@ def anyio_backend() -> str:
 # ---------------------------------------------------------------------------
 
 
-def _opening_for(identifier: str) -> GateOpening:
-    if identifier in CONFIRMATION_GATES:
-        return GateOpening.REQUIRES_CONFIRMATION
-    return GateOpening.AUTOMATIC
-
-
-def _gates() -> tuple[Gate, ...]:
-    return tuple(
-        Gate(identifier=identifier, position=position, opening=_opening_for(identifier))
-        for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1)
-    )
-
-
 def _step(**overrides: Any) -> StepDefinition:
-    attributes: dict[str, Any] = {
-        "identifier": "listing.title-conforms",
-        "name": "Work this step asks for",
-        "description": None,
-        "gate": "listable",
-        "discipline": A_DISCIPLINE,
-        "scope": Scope.PRODUCT,
-        "timing_anchor": OffsetAnchor(days=-7),
-        "blocking": False,
-        "kind": StepKind.HUMAN,
-        "status": StepStatus.ACTIVE,
-        "hazard": Hazard.NONE,
-        "assignees": (),
-        "handler": None,
-        "provenance": None,
-    }
-    attributes.update(overrides)
-    return StepDefinition(**attributes)
+    return _build_step(**overrides)
 
 
 def _hold(gate: str) -> StepDefinition:
-    """A blocking filler holding `gate`. `automated`, so the projection
-    never creates a task for a filler and every assertion about which
-    tasks were created is untouched by them; and declaring neither start
-    field, so a filler is released from the first gate."""
-    return _step(
-        identifier=f"hold.{gate}",
-        name=f"Blocking work holding the {gate} gate",
-        gate=gate,
-        blocking=True,
-        kind=StepKind.AUTOMATED,
-        handler=f"hold.{gate.replace('-', '_')}",
+    return _build_hold(
+        gate, kind=StepKind.AUTOMATED, handler=f"hold.{gate.replace('-', '_')}"
     )
 
 

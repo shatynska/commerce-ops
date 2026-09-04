@@ -69,7 +69,6 @@ from __future__ import annotations
 import importlib
 import inspect
 import logging
-import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
 from types import ModuleType
@@ -79,16 +78,10 @@ import pytest
 
 from commerce_ops.launch.application import StepResolution
 from commerce_ops.launch.domain.launch_playbook import (
-    Gate,
-    GateOpening,
-    Hazard,
     LaunchPlaybook,
-    OffsetAnchor,
     Satisfied,
-    Scope,
     StepDefinition,
     StepKind,
-    StepStatus,
 )
 from commerce_ops.launch.domain.launch_run import (
     ApprovalDecision,
@@ -98,6 +91,10 @@ from commerce_ops.launch.domain.launch_run import (
 )
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId, Sku
+from tests.support.fixtures import HANDLER_NAME, PRODUCT_NAME, PRODUCT_SKU, product_id
+from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
+from tests.support.playbook import gates as _gates
+from tests.support.steps import step as _build_step
 
 pytestmark = pytest.mark.anyio
 
@@ -108,29 +105,11 @@ automation_pass: ModuleType = importlib.import_module(
     "commerce_ops.launch.infrastructure.driving.automation_pass"
 )
 
-SPECIFIED_GATE_ORDER: Final = (
-    "commit",
-    "order",
-    "listable",
-    "stock-ready",
-    "live",
-    "ignition",
-    "phase-one-complete",
-    "graduated",
-)
-CONFIRMATION_GATES: Final = frozenset(
-    {"commit", "order", "phase-one-complete", "graduated"}
-)
-
-PRODUCT_ID: Final = ProductId(str(uuid.uuid4()))
-PRODUCT_NAME: Final = "Bamboo Cutting Board"
-PRODUCT_SKU: Final = Sku("BCB-2027-01")
-
+PRODUCT_ID: Final = product_id()
 A_DISCIPLINE: Final = next(iter(Discipline))
 
 WAITING_STEP: Final = "listing.waits-for-listable"
 RUNNING_STEP: Final = "listing.runs-from-the-first-pass"
-HANDLER_NAME: Final = "listing.subcategory_advisor"
 OTHER_HANDLER_NAME: Final = "listing.other_advisor"
 UNREGISTERED_HANDLER: Final = "listing.nobody_registers_this"
 
@@ -150,38 +129,14 @@ def anyio_backend() -> str:
 # ---------------------------------------------------------------------------
 
 
-def _opening_for(identifier: str) -> GateOpening:
-    if identifier in CONFIRMATION_GATES:
-        return GateOpening.REQUIRES_CONFIRMATION
-    return GateOpening.AUTOMATIC
-
-
-def _gates() -> tuple[Gate, ...]:
-    return tuple(
-        Gate(identifier=identifier, position=position, opening=_opening_for(identifier))
-        for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1)
-    )
-
-
 def _step(**overrides: Any) -> StepDefinition:
-    attributes: dict[str, Any] = {
-        "identifier": WAITING_STEP,
-        "name": "Choose the sub-category node",
-        "description": None,
-        "gate": "listable",
-        "discipline": A_DISCIPLINE,
-        "scope": Scope.PRODUCT,
-        "timing_anchor": OffsetAnchor(days=-7),
-        "blocking": False,
-        "kind": StepKind.HUMAN,
-        "status": StepStatus.ACTIVE,
-        "hazard": Hazard.NONE,
-        "assignees": (),
-        "handler": None,
-        "provenance": None,
-    }
-    attributes.update(overrides)
-    return StepDefinition(**attributes)
+    return _build_step(
+        **{
+            "identifier": WAITING_STEP,
+            "name": "Choose the sub-category node",
+            **overrides,
+        }
+    )
 
 
 def _automated(**overrides: Any) -> StepDefinition:

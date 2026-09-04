@@ -78,11 +78,9 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
-import uuid
 from collections.abc import AsyncIterator, Iterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from datetime import date
 from typing import Any, Final
 
 import pytest
@@ -92,42 +90,25 @@ from fastapi.testclient import TestClient
 import commerce_ops.launch.infrastructure.driving.clickup_webhook as webhook_module
 from commerce_ops.launch.domain.launch_playbook import (
     Gate,
-    GateOpening,
-    Hazard,
     LaunchPlaybook,
-    OffsetAnchor,
-    Scope,
     StepDefinition,
     StepKind,
     StepStatus,
 )
 from commerce_ops.launch.domain.launch_run import Launch
-from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
-
-SPECIFIED_GATE_ORDER: Final = (
-    "commit",
-    "order",
-    "listable",
-    "stock-ready",
-    "live",
-    "ignition",
-    "phase-one-complete",
-    "graduated",
-)
-
-CONFIRMATION_GATES: Final = frozenset(
-    {"commit", "order", "phase-one-complete", "graduated"}
-)
+from tests.support.fixtures import LAUNCH_DATE, product_id
+from tests.support.playbook import SPECIFIED_GATE_ORDER
+from tests.support.playbook import opening_for as _opening_for
+from tests.support.steps import hold as _build_hold
+from tests.support.steps import step as _build_step
 
 WEBHOOK_SECRET: Final = "test-clickup-webhook-secret-not-a-real-credential"
 SIGNATURE_HEADER: Final = "X-Signature"
 
-PRODUCT_ID: Final = ProductId(str(uuid.uuid4()))
+PRODUCT_ID: Final = product_id()
 STEP_ID: Final = "listing.title-conforms"
 TASK_ID: Final = "8x2mapped"
-
-LAUNCH_DATE: Final = date(2027, 3, 2)
 
 #: Kept in step with `test_eager_convergence_helper.py`'s own
 #: `_HELPER_NAMES`, which is the correction point for the name itself.
@@ -152,41 +133,21 @@ _TRIGGER_NAMES: Final = (
 # ---------------------------------------------------------------------------
 
 
-def _opening_for(identifier: str) -> GateOpening:
-    if identifier in CONFIRMATION_GATES:
-        return GateOpening.REQUIRES_CONFIRMATION
-    return GateOpening.AUTOMATIC
-
-
 def _step(**overrides: Any) -> StepDefinition:
-    attributes: dict[str, Any] = {
-        "identifier": STEP_ID,
-        "name": "Work this step asks for",
-        "gate": "listable",
-        "discipline": next(iter(Discipline)),
-        "scope": Scope.PRODUCT,
-        "timing_anchor": OffsetAnchor(days=-7),
-        "blocking": False,
-        "kind": StepKind.HUMAN,
-        "status": StepStatus.ACTIVE,
-        "hazard": Hazard.NONE,
-        "provenance": None,
-    }
-    attributes.update(overrides)
-    return StepDefinition(**attributes)
+    return _build_step(**{"identifier": STEP_ID, **overrides})
 
 
 def _hold(gate: str, **overrides: Any) -> StepDefinition:
-    attributes: dict[str, Any] = {
-        "identifier": f"hold.{gate}",
-        "gate": gate,
-        "blocking": True,
-        "kind": StepKind.AUTOMATED,
-        "status": StepStatus.ACTIVE,
-        "handler": "fixture.holding_check",
-    }
-    attributes.update(overrides)
-    return _step(**attributes)
+    return _build_hold(
+        gate,
+        **{
+            "kind": StepKind.AUTOMATED,
+            "status": StepStatus.ACTIVE,
+            "handler": "fixture.holding_check",
+            "name": "Work this step asks for",
+            **overrides,
+        },
+    )
 
 
 def _fill(steps: tuple[StepDefinition, ...]) -> tuple[StepDefinition, ...]:

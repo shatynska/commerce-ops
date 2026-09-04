@@ -126,19 +126,14 @@ import logging
 import uuid
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
-from datetime import date
 from types import SimpleNamespace
 from typing import Any, Final
 
 import pytest
 
 from commerce_ops.launch.domain.launch_playbook import (
-    Gate,
-    GateOpening,
     Hazard,
     LaunchPlaybook,
-    OffsetAnchor,
-    Scope,
     StepDefinition,
     StepKind,
     StepStatus,
@@ -147,31 +142,21 @@ from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.launch.infrastructure.driven.clickup_sync import converge_launch
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId, Sku
+from tests.support.fixtures import (
+    ALICE,
+    LAUNCH_DATE,
+    PRODUCT_NAME,
+    PRODUCT_SKU,
+    product_id,
+)
+from tests.support.playbook import SPECIFIED_GATE_ORDER
+from tests.support.playbook import playbook as _build_playbook
+from tests.support.steps import step as _build_step
 
 pytestmark = pytest.mark.anyio
 
-SPECIFIED_GATE_ORDER: Final = (
-    "commit",
-    "order",
-    "listable",
-    "stock-ready",
-    "live",
-    "ignition",
-    "phase-one-complete",
-    "graduated",
-)
-
-CONFIRMATION_GATES: Final = frozenset(
-    {"commit", "order", "phase-one-complete", "graduated"}
-)
-
-PRODUCT_ID: Final = ProductId(str(uuid.uuid4()))
-PRODUCT_NAME: Final = "Bamboo Cutting Board"
-PRODUCT_SKU: Final = Sku("BCB-2027-01")
-
+PRODUCT_ID: Final = product_id()
 FOLDER_ID: Final = "90110042424"
-LAUNCH_DATE: Final = date(2027, 3, 2)
-
 SEPARATOR: Final = " · "
 
 GATE_FIELD_ID: Final = "4bd1f0f9-6f2a-4f0e-9d5d-0f4a1c6b2e11"
@@ -205,7 +190,6 @@ DISCIPLINE_OPTION_IDS: Final = {
     for index, member in enumerate(Discipline)
 }
 
-ALICE: Final = "prs_01HQ8Z6M4A"
 ALICE_CLICKUP: Final = "clickup-alice"
 
 
@@ -219,38 +203,18 @@ def anyio_backend() -> str:
 # ---------------------------------------------------------------------------
 
 
-def _opening_for(identifier: str) -> GateOpening:
-    if identifier in CONFIRMATION_GATES:
-        return GateOpening.REQUIRES_CONFIRMATION
-    return GateOpening.AUTOMATIC
-
-
-def _gates() -> tuple[Gate, ...]:
-    return tuple(
-        Gate(identifier=identifier, position=position, opening=_opening_for(identifier))
-        for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1)
-    )
-
-
 def _step(**overrides: Any) -> StepDefinition:
-    attributes: dict[str, Any] = {
-        "identifier": STEP_ID,
-        "name": STEP_NAME,
-        "description": STEP_DESCRIPTION,
-        "gate": STEP_GATE,
-        "discipline": STEP_DISCIPLINE,
-        "scope": Scope.PRODUCT,
-        "timing_anchor": OffsetAnchor(days=-7),
-        "blocking": False,
-        "kind": StepKind.HUMAN,
-        "status": StepStatus.ACTIVE,
-        "hazard": Hazard.NONE,
-        "assignees": (ALICE,),
-        "handler": None,
-        "provenance": None,
-    }
-    attributes.update(overrides)
-    return StepDefinition(**attributes)
+    return _build_step(
+        **{
+            "identifier": STEP_ID,
+            "name": STEP_NAME,
+            "description": STEP_DESCRIPTION,
+            "gate": STEP_GATE,
+            "discipline": STEP_DISCIPLINE,
+            "assignees": (ALICE,),
+            **overrides,
+        }
+    )
 
 
 def _control_step(**overrides: Any) -> StepDefinition:
@@ -281,13 +245,7 @@ def _hold(gate: str) -> StepDefinition:
 
 
 def _playbook(steps: tuple[StepDefinition, ...] = ()) -> LaunchPlaybook:
-    held = {
-        step.gate
-        for step in steps
-        if step.blocking and step.status is StepStatus.ACTIVE
-    }
-    fillers = tuple(_hold(gate) for gate in SPECIFIED_GATE_ORDER if gate not in held)
-    return LaunchPlaybook(version="test-v1", gates=_gates(), steps=(*steps, *fillers))
+    return _build_playbook(*steps, filler=_hold, held_must_be_active=True)
 
 
 def _start(playbook: LaunchPlaybook) -> Launch:

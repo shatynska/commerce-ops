@@ -81,8 +81,7 @@ from __future__ import annotations
 
 import json
 import socket
-import uuid
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 from types import UnionType
 from typing import Any, ClassVar, Final
 
@@ -97,19 +96,18 @@ from langchain_openai.chat_models.base import _convert_to_openai_response_format
 import commerce_ops.step_handlers.strategy.compliance_screen as screen
 from commerce_ops.launch.application import HANDLERS, StepContext
 from commerce_ops.launch.domain.launch_playbook import (
-    Gate,
-    GateOpening,
-    Hazard,
     LaunchPlaybook,
     OffsetAnchor,
-    Scope,
     StepDefinition,
     StepKind,
-    StepStatus,
 )
 from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.shared.domain.discipline import Discipline
-from commerce_ops.shared.domain.identity import MarketplaceId, ProductId, Sku
+from commerce_ops.shared.domain.identity import MarketplaceId, Sku
+from tests.support.fixtures import ALICE, LAUNCH_DATE, product_id
+from tests.support.playbook import SPECIFIED_GATE_ORDER
+from tests.support.playbook import gates as _gates
+from tests.support.steps import step as _build_step
 
 #: Fixed by `tasks.md` 4.1, not by any delta scenario: the wire schema's
 #: three field names after this change.
@@ -203,25 +201,9 @@ class _CapturingChatModel(BaseChatModel):
 # The context the screen is invoked with
 # ---------------------------------------------------------------------------
 
-SPECIFIED_GATE_ORDER: Final = (
-    "commit",
-    "order",
-    "listable",
-    "stock-ready",
-    "live",
-    "ignition",
-    "phase-one-complete",
-    "graduated",
-)
-CONFIRMATION_GATES: Final = frozenset(
-    {"commit", "order", "phase-one-complete", "graduated"}
-)
-
 STEP_ID: Final = "lp.strategy.006"
-ALICE: Final = "prs_01HQ8Z6M4A"
 AS_OF: Final = datetime(2027, 1, 6, 9, 30, tzinfo=UTC)
-LAUNCH_DATE: Final = date(2027, 3, 2)
-PRODUCT_ID: Final = ProductId(str(uuid.uuid4()))
+PRODUCT_ID: Final = product_id()
 
 
 class _CatalogProduct:
@@ -234,39 +216,21 @@ class _CatalogProduct:
         self.hazard_categories: Any = None
 
 
-def _opening_for(identifier: str) -> GateOpening:
-    if identifier in CONFIRMATION_GATES:
-        return GateOpening.REQUIRES_CONFIRMATION
-    return GateOpening.AUTOMATIC
-
-
-def _gates() -> tuple[Gate, ...]:
-    return tuple(
-        Gate(identifier=identifier, position=position, opening=_opening_for(identifier))
-        for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1)
-    )
-
-
 def _step(**overrides: Any) -> StepDefinition:
-    attributes: dict[str, Any] = {
-        "identifier": STEP_ID,
-        "name": "Screen for prohibited and high-compliance categories",
-        "description": DESCRIPTION,
-        "gate": "commit",
-        "discipline": Discipline.STRATEGY,
-        "scope": Scope.PRODUCT,
-        "timing_anchor": OffsetAnchor(days=-90),
-        "blocking": False,
-        "kind": StepKind.AUTOMATED,
-        "confirmer": ALICE,
-        "status": StepStatus.ACTIVE,
-        "hazard": Hazard.NONE,
-        "assignees": (),
-        "handler": "strategy.compliance_screen",
-        "provenance": None,
-    }
-    attributes.update(overrides)
-    return StepDefinition(**attributes)
+    return _build_step(
+        **{
+            "identifier": STEP_ID,
+            "name": "Screen for prohibited and high-compliance categories",
+            "description": DESCRIPTION,
+            "gate": "commit",
+            "discipline": Discipline.STRATEGY,
+            "timing_anchor": OffsetAnchor(days=-90),
+            "kind": StepKind.AUTOMATED,
+            "confirmer": ALICE,
+            "handler": "strategy.compliance_screen",
+            **overrides,
+        }
+    )
 
 
 def _hold(gate: str) -> StepDefinition:

@@ -90,6 +90,7 @@ import pytest
 
 import commerce_ops.access.application as access_application
 from commerce_ops.access.application import create_member, deactivate_member
+from tests.support.fixtures import PRINCIPAL
 
 pytestmark = pytest.mark.anyio
 
@@ -100,8 +101,6 @@ SEEDED_IDENTITY: Final = "U01ALICE"
 CORRECTED_IDENTITY: Final = "U02BOB"
 ENROLLED_ADMIN_IDENTITY: Final = "U03CAROL"
 UNRELATED_IDENTITY: Final = "U04DAVE"
-
-PRINCIPAL: Final = "helen"
 
 _BOOTSTRAP_NAMES: Final = (
     "seed_bootstrap_admin",

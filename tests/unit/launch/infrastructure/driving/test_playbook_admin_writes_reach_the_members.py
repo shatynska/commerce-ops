@@ -69,9 +69,7 @@ included (2026-08-26, commit `a9414ba`, clean tree).
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Iterator
-from dataclasses import dataclass, field
-from html.parser import HTMLParser
+from dataclasses import dataclass
 from typing import Any, Final
 from urllib.parse import urljoin
 
@@ -81,32 +79,25 @@ from fastapi.testclient import TestClient
 
 from commerce_ops.access.application import create_member
 from commerce_ops.launch.domain.launch_playbook import (
-    Hazard,
-    OffsetAnchor,
-    Scope,
     StepDefinition,
-    StepKind,
     StepStatus,
 )
 from commerce_ops.launch.infrastructure.driving import (
     playbook_admin as page_module,
 )
 from commerce_ops.shared.domain.discipline import Discipline
-
-SPECIFIED_GATE_ORDER: Final = (
-    "commit",
-    "order",
-    "listable",
-    "stock-ready",
-    "live",
-    "ignition",
-    "phase-one-complete",
-    "graduated",
-)
-
-PRINCIPAL: Final = "helen"
-_SESSION_COOKIE: Final = "admin_session"
-_SESSION_VALUE: Final = "a-verified-admin-session"
+from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
+from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
+from tests.support.admin import fake_verify
+from tests.support.fixtures import PRINCIPAL
+from tests.support.html import HX_VERBS as _HX_VERBS
+from tests.support.html import Node as _Node
+from tests.support.html import elements as _elements
+from tests.support.html import flat as _flat
+from tests.support.html import texts as _texts
+from tests.support.html import tree as _tree
+from tests.support.playbook import SPECIFIED_GATE_ORDER
+from tests.support.steps import step as _build_step
 
 A_DISCIPLINE: Final = next(iter(Discipline))
 
@@ -121,25 +112,6 @@ NOBODY: Final = "prs_00000000-never-a-member-anywhere"
 _CREATE_HINTS: Final = ("new", "create", "add")
 _RETIRED_PARAM: Final = "retired"
 
-_HX_VERBS: Final = ("hx-get", "hx-post", "hx-put", "hx-patch", "hx-delete")
-
-_VOID_TAGS: Final = (
-    "area",
-    "base",
-    "br",
-    "col",
-    "embed",
-    "hr",
-    "img",
-    "input",
-    "link",
-    "meta",
-    "param",
-    "source",
-    "track",
-    "wbr",
-)
-
 
 # ---------------------------------------------------------------------------
 # Step store, records and definitions (the shape the sibling admin tests
@@ -148,24 +120,7 @@ _VOID_TAGS: Final = (
 
 
 def _step(**overrides: Any) -> StepDefinition:
-    attributes: dict[str, Any] = {
-        "identifier": EDITED,
-        "name": "Work this step asks for",
-        "description": None,
-        "gate": "listable",
-        "discipline": A_DISCIPLINE,
-        "scope": Scope.PRODUCT,
-        "timing_anchor": OffsetAnchor(days=-7),
-        "blocking": False,
-        "kind": StepKind.HUMAN,
-        "status": StepStatus.ACTIVE,
-        "hazard": Hazard.NONE,
-        "assignees": (),
-        "handler": None,
-        "provenance": None,
-    }
-    attributes.update(overrides)
-    return StepDefinition(**attributes)
+    return _build_step(**{"identifier": EDITED, **overrides})
 
 
 class _Record:
@@ -345,74 +300,6 @@ def _identifier_of(store: _MembersStore, slack_identity: str) -> str:
 # ---------------------------------------------------------------------------
 # An HTML tree, and the controls a page offers
 # ---------------------------------------------------------------------------
-
-
-@dataclass
-class _Text:
-    text: str
-
-
-@dataclass
-class _Node:
-    tag: str
-    attrs: dict[str, str]
-    parent: _Node | None
-    children: list[_Node | _Text] = field(default_factory=list)
-
-
-class _TreeParser(HTMLParser):
-    def __init__(self) -> None:
-        super().__init__(convert_charrefs=True)
-        self.root = _Node("#document", {}, None)
-        self._stack: list[_Node] = [self.root]
-
-    def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        self._stack[-1].children.append(
-            _Node(tag, {k: v or "" for k, v in attrs}, self._stack[-1])
-        )
-
-    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        node = _Node(tag, {k: v or "" for k, v in attrs}, self._stack[-1])
-        self._stack[-1].children.append(node)
-        if tag not in _VOID_TAGS:
-            self._stack.append(node)
-
-    def handle_endtag(self, tag: str) -> None:
-        for index in range(len(self._stack) - 1, 0, -1):
-            if self._stack[index].tag == tag:
-                del self._stack[index:]
-                return
-
-    def handle_data(self, data: str) -> None:
-        if data.strip():
-            self._stack[-1].children.append(_Text(_flat(data)))
-
-
-def _flat(text: str) -> str:
-    return " ".join(text.split())
-
-
-def _tree(html: str) -> _Node:
-    parser = _TreeParser()
-    parser.feed(html)
-    return parser.root
-
-
-def _elements(node: _Node) -> Iterator[_Node]:
-    for child in node.children:
-        if isinstance(child, _Node):
-            yield child
-            yield from _elements(child)
-
-
-def _texts(node: _Node) -> list[str]:
-    found: list[str] = []
-    for child in node.children:
-        if isinstance(child, _Text):
-            found.append(child.text)
-        else:
-            found.extend(_texts(child))
-    return found
 
 
 def _all_text(html: str) -> str:
@@ -626,9 +513,7 @@ def _option_matching(html: str, field_name: str, hint: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-async def _fake_verify(*args: Any, **kwargs: Any) -> str | None:
-    haystack = " ".join(str(value) for value in (*args, *kwargs.values()))
-    return PRINCIPAL if _SESSION_VALUE in haystack else None
+_fake_verify = fake_verify(PRINCIPAL)
 
 
 def _signed_client(

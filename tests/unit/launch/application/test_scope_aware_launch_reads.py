@@ -70,13 +70,9 @@ import pytest
 
 from commerce_ops.launch.application import read_launch, read_launches
 from commerce_ops.launch.domain.launch_playbook import (
-    Gate,
-    GateOpening,
-    Hazard,
     LaunchPlaybook,
     OffsetAnchor,
     Satisfied,
-    Scope,
     StepDefinition,
     StepKind,
     StepStatus,
@@ -90,24 +86,11 @@ from commerce_ops.launch.domain.launch_run import (
 from commerce_ops.shared.domain.access_scope import AccessScope
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import MetricId, ProductId
+from tests.support.playbook import CONFIRMATION_GATES
+from tests.support.playbook import playbook as _build_playbook
+from tests.support.steps import step as _build_step
 
 pytestmark = pytest.mark.anyio
-
-# SPECIFIED (launch-playbook spec, unchanged): the eight gates, in order,
-# and the four that require confirmation.
-SPECIFIED_GATE_ORDER: Final = (
-    "commit",
-    "order",
-    "listable",
-    "stock-ready",
-    "live",
-    "ignition",
-    "phase-one-complete",
-    "graduated",
-)
-CONFIRMATION_GATES: Final = frozenset(
-    {"commit", "order", "phase-one-complete", "graduated"}
-)
 
 RECORDED_AT: Final = datetime(2027, 1, 5, 12, 0, tzinfo=UTC)
 APPROVED_AT: Final = datetime(2027, 1, 6, 9, 0, tzinfo=UTC)
@@ -215,44 +198,15 @@ def _as_of_argument(use_case: Any, as_of: date) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
-def _opening_for(identifier: str) -> GateOpening:
-    if identifier in CONFIRMATION_GATES:
-        return GateOpening.REQUIRES_CONFIRMATION
-    return GateOpening.AUTOMATIC
-
-
-def _gates() -> tuple[Gate, ...]:
-    """The eight gates in the specified order.
-
-    A gate carries its identifier, position and opening mode and
-    nothing else since `replace-metric-conditions-with-steps`.
-    """
-    return tuple(
-        Gate(
-            identifier=identifier,
-            position=position,
-            opening=_opening_for(identifier),
-        )
-        for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1)
-    )
-
-
 def _step(**overrides: Any) -> StepDefinition:
-    attributes: dict[str, Any] = {
-        "identifier": "listing.title-conforms",
-        "name": "Work this step asks for",
-        "gate": "live",
-        "discipline": Discipline("listing"),
-        "scope": Scope.PRODUCT,
-        "timing_anchor": OffsetAnchor(days=-30),
-        "blocking": False,
-        "kind": StepKind.HUMAN,
-        "status": StepStatus.ACTIVE,
-        "hazard": Hazard.NONE,
-        "provenance": None,
-    }
-    attributes.update(overrides)
-    return StepDefinition(**attributes)
+    return _build_step(
+        **{
+            "gate": "live",
+            "discipline": Discipline("listing"),
+            "timing_anchor": OffsetAnchor(days=-30),
+            **overrides,
+        }
+    )
 
 
 def _hold(gate: str) -> StepDefinition:
@@ -274,9 +228,7 @@ def _hold(gate: str) -> StepDefinition:
 
 
 def _playbook(steps: tuple[StepDefinition, ...] = ()) -> LaunchPlaybook:
-    held = {step.gate for step in steps if step.blocking}
-    fillers = tuple(_hold(gate) for gate in SPECIFIED_GATE_ORDER if gate not in held)
-    return LaunchPlaybook(version="test-v1", gates=_gates(), steps=(*steps, *fillers))
+    return _build_playbook(*steps, filler=_hold)
 
 
 def _provenance() -> Provenance:

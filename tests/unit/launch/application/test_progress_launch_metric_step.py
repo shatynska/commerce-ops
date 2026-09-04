@@ -64,7 +64,6 @@ throughout: no database is configured here).
 from __future__ import annotations
 
 import inspect
-import uuid
 from datetime import UTC, date, datetime
 from typing import Any, Final
 
@@ -73,7 +72,6 @@ import pytest
 import commerce_ops.launch.application as launch_application
 from commerce_ops.launch.domain.launch_playbook import (
     Gate,
-    GateOpening,
     Hazard,
     LaunchPlaybook,
     OffsetAnchor,
@@ -92,29 +90,18 @@ from commerce_ops.launch.domain.launch_run import (
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import MetricId, ProductId
 from commerce_ops.shared.domain.lifecycle_stage import Posture
+from tests.support.fixtures import product_id
+from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
+from tests.support.playbook import opening_for as _opening_for
 
 pytestmark = pytest.mark.anyio
 
-SPECIFIED_GATE_ORDER: Final = (
-    "commit",
-    "order",
-    "listable",
-    "stock-ready",
-    "live",
-    "ignition",
-    "phase-one-complete",
-    "graduated",
-)
 FINAL_GATE: Final = SPECIFIED_GATE_ORDER[-1]
-
-CONFIRMATION_GATES: Final = frozenset(
-    {"commit", "order", "phase-one-complete", "graduated"}
-)
 
 KIND_GATE_OPENED: Final = "gate-opened"
 KIND_ADVANCE_REFUSED: Final = "advance-refused"
 
-PRODUCT_ID: Final = ProductId(str(uuid.uuid4()))
+PRODUCT_ID: Final = product_id()
 LAUNCH_DATE: Final = date(2027, 9, 1)
 NOW: Final = datetime(2027, 5, 3, 9, 15, tzinfo=UTC)
 APPROVER: Final = "Helen"
@@ -131,12 +118,6 @@ def anyio_backend() -> str:
 # ---------------------------------------------------------------------------
 # Domain fixtures
 # ---------------------------------------------------------------------------
-
-
-def _opening_for(identifier: str) -> GateOpening:
-    if identifier in CONFIRMATION_GATES:
-        return GateOpening.REQUIRES_CONFIRMATION
-    return GateOpening.AUTOMATIC
 
 
 def _hold(gate: str) -> StepDefinition:

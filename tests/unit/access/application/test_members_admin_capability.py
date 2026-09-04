@@ -58,16 +58,14 @@ from commerce_ops.access.application import (
     deactivate_member,
     resolve_admin_capability,
 )
+from tests.support.admin import ADMIN_IDENTITY
+from tests.support.fixtures import PRINCIPAL
 
 pytestmark = pytest.mark.anyio
 
-# DERIVED sample values; no artifact fixes example identities.
-ADMIN_IDENTITY: Final = "U01ALICE"
 SECOND_ADMIN_IDENTITY: Final = "U02BOB"
 MEMBER_IDENTITY: Final = "U03CAROL"
 STRANGER_IDENTITY: Final = "U99STRANGER"
-
-PRINCIPAL: Final = "helen"
 
 
 @pytest.fixture(scope="module")

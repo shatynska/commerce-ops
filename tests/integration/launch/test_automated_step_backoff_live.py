@@ -53,6 +53,7 @@ from commerce_ops.launch.infrastructure.driven.automated_step_backoff import (
 )
 from commerce_ops.launch.infrastructure.driven.launch_repository import LaunchRepository
 from commerce_ops.shared.domain.identity import MarketplaceId, ProductId, Sku
+from tests.support.playbook import CONFIRMATION_GATES
 
 pytestmark = pytest.mark.anyio
 
@@ -92,10 +93,6 @@ async def engine(database_url: str) -> AsyncIterator[AsyncEngine]:
 @pytest.fixture()
 def sessions(engine: AsyncEngine) -> async_sessionmaker[AsyncSession]:
     return async_sessionmaker(engine, expire_on_commit=False)
-
-
-#: The four the playbook's coherence rules require to be confirmed.
-CONFIRMATION_GATES = frozenset({"commit", "order", "phase-one-complete", "graduated"})
 
 
 def _playbook() -> LaunchPlaybook:

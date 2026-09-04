@@ -56,32 +56,15 @@ from __future__ import annotations
 from typing import Any, Final
 
 from commerce_ops.launch.domain.launch_playbook import (
-    Gate,
-    GateOpening,
-    Hazard,
     LaunchPlaybook,
-    OffsetAnchor,
-    Scope,
     StepDefinition,
     StepKind,
     StepStatus,
 )
 from commerce_ops.shared.domain.discipline import Discipline
-
-SPECIFIED_GATE_ORDER: Final = (
-    "commit",
-    "order",
-    "listable",
-    "stock-ready",
-    "live",
-    "ignition",
-    "phase-one-complete",
-    "graduated",
-)
-
-CONFIRMATION_GATES: Final = frozenset(
-    {"commit", "order", "phase-one-complete", "graduated"}
-)
+from tests.support.playbook import playbook as _build_playbook
+from tests.support.steps import hold as _build_hold
+from tests.support.steps import step as _build_step
 
 # DERIVED sample identifiers. `members` generates them; no artifact fixes
 # their form, so nothing below depends on it.
@@ -94,58 +77,16 @@ def _any_discipline() -> Discipline:
     return next(iter(Discipline))
 
 
-def _opening_for(identifier: str) -> GateOpening:
-    if identifier in CONFIRMATION_GATES:
-        return GateOpening.REQUIRES_CONFIRMATION
-    return GateOpening.AUTOMATIC
-
-
-def _gates() -> tuple[Gate, ...]:
-    return tuple(
-        Gate(identifier=identifier, position=position, opening=_opening_for(identifier))
-        for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1)
-    )
-
-
 def _step(**overrides: Any) -> StepDefinition:
-    attributes: dict[str, Any] = {
-        "identifier": "listing.title-conforms",
-        "name": "Work this step asks for",
-        "description": None,
-        "gate": "listable",
-        "discipline": _any_discipline(),
-        "scope": Scope.PRODUCT,
-        "timing_anchor": OffsetAnchor(days=-7),
-        "blocking": False,
-        "kind": StepKind.HUMAN,
-        "status": StepStatus.ACTIVE,
-        "hazard": Hazard.NONE,
-        "assignees": (),
-        "handler": None,
-        "provenance": None,
-    }
-    attributes.update(overrides)
-    return StepDefinition(**attributes)
+    return _build_step(**overrides)
 
 
 def _hold(gate: str) -> StepDefinition:
-    return _step(
-        identifier=f"hold.{gate}",
-        name=f"Blocking work holding the {gate} gate",
-        gate=gate,
-        blocking=True,
-        status=StepStatus.ACTIVE,
-    )
+    return _build_hold(gate, status=StepStatus.ACTIVE)
 
 
 def _playbook(steps: tuple[StepDefinition, ...] = ()) -> LaunchPlaybook:
-    held = {
-        step.gate
-        for step in steps
-        if step.blocking and step.status is StepStatus.ACTIVE
-    }
-    fillers = tuple(_hold(gate) for gate in SPECIFIED_GATE_ORDER if gate not in held)
-    return LaunchPlaybook(version="test-v1", gates=_gates(), steps=(*steps, *fillers))
+    return _build_playbook(*steps, filler=_hold, held_must_be_active=True)
 
 
 def _served(playbook: LaunchPlaybook, gate: str) -> dict[str, StepDefinition]:

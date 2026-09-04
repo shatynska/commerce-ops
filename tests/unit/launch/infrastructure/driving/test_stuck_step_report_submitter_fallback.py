@@ -101,7 +101,6 @@ from __future__ import annotations
 
 import importlib
 import json
-import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
 from typing import Any, Final
@@ -109,17 +108,14 @@ from typing import Any, Final
 import pytest
 
 from commerce_ops.launch.domain.launch_run import Launch
-from commerce_ops.shared.domain.identity import ProductId, Sku
+from commerce_ops.shared.domain.identity import Sku
+from tests.support.fixtures import PRODUCT_NAME, PRODUCT_SKU, STEP_ID, product_id
 
 pytestmark = pytest.mark.anyio
 
 MODULE_PATH: Final = "commerce_ops.launch.infrastructure.driving.automation_pass"
 
-PRODUCT_ID: Final = ProductId(str(uuid.uuid4()))
-PRODUCT_NAME: Final = "Bamboo Cutting Board"
-PRODUCT_SKU: Final = Sku("BCB-2027-01")
-
-STEP_ID: Final = "listing.sub-category"
+PRODUCT_ID: Final = product_id()
 STEP_NAME: Final = "Choose the sub-category node"
 
 #: A member identifier, as a step's `confirmer` field actually holds one —

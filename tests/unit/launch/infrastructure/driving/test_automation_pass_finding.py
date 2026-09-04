@@ -98,9 +98,8 @@ from __future__ import annotations
 
 import inspect
 import logging
-import uuid
 from dataclasses import dataclass, field
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 from typing import Any, Final
 
 import pytest
@@ -108,8 +107,6 @@ import pytest
 from commerce_ops.launch.application import StepResolution
 from commerce_ops.launch.domain.launch_playbook import (
     Blocked,
-    Gate,
-    GateOpening,
     Hazard,
     LaunchPlaybook,
     OffsetAnchor,
@@ -125,34 +122,24 @@ from commerce_ops.launch.infrastructure.driving import automation_pass
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId, Sku
 from commerce_ops.shared.domain.result import Failure, Success
+from tests.support.fixtures import (
+    HANDLER_NAME,
+    LAUNCH_DATE,
+    PRODUCT_NAME,
+    PRODUCT_SKU,
+    product_id,
+)
+from tests.support.playbook import SPECIFIED_GATE_ORDER
+from tests.support.playbook import gates as _gates
 
 pytestmark = pytest.mark.anyio
 
-SPECIFIED_GATE_ORDER: Final = (
-    "commit",
-    "order",
-    "listable",
-    "stock-ready",
-    "live",
-    "ignition",
-    "phase-one-complete",
-    "graduated",
-)
-CONFIRMATION_GATES: Final = frozenset(
-    {"commit", "order", "phase-one-complete", "graduated"}
-)
-
-PRODUCT_ID: Final = ProductId(str(uuid.uuid4()))
-PRODUCT_NAME: Final = "Bamboo Cutting Board"
-PRODUCT_SKU: Final = Sku("BCB-2027-01")
-
+PRODUCT_ID: Final = product_id()
 AUTOMATED_STEP_ID: Final = "listing.sub-category"
-HANDLER_NAME: Final = "listing.subcategory_advisor"
 #: Naming a confirmer is what makes a step's automated result require
 #: confirmation; there is no separate flag (`launch_playbook.StepDefinition`).
 CONFIRMER: Final = "prs_01HQ8Z6M4A"
 
-LAUNCH_DATE: Final = date(2027, 3, 2)
 NOW: Final = datetime(2027, 1, 6, 9, 30, tzinfo=UTC)
 
 RECOMMENDATION: Final = (
@@ -175,19 +162,6 @@ def anyio_backend() -> str:
 
 def _any_discipline() -> Discipline:
     return next(iter(Discipline))
-
-
-def _opening_for(identifier: str) -> GateOpening:
-    if identifier in CONFIRMATION_GATES:
-        return GateOpening.REQUIRES_CONFIRMATION
-    return GateOpening.AUTOMATIC
-
-
-def _gates() -> tuple[Gate, ...]:
-    return tuple(
-        Gate(identifier=identifier, position=position, opening=_opening_for(identifier))
-        for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1)
-    )
 
 
 def _automated(**overrides: Any) -> StepDefinition:

@@ -124,9 +124,6 @@ from fastapi.testclient import TestClient
 
 from commerce_ops.launch.application import reorder_step
 from commerce_ops.launch.domain.launch_playbook import (
-    Hazard,
-    OffsetAnchor,
-    Scope,
     StepDefinition,
     StepKind,
     StepStatus,
@@ -135,21 +132,12 @@ from commerce_ops.launch.infrastructure.driving import (
     playbook_admin as page_module,
 )
 from commerce_ops.shared.domain.discipline import Discipline
-
-SPECIFIED_GATE_ORDER: Final = (
-    "commit",
-    "order",
-    "listable",
-    "stock-ready",
-    "live",
-    "ignition",
-    "phase-one-complete",
-    "graduated",
-)
-
-PRINCIPAL: Final = "helen"
-_SESSION_COOKIE: Final = "admin_session"
-_SESSION_VALUE: Final = "a-verified-admin-session"
+from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
+from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
+from tests.support.admin import fake_verify
+from tests.support.fixtures import PRINCIPAL
+from tests.support.playbook import SPECIFIED_GATE_ORDER
+from tests.support.steps import step as _build_step
 
 DISCIPLINES: Final = tuple(Discipline)
 #: `_step`'s default discipline, which the seeded holding steps carry —
@@ -187,22 +175,9 @@ _REORDER_WORDS: Final = ("reorder", "re-order", "move", "moving", "ordering")
 
 
 def _step(**overrides: Any) -> StepDefinition:
-    attributes: dict[str, Any] = {
-        "identifier": "listing.title-conforms",
-        "name": "Work this step asks for",
-        "gate": "listable",
-        "discipline": HIDDEN_DISCIPLINE,
-        "scope": Scope.PRODUCT,
-        "timing_anchor": OffsetAnchor(days=-7),
-        "blocking": False,
-        "kind": StepKind.HUMAN,
-        "assignees": (ASSIGNEE,),
-        "status": StepStatus.ACTIVE,
-        "hazard": Hazard.NONE,
-        "provenance": None,
-    }
-    attributes.update(overrides)
-    return StepDefinition(**attributes)
+    return _build_step(
+        **{"discipline": HIDDEN_DISCIPLINE, "assignees": (ASSIGNEE,), **overrides}
+    )
 
 
 class _Record:
@@ -674,9 +649,7 @@ class _FakeMembers:
         return (_FakeMember(ASSIGNEE, ASSIGNEE_NAME),)
 
 
-async def _fake_verify(*args: Any, **kwargs: Any) -> str | None:
-    haystack = " ".join(str(value) for value in (*args, *kwargs.values()))
-    return PRINCIPAL if _SESSION_VALUE in haystack else None
+_fake_verify = fake_verify(PRINCIPAL)
 
 
 def _signed_client(

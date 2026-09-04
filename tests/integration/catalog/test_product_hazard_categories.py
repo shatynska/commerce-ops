@@ -89,12 +89,12 @@ from commerce_ops.catalog.infrastructure.driven.product_repository import (
     CatalogProductRepository,
 )
 from commerce_ops.shared.domain.access_scope import AccessScope
-from commerce_ops.shared.domain.identity import MarketplaceId, Sku
+from commerce_ops.shared.domain.identity import Sku
 from commerce_ops.shared.domain.lifecycle_stage import Retired
+from tests.support.fixtures import MARKETPLACE
 
 pytestmark = pytest.mark.anyio
 
-MARKETPLACE: Final = MarketplaceId("ATVPDKIKX0DER")
 CONFIRMER: Final = "Helen"
 
 FLAGGED: Final = ("supplements",)

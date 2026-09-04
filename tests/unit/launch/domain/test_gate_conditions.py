@@ -38,34 +38,17 @@ from typing import Any, Final
 
 from commerce_ops.launch.domain.launch_playbook import (
     Gate,
-    GateOpening,
-    Hazard,
     LaunchPlaybook,
-    OffsetAnchor,
-    Scope,
     StepDefinition,
     StepKind,
     StepObligation,
     StepStatus,
 )
 from commerce_ops.shared.domain.discipline import Discipline
-
-# SPECIFIED (main spec, unchanged): the eight gates, in this order.
-SPECIFIED_GATE_ORDER: Final = (
-    "commit",
-    "order",
-    "listable",
-    "stock-ready",
-    "live",
-    "ignition",
-    "phase-one-complete",
-    "graduated",
-)
-
-# SPECIFIED (main spec, unchanged): the four confirmation gates.
-CONFIRMATION_GATES: Final = frozenset(
-    {"commit", "order", "phase-one-complete", "graduated"}
-)
+from tests.support.playbook import SPECIFIED_GATE_ORDER
+from tests.support.playbook import opening_for as _opening_for
+from tests.support.steps import hold as _build_hold
+from tests.support.steps import step as _build_step
 
 
 def _any_discipline() -> Discipline:
@@ -76,12 +59,6 @@ def _any_discipline() -> Discipline:
     in `tests/unit/shared/domain/test_discipline.py`).
     """
     return next(iter(Discipline))
-
-
-def _opening_for(identifier: str) -> GateOpening:
-    if identifier in CONFIRMATION_GATES:
-        return GateOpening.REQUIRES_CONFIRMATION
-    return GateOpening.AUTOMATIC
 
 
 def specified_gates() -> tuple[Gate, ...]:
@@ -103,37 +80,22 @@ def specified_gates() -> tuple[Gate, ...]:
 
 
 def _step(**overrides: Any) -> StepDefinition:
-    """Build a valid `StepDefinition`, overriding named attributes."""
-    attributes: dict[str, Any] = {
-        "identifier": "inventory.fulfillable-units",
-        "name": "Work this step asks for",
-        "gate": "stock-ready",
-        "discipline": _any_discipline(),
-        "scope": Scope.PRODUCT,
-        "timing_anchor": OffsetAnchor(days=-7),
-        "blocking": False,
-        "kind": StepKind.HUMAN,
-        "status": StepStatus.ACTIVE,
-        "hazard": Hazard.NONE,
-        "provenance": None,
-    }
-    attributes.update(overrides)
-    return StepDefinition(**attributes)
+    return _build_step(
+        **{
+            "identifier": "inventory.fulfillable-units",
+            "gate": "stock-ready",
+            **overrides,
+        }
+    )
 
 
 def _hold(gate: str) -> StepDefinition:
-    """A blocking filler holding `gate` — the gate-holding floor
-    (`move-playbook-steps-to-postgres`) forbids coherent playbooks with
-    unheld gates, so `_playbook` fills whichever gates the test's own
-    steps leave unheld. Automated with a decided rule so no other
-    coherence rule fires; the `hold.` namespace tells fillers apart."""
-    return _step(
-        identifier=f"hold.{gate}",
-        gate=gate,
-        blocking=True,
+    return _build_hold(
+        gate,
         kind=StepKind.AUTOMATED,
         status=StepStatus.ACTIVE,
         handler="fixture.holding_check",
+        name="Work this step asks for",
     )
 
 

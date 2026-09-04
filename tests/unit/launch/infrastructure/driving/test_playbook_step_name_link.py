@@ -64,9 +64,6 @@ asserts: that the name offers the edit page, and that the pre-existing
 
 from __future__ import annotations
 
-from collections.abc import Iterator
-from dataclasses import dataclass, field
-from html.parser import HTMLParser
 from typing import Any, Final
 
 import pytest
@@ -74,21 +71,22 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from commerce_ops.launch.domain.launch_playbook import (
-    Hazard,
-    OffsetAnchor,
-    Scope,
     StepDefinition,
-    StepKind,
-    StepStatus,
 )
 from commerce_ops.launch.infrastructure.driving import (
     playbook_admin as page_module,
 )
 from commerce_ops.shared.domain.discipline import Discipline
-
-PRINCIPAL: Final = "helen"
-_SESSION_COOKIE: Final = "admin_session"
-_SESSION_VALUE: Final = "a-verified-admin-session"
+from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
+from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
+from tests.support.admin import fake_verify
+from tests.support.fixtures import PRINCIPAL
+from tests.support.html import Node as _Node
+from tests.support.html import Text as _Text
+from tests.support.html import elements as _elements
+from tests.support.html import flat as _flat
+from tests.support.html import tree as _tree
+from tests.support.steps import step as _build_step
 
 A_DISCIPLINE: Final = next(iter(Discipline))
 ASSIGNEE: Final = "prs_01HQ8Z6M4A"
@@ -97,43 +95,16 @@ ASSIGNEE_NAME: Final = "Alice Admin"
 STEP_ID: Final = "listing.title-conforms"
 STEP_NAME: Final = "Title conforms to marketplace policy"
 
-_VOID_TAGS: Final = (
-    "area",
-    "base",
-    "br",
-    "col",
-    "embed",
-    "hr",
-    "img",
-    "input",
-    "link",
-    "meta",
-    "param",
-    "source",
-    "track",
-    "wbr",
-)
-
 
 def _step(**overrides: Any) -> StepDefinition:
-    attributes: dict[str, Any] = {
-        "identifier": STEP_ID,
-        "name": STEP_NAME,
-        "description": None,
-        "gate": "listable",
-        "discipline": A_DISCIPLINE,
-        "scope": Scope.PRODUCT,
-        "timing_anchor": OffsetAnchor(days=-7),
-        "blocking": False,
-        "kind": StepKind.HUMAN,
-        "assignees": (ASSIGNEE,),
-        "status": StepStatus.ACTIVE,
-        "hazard": Hazard.NONE,
-        "handler": None,
-        "provenance": None,
-    }
-    attributes.update(overrides)
-    return StepDefinition(**attributes)
+    return _build_step(
+        **{
+            "identifier": STEP_ID,
+            "name": STEP_NAME,
+            "assignees": (ASSIGNEE,),
+            **overrides,
+        }
+    )
 
 
 class _Record:
@@ -180,9 +151,7 @@ class _FakeMembers:
         return (_FakeMember(ASSIGNEE, ASSIGNEE_NAME),)
 
 
-async def _fake_verify(*args: Any, **kwargs: Any) -> str | None:
-    haystack = " ".join(str(value) for value in (*args, *kwargs.values()))
-    return PRINCIPAL if _SESSION_VALUE in haystack else None
+_fake_verify = fake_verify(PRINCIPAL)
 
 
 def _signed_client(
@@ -218,64 +187,6 @@ def _get_page(client: TestClient) -> str:
 # ---------------------------------------------------------------------------
 # An HTML tree
 # ---------------------------------------------------------------------------
-
-
-@dataclass
-class _Text:
-    text: str
-
-
-@dataclass
-class _Node:
-    tag: str
-    attrs: dict[str, str]
-    parent: _Node | None
-    children: list[_Node | _Text] = field(default_factory=list)
-
-
-class _TreeParser(HTMLParser):
-    def __init__(self) -> None:
-        super().__init__(convert_charrefs=True)
-        self.root = _Node("#document", {}, None)
-        self._stack: list[_Node] = [self.root]
-
-    def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        self._stack[-1].children.append(
-            _Node(tag, {k: v or "" for k, v in attrs}, self._stack[-1])
-        )
-
-    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        node = _Node(tag, {k: v or "" for k, v in attrs}, self._stack[-1])
-        self._stack[-1].children.append(node)
-        if tag not in _VOID_TAGS:
-            self._stack.append(node)
-
-    def handle_endtag(self, tag: str) -> None:
-        for index in range(len(self._stack) - 1, 0, -1):
-            if self._stack[index].tag == tag:
-                del self._stack[index:]
-                return
-
-    def handle_data(self, data: str) -> None:
-        if data.strip():
-            self._stack[-1].children.append(_Text(_flat(data)))
-
-
-def _flat(text: str) -> str:
-    return " ".join(text.split())
-
-
-def _tree(html: str) -> _Node:
-    parser = _TreeParser()
-    parser.feed(html)
-    return parser.root
-
-
-def _elements(node: _Node) -> Iterator[_Node]:
-    for child in node.children:
-        if isinstance(child, _Node):
-            yield child
-            yield from _elements(child)
 
 
 def _all_text(node: _Node) -> str:

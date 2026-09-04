@@ -104,11 +104,11 @@ from commerce_ops.access.application import (
 )
 from commerce_ops.access.domain.members import InvalidMembersError
 from commerce_ops.shared.domain.identity import ProductId
+from tests.support.admin import ADMIN_IDENTITY
+from tests.support.fixtures import PRINCIPAL
 
 pytestmark = pytest.mark.anyio
 
-# DERIVED sample values; no artifact fixes example identities or names.
-ADMIN_IDENTITY: Final = "U01ALICE"
 SECOND_ADMIN_IDENTITY: Final = "U02BOB"
 MEMBER_IDENTITY: Final = "U03CAROL"
 NEWCOMER_IDENTITY: Final = "U04DAVE"
@@ -116,7 +116,6 @@ NEWCOMER_IDENTITY: Final = "U04DAVE"
 ADMIN_NAME: Final = "Alice Admin"
 MEMBER_NAME: Final = "Carol Member"
 
-PRINCIPAL: Final = "helen"
 ANOTHER_PRINCIPAL: Final = "the-second-admin"
 
 # INVENTED refusal surface: the delta fixes the outcome, not the type.

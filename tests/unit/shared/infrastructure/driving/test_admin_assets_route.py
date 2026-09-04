@@ -101,6 +101,11 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
+from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
+from tests.support.admin import fake_verify
+from tests.support.fixtures import PRINCIPAL
+
 #: The route under test. Resolved by name rather than imported, so that
 #: its absence fails each test here with its own message instead of
 #: interrupting collection for the whole suite — the absent-target state
@@ -120,10 +125,6 @@ def _assets_module() -> ModuleType:
         )
 
 
-PRINCIPAL: Final = "helen"
-_SESSION_COOKIE: Final = "admin_session"
-_SESSION_VALUE: Final = "a-verified-admin-session"
-
 #: tests/unit/shared/infrastructure/driving/<this file>
 _REPO_ROOT: Final = Path(__file__).resolve().parents[5]
 _ASSET_DIR: Final = _REPO_ROOT / "src/commerce_ops/shared/infrastructure/driving/static"
@@ -134,11 +135,7 @@ _ASSET_DIR: Final = _REPO_ROOT / "src/commerce_ops/shared/infrastructure/driving
 _SHARED_ASSETS: Final = ("vocabulary.css", "pico.min.css")
 
 
-async def _fake_verify(*args: Any, **kwargs: Any) -> str | None:
-    """Answers the principal only for the one known session value,
-    whatever the verification call shape is."""
-    haystack = " ".join(str(value) for value in (*args, *kwargs.values()))
-    return PRINCIPAL if _SESSION_VALUE in haystack else None
+_fake_verify = fake_verify(PRINCIPAL)
 
 
 def _client(monkeypatch: pytest.MonkeyPatch, *, signed: bool) -> TestClient:

@@ -123,18 +123,16 @@ import pytest
 import commerce_ops.launch.application as launch_application
 from commerce_ops.shared.domain.access_scope import AccessScope
 from commerce_ops.shared.domain.identity import ProductId
+from tests.support.fixtures import ALICE_NAME, BOHDAN_NAME, product_id
 
 pytestmark = pytest.mark.anyio
 
-PRODUCT_ID: Final = ProductId(str(uuid.uuid4()))
+PRODUCT_ID: Final = product_id()
 OTHER_PRODUCT_ID: Final = ProductId(str(uuid.uuid4()))
 
 SERVED_STEP: Final = "listing.sub-category"
 RETIRED_STEP: Final = "listing.a-step-the-playbook-no-longer-defines"
 HANDLER: Final = "listing.subcategory_advisor"
-
-ALICE_NAME: Final = "Alice Admin"
-BOHDAN_NAME: Final = "Bohdan Colleague"
 
 EARLIER: Final = datetime(2027, 1, 6, 9, 30, tzinfo=UTC)
 LATER: Final = datetime(2027, 1, 7, 9, 30, tzinfo=UTC)

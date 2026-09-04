@@ -66,6 +66,8 @@ import pytest
 
 import commerce_ops.access.application as access_application
 from commerce_ops.access.application import create_member, deactivate_member
+from tests.support.admin import ADMIN_IDENTITY
+from tests.support.fixtures import PRINCIPAL
 
 pytestmark = pytest.mark.anyio
 
@@ -75,13 +77,9 @@ pytestmark = pytest.mark.anyio
 #: tests are written to report. The alias goes when the parameter lands.
 _deactivate_member: Any = deactivate_member
 
-# DERIVED sample values; no artifact fixes example identities or names.
-ADMIN_IDENTITY: Final = "U01ALICE"
 SECOND_ADMIN_IDENTITY: Final = "U02BOB"
 MEMBER_IDENTITY: Final = "U03CAROL"
 OTHER_IDENTITY: Final = "U04DAVE"
-
-PRINCIPAL: Final = "helen"
 
 DRAFT: Final = "draft"
 ACTIVE: Final = "active"

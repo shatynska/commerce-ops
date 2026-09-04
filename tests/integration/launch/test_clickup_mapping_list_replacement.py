@@ -90,7 +90,6 @@ import inspect
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
-from datetime import date
 from typing import Any, Final
 
 import pytest
@@ -107,11 +106,7 @@ from commerce_ops.catalog.infrastructure.driven.product_repository import (
 )
 from commerce_ops.launch.domain.launch_playbook import (
     Gate,
-    GateOpening,
-    Hazard,
     LaunchPlaybook,
-    OffsetAnchor,
-    Scope,
     StepDefinition,
     StepKind,
     StepStatus,
@@ -122,27 +117,13 @@ from commerce_ops.launch.infrastructure.driven.clickup_mapping import (
 )
 from commerce_ops.launch.infrastructure.driven.launch_repository import LaunchRepository
 from commerce_ops.shared.domain.discipline import Discipline
-from commerce_ops.shared.domain.identity import MarketplaceId, ProductId, Sku
+from commerce_ops.shared.domain.identity import ProductId, Sku
+from tests.support.fixtures import LAUNCH_DATE, MARKETPLACE
+from tests.support.playbook import SPECIFIED_GATE_ORDER
+from tests.support.playbook import opening_for as _opening_for
+from tests.support.steps import step as _build_step
 
 pytestmark = pytest.mark.anyio
-
-SPECIFIED_GATE_ORDER: Final = (
-    "commit",
-    "order",
-    "listable",
-    "stock-ready",
-    "live",
-    "ignition",
-    "phase-one-complete",
-    "graduated",
-)
-
-CONFIRMATION_GATES: Final = frozenset(
-    {"commit", "order", "phase-one-complete", "graduated"}
-)
-
-MARKETPLACE: Final = MarketplaceId("ATVPDKIKX0DER")
-LAUNCH_DATE: Final = date(2027, 3, 2)
 
 #: An unfinished step's mapping: discarded with the dead list.
 OPEN_STEP_ID: Final = "listing.title-conforms"
@@ -260,31 +241,10 @@ def _unique_clickup_id(prefix: str) -> str:
     return f"{prefix}-{uuid.uuid4().hex[:12]}"
 
 
-def _opening_for(identifier: str) -> GateOpening:
-    if identifier in CONFIRMATION_GATES:
-        return GateOpening.REQUIRES_CONFIRMATION
-    return GateOpening.AUTOMATIC
-
-
 def _step(**overrides: Any) -> StepDefinition:
-    attributes: dict[str, Any] = {
-        "identifier": OPEN_STEP_ID,
-        "name": "Work this step asks for",
-        "description": None,
-        "gate": "listable",
-        "discipline": Discipline.LISTING,
-        "scope": Scope.PRODUCT,
-        "timing_anchor": OffsetAnchor(days=-7),
-        "blocking": False,
-        "kind": StepKind.HUMAN,
-        "status": StepStatus.ACTIVE,
-        "hazard": Hazard.NONE,
-        "assignees": (),
-        "handler": None,
-        "provenance": None,
-    }
-    attributes.update(overrides)
-    return StepDefinition(**attributes)
+    return _build_step(
+        **{"identifier": OPEN_STEP_ID, "discipline": Discipline.LISTING, **overrides}
+    )
 
 
 def _hold(gate: str) -> StepDefinition:

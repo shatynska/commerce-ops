@@ -109,6 +109,10 @@ from commerce_ops.access.infrastructure.driving import members_admin as page_mod
 from commerce_ops.launch.infrastructure.driving import (
     playbook_admin as other_surface_module,
 )
+from tests.support.admin import ADMIN_IDENTITY, fake_verify
+from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
+from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
+from tests.support.fixtures import PRINCIPAL
 
 #: The shared asset route this change adds. Resolved by name so that its
 #: absence fails only the tests that actually drive it, rather than
@@ -137,7 +141,6 @@ def _require_assets_module() -> ModuleType:
 ROW_ACTION: Final = "row-action"
 DANGER: Final = "danger"
 
-ADMIN_IDENTITY: Final = "U01ALICE"
 SECOND_ADMIN_IDENTITY: Final = "U02BOB"
 MEMBER_IDENTITY: Final = "U03CAROL"
 RETIRED_IDENTITY: Final = "U04DAVE"
@@ -147,12 +150,8 @@ SECOND_ADMIN_NAME: Final = "Bob Admin"
 MEMBER_NAME: Final = "Carol Member"
 RETIRED_NAME: Final = "Dave Departed"
 
-PRINCIPAL: Final = "helen"
 THE_CREATING_ADMIN: Final = "the-creating-admin"
 THE_EDITING_ADMIN: Final = "the-editing-admin"
-
-_SESSION_COOKIE: Final = "admin_session"
-_SESSION_VALUE: Final = "a-verified-admin-session"
 
 _EVERY_IDENTITY: Final = (
     ADMIN_IDENTITY,
@@ -660,9 +659,7 @@ def _style_blocks(root: _Node) -> list[_Node]:
 # ---------------------------------------------------------------------------
 
 
-async def _fake_verify(*args: Any, **kwargs: Any) -> str | None:
-    haystack = " ".join(str(value) for value in (*args, *kwargs.values()))
-    return PRINCIPAL if _SESSION_VALUE in haystack else None
+_fake_verify = fake_verify(PRINCIPAL)
 
 
 def _app(monkeypatch: pytest.MonkeyPatch, store: _FakeMembersStore) -> TestClient:

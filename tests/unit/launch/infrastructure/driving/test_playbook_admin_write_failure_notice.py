@@ -123,8 +123,7 @@ included (2026-08-26, commit `a9414ba`, clean tree).
 from __future__ import annotations
 
 from collections.abc import Iterator
-from dataclasses import dataclass, field
-from html.parser import HTMLParser
+from dataclasses import dataclass
 from typing import Any, Final
 from urllib.parse import urljoin
 
@@ -133,17 +132,25 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from commerce_ops.launch.domain.launch_playbook import (
-    Hazard,
-    OffsetAnchor,
-    Scope,
     StepDefinition,
-    StepKind,
-    StepStatus,
 )
 from commerce_ops.launch.infrastructure.driving import (
     playbook_admin as page_module,
 )
 from commerce_ops.shared.domain.discipline import Discipline
+from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
+from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
+from tests.support.admin import fake_verify
+from tests.support.fixtures import ALICE, ALICE_NAME, PRINCIPAL
+from tests.support.html import HX_VERBS as _HX_VERBS
+from tests.support.html import Node as _Node
+from tests.support.html import classes as _classes
+from tests.support.html import elements as _elements
+from tests.support.html import flat as _flat
+from tests.support.html import texts as _texts
+from tests.support.html import tree as _tree
+from tests.support.playbook import SPECIFIED_GATE_ORDER
+from tests.support.steps import step as _build_step
 
 # ---------------------------------------------------------------------------
 # The delta's two literal markers, and the three events it binds
@@ -215,46 +222,10 @@ _CLAIMS_NOTHING_SAVED: Final = (
     "nothing saved",
 )
 
-SPECIFIED_GATE_ORDER: Final = (
-    "commit",
-    "order",
-    "listable",
-    "stock-ready",
-    "live",
-    "ignition",
-    "phase-one-complete",
-    "graduated",
-)
-
-PRINCIPAL: Final = "helen"
-_SESSION_COOKIE: Final = "admin_session"
-_SESSION_VALUE: Final = "a-verified-admin-session"
-
 A_DISCIPLINE: Final = next(iter(Discipline))
-ALICE: Final = "prs_01HQ8Z6M4A"
-ALICE_NAME: Final = "Alice Admin"
-
 EDITED: Final = "listing.zeta"
 
 _CREATE_HINTS: Final = ("new", "create", "add")
-_HX_VERBS: Final = ("hx-get", "hx-post", "hx-put", "hx-patch", "hx-delete")
-
-_VOID_TAGS: Final = (
-    "area",
-    "base",
-    "br",
-    "col",
-    "embed",
-    "hr",
-    "img",
-    "input",
-    "link",
-    "meta",
-    "param",
-    "source",
-    "track",
-    "wbr",
-)
 
 
 # ---------------------------------------------------------------------------
@@ -263,24 +234,7 @@ _VOID_TAGS: Final = (
 
 
 def _step(**overrides: Any) -> StepDefinition:
-    attributes: dict[str, Any] = {
-        "identifier": EDITED,
-        "name": "Work this step asks for",
-        "description": None,
-        "gate": "listable",
-        "discipline": A_DISCIPLINE,
-        "scope": Scope.PRODUCT,
-        "timing_anchor": OffsetAnchor(days=-7),
-        "blocking": False,
-        "kind": StepKind.HUMAN,
-        "status": StepStatus.ACTIVE,
-        "hazard": Hazard.NONE,
-        "assignees": (ALICE,),
-        "handler": None,
-        "provenance": None,
-    }
-    attributes.update(overrides)
-    return StepDefinition(**attributes)
+    return _build_step(**{"identifier": EDITED, "assignees": (ALICE,), **overrides})
 
 
 class _Record:
@@ -362,78 +316,6 @@ def _seeded_store(kind: type[_FakeStepStore] = _FakeStepStore) -> _FakeStepStore
 # ---------------------------------------------------------------------------
 # An HTML tree, so a marker can be read off the element that carries it
 # ---------------------------------------------------------------------------
-
-
-@dataclass
-class _Text:
-    text: str
-
-
-@dataclass
-class _Node:
-    tag: str
-    attrs: dict[str, str]
-    parent: _Node | None
-    children: list[_Node | _Text] = field(default_factory=list)
-
-
-class _TreeParser(HTMLParser):
-    def __init__(self) -> None:
-        super().__init__(convert_charrefs=True)
-        self.root = _Node("#document", {}, None)
-        self._stack: list[_Node] = [self.root]
-
-    def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        self._stack[-1].children.append(
-            _Node(tag, {k: v or "" for k, v in attrs}, self._stack[-1])
-        )
-
-    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        node = _Node(tag, {k: v or "" for k, v in attrs}, self._stack[-1])
-        self._stack[-1].children.append(node)
-        if tag not in _VOID_TAGS:
-            self._stack.append(node)
-
-    def handle_endtag(self, tag: str) -> None:
-        for index in range(len(self._stack) - 1, 0, -1):
-            if self._stack[index].tag == tag:
-                del self._stack[index:]
-                return
-
-    def handle_data(self, data: str) -> None:
-        if data.strip():
-            self._stack[-1].children.append(_Text(_flat(data)))
-
-
-def _flat(text: str) -> str:
-    return " ".join(text.split())
-
-
-def _tree(html: str) -> _Node:
-    parser = _TreeParser()
-    parser.feed(html)
-    return parser.root
-
-
-def _elements(node: _Node) -> Iterator[_Node]:
-    for child in node.children:
-        if isinstance(child, _Node):
-            yield child
-            yield from _elements(child)
-
-
-def _texts(node: _Node) -> list[str]:
-    found: list[str] = []
-    for child in node.children:
-        if isinstance(child, _Text):
-            found.append(child.text)
-        else:
-            found.extend(_texts(child))
-    return found
-
-
-def _classes(node: _Node) -> set[str]:
-    return set(node.attrs.get("class", "").split())
 
 
 def _carries(node: _Node, marker: str) -> bool:
@@ -621,9 +503,7 @@ def _require_control(
 # ---------------------------------------------------------------------------
 
 
-async def _fake_verify(*args: Any, **kwargs: Any) -> str | None:
-    haystack = " ".join(str(value) for value in (*args, *kwargs.values()))
-    return PRINCIPAL if _SESSION_VALUE in haystack else None
+_fake_verify = fake_verify(PRINCIPAL)
 
 
 def _app(monkeypatch: pytest.MonkeyPatch, store: _FakeStepStore) -> FastAPI:

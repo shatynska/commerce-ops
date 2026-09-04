@@ -80,12 +80,12 @@ from commerce_ops.catalog.application import (
 )
 from commerce_ops.catalog.domain.product import Product
 from commerce_ops.shared.domain.access_scope import AccessScope
-from commerce_ops.shared.domain.identity import MarketplaceId, ProductId, Sku
+from commerce_ops.shared.domain.identity import ProductId, Sku
 from commerce_ops.shared.domain.lifecycle_stage import Development
+from tests.support.fixtures import MARKETPLACE
 
 pytestmark = pytest.mark.anyio
 
-MARKETPLACE: Final = MarketplaceId("ATVPDKIKX0DER")
 # DERIVED fixed time: no artifact fixes a clock; a timezone-aware instant
 # makes the stage-entry assertion exact, as `test_product_lifecycle.py`
 # already does.

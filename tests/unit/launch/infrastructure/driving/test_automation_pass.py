@@ -125,7 +125,7 @@ import inspect
 import logging
 import uuid
 from dataclasses import dataclass, field
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any, Final
 
 import pytest
@@ -133,17 +133,13 @@ import pytest
 from commerce_ops.launch.application import StepResolution
 from commerce_ops.launch.domain.launch_playbook import (
     Blocked,
-    Gate,
-    GateOpening,
     Hazard,
     InProgress,
     LaunchPlaybook,
     NotApplicable,
     NotStarted,
-    OffsetAnchor,
     Refused,
     Satisfied,
-    Scope,
     StepDefinition,
     StepKind,
     StepStatus,
@@ -157,38 +153,27 @@ from commerce_ops.launch.domain.launch_run import (
 from commerce_ops.launch.infrastructure.driving import automation_pass
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId, Sku
+from tests.support.fixtures import (
+    ALICE,
+    HANDLER_NAME,
+    LAUNCH_DATE,
+    PRODUCT_NAME,
+    PRODUCT_SKU,
+    product_id,
+)
+from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
+from tests.support.playbook import gates as _gates
+from tests.support.steps import step as _build_step
 
 pytestmark = pytest.mark.anyio
 
-SPECIFIED_GATE_ORDER: Final = (
-    "commit",
-    "order",
-    "listable",
-    "stock-ready",
-    "live",
-    "ignition",
-    "phase-one-complete",
-    "graduated",
-)
-
-CONFIRMATION_GATES: Final = frozenset(
-    {"commit", "order", "phase-one-complete", "graduated"}
-)
-
-PRODUCT_ID: Final = ProductId(str(uuid.uuid4()))
+PRODUCT_ID: Final = product_id()
 OTHER_PRODUCT_ID: Final = ProductId(str(uuid.uuid4()))
-
-PRODUCT_NAME: Final = "Bamboo Cutting Board"
-PRODUCT_SKU: Final = Sku("BCB-2027-01")
 
 AUTOMATED_STEP_ID: Final = "listing.sub-category"
 HUMAN_STEP_ID: Final = "listing.title-conforms"
-HANDLER_NAME: Final = "listing.subcategory_advisor"
 UNREGISTERED_HANDLER: Final = "listing.nothing_registers_this"
 
-ALICE: Final = "prs_01HQ8Z6M4A"
-
-LAUNCH_DATE: Final = date(2027, 3, 2)
 NOW: Final = datetime(2027, 1, 6, 9, 30, tzinfo=UTC)
 APPROVED_AT: Final = datetime(2027, 1, 5, 9, 30, tzinfo=UTC)
 
@@ -217,38 +202,15 @@ def _any_discipline() -> Discipline:
     return next(iter(Discipline))
 
 
-def _opening_for(identifier: str) -> GateOpening:
-    if identifier in CONFIRMATION_GATES:
-        return GateOpening.REQUIRES_CONFIRMATION
-    return GateOpening.AUTOMATIC
-
-
-def _gates() -> tuple[Gate, ...]:
-    return tuple(
-        Gate(identifier=identifier, position=position, opening=_opening_for(identifier))
-        for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1)
-    )
-
-
 def _step(**overrides: Any) -> StepDefinition:
-    attributes: dict[str, Any] = {
-        "identifier": AUTOMATED_STEP_ID,
-        "name": "Choose the sub-category node",
-        "description": None,
-        "gate": "listable",
-        "discipline": _any_discipline(),
-        "scope": Scope.PRODUCT,
-        "timing_anchor": OffsetAnchor(days=-7),
-        "blocking": False,
-        "kind": StepKind.HUMAN,
-        "status": StepStatus.ACTIVE,
-        "hazard": Hazard.NONE,
-        "assignees": (ALICE,),
-        "handler": None,
-        "provenance": None,
-    }
-    attributes.update(overrides)
-    return StepDefinition(**attributes)
+    return _build_step(
+        **{
+            "identifier": AUTOMATED_STEP_ID,
+            "name": "Choose the sub-category node",
+            "assignees": (ALICE,),
+            **overrides,
+        }
+    )
 
 
 def _automated(**overrides: Any) -> StepDefinition:

@@ -70,13 +70,9 @@ import pytest
 from commerce_ops.briefing.application import run_daily_briefing
 from commerce_ops.launch.application import read_launches
 from commerce_ops.launch.domain.launch_playbook import (
-    Gate,
-    GateOpening,
-    Hazard,
     LaunchPlaybook,
     OffsetAnchor,
     Satisfied,
-    Scope,
     StepDefinition,
     StepKind,
     StepStatus,
@@ -91,23 +87,11 @@ from commerce_ops.shared.domain.access_scope import AccessScope
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId, Sku
 from commerce_ops.shared.domain.lifecycle_stage import Launching
+from tests.support.playbook import CONFIRMATION_GATES
+from tests.support.playbook import playbook as _build_playbook
+from tests.support.steps import step as _build_step
 
 pytestmark = pytest.mark.anyio
-
-SPECIFIED_GATE_ORDER: Final = (
-    "commit",
-    "order",
-    "listable",
-    "stock-ready",
-    "live",
-    "ignition",
-    "phase-one-complete",
-    "graduated",
-)
-
-CONFIRMATION_GATES: Final = frozenset(
-    {"commit", "order", "phase-one-complete", "graduated"}
-)
 
 APPROVED_AT: Final = datetime(2027, 1, 6, 9, 0, tzinfo=UTC)
 APPROVER: Final = "Helen"
@@ -130,35 +114,15 @@ def anyio_backend() -> str:
 # ---------------------------------------------------------------------------
 
 
-def _opening_for(identifier: str) -> GateOpening:
-    if identifier in CONFIRMATION_GATES:
-        return GateOpening.REQUIRES_CONFIRMATION
-    return GateOpening.AUTOMATIC
-
-
-def _gates() -> tuple[Gate, ...]:
-    return tuple(
-        Gate(identifier=identifier, position=position, opening=_opening_for(identifier))
-        for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1)
-    )
-
-
 def _step(**overrides: Any) -> StepDefinition:
-    attributes: dict[str, Any] = {
-        "identifier": "listing.title-conforms",
-        "name": "Work this step asks for",
-        "gate": "live",
-        "discipline": Discipline("listing"),
-        "scope": Scope.PRODUCT,
-        "timing_anchor": OffsetAnchor(days=-30),
-        "blocking": False,
-        "kind": StepKind.HUMAN,
-        "status": StepStatus.ACTIVE,
-        "hazard": Hazard.NONE,
-        "provenance": None,
-    }
-    attributes.update(overrides)
-    return StepDefinition(**attributes)
+    return _build_step(
+        **{
+            "gate": "live",
+            "discipline": Discipline("listing"),
+            "timing_anchor": OffsetAnchor(days=-30),
+            **overrides,
+        }
+    )
 
 
 def _hold(gate: str) -> StepDefinition:
@@ -198,9 +162,7 @@ def _satisfy_fillers(launch: Launch, playbook: LaunchPlaybook) -> None:
 
 
 def _playbook(steps: tuple[StepDefinition, ...] = ()) -> LaunchPlaybook:
-    held = {step.gate for step in steps if step.blocking}
-    fillers = tuple(_hold(gate) for gate in SPECIFIED_GATE_ORDER if gate not in held)
-    return LaunchPlaybook(version="test-v1", gates=_gates(), steps=(*steps, *fillers))
+    return _build_playbook(*steps, filler=_hold)
 
 
 def _new_product_id() -> ProductId:

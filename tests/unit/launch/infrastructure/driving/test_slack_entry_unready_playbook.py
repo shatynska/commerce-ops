@@ -71,8 +71,6 @@ from slack_sdk.signature import SignatureVerifier
 
 from commerce_ops.launch.domain import launch_playbook as playbook_module
 from commerce_ops.launch.domain.launch_playbook import (
-    Gate,
-    GateOpening,
     Hazard,
     LaunchPlaybook,
     OffsetAnchor,
@@ -82,6 +80,8 @@ from commerce_ops.launch.domain.launch_playbook import (
     StepStatus,
 )
 from commerce_ops.shared.domain.discipline import Discipline
+from tests.support.playbook import SPECIFIED_GATE_ORDER
+from tests.support.playbook import gates as _gates
 
 SLACK_ENTRY_PATH: Final = "/product_agent/slack/events"
 SIGNING_SECRET: Final = "test-product-agent-signing-secret"
@@ -112,21 +112,6 @@ REGISTRAR_ATTRIBUTES: Final = (
     "register_product",
 )
 
-SPECIFIED_GATE_ORDER: Final = (
-    "commit",
-    "order",
-    "listable",
-    "stock-ready",
-    "live",
-    "ignition",
-    "phase-one-complete",
-    "graduated",
-)
-
-CONFIRMATION_GATES: Final = frozenset(
-    {"commit", "order", "phase-one-complete", "graduated"}
-)
-
 # Two, not one: the requirement says the message "names those gates",
 # plural, and a message naming only the first would pass a single-gate
 # fixture.
@@ -136,19 +121,6 @@ UNHELD_GATES: Final = ("ignition", "graduated")
 # ---------------------------------------------------------------------------
 # Domain fixtures
 # ---------------------------------------------------------------------------
-
-
-def _opening_for(identifier: str) -> GateOpening:
-    if identifier in CONFIRMATION_GATES:
-        return GateOpening.REQUIRES_CONFIRMATION
-    return GateOpening.AUTOMATIC
-
-
-def _gates() -> tuple[Gate, ...]:
-    return tuple(
-        Gate(identifier=identifier, position=position, opening=_opening_for(identifier))
-        for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1)
-    )
 
 
 def _hold(gate: str, **overrides: Any) -> StepDefinition:

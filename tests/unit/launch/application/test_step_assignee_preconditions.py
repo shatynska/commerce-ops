@@ -58,7 +58,6 @@ import commerce_ops.launch.application as launch_application
 from commerce_ops.launch.application import create_step, update_step
 from commerce_ops.launch.domain.launch_playbook import (
     Gate,
-    GateOpening,
     Hazard,
     InvalidPlaybookError,
     LaunchPlaybook,
@@ -69,30 +68,15 @@ from commerce_ops.launch.domain.launch_playbook import (
     StepStatus,
 )
 from commerce_ops.shared.domain.discipline import Discipline
+from tests.support.fixtures import ALICE, ALICE_NAME, BOHDAN, PRINCIPAL
+from tests.support.playbook import SPECIFIED_GATE_ORDER
+from tests.support.playbook import opening_for as _opening_for
+from tests.support.steps import step as _build_step
 
 pytestmark = pytest.mark.anyio
 
-SPECIFIED_GATE_ORDER: Final = (
-    "commit",
-    "order",
-    "listable",
-    "stock-ready",
-    "live",
-    "ignition",
-    "phase-one-complete",
-    "graduated",
-)
-
-CONFIRMATION_GATES: Final = frozenset(
-    {"commit", "order", "phase-one-complete", "graduated"}
-)
-
-PRINCIPAL: Final = "helen"
 A_DISCIPLINE: Final = next(iter(Discipline))
 
-ALICE: Final = "prs_01HQ8Z6M4A"
-ALICE_NAME: Final = "Alice Admin"
-BOHDAN: Final = "prs_01HQ8Z6M4B"
 NOBODY: Final = "prs_00000000NO"
 
 REJECTED: Final = (InvalidPlaybookError, ValueError, TypeError)
@@ -104,24 +88,7 @@ def anyio_backend() -> str:
 
 
 def _step(**overrides: Any) -> StepDefinition:
-    attributes: dict[str, Any] = {
-        "identifier": "listing.title-conforms",
-        "name": "Work this step asks for",
-        "description": None,
-        "gate": "listable",
-        "discipline": A_DISCIPLINE,
-        "scope": Scope.PRODUCT,
-        "timing_anchor": OffsetAnchor(days=-7),
-        "blocking": False,
-        "kind": StepKind.HUMAN,
-        "status": StepStatus.ACTIVE,
-        "hazard": Hazard.NONE,
-        "assignees": (ALICE,),
-        "handler": None,
-        "provenance": None,
-    }
-    attributes.update(overrides)
-    return StepDefinition(**attributes)
+    return _build_step(**{"assignees": (ALICE,), **overrides})
 
 
 def _holding_step(gate: str) -> StepDefinition:
@@ -345,12 +312,6 @@ async def _set_status(
                 handlers=_FakeHandlerRegistry(),
             )
     return await _update(store, step_id, status=status, members=members)
-
-
-def _opening_for(identifier: str) -> GateOpening:
-    if identifier in CONFIRMATION_GATES:
-        return GateOpening.REQUIRES_CONFIRMATION
-    return GateOpening.AUTOMATIC
 
 
 def _load(store: _FakeStepStore) -> LaunchPlaybook:

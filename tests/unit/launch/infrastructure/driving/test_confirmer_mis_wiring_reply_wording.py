@@ -54,23 +54,20 @@ import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 from typing import Any, Final
 
 import pytest
 
 from commerce_ops.launch.infrastructure.driving import automation_confirmation
 from commerce_ops.shared.domain.identity import ProductId
+from tests.support.fixtures import STEP_ID
 
 pytestmark = pytest.mark.anyio
 
 PRODUCT_ID: Final = ProductId("11111111-1111-1111-1111-111111111111")
-STEP_ID: Final = "listing.sub-category"
-
 ALICE_SLACK: Final = "U01ALICE"
 DECIDED_AT: Final = datetime(2027, 1, 6, 10, 0, tzinfo=UTC)
-LAUNCH_DATE: Final = date(2027, 3, 2)
-
 #: Wording that would blame the decider's membership — kept
 #: identical to the sibling wiring file's list.
 _BLAMES_MEMBERSHIP: Final = (

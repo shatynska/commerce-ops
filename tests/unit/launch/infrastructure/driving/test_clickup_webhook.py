@@ -73,11 +73,10 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
-import uuid
 from collections.abc import AsyncIterator, Iterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 from typing import Any, Final
 
 import pytest
@@ -86,13 +85,9 @@ from fastapi.testclient import TestClient
 
 from commerce_ops.launch.domain.launch_playbook import (
     Gate,
-    GateOpening,
-    Hazard,
     InProgress,
     LaunchPlaybook,
-    OffsetAnchor,
     Satisfied,
-    Scope,
     StepDefinition,
     StepKind,
     StepStatus,
@@ -106,31 +101,20 @@ from commerce_ops.launch.domain.launch_run import (
 from commerce_ops.launch.infrastructure.driving import clickup_webhook as webhook_module
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
-
-SPECIFIED_GATE_ORDER: Final = (
-    "commit",
-    "order",
-    "listable",
-    "stock-ready",
-    "live",
-    "ignition",
-    "phase-one-complete",
-    "graduated",
-)
-
-CONFIRMATION_GATES: Final = frozenset(
-    {"commit", "order", "phase-one-complete", "graduated"}
-)
+from tests.support.fixtures import LAUNCH_DATE, product_id
+from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
+from tests.support.playbook import opening_for as _opening_for
+from tests.support.steps import hold as _build_hold
+from tests.support.steps import step as _build_step
 
 WEBHOOK_SECRET: Final = "test-clickup-webhook-secret-not-a-real-credential"
 SIGNATURE_HEADER: Final = "X-Signature"
 
-PRODUCT_ID: Final = ProductId(str(uuid.uuid4()))
+PRODUCT_ID: Final = product_id()
 STEP_ID: Final = "listing.title-conforms"
 TASK_ID: Final = "8x2mapped"
 UNMAPPED_TASK_ID: Final = "8x2unknown"
 
-LAUNCH_DATE: Final = date(2027, 3, 2)
 APPROVED_AT: Final = datetime(2027, 1, 6, 9, 30, tzinfo=UTC)
 
 CLICKUP_SOURCE: Final = "clickup"
@@ -150,43 +134,17 @@ def _any_discipline() -> Discipline:
     return next(iter(Discipline))
 
 
-def _opening_for(identifier: str) -> GateOpening:
-    if identifier in CONFIRMATION_GATES:
-        return GateOpening.REQUIRES_CONFIRMATION
-    return GateOpening.AUTOMATIC
-
-
 def _step(**overrides: Any) -> StepDefinition:
-    attributes: dict[str, Any] = {
-        "identifier": STEP_ID,
-        "name": "Work this step asks for",
-        "gate": "listable",
-        "discipline": _any_discipline(),
-        "scope": Scope.PRODUCT,
-        "timing_anchor": OffsetAnchor(days=-7),
-        "blocking": False,
-        "kind": StepKind.HUMAN,
-        "status": StepStatus.ACTIVE,
-        "hazard": Hazard.NONE,
-        "provenance": None,
-    }
-    attributes.update(overrides)
-    return StepDefinition(**attributes)
+    return _build_step(**{"identifier": STEP_ID, **overrides})
 
 
 def _hold(gate: str) -> StepDefinition:
-    """A blocking filler holding `gate` — the gate-holding floor
-    (`move-playbook-steps-to-postgres`) forbids coherent playbooks with
-    unheld gates, so `_playbook` fills whichever gates the test's own
-    steps leave unheld. Automated, so the sync never projects a filler and
-    every projection assertion is untouched by them."""
-    return _step(
-        identifier=f"hold.{gate}",
-        gate=gate,
-        blocking=True,
+    return _build_hold(
+        gate,
         kind=StepKind.AUTOMATED,
         status=StepStatus.ACTIVE,
         handler="fixture.holding_check",
+        name="Work this step asks for",
     )
 
 

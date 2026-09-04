@@ -66,8 +66,8 @@ from fastapi.testclient import TestClient
 
 from commerce_ops.access.application import Member, MemberRecord, mint_admin_link
 from commerce_ops.access.infrastructure.driving import admin_link as admin_link_module
+from tests.support.admin import ADMIN_IDENTITY
 
-ADMIN_IDENTITY: Final = "U01ALICE"
 BASE_URL: Final = "http://testserver"
 
 

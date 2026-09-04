@@ -120,9 +120,8 @@ failed, 0 skipped.
 
 from __future__ import annotations
 
-import uuid
 from dataclasses import dataclass, field
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 from typing import Any, ClassVar, Final
 
 import pytest
@@ -135,21 +134,20 @@ import commerce_ops.step_handlers.strategy.compliance_screen as screen
 from commerce_ops.launch.application import HANDLERS, StepContext
 from commerce_ops.launch.domain.launch_playbook import (
     Blocked,
-    Gate,
-    GateOpening,
-    Hazard,
     LaunchPlaybook,
     OffsetAnchor,
     Satisfied,
-    Scope,
     StepDefinition,
     StepKind,
-    StepStatus,
 )
 from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.shared.domain.discipline import Discipline
-from commerce_ops.shared.domain.identity import MarketplaceId, ProductId, Sku
+from commerce_ops.shared.domain.identity import MarketplaceId, Sku
 from commerce_ops.shared.domain.result import Success
+from tests.support.fixtures import ALICE, LAUNCH_DATE, product_id
+from tests.support.playbook import SPECIFIED_GATE_ORDER
+from tests.support.playbook import gates as _gates
+from tests.support.steps import step as _build_step
 
 # ---------------------------------------------------------------------------
 # Fixtures of content
@@ -367,25 +365,9 @@ def _install_stub_graph(monkeypatch: pytest.MonkeyPatch, model: BaseChatModel) -
 # The context the handler is invoked with
 # ---------------------------------------------------------------------------
 
-SPECIFIED_GATE_ORDER: Final = (
-    "commit",
-    "order",
-    "listable",
-    "stock-ready",
-    "live",
-    "ignition",
-    "phase-one-complete",
-    "graduated",
-)
-CONFIRMATION_GATES: Final = frozenset(
-    {"commit", "order", "phase-one-complete", "graduated"}
-)
-
 STEP_ID: Final = "lp.strategy.006"
-ALICE: Final = "prs_01HQ8Z6M4A"
 AS_OF: Final = datetime(2027, 1, 6, 9, 30, tzinfo=UTC)
-LAUNCH_DATE: Final = date(2027, 3, 2)
-PRODUCT_ID: Final = ProductId(str(uuid.uuid4()))
+PRODUCT_ID: Final = product_id()
 
 
 class _CatalogProduct:
@@ -404,39 +386,21 @@ class _CatalogProduct:
         self.hazard_categories = hazard_categories
 
 
-def _opening_for(identifier: str) -> GateOpening:
-    if identifier in CONFIRMATION_GATES:
-        return GateOpening.REQUIRES_CONFIRMATION
-    return GateOpening.AUTOMATIC
-
-
-def _gates() -> tuple[Gate, ...]:
-    return tuple(
-        Gate(identifier=identifier, position=position, opening=_opening_for(identifier))
-        for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1)
-    )
-
-
 def _step(**overrides: Any) -> StepDefinition:
-    attributes: dict[str, Any] = {
-        "identifier": STEP_ID,
-        "name": "Screen for prohibited and high-compliance categories",
-        "description": DESCRIPTION,
-        "gate": "commit",
-        "discipline": Discipline.STRATEGY,
-        "scope": Scope.PRODUCT,
-        "timing_anchor": OffsetAnchor(days=-90),
-        "blocking": False,
-        "kind": StepKind.AUTOMATED,
-        "confirmer": ALICE,
-        "status": StepStatus.ACTIVE,
-        "hazard": Hazard.NONE,
-        "assignees": (),
-        "handler": "strategy.compliance_screen",
-        "provenance": None,
-    }
-    attributes.update(overrides)
-    return StepDefinition(**attributes)
+    return _build_step(
+        **{
+            "identifier": STEP_ID,
+            "name": "Screen for prohibited and high-compliance categories",
+            "description": DESCRIPTION,
+            "gate": "commit",
+            "discipline": Discipline.STRATEGY,
+            "timing_anchor": OffsetAnchor(days=-90),
+            "kind": StepKind.AUTOMATED,
+            "confirmer": ALICE,
+            "handler": "strategy.compliance_screen",
+            **overrides,
+        }
+    )
 
 
 def _hold(gate: str) -> StepDefinition:

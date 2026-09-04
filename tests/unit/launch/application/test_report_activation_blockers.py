@@ -58,43 +58,24 @@ import pytest
 
 import commerce_ops.launch.application as launch_application
 from commerce_ops.launch.domain.launch_playbook import (
-    Hazard,
-    OffsetAnchor,
-    Scope,
     StepDefinition,
     StepKind,
     StepStatus,
 )
 from commerce_ops.shared.domain.discipline import Discipline
+from tests.support.fixtures import ALICE, BOHDAN
+from tests.support.steps import step as _build_step
 
 A_DISCIPLINE: Final = Discipline("strategy")
 ANOTHER_DISCIPLINE: Final = Discipline("price")
 
 REGISTERED_HANDLER: Final = "price.buy_box_check"
 
-ALICE: Final = "prs_01HQ8Z6M4A"
-BOHDAN: Final = "prs_01HQ8Z6M4B"
-
 
 def _step(**overrides: Any) -> StepDefinition:
-    attributes: dict[str, Any] = {
-        "identifier": "listing.title-conforms",
-        "name": "Work this step asks for",
-        "description": None,
-        "gate": "listable",
-        "discipline": A_DISCIPLINE,
-        "scope": Scope.PRODUCT,
-        "timing_anchor": OffsetAnchor(days=-7),
-        "blocking": False,
-        "kind": StepKind.HUMAN,
-        "status": StepStatus.ACTIVE,
-        "hazard": Hazard.NONE,
-        "assignees": (ALICE,),
-        "handler": None,
-        "provenance": None,
-    }
-    attributes.update(overrides)
-    return StepDefinition(**attributes)
+    return _build_step(
+        **{"discipline": A_DISCIPLINE, "assignees": (ALICE,), **overrides}
+    )
 
 
 class _Member:
