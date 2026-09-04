@@ -540,7 +540,7 @@ Counts here are AST counts. Do not re-derive one by grep.
       that outlives its migration is a permanent dependency on a temporary
       arrangement. The declared `tests/unit/support/` count does not move: the
       decorator's own cases were never committed (task 2.2).
-- [ ] 12.2 Run the full verification once more, both tiers, plus
+- [x] 12.2 Run the full verification once more, both tiers, plus
       `assert_identity.py` across the whole change: base commit against head,
       **excluding `tests/unit/support/` and `tests/support/` from all four
       multisets and from the test-function count** — the latter because
@@ -609,7 +609,7 @@ Counts here are AST counts. Do not re-derive one by grep.
       on constructors and behaviour, not on row types, so they are silent on the
       question. The reader-shape population is at task 11.4. The proof-exempt
       and proof-silent list is above.
-- [ ] 12.4 Update `AGENTS.md`'s "shared harness" section **and both
+- [x] 12.4 Update `AGENTS.md`'s "shared harness" section **and both
       `tests/support/` docstrings** (`__init__.py` and `protocols.py`), and
       record the class-object `_conforms` form beside the existing `@property`
       rule, so the next slice does not re-derive the `date`-constructor trap

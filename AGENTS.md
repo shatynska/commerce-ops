@@ -206,24 +206,42 @@ All three tiers arrange from `tests/support/`. It is imported, never collected �
   builder is missing, not that a thirteenth `_FakeSession` is warranted. Add the
   builder.
 
-**The rules below govern shared doubles. `tests/support/values.py` carries the
-value ones; the stateful fakes are still to come.**
-`share-the-unit-test-harness` delivered the constants, the HTML harness, the
-admin session, the fixtures and the step builder.
+**The rules below govern shared doubles, and both kinds now exist.**
+`tests/support/values.py` carries the value doubles and `tests/support/fakes.py`
+the stateful ones. `share-the-unit-test-harness` delivered the constants, the
+HTML harness, the admin session, the fixtures and the step builder;
 `share-the-value-doubles` (2026-09-04) added `values.py` — `Member`,
 `MemberValue`, `CatalogProduct`, `Record`, `TaskMapping`, `PendingRow`,
-`FakeTask`, `CreatedTask` — replacing 166 local declarations, so the rules now
-have instances to copy.
+`FakeTask`, `CreatedTask` — replacing 166 local declarations;
+`share-the-stateful-fakes` (2026-09-04) added `fakes.py` — `FakeMembers`,
+`FakeMembersStore`, `FakeStepStore`, `FakeCatalogPort`, `FakeHandlers`,
+`FakeHandlerRegistry`, `FakeSlackResponse`, `StubDate`, `InertBackoff` —
+replacing 175 of 191 declarations across 103 files. **291 declarations in the
+recurring names are still local**, mostly the launch, playbook and catalog
+stores, which are blocked on `_playbook()` and `_hold()` being shared.
 
-**The doubles with *behaviour* remain deferred**, to
-`share-the-stateful-fakes`: `FakeMembers`, `FakeStepStore` and their
-neighbours, whose `==` is identity, which makes the equality proof
-inexpressible for them. That reason is theirs alone. It was once stated of the
-whole population and that was wrong — a double with no behaviour is a value
-wearing a class, and comparing two of them field-by-field is the same proof
-written against fields rather than `==`. It is what the value doubles migrated
-under, and it caught a disagreement two files carried that a green suite did
-not report.
+**Behaviour is proved by comparison, not by inspection — where it can be.**
+A field-wise equality proof is inexpressible for a stateful fake, since
+`FakeStepStore() == FakeStepStore()` is identity. What replaced it is a
+**lockstep pairing**: the local and the shared fake are driven side by side,
+and every executed call compares the return value, the raised exception and the
+instance state afterwards. Over the migration it ran 115 declarations through
+1,134 constructions and 2,687 calls. **It is worth knowing exactly what such a
+proof cannot see**, because the next slice will meet all four again:
+
+  1. **A double that builds its contents rather than being handed them.** Two
+     independently built twins hold different objects, and a plain-class
+     double's `==` is identity — so every comparison differs for a reason that
+     is an artefact. Twenty `FakeMembers` declarations were in this position.
+  2. **A test that writes the double's state directly.** The pairing intercepts
+     calls, not attribute writes, so `store.rows = ...` reaches the local and
+     never the twin.
+  3. **A double whose surface is its base class.** `StubDate` and
+     `FakeSlackResponse` expose a classmethod and a property over `date` and
+     `dict`; there is no instance method to intercept, and they rest on the base
+     class, `mypy` and their contract tests instead.
+  4. **Anything a test never executes.** That region belongs to
+     `tests/unit/support/`, which is why it exists.
 
 - **A double keeps the locals' field spelling; production's spelling is a
   derived property.** Production probes by shape where `.importlinter` forbids
@@ -278,11 +296,32 @@ not report.
 - **The package exports public names**; a call site that keeps a local
   `_`-prefixed spelling aliases them (`from tests.support.html import tree as
   _tree`). A module-private name imported across modules is a contradiction.
-- **`tests/unit/support/` will be a deliberate exception to the tier layout
-  above**, and does not exist yet. It arrives with the fakes: it names no
-  bounded context because its subject is the harness itself, and it belongs
-  under `tests/unit/` so the shared fakes' own behaviour tests are collected and
-  run at commit time. `tests/support/` itself is imported, never collected.
+- **A dropped spelling must be measured dead, and the measurement is named.**
+  A shared fake may carry less than the locals it replaces only where nothing in
+  `src/` **or** `tests/` reaches the dropped name — searched at the commit that
+  drops it, not once and then assumed. Three were dropped this way:
+  `FakeMembers.members`, `FakeMembers.__call__` and
+  `FakeHandlerRegistry.__iter__`. The last needed more than a search, and shows
+  why: `in` falls back to `__iter__` when `__contains__` is absent, and
+  `automation_pass:770` evaluates `name in handlers`, so the licence was taken
+  **by execution** — mutating every local `__iter__` to raise left the commit
+  tier green. Prefer that method wherever the interpreter can reach a spelling
+  implicitly.
+- **`tests/unit/support/` is a deliberate exception to the tier layout above.**
+  It names no bounded context because its subject is the harness itself, and it
+  sits under `tests/unit/` so the shared fakes' own behaviour is collected and
+  run at commit time — 46 tests as of `share-the-stateful-fakes`.
+  `tests/support/` itself is imported, never collected, and is excluded from the
+  assertion-identity check for that reason: a double's internal assertion is
+  part of the double, not a test's.
+- **A protocol beside a fake is checked only by its `_conforms` assignment**,
+  and two spellings of that assignment are traps rather than style. A name a
+  probe *reads* is declared `@property`, never as a variable — `mypy` treats a
+  protocol variable as settable and a read-only property does not satisfy one.
+  And where the double cannot be constructed without arguments, or its surface
+  is a classmethod, the assignment takes the **class-object** form:
+  `_conforms: type[DateShape] = StubDate`, because `date` requires three
+  constructor arguments and `DateShape = StubDate()` cannot be written.
 
 ### Working in a git worktree
 

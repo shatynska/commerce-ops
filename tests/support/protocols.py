@@ -1,12 +1,9 @@
 """The shapes the shared fakes are checked against.
 
-**Populated for the value doubles, still empty for the stateful fakes.**
-`share-the-value-doubles` added `MemberShape` and `CatalogProductShape` below,
-each with the `_conforms` assignment that makes it bite. The doubles with
-behaviour -- `FakeMembers`, `FakeStepStore` and their neighbours -- are deferred
-to `share-the-stateful-fakes`, and their protocols arrive with them. The rules
-below bind those too, and are recorded here rather than in that change so the
-first stateful fake is written against them rather than after them.
+**Populated for both kinds now.** `share-the-value-doubles` added
+`MemberShape` and `CatalogProductShape`; `share-the-stateful-fakes` added the
+seven below them, one per stateful fake, each with the `_conforms` assignment
+that makes it bite.
 
 
 A `Protocol` declared beside a fake checks nothing on its own: `mypy` compares
