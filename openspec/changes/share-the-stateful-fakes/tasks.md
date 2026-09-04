@@ -252,7 +252,7 @@ Counts here are AST counts. Do not re-derive one by grep.
 
 ## 7. `FakeHandlerRegistry` — 12 declarations, five bodies
 
-- [ ] 7.1 Before writing the fake, re-take the clause (e) measurement for
+- [x] 7.1 Before writing the fake, re-take the clause (e) measurement for
       `__iter__`, **by execution and not only by search**, because `__iter__` is
       the interpreter's fallback for `in` and `automation_pass:770` evaluates
       `name in handlers` directly. Three parts: that all 12 declarations declare
@@ -261,12 +261,21 @@ Counts here are AST counts. Do not re-derive one by grep.
       instance; and — the execution half — that making each local `__iter__`
       raise leaves the commit tier green. If any part fails, `__iter__` stays
       and `proposal.md`'s single-reader-shape claim is narrowed to
-      `FakeMembers`.
-- [ ] 7.2 Add `FakeHandlerRegistry(names: frozenset[str] = frozenset())` with
+      `FakeMembers`. **All three parts hold. 12 of 12 declare `__contains__`,
+      as do all 8 `_FakeHandlers`, and none of the 8 declares `__iter__`. No
+      test iterates an instance. And the execution half: mutating every one of
+      the twelve `__iter__` bodies to `raise AssertionError` leaves the commit
+      tier at 2,500 passed — the branch is unreachable, not merely unread.**
+- [x] 7.2 Add `FakeHandlerRegistry(names: frozenset[str] = frozenset())` with
       `__contains__` and `names()` and **not** `__iter__`, its protocol — which
       declares what production reads, not what the real registry offers
       (`design.md` Decision 8) — `_conforms`, and contract tests; declare the
-      number added.
+      number added. **Four tests added; `tests/unit/support/` now collects 22.
+      The protocol split in two: `HandlerNamesShape` (`names`, `__contains__`)
+      covers both this fake and `FakeHandlers`, and `HandlerRegistryShape`
+      extends it with `resolve` for the latter. `names()` returns a `frozenset`
+      here and a tuple there, as their populations did, so the shared protocol
+      declares `Iterable[str]` — which is all `_registered_names` needs.**
 - [ ] 7.3 Instrument, verify, settle, verify. **Expected: 12 of 12 — 8 aliases
       and 4 adapters.** Three declarations carry no `__init__` and hard-code a
       single registered name; one defaults `names` to a file constant. All four

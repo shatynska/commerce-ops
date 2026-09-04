@@ -55,11 +55,13 @@ and the derived spellings these doubles expose (`Member.identifier`,
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from datetime import date
 from typing import Any, Protocol
 
 from commerce_ops.shared.domain.identity import Sku
 from tests.support.fakes import (
+    FakeHandlerRegistry,
     FakeHandlers,
     FakeSlackResponse,
     InertBackoff,
@@ -129,29 +131,38 @@ class SlackResponseShape(Protocol):
 _slack_response_conforms: SlackResponseShape = FakeSlackResponse()
 
 
-class HandlerRegistryShape(Protocol):
-    """What production reads off a step-handler registry.
+class HandlerNamesShape(Protocol):
+    """What production reads off any step-handler registry.
 
-    Three things, and `names` is the one a probe chooses on:
+    `names` is the one a probe chooses on:
     `activation_readiness._registered_names` and
     `playbook_authoring._registered_names` both call it if it is callable and
     otherwise iterate the registry itself. Every double in this suite provides
-    it, so the iteration branch is unreachable from `tests/` -- which is why
+    it, so the iteration branch is unreachable -- which is why
     `FakeHandlerRegistry` may drop `__iter__` under clause (e) and why this
-    protocol does not declare it.
+    protocol does not declare it. It is declared as returning an `Iterable`
+    rather than a concrete type because the two doubles disagree, as their
+    populations did: a tuple for `FakeHandlers`, a `frozenset` for
+    `FakeHandlerRegistry`, and `_registered_names` only iterates it.
 
-    `__contains__` and `resolve` are calls rather than conventions:
-    `automation_pass:770` evaluates `name in handlers` and resolves only then.
+    `__contains__` is a call rather than a convention: `automation_pass:770`
+    evaluates `name in handlers` and resolves only then.
     """
 
-    def names(self) -> tuple[str, ...]: ...
+    def names(self) -> Iterable[str]: ...
 
     def __contains__(self, name: object, /) -> bool: ...
+
+
+class HandlerRegistryShape(HandlerNamesShape, Protocol):
+    """A registry that also resolves, which is the population `automation_pass`
+    reaches after its membership test passes."""
 
     def resolve(self, name: str, /) -> Any: ...
 
 
 _handlers_conforms: HandlerRegistryShape = FakeHandlers()
+_handler_registry_conforms: HandlerNamesShape = FakeHandlerRegistry()
 
 
 class DateShape(Protocol):

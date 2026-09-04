@@ -89,6 +89,8 @@ from commerce_ops.launch.domain.launch_playbook import (
     StepStatus,
 )
 from commerce_ops.shared.domain.discipline import Discipline
+from tests.support._paired import paired as _paired
+from tests.support.fakes import FakeHandlerRegistry as _Shared
 from tests.support.fixtures import ALICE, ALICE_NAME, PRINCIPAL
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.steps import step as _build_step
@@ -222,6 +224,7 @@ class _StoreShapedCollaborator:
         self.version += 1
 
 
+@_paired(_Shared)
 class _FakeHandlerRegistry:
     def __init__(self, names: frozenset[str] = frozenset()) -> None:
         self._names = names

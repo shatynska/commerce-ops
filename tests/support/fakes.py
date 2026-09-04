@@ -133,3 +133,32 @@ class InertBackoff:
 
     async def rollback(self) -> None:
         return None
+
+
+class FakeHandlerRegistry:
+    """A step-handler registry read only for the names it registers.
+
+    `FakeHandlers` beside it is the same subject with a `resolve`; this one is
+    the population that answers the membership and naming questions alone, and
+    it returns a `frozenset` where that one returns a tuple, because that is
+    what its twelve local declarations returned.
+
+    **It does not carry `__iter__`, and all twelve locals did.** Both
+    `_registered_names` sites -- `activation_readiness:150` and
+    `playbook_authoring:389` -- iterate the registry only when `names` is not
+    callable, and every local provided `names()`; `automation_pass:770`'s
+    `name in handlers` reaches `__contains__`, which all twelve declared, so
+    membership never falls back to iteration either. Measured statically, and
+    then by execution: making every local `__iter__` raise leaves the whole
+    commit tier green. That is the clause (e) licence, and it is the strongest
+    of the three -- the other two rest on a static reading alone.
+    """
+
+    def __init__(self, names: frozenset[str] = frozenset()) -> None:
+        self._names = names
+
+    def __contains__(self, name: object) -> bool:
+        return name in self._names
+
+    def names(self) -> frozenset[str]:
+        return self._names

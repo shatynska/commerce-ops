@@ -68,6 +68,8 @@ from commerce_ops.launch.domain.launch_playbook import (
     StepStatus,
 )
 from commerce_ops.shared.domain.discipline import Discipline
+from tests.support._paired import paired as _paired
+from tests.support.fakes import FakeHandlerRegistry as _Shared
 from tests.support.fixtures import ALICE, ALICE_NAME, BOHDAN, PRINCIPAL
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import opening_for as _opening_for
@@ -133,6 +135,7 @@ class _FakeMembers:
         return await self.list_members()
 
 
+@_paired(_Shared)
 class _FakeHandlerRegistry:
     def __init__(self, names: frozenset[str] = frozenset()) -> None:
         self._names = names

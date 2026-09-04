@@ -86,6 +86,8 @@ from commerce_ops.launch.domain.launch_playbook import (
     StepStatus,
 )
 from commerce_ops.shared.domain.discipline import Discipline
+from tests.support._paired import paired as _paired
+from tests.support.fakes import FakeHandlerRegistry as _Shared
 from tests.support.fixtures import PRINCIPAL
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.steps import step as _build_step
@@ -184,6 +186,7 @@ class _FakeMembers:
         return await self.list_members()
 
 
+@_paired(_Shared)
 class _FakeHandlerRegistry:
     """The names the deployed code answers to (`tasks.md` 2.3)."""
 
