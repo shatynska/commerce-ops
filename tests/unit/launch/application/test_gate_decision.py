@@ -88,7 +88,7 @@ from __future__ import annotations
 import inspect
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
-from typing import Any, Final
+from typing import Any, Final, cast
 
 import pytest
 
@@ -110,7 +110,7 @@ from commerce_ops.launch.domain.launch_run import (
 )
 from commerce_ops.shared.domain.identity import MetricId, ProductId
 from commerce_ops.shared.domain.lifecycle_stage import Posture
-from tests.support.fakes import AsyncFakePlaybooks
+from tests.support.fakes import AsyncFakePlaybooks, FakeLaunches
 from tests.support.fixtures import ALICE, BOHDAN, product_id
 from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
@@ -322,25 +322,17 @@ def _members() -> _ReaderMembers:
     )
 
 
-class _FakeLaunches:
+class _FakeLaunches(FakeLaunches):
+    """The shared launch store, adapted: this file reads it through its
+    own helper. The helpers are rewritten against the shared list, since
+    every local kept its launches in a dict keyed by identifier."""
+
     def __init__(self, launch: Launch) -> None:
-        self._launches = {launch.product_id: launch}
-
-    async def get_by_product_id(self, product_id: ProductId) -> Launch | None:
-        return self._launches.get(product_id)
-
-    async def save(self, launch: Launch) -> None:
-        self._launches[launch.product_id] = launch
-
-    async def list_active(self) -> tuple[Launch, ...]:
-        return tuple(self._launches.values())
-
-    async def list_all(self) -> tuple[Launch, ...]:
-        return tuple(self._launches.values())
+        super().__init__(launch)
 
     @property
     def only(self) -> Launch:
-        return next(iter(self._launches.values()))
+        return cast(Launch, self.launches[0])
 
 
 class _FakePlaybooks(AsyncFakePlaybooks):

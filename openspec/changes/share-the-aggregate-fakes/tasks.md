@@ -111,7 +111,7 @@ Always name the tiers.
       dispositioned by the standalone proof **in the phase that migrates it**, as
       tasks 3.4b, 4.3a and 5.5c do, and recorded in §6 — never filed to §6 alone,
       which by then has no local left to compare against.
-- [ ] 2.4 Resolve import aliases in every classifier, and patch
+- [x] 2.4 Resolve import aliases in every classifier, and patch
       `tests.support.X` *before* importing a test module — `from … import y as
       _z` binds at import, and a classifier keyed on the bare name reports every
       migrated declaration as unmigrated.
@@ -142,7 +142,7 @@ Always name the tiers.
       at four sites today. Carry the spelling on that evidence or drop it.
       Demanding execution-proof before dropping two spellings while adding a
       third on six declarations' say-so is not a position this change can hold.
-- [ ] 2.6 Validate every expression harvested out of a file **by evaluating it**
+- [x] 2.6 Validate every expression harvested out of a file **by evaluating it**
       at build time against the call sites it will be used at. One of 179 last
       slice was not evaluable outside its own function; a one-in-179 defect is
       not one review finds.
@@ -347,16 +347,16 @@ call time.
 
 ## 5. The launch store — 58 declarations
 
-- [ ] 5.1 Confirm task 2.5's probe search still holds at this commit for the
+- [x] 5.1 Confirm task 2.5's probe search still holds at this commit for the
       launch store specifically — the tree has moved by three phases since it
       was taken, and every spelling-based sweep of this ground has come back
       stale.
-- [ ] 5.2 Re-take the measured-dead licence for `list_launches` and `all` **by
+- [x] 5.2 Re-take the measured-dead licence for `list_launches` and `all` **by
       execution**, not by search: wrap both across all three tiers and confirm
       zero calls, then mutate them to raise and confirm the commit tier stays
       green. Prefer the mutation wherever the interpreter can reach a spelling
       implicitly.
-- [ ] 5.3 Add `FakeLaunches` to `tests/support/fakes.py` presenting
+- [x] 5.3 Add `FakeLaunches` to `tests/support/fakes.py` presenting
       `get_by_product_id`, `list_active`, `list_all` and `save` over launches it
       is handed — and **not** `list_launches` or `all`. Give it the same
       `serving(source)` classmethod design.md Decision 4 defines for it — **not
@@ -366,14 +366,14 @@ call time.
       hands the patched class and hold a `Session` as a launch. All four read
       methods resolve `source` at call time; `source` is a `Launch`, an iterable
       of them, or a zero-argument callable.
-- [ ] 5.4 Give it a docstring recording, at the double itself, that
+- [x] 5.4 Give it a docstring recording, at the double itself, that
       `list_active` deliberately does not filter graduated launches, and why:
       `test_a_graduated_launch_is_left_alone` hands one in precisely to prove the
       pass leaves it alone, and a filtering double keeps that test green while
       deleting what it tests (design.md Decision 5).
-- [ ] 5.5 Add its `_conforms` assignment and contract tests, including one that
+- [x] 5.5 Add its `_conforms` assignment and contract tests, including one that
       pins the non-filtering behaviour so a later "improvement" fails loudly.
-- [ ] 5.5a Classify all 58 against the shared type **by running each**, and
+- [x] 5.5a Classify all 58 against the shared type **by running each**, and
       state expected buckets before migrating. Constructor form across the 58:
       `*launches` **35**, `launch` **15**, `tuple[Launch, ...]` **3**, `()`
       **1**, no `__init__` **2**, `(*args, **kwargs)` **2**. A variadic shared
@@ -395,19 +395,19 @@ call time.
         and the 56-of-58 target reconciles with the census above it.
 
       **Expected: 56 of 58 migrated, 2 kept.** Report actual against it.
-- [ ] 5.5b Measure whether either class-patched declaration rebinds
+- [x] 5.5b Measure whether either class-patched declaration rebinds
       `type(self).launch` after production constructs the double. Call-time
       reading was proved a correctness condition for the *repository*
       (`_SERVED[0]`, rebound mid-file); for these two it is currently inherited
       by analogy. It is the safe default either way — but record which of the two
       it is, rather than letting an unmeasured claim stand as a measured one.
-- [ ] 5.5c Disposition the 6 silent `_FakeLaunches` by the **standalone proof**,
+- [x] 5.5c Disposition the 6 silent `_FakeLaunches` by the **standalone proof**,
       in this phase and before the commits that delete their locals: construct
       both versions directly and compare. The pairing reports zero comparisons
       for them, and zero is not a pass.
-- [ ] 5.6 Migrate the 32 `_FakeLaunches` — 26 closed by the lockstep pairing with
+- [x] 5.6 Migrate the 32 `_FakeLaunches` — 26 closed by the lockstep pairing with
       its four recorded limits stated where they bite, 6 by task 5.5c.
-- [ ] 5.7 Migrate the `_FakeLaunchStore` declarations: **24 of 26 migrated, 2
+- [x] 5.7 Migrate the `_FakeLaunchStore` declarations: **24 of 26 migrated, 2
       kept**. The 2 kept are the `@dataclass` pair — measured, both carry this
       name — `tests/unit/launch/application/test_thread_anchor_resolution.py` and
       `test_thread_establishment_race.py`, a declaration-form keep under
@@ -415,8 +415,49 @@ call time.
       with 5.5a and Decision 4. **All 24 are closed by the lockstep pairing, 0 by
       the standalone proof** — none of the 26 is silent; the 6 silent launch
       stores are all `_FakeLaunches` and are closed by task 5.5c.
-- [ ] 5.8 Phase boundary: `tests/integration` collected count unchanged, tier
+- [x] 5.8 Phase boundary: `tests/integration` collected count unchanged, tier
       executed, 159 passed and zero skips.
+
+**§5 outcome, 2026-09-05: 52 of 58 migrated, 6 kept — against an expected 56 of
+58, and every one of the six is a measured finding rather than a judgement.**
+
+The lockstep pairing drove local and twin over **665 paired calls across 58
+declarations**, seeding each twin from the *same launch objects* the local held
+so identity was a real comparison rather than an artefact. It reported 3
+mismatches and 6 declarations at zero. The 6 were closed standalone against
+their pre-migration source at `5d7606f`, all identical.
+
+**But the pairing's blind spot is what set the final number, and the suite is
+what reported it.** Limit 2 — *a test that writes the double's state directly* —
+turned out to reach much further than the 3 mismatches suggested. After
+migrating, 37 tests failed on attribute access the pairing never intercepts:
+`.launches`, `.order`, `.stored`, `.reads`, `.saves`. Two consequences, both
+now recorded at the shared type:
+
+* **`launches` is the stored spelling.** Two files *assign*
+  `store.launches = snapshot` to restore a rolled-back state, and a read-only
+  property cannot receive an assignment — `AGENTS.md`'s `Member.id` precedent.
+* **No `stored` property is derived.** `stored` is a *method* answering one
+  launch by identifier in the two files that carry it, called 14 times and never
+  read bare; a list-valued property of the same name would have shadowed it. A
+  first pass added exactly that property and the suite caught it.
+
+**The six keeps, each with its measured reason recorded at the declaration:**
+`test_launch_admin_list.py` (an `order` seam a test reverses directly, plus an
+`enumerations` counter); `test_progress_launch.py` (records `reads` and `saves`,
+asserted on directly — the pairing *passed* it over 18 calls);
+`test_slack_entry_ack_and_failure_visibility.py` and
+`test_slack_entry_unready_playbook.py` (class-patched, and their
+`get_by_product_id` ignores the identifier by design, which the shared store
+cannot reproduce without dropping its own matching);
+`test_thread_anchor_resolution.py` and `test_thread_establishment_race.py`
+(`@dataclass` form, plus an internal assertion and a `saves` recorder).
+
+Task 5.5b came back positive rather than inherited: **both class-patched files
+rebind `_FakeLaunchStore.launch` per test**, so `serving`'s call-time read is a
+correctness condition there too, not an analogy from the repository.
+
+Migrated as 31 direct aliases and 21 adapters.
 
 ## 6. The thirteen silent declarations — rollup
 

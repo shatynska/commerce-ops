@@ -64,7 +64,7 @@ from __future__ import annotations
 import inspect
 import uuid
 from datetime import UTC, date, datetime
-from typing import Any, Final
+from typing import Any, Final, cast
 
 import pytest
 
@@ -85,6 +85,7 @@ from commerce_ops.launch.domain.launch_run import (
 from commerce_ops.shared.domain.access_scope import AccessScope
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import MetricId, ProductId
+from tests.support.fakes import FakeLaunches
 from tests.support.fakes import FakePlaybooks as _FakePlaybooks
 from tests.support.playbook import CONFIRMATION_GATES
 from tests.support.playbook import playbook as _build_playbook
@@ -286,35 +287,17 @@ def _advance_to(launch: Launch, playbook: LaunchPlaybook, gate: str) -> Launch:
     return launch
 
 
-class _FakeLaunchStore:
-    """In-memory `LaunchStore`. Filters nothing; ignores extra arguments
-    (see the module docstring). Answers to the enumeration spellings
-    `test_launch_reports.py` records as unfixed."""
-
-    def __init__(self, *launches: Launch) -> None:
-        self._launches = {launch.product_id: launch for launch in launches}
-
-    async def get_by_product_id(
-        self, product_id: ProductId, *_args: Any, **_kwargs: Any
-    ) -> Launch | None:
-        return self._launches.get(product_id)
+class _FakeLaunchStore(FakeLaunches):
+    """The shared launch store, adapted: this file reads it through its
+    own helper. The helpers are rewritten against the shared list, since
+    every local kept its launches in a dict keyed by identifier."""
 
     async def get(
         self, product_id: ProductId, *args: Any, **kwargs: Any
     ) -> Launch | None:
-        return await self.get_by_product_id(product_id, *args, **kwargs)
-
-    async def save(self, launch: Launch) -> None:
-        self._launches[launch.product_id] = launch
-
-    async def list_all(self, *_args: Any, **_kwargs: Any) -> tuple[Launch, ...]:
-        return tuple(self._launches.values())
-
-    async def all(self, *args: Any, **kwargs: Any) -> tuple[Launch, ...]:
-        return await self.list_all(*args, **kwargs)
-
-    async def list_launches(self, *args: Any, **kwargs: Any) -> tuple[Launch, ...]:
-        return await self.list_all(*args, **kwargs)
+        return cast(
+            "Launch | None", await self.get_by_product_id(product_id, *args, **kwargs)
+        )
 
 
 # ---------------------------------------------------------------------------

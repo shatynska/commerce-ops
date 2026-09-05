@@ -276,6 +276,9 @@ class _ThreadlessLaunch:
         self.submitter = SUBMITTER_ID
 
 
+# KEPT LOCAL by `share-the-aggregate-fakes` (task 5.7). `get_by_product_id`
+# ignores the identifier by design, so the shared store's matching would
+# answer `None` where this answers the launch.
 class _FakeLaunchStore:
     """`LaunchRepository`, for the thread-establishment read and write.
 

@@ -90,6 +90,7 @@ from commerce_ops.launch.domain.launch_run import (
 from commerce_ops.shared.domain.access_scope import AccessScope
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
+from tests.support.fakes import FakeLaunches as _FakeLaunchStore
 from tests.support.fakes import FakePlaybooks as _FakePlaybooks
 from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
 from tests.support.playbook import playbook as _build_playbook
@@ -228,35 +229,6 @@ def _advance_to(launch: Launch, playbook: LaunchPlaybook, gate: str) -> Launch:
             launch.approve_gate(launch.current_gate, _approval())
         launch.advance_gate(playbook)
     return launch
-
-
-class _FakeLaunchStore:
-    """In-memory `LaunchStore`, including the enumeration `tasks.md` 2.2
-    adds.
-
-    The enumeration answers to three spellings because no artifact fixes
-    one (see the module docstring). This is fixture-level accommodation of
-    an unfixed name, not a weakened assertion: every assertion is made on
-    what `read_launches` returns.
-    """
-
-    def __init__(self, *launches: Launch) -> None:
-        self._launches = {launch.product_id: launch for launch in launches}
-
-    async def get_by_product_id(self, product_id: ProductId) -> Launch | None:
-        return self._launches.get(product_id)
-
-    async def save(self, launch: Launch) -> None:
-        self._launches[launch.product_id] = launch
-
-    async def list_all(self) -> tuple[Launch, ...]:
-        return tuple(self._launches.values())
-
-    async def all(self) -> tuple[Launch, ...]:
-        return await self.list_all()
-
-    async def list_launches(self) -> tuple[Launch, ...]:
-        return await self.list_all()
 
 
 # ---------------------------------------------------------------------------

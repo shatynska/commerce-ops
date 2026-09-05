@@ -101,6 +101,7 @@ from commerce_ops.shared.domain.lifecycle_stage import (
     SteadyState,
 )
 from commerce_ops.shared.domain.severity import Severity
+from tests.support.fakes import FakeLaunches as _FakeLaunchStore
 from tests.support.fakes import FakePlaybooks as _FakePlaybooks
 from tests.support.playbook import CONFIRMATION_GATES
 from tests.support.playbook import playbook as _build_playbook
@@ -223,32 +224,6 @@ def _launch(
         launch.advance_gate(playbook)
     _satisfy_fillers(launch, playbook)
     return launch
-
-
-class _FakeLaunchStore:
-    """In-memory `LaunchStore` with the enumeration `tasks.md` 2.2 adds.
-
-    Answers to three spellings of the enumeration because no artifact
-    fixes one -- see `test_launch_reports.py`'s docstring.
-    """
-
-    def __init__(self, *launches: Launch) -> None:
-        self._launches = {launch.product_id: launch for launch in launches}
-
-    async def get_by_product_id(self, product_id: ProductId) -> Launch | None:
-        return self._launches.get(product_id)
-
-    async def save(self, launch: Launch) -> None:
-        self._launches[launch.product_id] = launch
-
-    async def list_all(self) -> tuple[Launch, ...]:
-        return tuple(self._launches.values())
-
-    async def all(self) -> tuple[Launch, ...]:
-        return await self.list_all()
-
-    async def list_launches(self) -> tuple[Launch, ...]:
-        return await self.list_all()
 
 
 # ---------------------------------------------------------------------------

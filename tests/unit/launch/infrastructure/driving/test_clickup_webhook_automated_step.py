@@ -80,7 +80,7 @@ from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.launch.infrastructure.driving import clickup_webhook as webhook_module
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
-from tests.support.fakes import FakePlaybookRepository
+from tests.support.fakes import FakeLaunches, FakePlaybookRepository
 from tests.support.fixtures import ALICE, HANDLER_NAME, LAUNCH_DATE, product_id
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import opening_for as _opening_for
@@ -183,12 +183,11 @@ class _FakeMapping:
         self.tasks[(product_id, step_id)].last_observed_closed = closed
 
 
-class _FakeLaunches:
-    def __init__(self, launch: Launch) -> None:
-        self._launch = launch
+class _FakeLaunches(FakeLaunches):
+    """The shared launch store, adapted to this file's own surface."""
 
-    async def get_by_product_id(self, product_id: ProductId) -> Launch | None:
-        return self._launch if product_id == self._launch.product_id else None
+    def __init__(self, launch: Launch) -> None:
+        super().__init__(launch)
 
 
 class _RecordingOutcomes:

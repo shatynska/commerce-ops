@@ -294,6 +294,106 @@ class FakeCatalogPort:
         return self.products
 
 
+class FakeLaunches:
+    """The launch store, over the launches it is handed -- 58 declarations
+    under two names that never appear in the same file.
+
+    **`list_active` deliberately does not filter graduated launches, and that
+    is the most load-bearing line in this class.** The real repository's
+    `list_active` drops launches standing at `graduated`
+    (`launch_repository.py:181`), and reproducing that here is the obvious
+    "truer to production" move. It is wrong.
+    `test_automation_pass.py::test_a_graduated_launch_is_left_alone` hands a
+    graduated launch to this double precisely to prove *the pass* leaves it
+    alone; a filtering double removes the launch before the pass ever sees it
+    and **every assertion in that test still passes**. The requirement is
+    specified in two capabilities -- `launch-step-automation` and
+    `launch-clickup-sync` both carry *A graduated launch is left alone* -- so
+    filtering here would leave both unverified while the suite stayed green.
+    Neither proof instrument can see it: values and calls are identical either
+    way. **A shared double must not implement the filter its subject is being
+    tested for.**
+
+    **`list_launches` and `all` are absent.** 21 of the 26 `_FakeLaunchStore`
+    declarations carried them as delegates to `list_all`. Nothing in `src/`
+    calls either, every `tests/` mention was their own `def`, and the licence
+    was taken by execution rather than by search: mutating all 42 to raise left
+    both tiers green.
+
+    The reads answer a `tuple`, which 46 of the 60 local annotations use and
+    which `FakeCatalogPort.list_products` already spells.
+    """
+
+    def __init__(self, *launches: Any) -> None:
+        #: **`launches` is the stored spelling, and `stored` is derived over the
+        #: same list.** Measured across `tests/`: two files *assign*
+        #: `store.launches = snapshot` to restore a rolled-back state, and a
+        #: read-only property cannot receive an assignment -- `AGENTS.md`'s
+        #: `Member.id` precedent. Fourteen sites read `stored` and none assigns
+        #: it, so that is the derived one.
+        self.launches: list[Any] = list(launches)
+
+    #: Set by `serving` on the subclass it builds; read at call time.
+    _source: ClassVar[Any] = None
+
+    @classmethod
+    def serving(cls, source: Any) -> type[FakeLaunches]:
+        """A subclass for the two declarations installed by patching the
+        **class**, whose `__init__` therefore discards the `(db)` production
+        hands it -- a `*launches` constructor would otherwise hold a `Session`
+        as a launch.
+
+        `source` is a launch, an iterable of them, or a zero-argument callable,
+        and is resolved on every read rather than at subclass creation, so a
+        test that rebinds it mid-file is served what it rebound.
+        """
+        return type(
+            cls.__name__,
+            (_ServingLaunches,),
+            {"_source": staticmethod(source) if callable(source) else source},
+        )
+
+    def _held(self) -> tuple[Any, ...]:
+        return tuple(self.launches)
+
+    async def get_by_product_id(self, product_id: Any, *_a: Any, **_kw: Any) -> Any:
+        for launch in self._held():
+            if launch.product_id == product_id:
+                return launch
+        return None
+
+    async def list_active(self, *_a: Any, **_kw: Any) -> tuple[Any, ...]:
+        """Every launch held -- graduated ones included. See the class docstring."""
+        return self._held()
+
+    async def list_all(self, *_a: Any, **_kw: Any) -> tuple[Any, ...]:
+        return self._held()
+
+    async def save(self, launch: Any) -> None:
+        for index, held in enumerate(self.launches):
+            if held.product_id == launch.product_id:
+                self.launches[index] = launch
+                return
+        self.launches.append(launch)
+
+
+class _ServingLaunches(FakeLaunches):
+    """What `FakeLaunches.serving` builds: production constructs it, so the
+    constructor discards its arguments and the launches come from `_source`."""
+
+    def __init__(self, *_args: Any, **_kwargs: Any) -> None:
+        super().__init__()
+
+    def _held(self) -> tuple[Any, ...]:
+        source = type(self)._source
+        resolved = source() if callable(source) else source
+        if resolved is None:
+            return ()
+        if isinstance(resolved, (list, tuple)):
+            return tuple(resolved)
+        return (resolved,)
+
+
 class _FakePlaybooksBase:
     """What both playbook stores hold, and the one answer both give.
 

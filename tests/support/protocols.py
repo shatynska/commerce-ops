@@ -62,6 +62,7 @@ from tests.support.fakes import (
     FakeCatalogPort,
     FakeHandlerRegistry,
     FakeHandlers,
+    FakeLaunches,
     FakeMembers,
     FakeMembersStore,
     FakePlaybookRepository,
@@ -253,6 +254,28 @@ class CatalogPortShape(Protocol):
 
 
 _catalog_port_conforms: CatalogPortShape = FakeCatalogPort()
+
+
+class LaunchStoreShape(Protocol):
+    """The four reads and writes a launch surface makes.
+
+    `list_launches` and `all` are deliberately absent: both were measured dead
+    by mutation, so a double presenting them would satisfy a protocol nothing
+    reads.
+    """
+
+    async def get_by_product_id(
+        self, product_id: Any, *args: Any, **kwargs: Any
+    ) -> Any: ...
+
+    async def list_active(self, *args: Any, **kwargs: Any) -> Any: ...
+
+    async def list_all(self, *args: Any, **kwargs: Any) -> Any: ...
+
+    async def save(self, launch: Any) -> None: ...
+
+
+_launches_conforms: LaunchStoreShape = FakeLaunches()
 
 
 class PlaybookStoreShape(Protocol):

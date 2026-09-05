@@ -287,6 +287,10 @@ class _ThreadlessLaunch:
         self.submitter = SUBMITTER_ID
 
 
+# KEPT LOCAL by `share-the-aggregate-fakes` (task 5.7). `get_by_product_id`
+# ignores the identifier by design, which the shared `FakeLaunches` cannot
+# reproduce without dropping its own matching. `serving` would carry the
+# class-patched install and the per-test rebinding measured at 5.5b, not this.
 class _FakeLaunchStore:
     """`LaunchRepository`, for the thread-establishment read and write.
 

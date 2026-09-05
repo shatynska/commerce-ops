@@ -92,6 +92,7 @@ from commerce_ops.launch.domain.launch_run import (
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
 from tests.support.fakes import FakeHandlers as _FakeHandlers
+from tests.support.fakes import FakeLaunches as _FakeLaunches
 from tests.support.fakes import FakeProductReader
 from tests.support.fixtures import HANDLER_NAME, PRODUCT_NAME, PRODUCT_SKU, product_id
 from tests.support.playbook import CONFIRMATION_GATES
@@ -220,20 +221,6 @@ class _FakeCatalog(FakeProductReader):
 
     def __init__(self) -> None:
         super().__init__(_CatalogProduct(name=PRODUCT_NAME, sku=PRODUCT_SKU))
-
-
-class _FakeLaunches:
-    def __init__(self, *launches: Launch) -> None:
-        self._launches = list(launches)
-
-    async def list_active(self) -> list[Launch]:
-        return list(self._launches)
-
-    async def get_by_product_id(self, product_id: ProductId) -> Launch | None:
-        for launch in self._launches:
-            if launch.product_id == product_id:
-                return launch
-        return None
 
 
 class _ScriptedHandler:

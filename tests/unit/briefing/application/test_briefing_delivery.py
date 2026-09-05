@@ -86,6 +86,7 @@ from commerce_ops.shared.domain.access_scope import AccessScope
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId, Sku
 from commerce_ops.shared.domain.lifecycle_stage import Launching
+from tests.support.fakes import FakeLaunches as _FakeLaunchStore
 from tests.support.fakes import FakePlaybooks as _FakePlaybooks
 from tests.support.playbook import CONFIRMATION_GATES
 from tests.support.playbook import playbook as _build_playbook
@@ -194,26 +195,6 @@ def _launch(
         launch.advance_gate(playbook)
     _satisfy_fillers(launch, playbook)
     return launch
-
-
-class _FakeLaunchStore:
-    def __init__(self, *launches: Launch) -> None:
-        self._launches = {launch.product_id: launch for launch in launches}
-
-    async def get_by_product_id(self, product_id: ProductId) -> Launch | None:
-        return self._launches.get(product_id)
-
-    async def save(self, launch: Launch) -> None:
-        self._launches[launch.product_id] = launch
-
-    async def list_all(self) -> tuple[Launch, ...]:
-        return tuple(self._launches.values())
-
-    async def all(self) -> tuple[Launch, ...]:
-        return await self.list_all()
-
-    async def list_launches(self) -> tuple[Launch, ...]:
-        return await self.list_all()
 
 
 # ---------------------------------------------------------------------------

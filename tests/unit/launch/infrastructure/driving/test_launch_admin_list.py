@@ -490,6 +490,11 @@ def _unresolvable_product_id() -> ProductId:
 # ---------------------------------------------------------------------------
 
 
+# KEPT LOCAL by `share-the-aggregate-fakes` (task 5.7). `order` is a seam a
+# test reverses directly (`launches.order.reverse()`), and `enumerations`
+# counts what each read handed over -- neither is on the shared store. The
+# lockstep pairing reported the reordering as a value mismatch, which is its
+# recorded limit 2: it intercepts calls, never attribute writes.
 class _FakeLaunchStore:
     """In-memory `LaunchStore`, answering to the enumeration spellings
     `test_launch_reports.py` records.

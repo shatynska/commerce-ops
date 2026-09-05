@@ -113,7 +113,7 @@ from commerce_ops.launch.domain.launch_playbook import (
 from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
-from tests.support.fakes import FakeMembers
+from tests.support.fakes import FakeLaunches, FakeMembers
 from tests.support.fixtures import (
     ALICE,
     ALICE_NAME,
@@ -280,15 +280,11 @@ class _FakeResults:
         return self.rows[0]
 
 
-class _FakeLaunches:
+class _FakeLaunches(FakeLaunches):
+    """The shared launch store, adapted to this file's own surface."""
+
     def __init__(self, launch: Launch) -> None:
-        self._launch = launch
-
-    async def get_by_product_id(self, product_id: ProductId) -> Launch | None:
-        return self._launch if product_id == self._launch.product_id else None
-
-    async def list_active(self) -> list[Launch]:
-        return [self._launch]
+        super().__init__(launch)
 
 
 class _RecordingOutcomes:

@@ -86,6 +86,7 @@ from commerce_ops.launch.domain.launch_run import (
 from commerce_ops.shared.domain.access_scope import AccessScope
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
+from tests.support.fakes import FakeLaunches as _FakeLaunchStore
 from tests.support.fakes import FakePlaybooks as _FakePlaybooks
 from tests.support.playbook import CONFIRMATION_GATES
 from tests.support.playbook import playbook as _build_playbook
@@ -185,28 +186,6 @@ def _advance_to(launch: Launch, playbook: LaunchPlaybook, gate: str) -> Launch:
 # ---------------------------------------------------------------------------
 # Ports
 # ---------------------------------------------------------------------------
-
-
-class _FakeLaunchStore:
-    def __init__(self, *launches: Launch) -> None:
-        self._launches = {launch.product_id: launch for launch in launches}
-
-    async def get_by_product_id(
-        self, product_id: ProductId, *_args: Any, **_kwargs: Any
-    ) -> Launch | None:
-        return self._launches.get(product_id)
-
-    async def save(self, launch: Launch) -> None:
-        self._launches[launch.product_id] = launch
-
-    async def list_all(self, *_args: Any, **_kwargs: Any) -> tuple[Launch, ...]:
-        return tuple(self._launches.values())
-
-    async def all(self, *args: Any, **kwargs: Any) -> tuple[Launch, ...]:
-        return await self.list_all(*args, **kwargs)
-
-    async def list_launches(self, *args: Any, **kwargs: Any) -> tuple[Launch, ...]:
-        return await self.list_all(*args, **kwargs)
 
 
 # ---------------------------------------------------------------------------

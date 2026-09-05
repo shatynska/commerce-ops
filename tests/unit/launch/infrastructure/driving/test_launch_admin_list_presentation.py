@@ -167,6 +167,7 @@ from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
 from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
 from tests.support.admin import fake_verify
 from tests.support.fakes import FakeCatalogPort as _Catalog
+from tests.support.fakes import FakeLaunches as _FakeLaunchStore
 from tests.support.fakes import FakeMembersStore as _FakeMembersStore
 from tests.support.fakes import FakePlaybooks, StubDate
 from tests.support.fixtures import MARKETPLACE
@@ -428,33 +429,6 @@ def _unresolvable_product_id() -> ProductId:
 # ---------------------------------------------------------------------------
 # Ports
 # ---------------------------------------------------------------------------
-
-
-class _FakeLaunchStore:
-    def __init__(self, *launches: Launch) -> None:
-        self.order: list[Launch] = list(launches)
-        self.enumerations: list[int] = []
-
-    async def get_by_product_id(
-        self, product_id: ProductId, *_args: Any, **_kwargs: Any
-    ) -> Launch | None:
-        for launch in self.order:
-            if launch.product_id == product_id:
-                return launch
-        return None
-
-    async def save(self, launch: Launch) -> None:  # pragma: no cover - unused
-        self.order.append(launch)
-
-    async def list_all(self, *_args: Any, **_kwargs: Any) -> tuple[Launch, ...]:
-        self.enumerations.append(len(self.order))
-        return tuple(self.order)
-
-    async def all(self, *args: Any, **kwargs: Any) -> tuple[Launch, ...]:
-        return await self.list_all(*args, **kwargs)
-
-    async def list_launches(self, *args: Any, **kwargs: Any) -> tuple[Launch, ...]:
-        return await self.list_all(*args, **kwargs)
 
 
 class _FakePlaybooks(FakePlaybooks):

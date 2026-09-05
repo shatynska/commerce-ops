@@ -168,6 +168,7 @@ from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
 from commerce_ops.shared.infrastructure.driven import clickup_client
+from tests.support.fakes import FakeLaunches
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
 from tests.support.steps import hold as _build_hold
@@ -652,18 +653,20 @@ class _FakeSession:
         return None
 
 
-class _FakeLaunches:
+class _FakeLaunches(FakeLaunches):
+    """The shared launch store, adapted: this file reads it through its
+    own helper. The helpers are rewritten against the shared list, since
+    every local kept its launches in a dict keyed by identifier."""
+
     def __init__(self, launches: tuple[Launch, ...]) -> None:
-        self._launches = launches
-
-    async def list_active(self) -> tuple[Launch, ...]:
-        return self._launches
-
-    active = list_active
-    all_active = list_active
+        super().__init__(*launches)
 
     async def __call__(self, *args: Any, **kwargs: Any) -> tuple[Launch, ...]:
-        return self._launches
+        return tuple(self.launches)
+
+    active = FakeLaunches.list_active
+
+    all_active = FakeLaunches.list_active
 
 
 # ---------------------------------------------------------------------------

@@ -99,6 +99,7 @@ from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.launch.infrastructure.driven.clickup_sync import reconcile_launch
 from commerce_ops.launch.infrastructure.driving import clickup_webhook as webhook_module
 from commerce_ops.shared.domain.identity import ProductId
+from tests.support.fakes import FakeLaunches
 from tests.support.fixtures import LAUNCH_DATE, product_id
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
@@ -321,14 +322,11 @@ class _FakeClickUp:
         return [task for task in self.tasks.values() if task.list_id == list_id]
 
 
-class _FakeLaunches:
-    def __init__(self, launch: Launch) -> None:
-        self._launch = launch
+class _FakeLaunches(FakeLaunches):
+    """The shared launch store, adapted to this file's own surface."""
 
-    async def get_by_product_id(self, product_id: ProductId) -> Launch | None:
-        if product_id == self._launch.product_id:
-            return self._launch
-        return None
+    def __init__(self, launch: Launch) -> None:
+        super().__init__(launch)
 
 
 class _RecordingOutcomes:
