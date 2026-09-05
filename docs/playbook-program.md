@@ -613,9 +613,11 @@ is. Those below survive.
 Three entries in `docs/proposed-change-order.md` touch launch infrastructure
 this program rewrites: `defer-eager-clickup-convergence`,
 `unify-launch-adapter-dependencies` and `unify-the-launch-advisory-locks`.
-Two of them are in flight now. `share-the-unit-test-harness` is already marked
-*last* there because it touches nearly every test file; this program touches
-many of the same ones.
+Two of them are in flight now. The shared-test-harness thread that used to sit
+*last* in that queue — because it touched nearly every test file — finished on
+2026-09-05 with `share-the-aggregate-fakes`, so it is no longer a conflict this
+program has to sequence around. What it leaves behind is the opposite of one:
+the doubles this program's own tests will arrange from are already shared.
 
 Land the queue's launch-infrastructure entries **before** Change 5, or accept
 rebasing them onto a re-keyed `launch_positions`.

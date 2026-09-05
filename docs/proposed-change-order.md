@@ -1,17 +1,18 @@
 # Proposed change order
 
 **Status: working queue.** Eight changes were proposed on 2026-09-01 from a
-review of the work merged between 2026-08-28 and 2026-09-01. **Three remain**,
-one of which was not among the eight. `restore-the-skipped-unit-tests` and
-`fix-launch-thread-mentions` were implemented and archived on 2026-09-01, and
+review of the work merged between 2026-08-28 and 2026-09-01. **Two remain**,
+and both were among the eight. `restore-the-skipped-unit-tests` and
+`fix-launch-thread-mentions` were implemented and archived on 2026-09-01,
 `await-the-subcategory-advisors-graph` and `inject-the-thread-anchor-poster`
-on 2026-09-02, and `share-the-unit-test-harness` and its first follow-up
-`share-the-value-doubles` and `share-the-stateful-fakes` on 2026-09-04; all
-seven entries were deleted, per the rule below. `share-the-aggregate-fakes` is
-what that last one left behind and is the entry here that the 2026-09-01 review
-did not produce; **it is the one entry with no `proposal.md` yet**, and it is
-recorded anyway because the ordering constraint on it is real and lives nowhere
-else. The others exist as a `proposal.md` on their own branch and are
+on 2026-09-02, `share-the-unit-test-harness` and its follow-ups
+`share-the-value-doubles` and `share-the-stateful-fakes` on 2026-09-04, and
+`share-the-playbook-builders` and `share-the-aggregate-fakes` on 2026-09-05;
+all nine entries were deleted, per the rule below. **The harness thread is
+finished**: `share-the-aggregate-fakes` was the entry the 2026-09-01 review did
+not produce, recorded here because its ordering constraint lived nowhere else,
+and it archived on 2026-09-05 having taken 115 of 124 declarations. Both
+remaining entries exist as a `proposal.md` on their own branch and are
 unimplemented — except where one is in flight, which this file does not track,
 since a queue that also tracked progress would need updating twice. This document records the order
 they should be worked in and the dependencies between them, because that
@@ -65,67 +66,7 @@ so "these must not collide" is checkable by reading four lines.
 `defer-eager-clickup-convergence`, which changes how long the advance lock is
 held and by which process.
 
-## 3. `share-the-aggregate-fakes` (not yet proposed)
-
-**The third slice, and it has no proposal yet.**
-`share-the-stateful-fakes` (2026-09-04) took nine names — 175 of 191
-declarations across 103 files — and left **291 of the 482 declarations in the 27
-recurring names** untouched. The largest group is the launch, playbook and
-catalog stores: `_FakePlaybooks` 32, `_FakeLaunches` 32, `_FakeCatalog` 29,
-`_FakeLaunchStore` 26, `_FakePlaybookRepository` 10.
-
-**That prerequisite is now met.** They were blocked on the rule that ordered the
-first two slices — share the base before the composer — because each returns a
-per-file aggregate built by a local `_playbook()` or `_hold()` helper.
-`share-the-playbook-builders` (2026-09-04) took those: **`_hold` is 104 of 104
-and `_playbook` 84 of 95.**
-
-**Two corrections to what this entry used to say**, both measured while doing
-that work.
-
-The blocker was overstated. "A shared store would have to be told what to serve"
-reads as a coupling that mostly is not there: **26 of the 32 `_FakePlaybooks`
-take the playbook as a constructor argument** (17 `__init__(playbook)`, 6 with a
-default, 3 also taking a refusal), and the other 6 return a module constant. A
-shared store is told what to serve by being handed it, which is a parameter, not
-a blocker. What was genuinely ordered behind the builders is the *value* those
-call sites hand in, not the store's shape.
-
-And the proof splits, which is the thing to know before planning this.
-**It splits by what each store *serves*, not by the store:**
-
-| store | decls | serves | `==` |
-|---|---|---|---|
-| `_FakePlaybooks` | 32 | `LaunchPlaybook` | **structural** |
-| `_FakePlaybookRepository` | 10 | `LaunchPlaybook` | **structural** |
-| `_FakeCatalog` | 29 | `CatalogProduct` (22 of 32 returns), `Product` | **structural** where it is the shared value double |
-| `_FakeLaunches` | 32 | `Launch` | identity |
-| `_FakeLaunchStore` | 26 | `Launch` | identity |
-
-`LaunchPlaybook` and `StepDefinition` are `@dataclass(frozen=True, slots=True)`
-and `tests/support/values.py::CatalogProduct` is `frozen=True`, so those
-comparisons are real. **`Launch` and `Product` are plain aggregate roots
-defining no `__eq__`**, so for the 58 `Launch`-serving declarations `==` is
-identity and the strong proof is inexpressible exactly as it was for
-`share-the-stateful-fakes`.
-
-So this slice needs *both* instruments, and should say at each declaration
-which one it is using. An earlier draft of this entry claimed the strong proof
-reached all of them; it was written from `_FakePlaybooks` alone and was wrong
-for 58 of the 129.
-
-That rule was tested rather than assumed, and it held: of the 175 migrated
-declarations, the one whose lockstep pairing failed for a leaf reason —
-`test_launch_report_step_facts.py` — is the one file that kept its own `_Record`
-instead of the shared one.
-
-`tests/unit/support/` already exists, with 52 tests, so this slice inherits a
-place for contract tests rather than an argument about whether they belong.
-
-**Conflict-prone**, like both predecessors: it will touch many test files, so it
-does not run concurrently with anything else that edits `tests/` broadly.
-
-## 4. `unify-launch-adapter-dependencies`
+## 3. `unify-launch-adapter-dependencies`
 
 One dependencies object per process, replacing 11 mutable module globals, 5
 verbatim copies of `_launch_folder_id`, and 6 of `_read_product_or_fail`
@@ -136,11 +77,20 @@ those globals outright by moving convergence off the four request-path
 adapters. Re-scope it on arrival rather
 than executing it as written.
 
-**No longer waits on the fakes.** `share-the-stateful-fakes` merged on
-2026-09-04 — its own archive is a later PR, per `AGENTS.md` — so both halves of
-its warrant are now met as far as sharing doubles can meet them. What remains
-open is stated in the cautions below and is this change's own mutation work,
-not another slice's.
+**The fakes thread is closed.** `share-the-aggregate-fakes` archived on
+2026-09-05, finishing the harness: every recurring double in the suite is now
+shared or is a recorded keep. What remains open is stated in the cautions below
+and is this change's own mutation work, not another slice's.
+
+**That slice also did some of this one's measuring.** Re-taken at its landing
+commit, `src/` carries **no `getattr` name-probe, no `hasattr`, no
+`except AttributeError` and no `except TypeError`** over a launch store, a
+playbook store or a product reader; `callable()` appears at exactly four sites
+(`clickup_sync.py:134`, `activation_readiness.py:154` and `:184`,
+`playbook_authoring.py:391`), all four over `members` or `names`. That is the
+probe surface this change narrows, measured rather than recalled — but re-take
+it on arrival, because every spelling-based sweep of this ground has come back
+stale, this one included.
 
 The member-identifier half of its warrant is already met.
 `share-the-value-doubles` (archived 2026-09-04) gave all 52 member doubles an
