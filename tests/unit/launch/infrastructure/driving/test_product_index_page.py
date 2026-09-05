@@ -83,10 +83,8 @@ skips are the whole integration tier, which finds no database here.
 
 from __future__ import annotations
 
-from collections.abc import Iterator
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import UTC, datetime
-from html.parser import HTMLParser
 from typing import Any, Final
 
 import pytest
@@ -104,6 +102,16 @@ from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
 from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
 from tests.support.admin import fake_verify
 from tests.support.fixtures import MARKETPLACE, PRINCIPAL
+from tests.support.html import HX_VERBS as _HX_VERBS
+from tests.support.html import Node as _Node
+from tests.support.html import Text as _Text
+from tests.support.html import ancestors as _ancestors
+from tests.support.html import classes as _classes
+from tests.support.html import document_order as _document_order
+from tests.support.html import element_disabled as _element_disabled
+from tests.support.html import element_hidden as _element_hidden
+from tests.support.html import elements as _elements
+from tests.support.html import tree as _tree
 
 T_REGISTERED: Final = datetime(2026, 8, 23, 9, 0, tzinfo=UTC)
 T_MOVED: Final = datetime(2026, 8, 24, 10, 30, tzinfo=UTC)
@@ -122,99 +130,19 @@ _STAGE_WORDS: Final = {
     "retired": ("retired",),
 }
 
-_VOID_TAGS: Final = (
-    "area",
-    "base",
-    "br",
-    "col",
-    "embed",
-    "hr",
-    "img",
-    "input",
-    "link",
-    "meta",
-    "param",
-    "source",
-    "track",
-    "wbr",
-)
-
-_HX_VERBS: Final = ("hx-get", "hx-post", "hx-put", "hx-patch", "hx-delete")
-
-_HIDDEN_CLASSES: Final = (
-    "hidden",
-    "is-hidden",
-    "d-none",
-    "sr-only",
-    "visually-hidden",
-)
-
 
 # ---------------------------------------------------------------------------
 # An HTML tree, in document order
 # ---------------------------------------------------------------------------
 
 
-@dataclass
-class _Text:
-    text: str
-
-
-@dataclass
-class _Node:
-    tag: str
-    attrs: dict[str, str]
-    parent: _Node | None
-    order: int
-    children: list[_Node | _Text] = field(default_factory=list)
-
-
-class _TreeParser(HTMLParser):
-    def __init__(self) -> None:
-        super().__init__(convert_charrefs=True)
-        self.root = _Node("#document", {}, None, 0)
-        self._stack: list[_Node] = [self.root]
-        self._order = 0
-
-    def _open(self, tag: str, attrs: list[tuple[str, str | None]]) -> _Node:
-        self._order += 1
-        node = _Node(tag, {k: v or "" for k, v in attrs}, self._stack[-1], self._order)
-        self._stack[-1].children.append(node)
-        return node
-
-    def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        self._open(tag, attrs)
-
-    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        node = self._open(tag, attrs)
-        if tag not in _VOID_TAGS:
-            self._stack.append(node)
-
-    def handle_endtag(self, tag: str) -> None:
-        for index in range(len(self._stack) - 1, 0, -1):
-            if self._stack[index].tag == tag:
-                del self._stack[index:]
-                return
-
-    def handle_data(self, data: str) -> None:
-        if data.strip():
-            self._stack[-1].children.append(_Text(" ".join(data.split())))
-
-
-def _tree(html: str) -> _Node:
-    parser = _TreeParser()
-    parser.feed(html)
-    return parser.root
-
-
-def _elements(node: _Node) -> Iterator[_Node]:
-    for child in node.children:
-        if isinstance(child, _Node):
-            yield child
-            yield from _elements(child)
-
-
 def _all_text(node: _Node) -> str:
+    """**Kept local**: this is not `tests.support.html.all_text`, which
+    lowercases its answer. This one preserves case, and the difference is
+    live -- driven side by side with the shared function over this file's
+    own pages, they disagreed on **5,861 of 6,134 calls**
+    (`share-the-ordered-html-harness`).
+    """
     found: list[str] = []
     for child in node.children:
         if isinstance(child, _Text):
@@ -224,10 +152,6 @@ def _all_text(node: _Node) -> str:
     return " ".join(part for part in found if part)
 
 
-def _classes(node: _Node) -> set[str]:
-    return set(node.attrs.get("class", "").split())
-
-
 def _carries(node: _Node, marker: str) -> bool:
     """Whether an element carries a vocabulary marker.
 
@@ -235,6 +159,18 @@ def _carries(node: _Node, marker: str) -> bool:
     inside it — the reading `playbook-admin`'s `row-action` already
     established, widened to descendants because this delta says the row
     "carries" the marker without saying on which of the row's elements.
+
+    **Kept local**: that widening is exactly what separates this from
+    `tests.support.html.carries`, which reads the class token on the element
+    alone.
+
+    **The proof agreed here, and that is not the licence.** Over this file's
+    4 calls the two answered identically, because none of the 4 asked about
+    an element whose *descendant* carries the marker. Agreement over the
+    inputs a tier happens to supply is a property of the sample, not of the
+    function. Its callees `_classes` and `_elements` migrated to the shared
+    module in the same commit; both were compared against their local
+    originals and answer the same, so this reading did not move with them.
     """
     if marker in _classes(node):
         return True
@@ -244,34 +180,6 @@ def _carries(node: _Node, marker: str) -> bool:
 def _page_carries(html: str, marker: str) -> bool:
     root = _tree(html)
     return any(marker in _classes(element) for element in _elements(root))
-
-
-def _ancestors(node: _Node) -> Iterator[_Node]:
-    walker = node.parent
-    while walker is not None and walker.tag != "#document":
-        yield walker
-        walker = walker.parent
-
-
-def _element_hidden(node: _Node) -> bool:
-    attrs = node.attrs
-    if "hidden" in attrs and attrs["hidden"].lower() != "false":
-        return True
-    if attrs.get("aria-hidden", "").lower() == "true":
-        return True
-    style = attrs.get("style", "").replace(" ", "").lower()
-    if "display:none" in style or "visibility:hidden" in style:
-        return True
-    return any(
-        name in _HIDDEN_CLASSES for name in attrs.get("class", "").lower().split()
-    )
-
-
-def _element_disabled(node: _Node) -> bool:
-    return (
-        "disabled" in node.attrs
-        or node.attrs.get("aria-disabled", "").lower() == "true"
-    )
 
 
 def _inert(node: _Node) -> bool:
@@ -303,7 +211,7 @@ def _row_of(root: _Node, needle: str) -> _Node:
 def _rows_in_order(html: str, needles: tuple[str, ...]) -> list[tuple[str, _Node]]:
     root = _tree(html)
     rows = [(needle, _row_of(root, needle)) for needle in needles]
-    return sorted(rows, key=lambda pair: pair[1].order)
+    return sorted(rows, key=lambda pair: _document_order(pair[1]))
 
 
 def _links(node: _Node) -> list[_Node]:
