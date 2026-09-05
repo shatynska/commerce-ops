@@ -113,9 +113,7 @@ included (2026-08-26).
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterator
-from dataclasses import dataclass, field
-from html.parser import HTMLParser
+from dataclasses import dataclass
 from typing import Any, Final
 from urllib.parse import parse_qsl, urlencode, urljoin, urlsplit, urlunsplit
 
@@ -139,6 +137,18 @@ from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
 from tests.support.admin import fake_verify
 from tests.support.fakes import FakeMembers, FakeStepStore
 from tests.support.fixtures import ALICE, ALICE_NAME, BOHDAN, BOHDAN_NAME, PRINCIPAL
+from tests.support.html import HIDDEN_CLASSES as _HIDDEN_CLASSES
+from tests.support.html import HX_VERBS as _HX_VERBS
+from tests.support.html import Node as _Node
+from tests.support.html import Text as _Text
+from tests.support.html import carries as _carries
+from tests.support.html import classes as _classes
+from tests.support.html import element_disabled as _element_disabled
+from tests.support.html import elements as _elements
+from tests.support.html import flat as _flat
+from tests.support.html import inherited as _inherited
+from tests.support.html import nearest as _nearest
+from tests.support.html import tree as _tree
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.steps import step as _build_step
 from tests.support.values import Member as _Member
@@ -171,32 +181,6 @@ _A_HANDLER: Final = "no.such.registered.use-case"
 CHRIS_DEPARTED: Final = "prs_01HQ8Z6M4C"
 CHRIS_NAME: Final = "Chris Departed"
 
-_HIDDEN_CLASSES: Final = (
-    "hidden",
-    "is-hidden",
-    "d-none",
-    "sr-only",
-    "visually-hidden",
-)
-
-_VOID_TAGS: Final = (
-    "area",
-    "base",
-    "br",
-    "col",
-    "embed",
-    "hr",
-    "img",
-    "input",
-    "link",
-    "meta",
-    "param",
-    "source",
-    "track",
-    "wbr",
-)
-
-_HX_VERBS: Final = ("hx-get", "hx-post", "hx-put", "hx-patch", "hx-delete")
 
 #: The step every edit-surface test edits: active, human, non-blocking,
 #: and the middle of its gate's three active steps, so it offers the full
@@ -275,70 +259,6 @@ def _the_one_created(store: _FakeStepStore, before: set[str]) -> _Record:
 # ---------------------------------------------------------------------------
 
 
-@dataclass
-class _Text:
-    ordinal: int
-    text: str
-
-
-@dataclass
-class _Node:
-    tag: str
-    attrs: dict[str, str]
-    parent: _Node | None
-    children: list[_Node | _Text] = field(default_factory=list)
-
-
-class _TreeParser(HTMLParser):
-    """A forgiving tree builder: an unclosed tag is closed by whatever
-    end tag eventually matches an open ancestor, as the sibling admin
-    tests' parsers already do."""
-
-    def __init__(self) -> None:
-        super().__init__(convert_charrefs=True)
-        self.root = _Node("#document", {}, None)
-        self._stack: list[_Node] = [self.root]
-        self._ordinal = 0
-
-    def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        node = _Node(tag, {k: v or "" for k, v in attrs}, self._stack[-1])
-        self._stack[-1].children.append(node)
-
-    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        node = _Node(tag, {k: v or "" for k, v in attrs}, self._stack[-1])
-        self._stack[-1].children.append(node)
-        if tag not in _VOID_TAGS:
-            self._stack.append(node)
-
-    def handle_endtag(self, tag: str) -> None:
-        for index in range(len(self._stack) - 1, 0, -1):
-            if self._stack[index].tag == tag:
-                del self._stack[index:]
-                return
-
-    def handle_data(self, data: str) -> None:
-        if data.strip():
-            self._ordinal += 1
-            self._stack[-1].children.append(_Text(self._ordinal, _flat(data)))
-
-
-def _flat(text: str) -> str:
-    return " ".join(text.split())
-
-
-def _tree(html: str) -> _Node:
-    parser = _TreeParser()
-    parser.feed(html)
-    return parser.root
-
-
-def _elements(node: _Node) -> Iterator[_Node]:
-    for child in node.children:
-        if isinstance(child, _Node):
-            yield child
-            yield from _elements(child)
-
-
 def _is_control(node: _Node) -> bool:
     """A named control a member types into or chooses from."""
     name = node.attrs.get("name")
@@ -371,7 +291,17 @@ def _region_of(control: _Node) -> _Node:
 def _texts(node: _Node) -> list[_Text]:
     """Every text fragment in this subtree, never descending into a
     control: a `<select>`'s option labels and a `<textarea>`'s contents
-    are submitted values, not something the surface says."""
+    are submitted values, not something the surface says.
+
+    **Kept local**: `tests.support.html.texts` descends into everything.
+
+    **The proof could not see the difference, and it is worth knowing why.**
+    Over 163 calls the two answered identically -- and 4 of those 163 did
+    pass a subtree containing a control, so the skipping branch *executed*
+    and still did not reach the result, because those controls held no text
+    runs. "The proof exercised that branch" is therefore not a licence
+    either. Only the body separates this from the shared function.
+    """
     found: list[_Text] = []
     for child in node.children:
         if isinstance(child, _Text):
@@ -383,7 +313,16 @@ def _texts(node: _Node) -> list[_Text]:
 
 def _all_text(node: _Node) -> str:
     """Every text fragment in this subtree, controls included — used only
-    to recognise which step a region is about."""
+    to recognise which step a region is about.
+
+    **Kept local**: `tests.support.html.all_text` lowercases its answer;
+    this one preserves case.
+
+    **Nothing executes it**: it recorded **0 calls**, its one call site
+    sitting in a function the tier never reaches. So the keep rests on the
+    body, not on a measurement -- a declaration nothing executes reports
+    zero, never pass.
+    """
     found: list[str] = []
     for child in node.children:
         if isinstance(child, _Text):
@@ -393,23 +332,15 @@ def _all_text(node: _Node) -> str:
     return " ".join(part for part in found if part)
 
 
-def _classes(node: _Node) -> set[str]:
-    return set(node.attrs.get("class", "").split())
-
-
-def _carries(node: _Node, marker: str) -> bool:
-    """Whether an element carries a vocabulary marker.
-
-    INVENTED: read as a class token, per `design.md` — *Actions become
-    one row of same-weight controls, marked in the response*, which
-    fixes `class="row-action"` and `class="row-action danger"`. The
-    delta itself says only "marker". Correction point for a page that
-    marks some other way.
-    """
-    return marker in _classes(node)
-
-
 def _element_hidden(node: _Node) -> bool:
+    """**Kept local**: `tests.support.html.element_hidden` stops at the
+    `hidden` attribute, `aria-hidden`, an inline style and a hidden class.
+    This one adds `<input type="hidden">`, which this file needs because a
+    hidden input is how the authoring form carries a value it does not show.
+
+    The difference is live but thin: **12 disagreements over 1,475 calls**
+    (`share-the-ordered-html-harness`).
+    """
     attrs = node.attrs
     if "hidden" in attrs and attrs["hidden"].lower() != "false":
         return True
@@ -421,33 +352,6 @@ def _element_hidden(node: _Node) -> bool:
     if any(name in _HIDDEN_CLASSES for name in attrs.get("class", "").lower().split()):
         return True
     return node.tag == "input" and attrs.get("type", "").lower() == "hidden"
-
-
-def _element_disabled(node: _Node) -> bool:
-    return (
-        "disabled" in node.attrs
-        or node.attrs.get("aria-disabled", "").lower() == "true"
-    )
-
-
-def _inherited(node: _Node, predicate: Callable[[_Node], bool]) -> bool:
-    walker: _Node | None = node
-    while walker is not None and walker.tag != "#document":
-        if predicate(walker):
-            return True
-        walker = walker.parent
-    return False
-
-
-def _ancestors(node: _Node) -> Iterator[_Node]:
-    walker = node.parent
-    while walker is not None and walker.tag != "#document":
-        yield walker
-        walker = walker.parent
-
-
-def _nearest(node: _Node, tag: str) -> _Node | None:
-    return next((a for a in _ancestors(node) if a.tag == tag), None)
 
 
 # ---------------------------------------------------------------------------
