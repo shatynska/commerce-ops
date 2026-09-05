@@ -75,7 +75,6 @@ from commerce_ops.launch.domain.launch_playbook import (
     Satisfied,
     StepDefinition,
     StepKind,
-    StepStatus,
 )
 from commerce_ops.launch.domain.launch_run import (
     ApprovalDecision,
@@ -89,6 +88,7 @@ from commerce_ops.shared.domain.identity import ProductId, Sku
 from commerce_ops.shared.domain.lifecycle_stage import Launching
 from tests.support.playbook import CONFIRMATION_GATES
 from tests.support.playbook import playbook as _build_playbook
+from tests.support.steps import hold as _build_hold
 from tests.support.steps import step as _build_step
 
 pytestmark = pytest.mark.anyio
@@ -132,13 +132,12 @@ def _hold(gate: str) -> StepDefinition:
     steps leave unheld. Automated with a decided rule so no other
     coherence rule fires, and anchored a year after launch so a filler is
     never the overdue step a briefing item is about."""
-    return _step(
-        identifier=f"hold.{gate}",
-        gate=gate,
-        blocking=True,
-        kind=StepKind.AUTOMATED,
-        status=StepStatus.ACTIVE,
+    return _build_hold(
+        gate,
+        discipline=Discipline("listing"),
         handler="fixture.holding_check",
+        kind=StepKind.AUTOMATED,
+        name="Work this step asks for",
         timing_anchor=OffsetAnchor(days=365),
     )
 

@@ -150,7 +150,7 @@ from tests.support.fakes import FakeCatalogPort as _Catalog
 from tests.support.fakes import FakeMembersStore as _FakeMembersStore
 from tests.support.fakes import StubDate
 from tests.support.fixtures import MARKETPLACE
-from tests.support.playbook import gates as _gates
+from tests.support.playbook import playbook as _build_playbook
 
 # ---------------------------------------------------------------------------
 # Fixed vocabulary and DERIVED fixture values
@@ -216,10 +216,10 @@ def _step(identifier: str, **overrides: Any) -> StepDefinition:
 
 
 def _playbook() -> LaunchPlaybook:
-    return LaunchPlaybook(
+    return _build_playbook(
+        _step("strategy.commitment-agreed"),
         version="breadcrumb-v1",
-        gates=_gates(),
-        steps=(_step("strategy.commitment-agreed"),),
+        fill_unheld=False,
     )
 
 

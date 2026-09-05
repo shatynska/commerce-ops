@@ -167,6 +167,7 @@ from tests.support.fixtures import (
 )
 from tests.support.playbook import CONFIRMATION_GATES
 from tests.support.playbook import playbook as _build_playbook
+from tests.support.steps import hold as _build_hold
 from tests.support.steps import step as _build_step
 from tests.support.values import CatalogProduct as _CatalogProduct
 from tests.support.values import CreatedTask as _CreatedTask
@@ -236,15 +237,11 @@ def _hold(gate: str) -> StepDefinition:
     Automated, so no filler is ever projected and every task assertion
     below is about the test's own steps.
     """
-    return _step(
-        identifier=f"hold.{gate}",
-        name=f"Blocking work holding the {gate} gate",
-        gate=gate,
-        blocking=True,
-        kind=StepKind.AUTOMATED,
-        status=StepStatus.ACTIVE,
-        assignees=(),
+    return _build_hold(
+        gate,
+        discipline=Discipline.LISTING,
         handler=f"hold.{gate.replace('-', '_')}",
+        kind=StepKind.AUTOMATED,
     )
 
 

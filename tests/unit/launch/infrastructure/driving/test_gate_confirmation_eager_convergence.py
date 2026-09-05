@@ -79,26 +79,21 @@ from typing import Any, Final
 import pytest
 
 from commerce_ops.launch.domain.launch_playbook import (
-    Gate,
-    Hazard,
     LaunchPlaybook,
     OffsetAnchor,
     Satisfied,
-    Scope,
     StepDefinition,
     StepKind,
-    StepStatus,
 )
 from commerce_ops.launch.domain.launch_run import (
     GateBlockedError,
     Launch,
     Provenance,
 )
-from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
 from tests.support.fixtures import ALICE, product_id
-from tests.support.playbook import SPECIFIED_GATE_ORDER
-from tests.support.playbook import opening_for as _opening_for
+from tests.support.playbook import playbook as _build_playbook
+from tests.support.steps import hold as _build_hold
 from tests.support.values import MemberValue as _Member
 
 pytestmark = pytest.mark.anyio
@@ -137,33 +132,18 @@ def anyio_backend() -> str:
 
 
 def _hold(gate: str) -> StepDefinition:
-    return StepDefinition(
-        identifier=f"hold.{gate}",
-        name=f"Blocking work holding the {gate} gate",
-        description=None,
-        gate=gate,
-        discipline=next(iter(Discipline)),
-        scope=Scope.PRODUCT,
-        timing_anchor=OffsetAnchor(days=0),
-        blocking=True,
-        kind=StepKind.AUTOMATED,
-        status=StepStatus.ACTIVE,
-        hazard=Hazard.NONE,
-        assignees=(),
+    return _build_hold(
+        gate,
         handler="fixture.holding_check",
-        provenance=None,
+        kind=StepKind.AUTOMATED,
+        timing_anchor=OffsetAnchor(days=0),
     )
 
 
 def _playbook() -> LaunchPlaybook:
-    gates = tuple(
-        Gate(identifier=identifier, position=position, opening=_opening_for(identifier))
-        for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1)
-    )
-    return LaunchPlaybook(
+    return _build_playbook(
         version="progression-v1",
-        gates=gates,
-        steps=tuple(_hold(gate) for gate in SPECIFIED_GATE_ORDER),
+        filler=_hold,
     )
 
 

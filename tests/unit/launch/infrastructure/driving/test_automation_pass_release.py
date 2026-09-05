@@ -93,8 +93,9 @@ from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
 from tests.support.fakes import FakeHandlers as _FakeHandlers
 from tests.support.fixtures import HANDLER_NAME, PRODUCT_NAME, PRODUCT_SKU, product_id
-from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
-from tests.support.playbook import gates as _gates
+from tests.support.playbook import CONFIRMATION_GATES
+from tests.support.playbook import playbook as _build_playbook
+from tests.support.steps import hold as _build_hold
 from tests.support.steps import step as _build_step
 from tests.support.values import CatalogProduct as _CatalogProduct
 
@@ -155,20 +156,16 @@ def _hold(gate: str) -> StepDefinition:
     `automated` filler would itself be a candidate for invocation and
     would contaminate every assertion about which handlers the pass
     reached."""
-    return _step(
-        identifier=f"hold.{gate}",
-        name=f"Blocking work holding the {gate} gate",
-        gate=gate,
-        blocking=True,
-        kind=StepKind.HUMAN,
+    return _build_hold(
+        gate,
     )
 
 
 def _playbook(*steps: StepDefinition) -> LaunchPlaybook:
-    held = {step.gate for step in steps if step.blocking}
-    fillers = tuple(_hold(gate) for gate in SPECIFIED_GATE_ORDER if gate not in held)
-    return LaunchPlaybook(
-        version="release-v1", gates=_gates(), steps=(*steps, *fillers)
+    return _build_playbook(
+        *steps,
+        version="release-v1",
+        filler=_hold,
     )
 
 

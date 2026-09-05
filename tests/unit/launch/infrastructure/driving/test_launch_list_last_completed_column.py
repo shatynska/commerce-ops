@@ -167,7 +167,8 @@ from tests.support.html import flat as _flat
 from tests.support.html import size as _size
 from tests.support.html import tree as _tree
 from tests.support.playbook import SPECIFIED_GATE_ORDER
-from tests.support.playbook import gates as _gates
+from tests.support.playbook import playbook as _build_playbook
+from tests.support.steps import hold as _build_hold
 
 # ---------------------------------------------------------------------------
 # The module under test, resolved by name
@@ -291,32 +292,36 @@ def _hold(gate: str) -> StepDefinition:
     named steps below changes nothing the list orders or bands by. That
     isolation is what the last scenario in this file rests on.
     """
-    return _step(
-        identifier=f"hold.{gate}",
-        name=f"Blocking work holding the {gate} gate",
-        gate=gate,
-        blocking=True,
-        kind=StepKind.AUTOMATED,
+    return _build_hold(
+        gate,
+        discipline=LISTING,
         handler="fixture.holding_check",
+        kind=StepKind.AUTOMATED,
+        timing_anchor=OffsetAnchor(days=365),
     )
 
 
 def _playbook() -> LaunchPlaybook:
-    named = (
-        _step(COPY_STEP),
-        _step(IMAGES_STEP),
-        _step(UNITS_STEP, discipline=INVENTORY),
-        _step(BRIEF_STEP),
-        _step(PROHIBITED_STEP, hazard=Hazard.PROHIBITED_TACTIC),
+    unordered = (
+        *(
+            _step(COPY_STEP),
+            _step(IMAGES_STEP),
+            _step(UNITS_STEP, discipline=INVENTORY),
+            _step(BRIEF_STEP),
+            _step(PROHIBITED_STEP, hazard=Hazard.PROHIBITED_TACTIC),
+        ),
+        *tuple(_hold(gate) for gate in SPECIFIED_GATE_ORDER),
     )
-    holds = tuple(_hold(gate) for gate in SPECIFIED_GATE_ORDER)
-    ordered = tuple(
-        step
-        for gate in SPECIFIED_GATE_ORDER
-        for step in (*named, *holds)
-        if step.gate == gate
+    return _build_playbook(
+        *(
+            step
+            for gate in SPECIFIED_GATE_ORDER
+            for step in unordered
+            if step.gate == gate
+        ),
+        version="last-completed-v1",
+        filler=_hold,
     )
-    return LaunchPlaybook(version="last-completed-v1", gates=_gates(), steps=ordered)
 
 
 PLAYBOOK: Final = _playbook()

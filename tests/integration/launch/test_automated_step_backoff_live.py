@@ -54,6 +54,7 @@ from commerce_ops.launch.infrastructure.driven.automated_step_backoff import (
 from commerce_ops.launch.infrastructure.driven.launch_repository import LaunchRepository
 from commerce_ops.shared.domain.identity import MarketplaceId, ProductId, Sku
 from tests.support.playbook import CONFIRMATION_GATES
+from tests.support.playbook import playbook as _build_playbook
 
 pytestmark = pytest.mark.anyio
 
@@ -96,7 +97,7 @@ def sessions(engine: AsyncEngine) -> async_sessionmaker[AsyncSession]:
 
 
 def _playbook() -> LaunchPlaybook:
-    return LaunchPlaybook(
+    return _build_playbook(
         version="backoff-live-v1",
         gates=tuple(
             Gate(
@@ -110,7 +111,7 @@ def _playbook() -> LaunchPlaybook:
             )
             for index, name in enumerate(GATES, start=1)
         ),
-        steps=(),
+        fill_unheld=False,
     )
 
 

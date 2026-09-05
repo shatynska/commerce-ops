@@ -107,6 +107,7 @@ from tests.support.fixtures import (
     product_id,
 )
 from tests.support.playbook import playbook as _build_playbook
+from tests.support.steps import hold as _build_hold
 from tests.support.steps import step as _build_step
 from tests.support.values import CatalogProduct as _CatalogProduct
 from tests.support.values import CreatedTask as _CreatedTask
@@ -147,14 +148,10 @@ def _step(**overrides: Any) -> StepDefinition:
 def _hold(gate: str) -> StepDefinition:
     """An `active` `automated` blocking filler, so no filler is ever
     projected and every assertion below is about the test's own steps."""
-    return _step(
-        identifier=f"hold.{gate}",
-        name=f"Blocking work holding the {gate} gate",
-        gate=gate,
-        blocking=True,
-        kind=StepKind.AUTOMATED,
-        status=StepStatus.ACTIVE,
+    return _build_hold(
+        gate,
         handler=f"hold.{gate.replace('-', '_')}",
+        kind=StepKind.AUTOMATED,
     )
 
 

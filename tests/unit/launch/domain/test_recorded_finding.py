@@ -122,8 +122,8 @@ from commerce_ops.launch.domain.launch_playbook import (
 from commerce_ops.launch.domain.launch_run import Launch, Provenance
 from commerce_ops.shared.domain.discipline import Discipline
 from tests.support.fixtures import STEP_ID, product_id
-from tests.support.playbook import SPECIFIED_GATE_ORDER
-from tests.support.playbook import gates as _gates
+from tests.support.playbook import playbook as _build_playbook
+from tests.support.steps import hold as _build_hold
 
 PRODUCT_ID: Final = product_id()
 WHEN: Final = datetime(2027, 1, 6, 9, 30, tzinfo=UTC)
@@ -174,21 +174,17 @@ def _step(identifier: str, **overrides: Any) -> StepDefinition:
 
 
 def _hold(gate: str) -> StepDefinition:
-    return _step(
-        f"hold.{gate}",
-        name=f"Blocking work holding the {gate} gate",
-        gate=gate,
-        blocking=True,
-        kind=StepKind.HUMAN,
+    return _build_hold(
+        gate,
         assignees=("prs_01HQ8Z6M4A",),
-        handler=None,
     )
 
 
 def _playbook() -> LaunchPlaybook:
-    fillers = tuple(_hold(gate) for gate in SPECIFIED_GATE_ORDER)
-    return LaunchPlaybook(
-        version="finding-v1", gates=_gates(), steps=(_step(STEP_ID), *fillers)
+    return _build_playbook(
+        _step(STEP_ID),
+        version="finding-v1",
+        filler=_hold,
     )
 
 

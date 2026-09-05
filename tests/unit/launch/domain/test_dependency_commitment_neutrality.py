@@ -102,7 +102,7 @@ from commerce_ops.launch.domain.launch_run import (
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
 from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
-from tests.support.playbook import gates as _gates
+from tests.support.playbook import playbook as _build_playbook
 from tests.support.steps import hold as _build_hold
 from tests.support.steps import step as _build_step
 
@@ -151,28 +151,30 @@ def _playbook(*, declaring: bool) -> LaunchPlaybook:
     same steps, at the same gates, with the same blocking flags, saying
     nothing about what they wait on.
     """
-    waits: tuple[str, ...] = (DEPENDENCY,) if declaring else ()
-    steps = (
-        _step(
-            identifier=DEPENDENCY,
-            name="The work the declarers build on",
-            gate=GATE,
-            blocking=False,
+    return _build_playbook(
+        *(
+            _step(
+                identifier=DEPENDENCY,
+                name="The work the declarers build on",
+                gate=GATE,
+                blocking=False,
+            ),
+            _step(
+                identifier=BLOCKING_DECLARER,
+                gate=GATE,
+                blocking=True,
+                after_steps=(DEPENDENCY,) if declaring else (),
+            ),
+            _step(
+                identifier=NON_BLOCKING_DECLARER,
+                name="Work that follows the photos",
+                gate=GATE,
+                blocking=False,
+                after_steps=(DEPENDENCY,) if declaring else (),
+            ),
         ),
-        _step(
-            identifier=BLOCKING_DECLARER, gate=GATE, blocking=True, after_steps=waits
-        ),
-        _step(
-            identifier=NON_BLOCKING_DECLARER,
-            name="Work that follows the photos",
-            gate=GATE,
-            blocking=False,
-            after_steps=waits,
-        ),
-    )
-    fillers = tuple(_hold(gate) for gate in SPECIFIED_GATE_ORDER if gate != GATE)
-    return LaunchPlaybook(
-        version="dependency-neutrality-v1", gates=_gates(), steps=(*steps, *fillers)
+        version="dependency-neutrality-v1",
+        filler=_hold,
     )
 
 

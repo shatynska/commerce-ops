@@ -98,7 +98,6 @@ from commerce_ops.launch.application import (
 )
 from commerce_ops.launch.domain.launch_playbook import (
     Blocked,
-    Gate,
     InProgress,
     LaunchPlaybook,
     Satisfied,
@@ -118,7 +117,8 @@ from commerce_ops.shared.domain.identity import MetricId, ProductId
 from commerce_ops.shared.domain.lifecycle_stage import Posture
 from tests.support.fixtures import product_id
 from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
-from tests.support.playbook import opening_for as _opening_for
+from tests.support.playbook import playbook as _build_playbook
+from tests.support.steps import hold as _build_hold
 from tests.support.steps import step as _build_step
 
 pytestmark = pytest.mark.anyio
@@ -242,13 +242,10 @@ def _step(**overrides: Any) -> StepDefinition:
 def _hold(gate: str) -> StepDefinition:
     """A blocking filler holding `gate` — the gate-holding floor forbids a
     coherent playbook with unheld gates."""
-    return _step(
-        identifier=f"hold.{gate}",
-        name=f"Blocking work holding the {gate} gate",
-        gate=gate,
-        blocking=True,
-        kind=StepKind.AUTOMATED,
+    return _build_hold(
+        gate,
         handler="fixture.holding_check",
+        kind=StepKind.AUTOMATED,
     )
 
 
@@ -260,19 +257,15 @@ def _playbook(
     """The eight gates, a metric condition on `stock-ready`, a blocking
     filler per gate, and one non-blocking tracked step whose name and
     lifecycle the label scenarios move."""
-    gates = tuple(
-        Gate(
-            identifier=identifier,
-            position=position,
-            opening=_opening_for(identifier),
-        )
-        for position, identifier in enumerate(SPECIFIED_GATE_ORDER, start=1)
+    return _build_playbook(
+        *(
+            *(_hold(gate) for gate in SPECIFIED_GATE_ORDER),
+            _step(name=tracked_name, status=tracked_status),
+        ),
+        version="journal-v1",
+        filler=_hold,
+        fillers_first=True,
     )
-    steps = (
-        *(_hold(gate) for gate in SPECIFIED_GATE_ORDER),
-        _step(name=tracked_name, status=tracked_status),
-    )
-    return LaunchPlaybook(version="journal-v1", gates=gates, steps=steps)
 
 
 def _provenance(**overrides: Any) -> Provenance:

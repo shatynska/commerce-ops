@@ -84,14 +84,11 @@ from typing import Any, Final
 import pytest
 
 from commerce_ops.launch.domain.launch_playbook import (
-    Hazard,
     LaunchPlaybook,
     OffsetAnchor,
     Satisfied,
-    Scope,
     StepDefinition,
     StepKind,
-    StepStatus,
 )
 from commerce_ops.launch.domain.launch_run import (
     ApprovalDecision,
@@ -99,11 +96,11 @@ from commerce_ops.launch.domain.launch_run import (
     Launch,
     Provenance,
 )
-from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import MetricId, ProductId
 from commerce_ops.shared.domain.lifecycle_stage import Posture
 from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
+from tests.support.steps import hold as _build_hold
 
 pytestmark = pytest.mark.anyio
 
@@ -142,24 +139,15 @@ def anyio_backend() -> str:
 
 
 def _hold(gate: str, **overrides: Any) -> StepDefinition:
-    attributes: dict[str, Any] = {
-        "identifier": f"hold.{gate}",
-        "name": f"Blocking work holding the {gate} gate",
-        "description": None,
-        "gate": gate,
-        "discipline": next(iter(Discipline)),
-        "scope": Scope.PRODUCT,
-        "timing_anchor": OffsetAnchor(days=0),
-        "blocking": True,
-        "kind": StepKind.AUTOMATED,
-        "status": StepStatus.ACTIVE,
-        "hazard": Hazard.NONE,
-        "assignees": (),
-        "handler": "fixture.holding_check",
-        "provenance": None,
-    }
-    attributes.update(overrides)
-    return StepDefinition(**attributes)
+    return _build_hold(
+        gate,
+        **{
+            "handler": "fixture.holding_check",
+            "kind": StepKind.AUTOMATED,
+            "timing_anchor": OffsetAnchor(days=0),
+            **overrides,
+        },
+    )
 
 
 def _ready_playbook() -> LaunchPlaybook:

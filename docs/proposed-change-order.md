@@ -74,19 +74,36 @@ recurring names** untouched. The largest group is the launch, playbook and
 catalog stores: `_FakePlaybooks` 32, `_FakeLaunches` 32, `_FakeCatalog` 29,
 `_FakeLaunchStore` 26, `_FakePlaybookRepository` 10.
 
-**They are blocked on the same rule that ordered the first two slices**: share
-the base before the composer. Each returns a per-file aggregate built by a local
-`_playbook()` or `_hold()` helper, of which `share-the-unit-test-harness`
-reproduced 13 of 95 and 31 of 104 — so a shared store would have to be told what
-to serve, at call sites the migration may not edit. **Sharing `_playbook()` and
-`_hold()` is the prerequisite, and no proposed change owns it.**
+**That prerequisite is now met.** They were blocked on the rule that ordered the
+first two slices — share the base before the composer — because each returns a
+per-file aggregate built by a local `_playbook()` or `_hold()` helper.
+`share-the-playbook-builders` (2026-09-04) took those: **`_hold` is 104 of 104
+and `_playbook` 84 of 95.**
+
+**Two corrections to what this entry used to say**, both measured while doing
+that work.
+
+The blocker was overstated. "A shared store would have to be told what to serve"
+reads as a coupling that mostly is not there: **26 of the 32 `_FakePlaybooks`
+take the playbook as a constructor argument** (17 `__init__(playbook)`, 6 with a
+default, 3 also taking a refusal), and the other 6 return a module constant. A
+shared store is told what to serve by being handed it, which is a parameter, not
+a blocker. What was genuinely ordered behind the builders is the *value* those
+call sites hand in, not the store's shape.
+
+And the proof available here is the strong one, not the weak one. What these
+stores hold is a `LaunchPlaybook` — `@dataclass(frozen=True, slots=True)` — so
+**their instance state is structurally comparable**, unlike the previous
+slice's fakes, whose `==` was identity and which needed the lockstep pairing as
+a substitute. Do not reach for that pairing here; it is strictly weaker and it
+was deleted.
 
 That rule was tested rather than assumed, and it held: of the 175 migrated
 declarations, the one whose lockstep pairing failed for a leaf reason —
 `test_launch_report_step_facts.py` — is the one file that kept its own `_Record`
 instead of the shared one.
 
-`tests/unit/support/` already exists, with 46 tests, so this slice inherits a
+`tests/unit/support/` already exists, with 52 tests, so this slice inherits a
 place for contract tests rather than an argument about whether they belong.
 
 **Conflict-prone**, like both predecessors: it will touch many test files, so it

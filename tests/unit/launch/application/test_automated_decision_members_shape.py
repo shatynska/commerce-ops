@@ -145,8 +145,8 @@ from tests.support.fixtures import (
     STEP_ID,
     product_id,
 )
-from tests.support.playbook import SPECIFIED_GATE_ORDER
-from tests.support.playbook import gates as _gates
+from tests.support.playbook import playbook as _build_playbook
+from tests.support.steps import hold as _build_hold
 from tests.support.steps import step as _build_step
 from tests.support.values import MemberValue as _Member
 from tests.support.values import PendingRow as _PendingRow
@@ -215,21 +215,17 @@ def _step(**overrides: Any) -> StepDefinition:
 
 
 def _hold(gate: str) -> StepDefinition:
-    return _step(
-        identifier=f"hold.{gate}",
-        name=f"Blocking work holding the {gate} gate",
-        gate=gate,
-        blocking=True,
-        kind=StepKind.HUMAN,
+    return _build_hold(
+        gate,
         assignees=(ALICE,),
-        confirmer=None,
-        handler=None,
     )
 
 
 def _playbook() -> LaunchPlaybook:
-    fillers = tuple(_hold(gate) for gate in SPECIFIED_GATE_ORDER)
-    return LaunchPlaybook(version="test-v1", gates=_gates(), steps=(_step(), *fillers))
+    return _build_playbook(
+        _step(),
+        filler=_hold,
+    )
 
 
 def _launch(playbook: LaunchPlaybook) -> Launch:

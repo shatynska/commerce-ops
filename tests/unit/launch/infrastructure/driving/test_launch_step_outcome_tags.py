@@ -172,7 +172,7 @@ from tests.support.html import flat as _flat
 from tests.support.html import size as _size
 from tests.support.html import tree as _tree
 from tests.support.playbook import SPECIFIED_GATE_ORDER
-from tests.support.playbook import gates as _gates
+from tests.support.playbook import playbook as _build_playbook
 
 # ---------------------------------------------------------------------------
 # The module under test, resolved by name
@@ -357,33 +357,36 @@ def _playbook() -> LaunchPlaybook:
     """Steps at three gates, so a gate group is distinguishable from the
     gate sequence, and every outcome in the vocabulary has a step whose
     hazard permits it."""
-    steps = (
-        _step(
-            HOLD_STEP,
-            gate="commit",
-            blocking=True,
-            kind=StepKind.AUTOMATED,
-            handler="fixture.holding_check",
-            timing_anchor=OffsetAnchor(days=365),
+    return _build_playbook(
+        *(
+            _step(
+                HOLD_STEP,
+                gate="commit",
+                blocking=True,
+                kind=StepKind.AUTOMATED,
+                handler="fixture.holding_check",
+                timing_anchor=OffsetAnchor(days=365),
+            ),
+            _step(TITLE_STEP, gate="listable"),
+            _step(IMAGES_STEP, gate="listable"),
+            # Blocking, and anchored 30 days before the launch date: an
+            # unsatisfied blocking step already past its due day is what puts
+            # a launch date at risk, which the mark-wording scenario needs.
+            _step(UNITS_STEP, gate="listable", discipline=INVENTORY, blocking=True),
+            _step(BRIEF_STEP, gate="listable"),
+            _step(
+                EVIDENCE_STEP,
+                gate="listable",
+                kind=StepKind.AUTOMATED,
+                handler="fixture.keyword_coverage",
+            ),
+            _step(PROHIBITED_STEP, gate="ignition", hazard=Hazard.PROHIBITED_TACTIC),
+            _step(NOT_STARTED_STEP, gate="ignition"),
+            _step(UNTOUCHED_STEP, gate="ignition"),
         ),
-        _step(TITLE_STEP, gate="listable"),
-        _step(IMAGES_STEP, gate="listable"),
-        # Blocking, and anchored 30 days before the launch date: an
-        # unsatisfied blocking step already past its due day is what puts
-        # a launch date at risk, which the mark-wording scenario needs.
-        _step(UNITS_STEP, gate="listable", discipline=INVENTORY, blocking=True),
-        _step(BRIEF_STEP, gate="listable"),
-        _step(
-            EVIDENCE_STEP,
-            gate="listable",
-            kind=StepKind.AUTOMATED,
-            handler="fixture.keyword_coverage",
-        ),
-        _step(PROHIBITED_STEP, gate="ignition", hazard=Hazard.PROHIBITED_TACTIC),
-        _step(NOT_STARTED_STEP, gate="ignition"),
-        _step(UNTOUCHED_STEP, gate="ignition"),
+        version="outcome-tags-v1",
+        fill_unheld=False,
     )
-    return LaunchPlaybook(version="outcome-tags-v1", gates=_gates(), steps=steps)
 
 
 PLAYBOOK: Final = _playbook()
