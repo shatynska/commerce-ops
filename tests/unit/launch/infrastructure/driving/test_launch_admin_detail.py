@@ -137,7 +137,7 @@ from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
 from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
 from tests.support.admin import fake_verify
 from tests.support.fakes import FakeCatalogPort as _Catalog
-from tests.support.fakes import FakeMembers, FakeStepStore, StubDate
+from tests.support.fakes import FakeMembers, FakePlaybooks, FakeStepStore, StubDate
 from tests.support.fakes import FakeMembersStore as _FakeMembersStore
 from tests.support.fixtures import MARKETPLACE
 from tests.support.html import HX_VERBS as _HX_VERBS
@@ -471,12 +471,11 @@ class _FakeLaunchStore:
         return await self.list_all(*args, **kwargs)
 
 
-class _FakePlaybooks:
-    def __init__(self, playbook: LaunchPlaybook = PLAYBOOK) -> None:
-        self._playbook = playbook
+class _FakePlaybooks(FakePlaybooks):
+    """The shared store, adapted: this file's call sites rely on a default."""
 
-    def get(self, version: str) -> LaunchPlaybook:
-        return self._playbook
+    def __init__(self, playbook: LaunchPlaybook = PLAYBOOK) -> None:
+        super().__init__(playbook)
 
 
 async def _build_members() -> _FakeMembersStore:

@@ -21,9 +21,10 @@ see is the *shape* the sibling split exists for, and the shape is the whole of
   locals spell. `calls` has a measured population of **zero** on this double.
   `AGENTS.md`'s `clickup_user_id` precedent is that each type names the trap;
   this file pins it from the store's side.
-* **`__call__` is on the async sibling only.** That placement is what sizes the
-  superset at 1 declaration rather than 32. On the base it would reach every
-  playbook-store declaration, and nothing here would report it.
+* **Neither store is callable.** Six locals carried an `async __call__`;
+  task 2.5a measured it at **0 invocations across all three tiers**, and `src/`
+  reads a playbook store only through `.get(...)`. Dropped on the licence
+  `list_launches` and `all` were, and its absence pinned below.
 
 This is the shared harness's own behaviour, so it lives under
 `tests/unit/support/` -- the deliberate exception to the tier layout, per
@@ -157,32 +158,25 @@ def test_the_store_carries_no_calls_spelling() -> None:
     assert not hasattr(AsyncFakePlaybooks(FIRST), "calls")
 
 
-async def test_the_async_store_is_callable_and_reaches_get() -> None:
-    """6 locals read a playbook through a bare call. Two of them delegate to
-    `get` and four answer the held playbook directly; both answer the same
-    value, and delegation is what keeps the counter honest."""
-    store = AsyncFakePlaybooks(FIRST)
+def test_neither_store_is_callable() -> None:
+    """`__call__` was measured dead and dropped, so its absence is pinned.
 
-    assert await store() is FIRST
-    assert store.reads == 1
+    **This test replaces three that `design.md` Decision 2 conditioned on a
+    measurement, and the measurement came back the other way.** Task 2.5a
+    wrapped the `__call__` all six locals carried and recorded **0 invocations
+    across all three tiers**; `src/` contains no bare call on a playbook store,
+    which reads exclusively through `.get(...)`. The locals' own comment --
+    "some callers read a playbook through a bare call" -- is stale.
 
-
-async def test_calling_the_async_store_accepts_whatever_arguments_arrive() -> None:
-    """All six locals spell it `(*args, **kwargs)`. An `attr = get` alias would
-    narrow the signature to one positional argument and pass every other
-    assertion in this file."""
-    store = AsyncFakePlaybooks(FIRST)
-
-    assert await store("a-version", scope="a-scope") is FIRST
-
-
-def test_the_sync_store_is_not_callable() -> None:
-    """`__call__` sits on the async sibling, not on the shared base.
-
-    On the base it would reach all 32 playbook-store declarations rather than
-    the 1 async declaration that lacks it, which is a superset nothing measured.
+    So the spelling is dropped on the licence `list_launches` and `all` were,
+    and the two tests asserting the async store *is* callable, plus the one
+    asserting placement on the sibling rather than the base, encoded an
+    assumption the plan itself scheduled a measurement to settle. Pinning the
+    absence is stronger than deleting them silently: re-adding `__call__` now
+    fails here.
     """
     assert not callable(FakePlaybooks(FIRST))
+    assert not callable(AsyncFakePlaybooks(FIRST))
 
 
 def test_the_two_stores_are_siblings_rather_than_parent_and_child() -> None:

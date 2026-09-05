@@ -58,11 +58,14 @@ from typing import Any, Protocol
 
 from commerce_ops.shared.domain.identity import Sku
 from tests.support.fakes import (
+    AsyncFakePlaybooks,
     FakeCatalogPort,
     FakeHandlerRegistry,
     FakeHandlers,
     FakeMembers,
     FakeMembersStore,
+    FakePlaybookRepository,
+    FakePlaybooks,
     FakeProductReader,
     FakeSlackResponse,
     FakeStepStore,
@@ -250,6 +253,26 @@ class CatalogPortShape(Protocol):
 
 
 _catalog_port_conforms: CatalogPortShape = FakeCatalogPort()
+
+
+class PlaybookStoreShape(Protocol):
+    """The one read production makes of a playbook store, synchronously."""
+
+    def get(self, version: str = ...) -> Any: ...
+
+
+class AsyncPlaybookStoreShape(Protocol):
+    """The same read, awaited. A separate protocol because neither sibling
+    satisfies the other's -- which is the point of the split."""
+
+    async def get(self, version: str = ...) -> Any: ...
+
+
+_playbooks_conforms: PlaybookStoreShape = FakePlaybooks(None)
+_async_playbooks_conforms: AsyncPlaybookStoreShape = AsyncFakePlaybooks(None)
+#: The **class-object** form: production constructs this one itself, so there
+#: is no argument-free instance to assign (`AGENTS.md`).
+_playbook_repository_conforms: type[AsyncPlaybookStoreShape] = FakePlaybookRepository
 
 
 class ProductReaderShape(Protocol):

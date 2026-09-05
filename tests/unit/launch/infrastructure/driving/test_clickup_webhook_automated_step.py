@@ -80,6 +80,7 @@ from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.launch.infrastructure.driving import clickup_webhook as webhook_module
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
+from tests.support.fakes import FakePlaybookRepository
 from tests.support.fixtures import ALICE, HANDLER_NAME, LAUNCH_DATE, product_id
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import opening_for as _opening_for
@@ -208,11 +209,11 @@ async def _fake_session() -> AsyncIterator[None]:
     yield None
 
 
-class _FakePlaybookRepository:
-    def __init__(self, *args: object, **kwargs: object) -> None: ...
-
-    async def get(self, version: str) -> LaunchPlaybook:
-        return _SERVED[0]
+#: `_SERVED[0]` is rebound inside individual tests to prove opposite
+#: branches, so the source must be read at call time. A `serving` that
+#: bound the value here would serve the import-time playbook to both and
+#: both tests would still pass.
+_FakePlaybookRepository = FakePlaybookRepository.serving(lambda: _SERVED[0])
 
 
 # ---------------------------------------------------------------------------

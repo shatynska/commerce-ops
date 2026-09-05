@@ -101,6 +101,7 @@ from commerce_ops.shared.domain.lifecycle_stage import (
     SteadyState,
 )
 from commerce_ops.shared.domain.severity import Severity
+from tests.support.fakes import FakePlaybooks as _FakePlaybooks
 from tests.support.playbook import CONFIRMATION_GATES
 from tests.support.playbook import playbook as _build_playbook
 from tests.support.steps import hold as _build_hold
@@ -248,14 +249,6 @@ class _FakeLaunchStore:
 
     async def list_launches(self) -> tuple[Launch, ...]:
         return await self.list_all()
-
-
-class _FakePlaybooks:
-    def __init__(self, playbook: LaunchPlaybook) -> None:
-        self._playbook = playbook
-
-    def get(self, version: str) -> LaunchPlaybook:
-        return self._playbook
 
 
 # ---------------------------------------------------------------------------

@@ -92,6 +92,7 @@ from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
 from tests.support.admin import fake_verify
 from tests.support.fakes import FakeCatalogPort as _Catalog
 from tests.support.fakes import FakeMembersStore as _FakeMembersStore
+from tests.support.fakes import FakePlaybooks as _FakePlaybooks
 from tests.support.fakes import StubDate
 from tests.support.fixtures import MARKETPLACE
 from tests.support.playbook import SPECIFIED_GATE_ORDER
@@ -276,14 +277,6 @@ class _FakeLaunchStore:
 
     async def list_launches(self, *args: Any, **kwargs: Any) -> tuple[Launch, ...]:
         return await self.list_all(*args, **kwargs)
-
-
-class _FakePlaybooks:
-    def __init__(self, playbook: LaunchPlaybook) -> None:
-        self._playbook = playbook
-
-    def get(self, version: str) -> LaunchPlaybook:
-        return self._playbook
 
 
 async def _build_members() -> _FakeMembersStore:

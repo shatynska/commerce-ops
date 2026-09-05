@@ -91,6 +91,7 @@ from commerce_ops.launch.domain.launch_run import Launch, Provenance
 from commerce_ops.shared.domain.access_scope import AccessScope
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
+from tests.support.fakes import FakePlaybooks as _FakePlaybooks
 from tests.support.fixtures import STEP_ID, product_id
 from tests.support.playbook import playbook as _build_playbook
 from tests.support.steps import hold as _build_hold
@@ -192,14 +193,6 @@ class _FakeLaunchStore:
 
     async def list_all(self) -> Sequence[Launch]:
         return tuple(self._launches)
-
-
-class _FakePlaybooks:
-    def __init__(self, playbook: LaunchPlaybook) -> None:
-        self._playbook = playbook
-
-    def get(self, version: str) -> LaunchPlaybook:
-        return self._playbook
 
 
 # ---------------------------------------------------------------------------

@@ -85,6 +85,7 @@ from commerce_ops.launch.domain.launch_run import (
 from commerce_ops.shared.domain.access_scope import AccessScope
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import MetricId, ProductId
+from tests.support.fakes import FakePlaybooks as _FakePlaybooks
 from tests.support.playbook import CONFIRMATION_GATES
 from tests.support.playbook import playbook as _build_playbook
 from tests.support.steps import hold as _build_hold
@@ -314,16 +315,6 @@ class _FakeLaunchStore:
 
     async def list_launches(self, *args: Any, **kwargs: Any) -> tuple[Launch, ...]:
         return await self.list_all(*args, **kwargs)
-
-
-class _FakePlaybooks:
-    """Playbook port returning the one version every launch here pinned."""
-
-    def __init__(self, playbook: LaunchPlaybook) -> None:
-        self._playbook = playbook
-
-    def get(self, version: str) -> LaunchPlaybook:
-        return self._playbook
 
 
 # ---------------------------------------------------------------------------

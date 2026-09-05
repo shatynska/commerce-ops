@@ -90,6 +90,7 @@ from commerce_ops.launch.domain.launch_run import (
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import MetricId, ProductId
 from commerce_ops.shared.domain.lifecycle_stage import Posture
+from tests.support.fakes import FakePlaybooks as _FakePlaybooks
 from tests.support.fixtures import product_id
 from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
 from tests.support.playbook import opening_for as _opening_for
@@ -245,14 +246,6 @@ class _FakeLaunches:
 
     def stored(self) -> Launch:
         return self._launches[PRODUCT_ID]
-
-
-class _FakePlaybooks:
-    def __init__(self, playbook: LaunchPlaybook) -> None:
-        self.playbook = playbook
-
-    def get(self, version: str = "") -> LaunchPlaybook:
-        return self.playbook
 
 
 class _FakeJournal:

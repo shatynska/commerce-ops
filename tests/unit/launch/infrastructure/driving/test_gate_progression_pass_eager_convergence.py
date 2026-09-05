@@ -98,6 +98,7 @@ from commerce_ops.launch.domain.launch_run import (
 )
 from commerce_ops.shared.domain.identity import MetricId, ProductId
 from commerce_ops.shared.domain.lifecycle_stage import Posture
+from tests.support.fakes import AsyncFakePlaybooks as _FakePlaybooks
 from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
 from tests.support.steps import hold as _build_hold
@@ -257,17 +258,6 @@ class _FakeLaunches:
 
     async def list_all(self) -> tuple[Launch, ...]:
         return tuple(self._launches.values())
-
-
-class _FakePlaybooks:
-    def __init__(self, playbook: LaunchPlaybook) -> None:
-        self.playbook = playbook
-
-    async def get(self, version: str = "") -> LaunchPlaybook:
-        return self.playbook
-
-    async def __call__(self, *args: Any, **kwargs: Any) -> LaunchPlaybook:
-        return self.playbook
 
 
 @dataclass

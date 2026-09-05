@@ -97,7 +97,7 @@ Always name the tiers.
       states** — per-declaration comparison counts, zero reported as zero. Those
       paths sit outside the repository, `git worktree add` carries nothing from
       them, and a pruned sibling worktree takes them with it.
-- [ ] 2.2 Stand up the **lockstep pairing** from
+- [x] 2.2 Stand up the **lockstep pairing** from
       `~/share-the-stateful-fakes/_paired_spike.py` so it can drive **any of the
       five subjects**, not only the 58 `Launch`-serving ones: drive local and
       shared together, comparing return value, raised exception and instance
@@ -131,7 +131,7 @@ Always name the tiers.
       Note its scope: the licence covers the doubles' own method surfaces and
       **not what they serve** — `automation_pass.py:563` probes the served
       product by `name`/`sku`, where the same-value invariant still bites.
-- [ ] 2.5a License `__call__` on the playbook store **here in §2, before §4
+- [x] 2.5a License `__call__` on the playbook store **here in §2, before §4
       implements it** — and measure both sides, because they are different
       questions. **Deadness** (is the spelling the 6 locals carry ever reached?):
       wrap and mutate as task 5.2 does. **Addition-safety** (is adding it to the
@@ -227,7 +227,7 @@ Always name the tiers.
 
 ## 4. The playbook stores — 42 declarations
 
-- [ ] 4.1 Add `_FakePlaybooksBase` holding the constructor, `refusal`, `reads`
+- [x] 4.1 Add `_FakePlaybooksBase` holding the constructor, `refusal`, `reads`
       and a shared `_answer()` that **increments `reads` first and raises the
       refusal second** — the order both locals use
       (`test_gate_progression_pass.py:355-358`,
@@ -256,43 +256,43 @@ Always name the tiers.
       keyword. The type's docstring records that its `reads` is an `int` while
       the product reader's is a list with a derived `calls`, per `AGENTS.md`'s
       `clickup_user_id` precedent.
-- [ ] 4.1a Add the `_conforms` assignments for **both** `FakePlaybooks` and
+- [x] 4.1a Add the `_conforms` assignments for **both** `FakePlaybooks` and
       `AsyncFakePlaybooks` — two protocols, sync and async, since the sibling
       split means neither type satisfies the other's. Without them the two types
       serving 42 declarations lose the only mechanism that makes a drifted double
       a type error, which is the goal's "one per type", not one per pair.
-- [ ] 4.2 Add `FakePlaybookRepository.serving(source)`, returning a subclass
+- [x] 4.2 Add `FakePlaybookRepository.serving(source)`, returning a subclass
       whose `get` reads `source` **at call time** — a `LaunchPlaybook` answered
       directly, a zero-argument callable invoked per call (design.md Decision 3).
       Binding a value at subclass creation is the defect this form exists to
       avoid, not a simpler variant of it.
-- [ ] 4.2a Add the `_conforms` assignment for `FakePlaybookRepository` in its
+- [x] 4.2a Add the `_conforms` assignment for `FakePlaybookRepository` in its
       **class-object** form — `_conforms: type[SomeProtocol] = FakePlaybookRepository`
       — since production constructs it itself and it cannot be instantiated
       argument-free at module level (`AGENTS.md`). Without the assignment `mypy`
       stops reporting drift for the one double production builds.
-- [ ] 4.3 Add contract tests for all four §4 classes under `tests/unit/support/`,
+- [x] 4.3 Add contract tests for all four §4 classes under `tests/unit/support/`,
       including one that pins `serving`'s call-time read: bind a mutable source,
       change it, and assert the second `get` sees the change.
-- [ ] 4.3a Disposition the 2 silent `_FakePlaybooks` by the **standalone
+- [x] 4.3a Disposition the 2 silent `_FakePlaybooks` by the **standalone
       proof**, in this phase and before the commit that deletes their locals:
       construct both versions directly and compare. They execute no calls, so
       the equality proof reports zero for them and zero is not a pass.
       **Both are sync** (`test_progress_launch.py`,
       `test_progress_launch_metric_step.py`), so they sit inside task 4.4's 25,
       not 4.5's 7.
-- [ ] 4.4 Migrate the 19 plain sync `_FakePlaybooks` plus the 6 that declare no
+- [x] 4.4 Migrate the 19 plain sync `_FakePlaybooks` plus the 6 that declare no
       `__init__`, the latter by passing at the call site the module constant they
       closed over — they are installed as instances
       (`_install(monkeypatch, module, "playbooks", _FakePlaybooks())`), not
       patched as classes, so no new type shape is needed. **Expected: 25 of 25 —
       23 closed by the equality proof, 2 by task 4.3a**, which is the two-number
       report the preamble requires.
-- [ ] 4.5 Migrate the 7 async `_FakePlaybooks` — 4 `__call__` aliases, 2
+- [x] 4.5 Migrate the 7 async `_FakePlaybooks` — 4 `__call__` aliases, 2
       refusal-with-counter, 1 refusal. **Expected: 7 of 7 — all 7 closed by the
       equality proof**, or 4 of 7 if 4.1's completeness search holds the refusals
       back. None of the 7 is silent.
-- [ ] 4.6 Migrate the 10 `_FakePlaybookRepository` against their measured split:
+- [x] 4.6 Migrate the 10 `_FakePlaybookRepository` against their measured split:
       4 inline bodies to `serving(playbook(...))`, 5 `_playbook()` calls to
       `serving(_playbook)`, and `test_clickup_webhook_automated_step.py` to
       `serving(lambda: _SERVED[0])`. **Expected: 10 of 10.** These are
@@ -303,18 +303,47 @@ Always name the tiers.
       identity, so it does not bite here (Decision 8). For the `_SERVED` one the twin must be driven
       **past** both rebindings (lines 359 and 398), or the proof cannot see the
       staleness the call-time read exists to prevent.
-- [ ] 4.7 Where a call site cannot take the shared type unchanged, subclass and
+- [x] 4.7 Where a call site cannot take the shared type unchanged, subclass and
       adapt the signature in three lines; the proof still runs over the adapter.
       Where the *values* or the declaration *form* differ, keep the local and
       record the reason. Report actual against every expected figure above; a
       §4 that completes reading "42 of 42" without them has not reported a
       shortfall, it has hidden one.
-- [ ] 4.8 Phase boundary: **execute** `tests/integration` — it holds one
+- [x] 4.8 Phase boundary: **execute** `tests/integration` — it holds one
       `_FakePlaybookRepository`
       (`test_clickup_sync_job_containment_live.py`), so a proof result in this
       phase depends on the tier — and confirm 159 passed with zero skips.
       Collecting is not running: a worktree without `.env.test` skips the tier
       entirely while `pre-push` reports it `Passed`.
+
+**§4 outcome, 2026-09-05: 42 of 42 migrated, 0 kept — and one modelled axis
+deleted before it shipped.**
+
+Task 2.5a's licence came back the other way. `__call__` was wrapped on all six
+locals that carry it: **0 invocations across all three tiers**, and `src/` reads
+a playbook store exclusively through `.get(...)` — the locals' own comment,
+*"some callers read a playbook through a bare call"*, is stale. Injecting a
+raising `__call__` on the 26 declarations that lack it left the tier green, so
+adding it was safe and pointless. Decision 2 had conditioned the spelling on
+exactly this measurement, so it was **dropped** on the licence `list_launches`
+and `all` were, and three contract tests that encoded the surviving assumption
+were replaced by one pinning its absence. That is the plan working as written:
+the measurement was scheduled ahead of the phase precisely so the answer could
+change what got built.
+
+The equality proof drove local and twin over **518 comparisons across 40
+declarations — zero value, exception or counter mismatches**, including the
+integration tier's one. The remaining 2 execute nothing, reported zero rather
+than a pass, and were closed standalone against their pre-migration source at
+`5528113`.
+
+Migrated as 17 direct aliases and 15 three-line adapters: 6 whose call sites
+rely on a default, 6 that pass nothing and closed over a module constant, and 3
+that pass `refusal` positionally where the shared type takes it as a keyword.
+The ten repository declarations became `serving(_playbook)` (5),
+`serving(lambda: _SERVED[0])` (1) and `serving(_served_playbook)` (4, their
+inline bodies lifted into a module function) — every one reading its source at
+call time.
 
 ## 5. The launch store — 58 declarations
 

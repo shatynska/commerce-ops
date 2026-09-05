@@ -125,6 +125,7 @@ from commerce_ops.launch.domain.launch_run import (
     Provenance,
 )
 from commerce_ops.shared.domain.identity import ProductId
+from tests.support.fakes import FakePlaybookRepository
 from tests.support.fixtures import LAUNCH_DATE, product_id
 from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
 from tests.support.playbook import opening_for as _opening_for
@@ -388,11 +389,10 @@ class _RecordingTrigger:
         ]
 
 
-class _FakePlaybookRepository:
-    def __init__(self, *args: object, **kwargs: object) -> None: ...
-
-    async def get(self, version: str) -> LaunchPlaybook:
-        return _playbook()
+#: The shared repository, told what to serve. `serving` reads its source
+#: at call time, so this file's own `_playbook` builder is read afresh on
+#: every `get` rather than frozen at import.
+_FakePlaybookRepository = FakePlaybookRepository.serving(_playbook)
 
 
 class _RefusingPlaybookRepository:

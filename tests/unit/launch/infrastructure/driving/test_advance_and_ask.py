@@ -121,6 +121,7 @@ from commerce_ops.launch.domain.launch_run import (
 )
 from commerce_ops.shared.domain.identity import MetricId, ProductId
 from commerce_ops.shared.domain.lifecycle_stage import Posture
+from tests.support.fakes import AsyncFakePlaybooks
 from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
 from tests.support.steps import hold as _build_hold
@@ -353,20 +354,13 @@ class _FakeLaunches:
         return tuple(self._launches.values())
 
 
-class _FakePlaybooks:
-    def __init__(self, playbook: LaunchPlaybook, refusal: Exception | None) -> None:
-        self.playbook = playbook
-        self.refusal = refusal
-        self.reads = 0
+class _FakePlaybooks(AsyncFakePlaybooks):
+    """The shared store, adapted: this file passes `refusal` positionally."""
 
-    async def get(self, version: str = "") -> LaunchPlaybook:
-        self.reads += 1
-        if self.refusal is not None:
-            raise self.refusal
-        return self.playbook
-
-    async def __call__(self, *args: Any, **kwargs: Any) -> LaunchPlaybook:
-        return await self.get()
+    def __init__(
+        self, playbook: LaunchPlaybook, refusal: Exception | None = None
+    ) -> None:
+        super().__init__(playbook, refusal=refusal)
 
 
 @dataclass

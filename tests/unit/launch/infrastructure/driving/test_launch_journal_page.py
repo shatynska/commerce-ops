@@ -145,7 +145,7 @@ from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
 from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
 from tests.support.admin import fake_verify
 from tests.support.fakes import FakeCatalogPort as _Catalog
-from tests.support.fakes import FakeMembers, FakeStepStore, StubDate
+from tests.support.fakes import FakeMembers, FakePlaybooks, FakeStepStore, StubDate
 from tests.support.fakes import FakeMembersStore as _FakeMembersStore
 from tests.support.fixtures import MARKETPLACE
 from tests.support.playbook import playbook as _build_playbook
@@ -283,9 +283,11 @@ class _FakeLaunchStore:
         return await self.list_all(*a, **k)
 
 
-class _FakePlaybooks:
-    def get(self, version: str) -> LaunchPlaybook:
-        return PLAYBOOK
+class _FakePlaybooks(FakePlaybooks):
+    """The shared store, adapted: this file's call sites pass nothing."""
+
+    def __init__(self) -> None:
+        super().__init__(PLAYBOOK)
 
 
 async def _build_members() -> _FakeMembersStore:

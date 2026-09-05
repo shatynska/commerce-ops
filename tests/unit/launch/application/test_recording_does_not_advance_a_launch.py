@@ -74,6 +74,7 @@ from commerce_ops.launch.domain.launch_playbook import (
 )
 from commerce_ops.launch.domain.launch_run import Launch, Provenance
 from commerce_ops.shared.domain.identity import ProductId
+from tests.support.fakes import FakePlaybooks as _FakePlaybooks
 from tests.support.fixtures import product_id
 from tests.support.playbook import CONFIRMATION_GATES
 from tests.support.playbook import playbook as _build_playbook
@@ -126,14 +127,6 @@ class _FakeLaunches:
     @property
     def only(self) -> Launch:
         return next(iter(self._launches.values()))
-
-
-class _FakePlaybooks:
-    def __init__(self, playbook: LaunchPlaybook) -> None:
-        self.playbook = playbook
-
-    def get(self, version: str = "") -> LaunchPlaybook:
-        return self.playbook
 
 
 class _FakeJournal:
