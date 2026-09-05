@@ -468,30 +468,63 @@ phase's commits, so a §6 that still tried to construct them would have nothing
 to construct — and would degrade into inspecting the shared version alone, which
 is exactly the "reports zero, not pass" failure Decision 8 names.
 
-- [ ] 6.1 Roll up the 13 — 6 `_FakeLaunches`, 5 `_FakeCatalog`, 2
+- [x] 6.1 Roll up the 13 — 6 `_FakeLaunches`, 5 `_FakeCatalog`, 2
       `_FakePlaybooks` — recording for each the phase that closed it and the
       commit its local was constructed from. Report the count **separately**;
       never fold it into any phase's pass total.
-- [ ] 6.2 For each, record *why* it is silent — never called by its file, or
+- [x] 6.2 For each, record *why* it is silent — never called by its file, or
       built at import before the harness can wrap it — since the two have
       different consequences for the next slice.
 
+**Rollup, 2026-09-05 — all 13 closed in the phase that migrated them, none
+deferred.**
+
+| declaration | phase | closed by | why silent |
+|---|---|---|---|
+| 5 × `_FakeCatalog` (`clickup_*`, `driven/`) | §3, task 3.4b | standalone vs `b353d2e` | the sync path takes its product from elsewhere |
+| 2 × `_FakePlaybooks` (`test_progress_launch*`) | §4, task 4.3a | standalone vs `5528113` | handed to a collaborator these tests never read through |
+| 6 × `_FakeLaunches` (`application/`, `driving/`) | §5, task 5.5c | standalone vs `5d7606f` | same |
+
+Every one compared identical in value and in recorder state. **None is silent
+because it is built at import** — the other reason a declaration can report
+zero, and the one that would have needed a different remedy. The count is
+reported here and never folded into any phase's pass total.
+
 ## 7. Record and review
 
-- [ ] 7.1 Full verification: `ruff check`, `ruff format --check`, `mypy`,
+**Verification, 2026-09-05.** `ruff check`, `ruff format --check`, `mypy`
+(535 files) and `lint-imports` (18 contracts) all clean.
+`tests/unit` outside support **2,246**, `tests/agents` **236**,
+`tests/integration` **executed — 159 passed, zero skips**,
+`tests/unit/support` **52 → 91**.
+
+**`git diff --stat 523977e..HEAD -- src/` is empty**: the proposal's
+"no production code changes" is confirmed mechanically rather than recalled.
+
+**The assertion-identity multiset did not move.** 6,612 asserts, 238 `raises`,
+759 helper-asserts, 172 `parametrize`, over 2,192 test functions in 332 files —
+identical to the §1.3 baseline, across 89 changed files and 3,244 inserted
+lines. Nothing this change touched altered what the suite asserts.
+
+**Final tally: 115 of 124 migrated, 9 kept.** §3 21 of 24, §4 42 of 42, §5 52 of
+58. The plan expected 122; the shortfall is nine declarations that carry
+behaviour the shared types do not, each found by running rather than reading and
+recorded at its own declaration.
+
+- [x] 7.1 Full verification: `ruff check`, `ruff format --check`, `mypy`,
       `lint-imports`, all three tiers green, all four collected counts at their
       §1 values except `tests/unit/support/`, and the assertion-identity check
       against the §1.3 baseline over every file touched.
-- [ ] 7.1a Confirm the proposal's *"no production code changes"* claim
+- [x] 7.1a Confirm the proposal's *"no production code changes"* claim
       mechanically rather than from recollection:
       `git diff --stat <branch-point>..HEAD -- src/` is empty. The predecessor
       added this task for exactly this reason.
-- [ ] 7.2 Update `AGENTS.md`'s *The shared harness* section with what this slice
+- [x] 7.2 Update `AGENTS.md`'s *The shared harness* section with what this slice
       took and what it left, including the two rules it establishes: **a shared
       double must not implement the filter its subject is being tested for**,
       and **a double installed by patching a class needs a class-producing
       constructor, never a mutable class attribute**.
-- [ ] 7.3 Record every declaration left local with its measured reason —
+- [x] 7.3 Record every declaration left local with its measured reason —
       continuing the record the three predecessors established.
 - [ ] 7.4 Run `/code-review` over the diff. Both reviews run, not one: the
       equality proof passed everything last slice and `/code-review` then found

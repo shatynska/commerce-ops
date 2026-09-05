@@ -220,23 +220,73 @@ replacing 175 of 191 declarations across 103 files;
 `share-the-playbook-builders` (2026-09-04) finished the builders — **`_hold` is
 now 104 of 104 and `_playbook` 84 of 95**, across 105 files.
 
-**The aggregate stores are next, and they are no longer blocked.**
-`_FakePlaybooks` 32, `_FakeLaunches` 32, `_FakeCatalog` 29, `_FakeLaunchStore`
-26, `_FakePlaybookRepository` 10 were ordered behind `_playbook()` and `_hold()`
-being shared, which they now are. Note also that 26 of the 32 `_FakePlaybooks`
-take the playbook as a constructor argument, so a shared store is told what to
-serve by being handed it.
+`share-the-aggregate-fakes` (2026-09-05) took the aggregate stores —
+**115 of the 124 in-scope declarations across 83 files**, adding
+`FakeProductReader`, `FakePlaybooks`/`AsyncFakePlaybooks` over a shared
+`_FakePlaybooksBase`, `FakePlaybookRepository` and `FakeLaunches`. The nine it
+left are recorded at each declaration, and every one is a measurement rather
+than a judgement. **`src/` was untouched, checked mechanically, and the
+assertion-identity multiset did not move: 6,612 / 238 / 759 / 172 over 2,192
+test functions, unchanged across 89 files and 3,244 inserted lines.**
 
-**The proof splits by what a store serves, and both instruments are needed.**
-`_FakePlaybooks` (32) and `_FakePlaybookRepository` (10) serve `LaunchPlaybook`,
-and `_FakeCatalog` (29) serves `CatalogProduct` for 22 of its 32 returns — all
-frozen dataclasses, so the equality proof applies. `_FakeLaunches` (32) and
-`_FakeLaunchStore` (26) serve `Launch`, **a plain aggregate root defining no
-`__eq__`** — as is `Product` — so for those 58 declarations `==` is identity and
-the pairing's limits above apply unchanged. Verify this by construction rather
-than by reading: `dataclasses.is_dataclass(T)` and `T.__dataclass_params__`
-settle it in one line, and a first draft of this paragraph asserted the strong
-proof for all 129 because it was written from `_FakePlaybooks` alone.
+**The proof splits by what a store serves, and both instruments were needed.**
+`LaunchPlaybook`, `StepDefinition` and `values.py::CatalogProduct` are frozen
+dataclasses, so the equality proof reached the 42 playbook-serving and 24
+product-reader declarations — 649 comparisons, no mismatches. `Launch` and
+`Product` are plain aggregate roots defining no `__eq__`, so the 58
+`Launch`-serving ones needed the lockstep pairing — 665 paired calls. Verify
+such a split by construction, never by reading: `dataclasses.is_dataclass(T)`
+and `T.__dataclass_params__` settle it in one line, and a first draft of this
+paragraph asserted the strong proof for all 129 because it was written from
+`_FakePlaybooks` alone.
+
+**A shared double must not implement the filter its subject is being tested
+for.** The real repository's `list_active` drops launches standing at
+`graduated`, and reproducing that in `FakeLaunches` is the obvious "truer to
+production" move. It is wrong:
+`test_automation_pass.py::test_a_graduated_launch_is_left_alone` hands a
+graduated launch to the double precisely to prove *the pass* leaves it alone, so
+a filtering double removes the launch before the pass sees it and **every
+assertion still passes**. Two capabilities specify that scenario
+(`launch-step-automation`, `launch-clickup-sync`), so both would go unverified
+against a green suite. Neither instrument can see it — values and calls are
+identical either way. `tests/unit/support/test_fake_launches.py` pins the
+absence of the filter so a later "improvement" fails loudly.
+
+**A double installed by patching a class needs a class-producing constructor
+that reads its source at call time — never a mutable class attribute.** All ten
+`_FakePlaybookRepository` and two `_FakeLaunchStore` declarations are installed
+as `monkeypatch.setattr(module, "PlaybookRepository", …)`, so production
+constructs them itself and they can never be handed their subject as an
+instance. `serving(source)` returns a fresh subclass per call site, and resolves
+`source` on **every read**: `test_clickup_webhook_automated_step` rebinds
+`_SERVED[0]` mid-file to prove opposite branches, and a value bound at subclass
+creation serves the import-time playbook to both while both tests still pass. A
+mutable class attribute would do the same job and is session-global state every
+test touching the class shares — the cross-test leak this harness exists to
+remove.
+
+**Measure a spelling before carrying it, not only before dropping it.** The
+plan modelled `__call__` on the playbook store and spent a review round on
+where to put it. Wrapping the six locals that carry it recorded **0 invocations
+across all three tiers**; `src/` reads a playbook store only through `.get(...)`,
+so the locals' own comment claiming bare callers is stale; and injecting a
+raising `__call__` on the 26 declarations lacking it left the tier green. It was
+dropped on the same licence `list_launches` and `all` were — both of those taken
+by mutating all 42 to raise, not by search. Demanding execution-proof before
+*removing* a spelling while adding another on six declarations' say-so is not a
+position a change can hold.
+
+**The pairing's limit 2 is wider than its mismatch count suggests.** It reported
+3 value mismatches over the 58 launch stores; migrating then broke **37 tests**
+on attribute access it never intercepts — `.launches`, `.order`, `.stored`,
+`.reads`, `.saves`. Two rules came out of that. The **stored** spelling must be
+the one a test *assigns* (two files assign `store.launches = snapshot`, and a
+read-only property cannot receive an assignment — the `Member.id` precedent).
+And a derived property must not collide with a *method* of the same name
+elsewhere in the population: `stored` answers one launch by identifier in two
+files and is never read bare, so a list-valued `stored` property would have
+shadowed them. The suite caught both; no proof instrument could have.
 
 **Behaviour is proved by comparison, not by inspection — where it can be.**
 A field-wise equality proof is inexpressible for a stateful fake, since
