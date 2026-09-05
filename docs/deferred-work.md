@@ -1312,10 +1312,18 @@ shared functions those spellings name elsewhere:
 | `_attribute_text` | joins the element's **own** attribute values | walks descendants, filters to `class`, `title`, `aria-label`, `id`, `data-*`, lowercases |
 | `_ancestors` | walks **past** `#document` | stops below it |
 
-Measured with `grep -rn 'from tests.support.html import <name> as _<name>'
-tests/`: **12 files alias at least one of the three** — `ancestors` in 12,
-`attribute_text` in 4, `carries` in 3. So a reader moving between files meets
-the same `_`-prefixed spelling meaning two things.
+Measured with `grep -rl 'from tests.support.html import <name> as _<name>'
+tests/` **at the commit that records this**, not at the branch point: **23 files
+alias at least one of the three** — `ancestors` in 22, `attribute_text` in 4,
+`carries` in 4. So a reader moving between files meets the same `_`-prefixed
+spelling meaning two things.
+
+**The first draft of this entry said 12 / 12 / 4 / 3, which were the figures at
+`origin/main`.** `share-the-ordered-html-harness` itself added ten `ancestors`
+aliases and one `carries` alias, so the hazard it was recording had roughly
+doubled by the commit that recorded it. That is the project's own rule — a
+measurement is taken at the commit that relies on it — failing on the entry that
+exists to state the measurement method. `/code-review` caught it.
 
 **This is a naming hazard, not a defect.** Every assertion in those two files is
 correct as written; the divergent readings are deliberate and the files are the

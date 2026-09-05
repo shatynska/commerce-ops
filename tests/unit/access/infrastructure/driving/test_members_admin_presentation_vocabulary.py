@@ -47,7 +47,10 @@ Fixed by the artifacts:
 INVENTED, each recorded in the manifest with its correction point:
 
 - That "carries the marker `X`" is read as a **class token**, per
-  `design.md`'s `class="row-action"`. Correction point: `_carries`.
+  `design.md`'s `class="row-action"`. Correction point:
+  `tests/support/html.py::carries`, which this file's `_carries` was a
+  copy of and which now carries the interpretation note itself
+  (`share-the-ordered-html-harness`).
 - What counts as an action control, and how one action is told from
   another (the enclosing form's action and hidden fields, plus the
   control's own href, name, value and text). Correction points:

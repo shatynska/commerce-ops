@@ -271,6 +271,14 @@ def document_order(node: Node) -> int:
     differing parent rows, each row compares its children, which are the cells
     again, and an ordinary two-row table raises `RecursionError`.
 
+    **`0` is both a real answer and the not-found answer**, and the overlap is
+    deliberate rather than overlooked: the only node that legitimately answers
+    `0` is a root, and a root is exactly the node the walk does not yield. A
+    node whose `parent` chain is intact but which is absent from its parent's
+    `children` -- a tree no `tree()` call can build -- would also answer `0`,
+    reading as "before everything" rather than raising. Nothing constructs such
+    a tree in this suite; if something ever does, this is the line to change.
+
     Deriving rather than storing is deliberate. A stored index would need a
     field on `Node`, which would change `__eq__` and `__repr__` for every file
     importing it -- see `share-the-ordered-html-harness` design Decision 1,
