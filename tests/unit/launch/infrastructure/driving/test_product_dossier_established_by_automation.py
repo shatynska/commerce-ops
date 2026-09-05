@@ -107,10 +107,8 @@ failed, 0 skipped.
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Iterator
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import UTC, datetime
-from html.parser import HTMLParser
 from itertools import pairwise
 from typing import Any, Final, cast
 
@@ -134,6 +132,13 @@ from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
 from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
 from tests.support.admin import fake_verify
 from tests.support.fixtures import MARKETPLACE, PRINCIPAL
+from tests.support.html import HX_VERBS as _HX_VERBS
+from tests.support.html import Node as _Node
+from tests.support.html import Text as _Text
+from tests.support.html import ancestors as _ancestors
+from tests.support.html import classes as _classes
+from tests.support.html import elements as _elements
+from tests.support.html import tree as _tree
 from tests.support.steps import step as _build_step
 
 T_REGISTERED: Final = datetime(2026, 8, 23, 9, 0, tzinfo=UTC)
@@ -169,24 +174,6 @@ _COLLECTION_TYPE_NAMES: Final = ("list", "tuple", "set", "frozenset", "dict")
 #: did".
 _RATIFICATION_WORDS: Final = ("confirmed", "approved", "accepted")
 
-_VOID_TAGS: Final = (
-    "area",
-    "base",
-    "br",
-    "col",
-    "embed",
-    "hr",
-    "img",
-    "input",
-    "link",
-    "meta",
-    "param",
-    "source",
-    "track",
-    "wbr",
-)
-
-_HX_VERBS: Final = ("hx-get", "hx-post", "hx-put", "hx-patch", "hx-delete")
 
 SERVED_STEP: Final = "listing.sub-category"
 SERVED_STEP_NAME: Final = "Choose the sub-category node"
@@ -198,66 +185,12 @@ HANDLER: Final = "listing.subcategory_advisor"
 # ---------------------------------------------------------------------------
 
 
-@dataclass
-class _Text:
-    text: str
-
-
-@dataclass
-class _Node:
-    tag: str
-    attrs: dict[str, str]
-    parent: _Node | None
-    order: int
-    children: list[_Node | _Text] = field(default_factory=list)
-
-
-class _TreeParser(HTMLParser):
-    def __init__(self) -> None:
-        super().__init__(convert_charrefs=True)
-        self.root = _Node("#document", {}, None, 0)
-        self._stack: list[_Node] = [self.root]
-        self._order = 0
-
-    def _open(self, tag: str, attrs: list[tuple[str, str | None]]) -> _Node:
-        self._order += 1
-        node = _Node(tag, {k: v or "" for k, v in attrs}, self._stack[-1], self._order)
-        self._stack[-1].children.append(node)
-        return node
-
-    def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        self._open(tag, attrs)
-
-    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        node = self._open(tag, attrs)
-        if tag not in _VOID_TAGS:
-            self._stack.append(node)
-
-    def handle_endtag(self, tag: str) -> None:
-        for index in range(len(self._stack) - 1, 0, -1):
-            if self._stack[index].tag == tag:
-                del self._stack[index:]
-                return
-
-    def handle_data(self, data: str) -> None:
-        if data.strip():
-            self._stack[-1].children.append(_Text(" ".join(data.split())))
-
-
-def _tree(page: str) -> _Node:
-    parser = _TreeParser()
-    parser.feed(page)
-    return parser.root
-
-
-def _elements(node: _Node) -> Iterator[_Node]:
-    for child in node.children:
-        if isinstance(child, _Node):
-            yield child
-            yield from _elements(child)
-
-
 def _all_text(node: _Node) -> str:
+    """**Kept local**: this is not `tests.support.html.all_text`, which
+    lowercases its answer. This one preserves case, and the difference is
+    live -- it disagreed with the shared function on **all 127 calls** this
+    file makes (`share-the-ordered-html-harness`).
+    """
     found: list[str] = []
     for child in node.children:
         if isinstance(child, _Text):
@@ -267,11 +200,18 @@ def _all_text(node: _Node) -> str:
     return " ".join(part for part in found if part)
 
 
-def _classes(node: _Node) -> set[str]:
-    return set(node.attrs.get("class", "").split())
-
-
 def _carries(node: _Node, marker: str) -> bool:
+    """**Kept local**: `tests.support.html.carries` reads the class token on
+    the element alone; this one widens to descendants.
+
+    **The proof agreed here, and that is not the licence.** Over this file's
+    7 calls the two answered identically, because none of the 7 asked about
+    an element whose *descendant* carries the marker. Agreement over the
+    inputs a tier happens to supply is a property of the sample, not of the
+    function -- the body is what decides, and it is a different function.
+    Its callees `_classes` and `_elements` migrated in the same commit; both
+    were compared against their local originals and answer the same.
+    """
     if marker in _classes(node):
         return True
     return any(marker in _classes(child) for child in _elements(node))
@@ -281,13 +221,6 @@ def _marked(page: str, marker: str) -> list[_Node]:
     return [
         element for element in _elements(_tree(page)) if marker in _classes(element)
     ]
-
-
-def _ancestors(node: _Node) -> Iterator[_Node]:
-    walker = node.parent
-    while walker is not None and walker.tag != "#document":
-        yield walker
-        walker = walker.parent
 
 
 def _region(page: str) -> _Node:

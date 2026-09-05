@@ -316,6 +316,51 @@ proof cannot see**, because the next slice will meet all four again:
   4. **Anything a test never executes.** That region belongs to
      `tests/unit/support/`, which is why it exists.
 
+`share-the-ordered-html-harness` (2026-09-05) closed the HTML parser, taking
+**11 of the 17 files that still carried one** — 1,408 lines — and adding one
+function, `document_order`. Six of those eleven were held back by a
+classification made from the *shape* of their parser's data model; run instead,
+**none of the six reads the field it was kept for**. **A population classified
+by the shape of its data model must be re-classified by what the tests actually
+read before any of it is called a keep.**
+
+**Each disposition instrument is a veto in one direction only.** Three were run
+over the 97 shared-name helpers in those files and no two agreed. An AST
+comparison over-reports difference — it read a parameter rename as divergence in
+three files. Execution over-reports sameness — `_carries` in
+`test_product_index_page` agreed on 4 of 4 calls while carrying a body that
+widens the shared reading to descendants; the identically-bodied one two files
+away disagreed 4 times in 30. So: **a source comparison can only veto a
+*migrate*; execution can only veto a *keep*; reading adjudicates what the source
+comparison separated, and a migrate additionally requires its callees to
+migrate.** The result was 87 migrate, 10 keep.
+
+**Execution agreement is not evidence even when the divergent branch runs.**
+`_texts` in `test_playbook_admin_presentation_vocabulary` refuses to descend
+into a named control. Over 163 calls it agreed with the shared function every
+time — and **4 of those calls did pass a subtree containing a control**, so the
+branch executed and still did not reach the result, because those controls held
+no text. "The proof exercised that branch" is not a licence. Only the body
+separates the two.
+
+**A kept helper is recorded, not renamed.** An earlier draft of that change gave
+each of the ten keeps a name saying what it does. Measured, that reaches **92
+sites, 56 of them inside `def test_` bodies**, and `_carries` is a proper
+substring of `_page_carries` and of three test function names, so a textual
+rename corrupts them green and silent. The convention here is the one this
+section already states — *the file keeps its own declaration and the reason is
+recorded* — and no preceding slice renamed anything.
+
+**Alias what remains referenced, not everything that migrated.** An alias
+nothing reads is a `ruff` F401 error. Across those eleven files `Node` was still
+read in all 11, `Text` in 8, and `TreeParser` in **none** — its only references
+are its own `class` line and `tree`, both deleted. Seven migrating helpers were
+in the same position and were deleted rather than aliased. Aliasing `Node` and
+`Text` under the files' existing `_`-prefixed spellings is also what makes the
+migration cheap: **nothing is retyped**, and all 150 `_Node`/`_Text` references
+outside the harness helpers — five of them `isinstance` checks — stand as
+written.
+
 - **A double keeps the locals' field spelling; production's spelling is a
   derived property.** Production probes by shape where `.importlinter` forbids
   naming a type, and every local double models the minimum, which is why the

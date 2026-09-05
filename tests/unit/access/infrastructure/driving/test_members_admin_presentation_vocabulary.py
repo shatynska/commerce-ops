@@ -47,7 +47,10 @@ Fixed by the artifacts:
 INVENTED, each recorded in the manifest with its correction point:
 
 - That "carries the marker `X`" is read as a **class token**, per
-  `design.md`'s `class="row-action"`. Correction point: `_carries`.
+  `design.md`'s `class="row-action"`. Correction point:
+  `tests/support/html.py::carries`, which this file's `_carries` was a
+  copy of and which now carries the interpretation note itself
+  (`share-the-ordered-html-harness`).
 - What counts as an action control, and how one action is told from
   another (the enclosing form's action and hidden fields, plus the
   control's own href, name, value and text). Correction points:
@@ -93,9 +96,6 @@ from __future__ import annotations
 
 import asyncio
 import importlib
-from collections.abc import Callable, Iterator
-from dataclasses import dataclass, field
-from html.parser import HTMLParser
 from types import ModuleType
 from typing import Any, Final
 from urllib.parse import urljoin, urlsplit
@@ -114,6 +114,20 @@ from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
 from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
 from tests.support.fakes import FakeMembersStore as _FakeMembersStore
 from tests.support.fixtures import PRINCIPAL
+from tests.support.html import HX_VERBS as _HX_VERBS
+from tests.support.html import Node as _Node
+from tests.support.html import all_text as _all_text
+from tests.support.html import ancestors as _ancestors
+from tests.support.html import classes as _classes
+from tests.support.html import element_disabled as _element_disabled
+from tests.support.html import element_hidden as _element_hidden
+from tests.support.html import elements as _elements
+from tests.support.html import flat as _flat
+from tests.support.html import inherited as _inherited
+from tests.support.html import nearest as _nearest
+from tests.support.html import size as _size
+from tests.support.html import texts as _texts
+from tests.support.html import tree as _tree
 
 #: The shared asset route this change adds. Resolved by name so that its
 #: absence fails only the tests that actually drive it, rather than
@@ -181,33 +195,6 @@ _PLAYBOOK_WORDS: Final = ("playbook", "step", "steps")
 _MEMBERS_WORDS: Final = ("team", "members", "member")
 _CURRENT_ATTRIBUTES: Final = ("aria-current", "data-current")
 _CURRENT_CLASSES: Final = ("current", "active", "here", "is-current", "is-active")
-
-_HX_VERBS: Final = ("hx-get", "hx-post", "hx-put", "hx-patch", "hx-delete")
-
-_HIDDEN_CLASSES: Final = (
-    "hidden",
-    "is-hidden",
-    "d-none",
-    "sr-only",
-    "visually-hidden",
-)
-
-_VOID_TAGS: Final = (
-    "area",
-    "base",
-    "br",
-    "col",
-    "embed",
-    "hr",
-    "img",
-    "input",
-    "link",
-    "meta",
-    "param",
-    "source",
-    "track",
-    "wbr",
-)
 
 
 # ---------------------------------------------------------------------------
@@ -302,144 +289,30 @@ def _seeded_store() -> _FakeMembersStore:
 # ---------------------------------------------------------------------------
 
 
-@dataclass
-class _Text:
-    ordinal: int
-    text: str
-
-
-@dataclass
-class _Node:
-    tag: str
-    attrs: dict[str, str]
-    parent: _Node | None
-    children: list[_Node | _Text] = field(default_factory=list)
-
-
-class _TreeParser(HTMLParser):
-    def __init__(self) -> None:
-        super().__init__(convert_charrefs=True)
-        self.root = _Node("#document", {}, None)
-        self._stack: list[_Node] = [self.root]
-        self._ordinal = 0
-
-    def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        node = _Node(tag, {k: v or "" for k, v in attrs}, self._stack[-1])
-        self._stack[-1].children.append(node)
-
-    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        node = _Node(tag, {k: v or "" for k, v in attrs}, self._stack[-1])
-        self._stack[-1].children.append(node)
-        if tag not in _VOID_TAGS:
-            self._stack.append(node)
-
-    def handle_endtag(self, tag: str) -> None:
-        for index in range(len(self._stack) - 1, 0, -1):
-            if self._stack[index].tag == tag:
-                del self._stack[index:]
-                return
-
-    def handle_data(self, data: str) -> None:
-        if data.strip():
-            self._ordinal += 1
-            self._stack[-1].children.append(_Text(self._ordinal, _flat(data)))
-
-
-def _flat(text: str) -> str:
-    return " ".join(text.split())
-
-
-def _tree(html: str) -> _Node:
-    parser = _TreeParser()
-    parser.feed(html)
-    return parser.root
-
-
-def _elements(node: _Node) -> Iterator[_Node]:
-    for child in node.children:
-        if isinstance(child, _Node):
-            yield child
-            yield from _elements(child)
-
-
-def _texts(node: _Node) -> list[_Text]:
-    found: list[_Text] = []
-    for child in node.children:
-        if isinstance(child, _Text):
-            found.append(child)
-        else:
-            found.extend(_texts(child))
-    return found
-
-
-def _all_text(node: _Node) -> str:
-    return " ".join(t.text for t in _texts(node)).lower()
-
-
 def _attribute_text(node: _Node) -> str:
     """Everything a member's row may carry them by, values included —
     a hidden `member_id` or a per-member URL is how a row names its
-    subject when the identity itself is not printed."""
+    subject when the identity itself is not printed.
+
+    **Kept local**: `tests.support.html.attribute_text` filters to `class`,
+    `title`, `aria-label`, `id` and `data-*`, and does not include the
+    element's text. This one takes every attribute value and prepends
+    `_all_text`, which is the whole point of it.
+
+    **Nothing executes this, so there is no measurement to cite.** Its two
+    call sites are inside `_member_row`, which has no callers of its own; it
+    recorded **0 calls** across the tier. A declaration nothing executes
+    reports zero, never pass, so this keep rests on the body alone. Its
+    callee `_all_text` migrated to the shared module in the same commit --
+    the local one was `" ".join(t.text for t in _texts(node)).lower()`, a
+    respelling of the shared function rather than a divergence, so what this
+    helper answers is unchanged. Because it has no calls, no instrument
+    would have reported it had that not been so.
+    """
     parts = [_all_text(node)]
     for element in [node, *_elements(node)]:
         parts.extend(element.attrs.values())
     return " ".join(parts).lower()
-
-
-def _classes(node: _Node) -> set[str]:
-    return set(node.attrs.get("class", "").split())
-
-
-def _carries(node: _Node, marker: str) -> bool:
-    """Whether an element carries a vocabulary marker — read as a class
-    token, per `design.md`. Correction point for a page that marks some
-    other way."""
-    return marker in _classes(node)
-
-
-def _element_hidden(node: _Node) -> bool:
-    attrs = node.attrs
-    if "hidden" in attrs and attrs["hidden"].lower() != "false":
-        return True
-    if attrs.get("aria-hidden", "").lower() == "true":
-        return True
-    style = attrs.get("style", "").replace(" ", "").lower()
-    if "display:none" in style or "visibility:hidden" in style:
-        return True
-    return any(
-        name in _HIDDEN_CLASSES for name in attrs.get("class", "").lower().split()
-    )
-
-
-def _element_disabled(node: _Node) -> bool:
-    return (
-        "disabled" in node.attrs
-        or node.attrs.get("aria-disabled", "").lower() == "true"
-    )
-
-
-def _inherited(node: _Node, predicate: Callable[[_Node], bool]) -> bool:
-    walker: _Node | None = node
-    while walker is not None and walker.tag != "#document":
-        if predicate(walker):
-            return True
-        walker = walker.parent
-    return False
-
-
-def _ancestors(node: _Node) -> Iterator[_Node]:
-    walker = node.parent
-    while walker is not None and walker.tag != "#document":
-        yield walker
-        walker = walker.parent
-
-
-def _nearest(node: _Node, tag: str) -> _Node | None:
-    return next((a for a in _ancestors(node) if a.tag == tag), None)
-
-
-def _size(node: _Node) -> int:
-    return 1 + sum(1 for _ in _elements(node))
 
 
 # ---------------------------------------------------------------------------
@@ -473,7 +346,7 @@ def _control_haystack(node: _Node) -> str:
         for key in ("href", "formaction", "name", "value", "aria-label", "title")
     ]
     parts.extend(node.attrs.get(verb, "") for verb in _HX_VERBS)
-    parts.append(_flat(" ".join(t.text for t in _texts(node))))
+    parts.append(_flat(" ".join(_texts(node))))
     form = _nearest(node, "form")
     if form is not None:
         parts.append(form.attrs.get("action", ""))

@@ -7,17 +7,33 @@ an unclosed tag is closed by whatever end tag eventually matches an open
 ancestor, which is what a browser does and what these tests have always relied
 on.
 
-**Not every file that had one gets this one.** Three data models exist in the
-suite, and only the one below is shared:
+**The ORDERED model is gone from the suite, and all but one ORDINAL file with
+it.** `share-the-unit-test-harness` classified the 37 files by the shape of
+their parser's data model and kept twelve back on it. Re-classified by what the
+tests actually *read*, six of those twelve never touched the field they were
+kept for, and the five that did read document order are served by
+`document_order` below -- derived, so nothing was added to `Node`.
 
-    STANDARD  Node(tag, attrs, parent, children)  +  Text(text)     25 files
-    ORDERED   Node(..., order, children)          +  Text(text)      8 files
+    STANDARD  Node(tag, attrs, parent, children)  +  Text(text)     36 files
+              -- 31 share this module, 5 keep their own parser
     ORDINAL   Node(tag, attrs, parent, children)  +  Text(ordinal, text)
-                                                                     4 files
+                                                                     1 file
 
-The last two track document order, which the queries here do not model. Their
-files keep their own parser: replacing it would change what those tests can
-ask, and a migration that changes an assertion is not a migration.
+**Six files still keep their own parser, each for a measured reason recorded at
+the declaration that carries it:**
+
+* `test_playbook_admin_fault_attribution` is the last ORDINAL file, and its
+  `ordinal` is not a document position: it numbers fragments synthesised out of
+  attribute values *negatively*, so nothing derived from tree position can
+  produce it.
+* three files build `Text(data)` raw where `TreeParser` below builds
+  `Text(flat(data))`, and their `all_text` does not lowercase where this one
+  does;
+* two declare `_flat(node) -> str` -- a different function from `flat(text) ->
+  str` here, under the same spelling.
+
+Replacing any of the six would change what those tests can ask, and a migration
+that changes an assertion is not a migration.
 
 Names are public here and aliased at the call site, because a module-private
 name imported across modules is a contradiction.
@@ -172,7 +188,19 @@ def classes(node: Node) -> set[str]:
 
 
 def carries(node: Node, marker: str) -> bool:
-    """Whether the element carries `marker` as a class."""
+    """Whether the element carries `marker` as a class.
+
+    **The class-token reading is an interpretation, and this is its correction
+    point.** No specification says a marker is a class; the delta specs say only
+    "marked". Two files that migrated onto this function had recorded that in
+    their own docstrings, one of them under an explicit INVENTED heading, and
+    the note is kept here so it survives for all of this function's callers
+    rather than being lost with two of them.
+
+    Three files read the marker on the element's *descendants* too. That is a
+    different reading, not a wider one, so they keep their own `_carries` --
+    with, in one case, a proof that agreed on every call it happened to make.
+    """
     return marker in classes(node)
 
 
@@ -225,3 +253,42 @@ def nearest(node: Node, tag: str) -> Node | None:
 def size(node: Node) -> int:
     """The element and everything beneath it, counted."""
     return 1 + sum(1 for _ in elements(node))
+
+
+def document_order(node: Node) -> int:
+    """The node's position in a pre-order walk of the document it belongs to.
+
+    The document root answers `0` and the first element `1`, which is the
+    numbering the eight local parsers this replaced produced. A node whose
+    `parent` chain reaches no `#document` is its own root and answers `0`; its
+    child answers `1`.
+
+    **The node is found by identity, never by `==`.** `Node` is a `@dataclass`
+    with value equality, so two sibling cells with the same tag, attributes and
+    text are equal -- an `index()`-style search answers the first of them, which
+    is a plausible integer and a silent wrong answer. Worse, two *similar* cells
+    under different parents cannot be compared at all: `td == td` compares the
+    differing parent rows, each row compares its children, which are the cells
+    again, and an ordinary two-row table raises `RecursionError`.
+
+    **`0` is both a real answer and the not-found answer**, and the overlap is
+    deliberate rather than overlooked: the only node that legitimately answers
+    `0` is a root, and a root is exactly the node the walk does not yield. A
+    node whose `parent` chain is intact but which is absent from its parent's
+    `children` -- a tree no `tree()` call can build -- would also answer `0`,
+    reading as "before everything" rather than raising. Nothing constructs such
+    a tree in this suite; if something ever does, this is the line to change.
+
+    Deriving rather than storing is deliberate. A stored index would need a
+    field on `Node`, which would change `__eq__` and `__repr__` for every file
+    importing it -- see `share-the-ordered-html-harness` design Decision 1,
+    where the equivalence of the two is argued by construction and confirmed
+    over 138 parses and 19,056 nodes.
+    """
+    root = node
+    while root.parent is not None:
+        root = root.parent
+    for index, element in enumerate(elements(root), start=1):
+        if element is node:
+            return index
+    return 0

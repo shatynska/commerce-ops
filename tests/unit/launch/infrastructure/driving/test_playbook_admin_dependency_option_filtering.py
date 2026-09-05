@@ -376,6 +376,20 @@ def _texts(node: _Node) -> list[str]:
 
 
 def _flat(node: _Node) -> str:
+    """**Kept local**: this file's parser is not
+    `tests.support.html`'s, and this helper is why.
+
+    `tests.support.html.flat` is `flat(text: str) -> str`; this is
+    `_flat(node: _Node) -> str`, joining a node's text runs. Two
+    different functions under one spelling -- the collision
+    `share-the-unit-test-harness` task 3.1 caught, and the reason this
+    file was left out of that migration.
+
+    `share-the-ordered-html-harness` re-measured it and left the file
+    again. It also found that this file's `_carries`, `_attribute_text`
+    and `_ancestors` diverge from the shared functions of those names,
+    which eleven files alias -- recorded in `docs/deferred-work.md`.
+    """
     return " ".join(_texts(node))
 
 

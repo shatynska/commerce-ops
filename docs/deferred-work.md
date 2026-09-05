@@ -1293,6 +1293,58 @@ the threaded delivery it is about. It is fixed, but the class is general and
 the commit-time tier's new zero-skip guard cannot catch it — a swallowed error
 produces a pass, not a skip.
 
+### Three shared spellings mean something else in two files
+
+`share-the-ordered-html-harness` (2026-09-05) left
+`test_playbook_admin_dependency_option_filtering` and
+`test_playbook_admin_multi_value_controls` out of the HTML migration, because
+each declares `_flat(node: _Node) -> str` where `tests/support/html.py` has
+`flat(text: str) -> str` — the collision `share-the-unit-test-harness` task 3.1
+caught and named.
+
+**It did not catch three more in the same two files.** Both also declare
+`_carries`, `_attribute_text` and `_ancestors`, and all three differ from the
+shared functions those spellings name elsewhere:
+
+| spelling | there | `tests/support/html.py` |
+|---|---|---|
+| `_carries` | matches a class, **an `id`, or any `data-*` value** | a class token only |
+| `_attribute_text` | joins the element's **own** attribute values | walks descendants, filters to `class`, `title`, `aria-label`, `id`, `data-*`, lowercases |
+| `_ancestors` | walks **past** `#document` | stops below it |
+
+Measured with `grep -rl 'from tests.support.html import <name> as _<name>'
+tests/` **at the commit that records this**, not at the branch point: **23 files
+alias at least one of the three** — `ancestors` in 22, `attribute_text` in 4,
+`carries` in 4. So a reader moving between files meets the same `_`-prefixed
+spelling meaning two things.
+
+**The first draft of this entry said 12 / 12 / 4 / 3, which were the figures at
+`origin/main`.** `share-the-ordered-html-harness` itself added ten `ancestors`
+aliases and one `carries` alias, so the hazard it was recording had roughly
+doubled by the commit that recorded it. That is the project's own rule — a
+measurement is taken at the commit that relies on it — failing on the entry that
+exists to state the measurement method. `/code-review` caught it.
+
+**This is a naming hazard, not a defect.** Every assertion in those two files is
+correct as written; the divergent readings are deliberate and the files are the
+only callers. What is missing is the record, which is what the rest of the suite
+does: a `**Kept local**` note at the declaration naming the shared function it
+is not and the input that distinguishes them. Six such notes across two files.
+
+**Not a rename.** `share-the-ordered-html-harness` measured that answer for its
+own ten keeps and rejected it: 92 sites, 56 of them inside `def test_` bodies,
+and `_carries` is a proper substring of `_page_carries` and of three test
+function names, so a textual rename corrupts them while the suite stays green.
+
+**The measurement method, which is the transferable part.** Do not decide these
+by reading and do not decide them by running. A source comparison over-reports
+difference — it reads a parameter rename as divergence. Execution over-reports
+sameness — in that change a helper agreed with the shared function on every call
+the tier made while carrying a demonstrably different body, and another agreed
+on all 163 calls with its divergent branch *executing* 4 times. Use both, each
+as a veto in one direction: source difference vetoes a migrate, execution
+disagreement vetoes a keep, and reading adjudicates the rest.
+
 ### Small cleanups, not worth a change each
 
 Verified present 2026-09-01; suitable for one chore commit.
