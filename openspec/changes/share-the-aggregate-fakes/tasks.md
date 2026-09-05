@@ -88,7 +88,7 @@ Always name the tiers.
 
 ## 2. The proof harness
 
-- [ ] 2.1 Stand up the **equality proof** for the 42 playbook-serving and 24
+- [x] 2.1 Stand up the **equality proof** for the 42 playbook-serving and 24
       `CatalogProduct`-serving declarations: construct local and shared side by
       side, compare each served value field-wise. Reuse
       `~/share-the-playbook-builders/verify_pb.py` and `proof_plugin.py` rather
@@ -105,7 +105,7 @@ Always name the tiers.
       rebuild it to task 2.3's contract, for the reason task 2.1 gives.** It is needed for the 58 by
       Decision 8, and task 3.4a may route a product reader to it too, so it is
       built general here rather than re-provisioned mid-phase.
-- [ ] 2.3 Make both harnesses **count comparisons per declaration** and report a
+- [x] 2.3 Make both harnesses **count comparisons per declaration** and report a
       declaration with zero as zero, never as a pass. The 13 known silent ones
       (§6) must appear in that report, and any further one it finds is
       dispositioned by the standalone proof **in the phase that migrates it**, as
@@ -182,7 +182,7 @@ Always name the tiers.
       the one `.calls = []` in `tests/` is `_ReadRecorder`, a different double —
       so storing `reads` and deriving `calls` is safe; re-take it, and if any
       site assigns `calls`, store `calls` and derive `reads` instead.
-- [ ] 3.4a Check the equality proof's precondition **by construction over every
+- [x] 3.4a Check the equality proof's precondition **by construction over every
       distinct type the 24 actually serve** — `dataclasses.is_dataclass(T)` and
       `T.__dataclass_params__` — rather than assuming it from the name.
       Planning measured 22 importing `tests/support/values.py::CatalogProduct`
@@ -190,7 +190,7 @@ Always name the tiers.
       frozen dataclass; re-take it, and route any non-frozen type to the lockstep
       pairing instead. Asserting the strong proof over an unmeasured population
       is the failure `AGENTS.md` already records.
-- [ ] 3.4b Migrate the 24 callable declarations against those buckets, in
+- [x] 3.4b Migrate the 24 callable declarations against those buckets, in
       commits that land the type and its first call sites together — the
       `pre-commit` hook runs the whole tier, so neither can be committed alone.
       **19 are closed by the equality proof; the 5 that execute no calls are
@@ -199,13 +199,30 @@ Always name the tiers.
       both are still in the tree. Deferring them to §6 would leave nothing to
       compare against. Report actual against expected, and report the 5
       separately from the 19.
-- [ ] 3.5 Record the 5 scope-sniffing catalog ports as **kept local**, citing
+      **Outcome, 2026-09-05: 21 of 24 migrated, 3 kept — a measured shortfall
+      against the 24 of 24 this task expected, and reported rather than
+      absorbed.** 12 migrated directly (their `__init__(product)` is the shared
+      contract verbatim); 9 through a three-line constructor adapter, since their
+      call sites build no product. The equality proof drove local and twin over
+      **131 comparisons across 12 declarations** and closed the 9; the 5 that
+      execute nothing were closed by the standalone proof against their
+      pre-migration source at `b353d2e`, value and recorder identical, and
+      reported separately as the preamble requires.
+
+      **The 3 keeps are the proof's finding, not a judgement.**
+      `test_briefing_assembly.py` (2 mismatches / 15 calls) and
+      `test_briefing_delivery.py` (4 / 15) answer a *different product per
+      identifier*; `test_automation_pass_repeat_backoff.py` (2 / 34) answers a
+      second product for `OTHER_PRODUCT_ID`. A reader that holds one product
+      cannot reproduce any of them. The reason is recorded at each declaration.
+      Nothing in the classification pass predicted this: it was found by running.
+- [x] 3.5 Record the 5 scope-sniffing catalog ports as **kept local**, citing
       the disposition that already exists — `share-the-stateful-fakes` task 10.3
       and its proposal, *"four of those five apply access-scope filtering that no
       `_Catalog` declaration performs"* (design.md Decision 6). Do not attribute
       it to `FakeCatalogPort`'s docstring, whose two declarations are a different
       population; that docstring is accurate and is not to be "corrected".
-- [ ] 3.6 Phase boundary: run `tests/integration` (it holds one `_FakeCatalog`)
+- [x] 3.6 Phase boundary: run `tests/integration` (it holds one `_FakeCatalog`)
       and confirm 159 passed, zero skips.
 
 ## 4. The playbook stores — 42 declarations

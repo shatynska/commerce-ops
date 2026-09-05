@@ -283,7 +283,14 @@ class _CatalogProduct:
 class _FakeCatalog:
     """Stands in for `catalog.application.get_product_by_id`, closed over
     a per-product answer. An absent entry is reported as `None` -- the
-    INVENTED reading of "the catalog cannot resolve it"."""
+    INVENTED reading of "the catalog cannot resolve it".
+
+    **Kept local**: this reader answers a *different* product per identifier
+    (Widget A/B/C), which the shared `FakeProductReader` cannot -- it holds one.
+    Measured, not judged: the equality proof drove both over the 15 calls this
+    file executes and reported 2 field-wise value mismatches
+    (`share-the-aggregate-fakes`, task 3.4b).
+    """
 
     def __init__(self, products: dict[ProductId, _CatalogProduct]) -> None:
         self._products = products

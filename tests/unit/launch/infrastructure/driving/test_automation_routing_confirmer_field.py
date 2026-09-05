@@ -66,6 +66,7 @@ from commerce_ops.launch.infrastructure.driving import automation_pass
 from commerce_ops.shared.domain.access_scope import AccessScope
 from commerce_ops.shared.domain.identity import ProductId
 from tests.support.fakes import FakeHandlers as _FakeHandlers
+from tests.support.fakes import FakeProductReader
 from tests.support.fakes import InertBackoff as _InertBackoff
 from tests.support.fixtures import (
     ALICE,
@@ -158,9 +159,15 @@ def _launch(playbook: LaunchPlaybook) -> Launch:
 # ---------------------------------------------------------------------------
 
 
-class _FakeCatalog:
-    async def __call__(self, product_id: ProductId) -> _CatalogProduct:
-        return _CatalogProduct(name=PRODUCT_NAME, sku=PRODUCT_SKU)
+class _FakeCatalog(FakeProductReader):
+    """The shared reader, adapted: this file's call sites build no product.
+
+    Constructor-only difference, so the equality proof runs over this adapter --
+    it answered field-wise-equal values on every call the file executes.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(_CatalogProduct(name=PRODUCT_NAME, sku=PRODUCT_SKU))
 
 
 class _FakeLaunches:

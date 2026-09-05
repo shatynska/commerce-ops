@@ -236,6 +236,11 @@ class _CatalogProduct:
 
 
 class _FakeCatalog:
+    """**Kept local**: answers a different product per identifier, which a reader
+    holding one cannot reproduce. The equality proof reported 4 value
+    mismatches over 15 calls (`share-the-aggregate-fakes`, task 3.4b).
+    """
+
     def __init__(self, products: dict[ProductId, _CatalogProduct]) -> None:
         self._products = products
 
