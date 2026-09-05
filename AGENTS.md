@@ -255,10 +255,15 @@ absence of the filter so a later "improvement" fails loudly.
 
 **A double installed by patching a class needs a class-producing constructor
 that reads its source at call time — never a mutable class attribute.** All ten
-`_FakePlaybookRepository` and two `_FakeLaunchStore` declarations are installed
-as `monkeypatch.setattr(module, "PlaybookRepository", …)`, so production
-constructs them itself and they can never be handed their subject as an
-instance. `serving(source)` returns a fresh subclass per call site, and resolves
+`_FakePlaybookRepository` declarations are installed as
+`monkeypatch.setattr(module, "PlaybookRepository", …)`, so production constructs
+them itself and they can never be handed their subject as an instance. Two
+`_FakeLaunchStore` declarations are patched the same way over `LaunchRepository`
+— but both were **kept local** for a different reason (their
+`get_by_product_id` ignores the identifier by design), so the launch store has
+no `serving()` at all. A first draft gave it one; `/code-review` found the path
+had no users outside its own contract test, and it was removed rather than left
+as a shared double with a measured population of zero. `serving(source)` returns a fresh subclass per call site, and resolves
 `source` on **every read**: `test_clickup_webhook_automated_step` rebinds
 `_SERVED[0]` mid-file to prove opposite branches, and a value bound at subclass
 creation serves the import-time playbook to both while both tests still pass. A

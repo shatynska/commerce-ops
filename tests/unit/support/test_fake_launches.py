@@ -190,59 +190,6 @@ async def test_the_two_measured_dead_spellings_are_absent() -> None:
     assert not hasattr(store, "all")
 
 
-async def test_serving_discards_what_production_passes_the_patched_class() -> None:
-    """Decision 4's `serving`, which is not Decision 3's.
-
-    The two class-patched declarations answer `type(self).launch`, a mutable
-    class attribute -- the shape `tasks.md` 7.2 records as a prohibition. A
-    `*launches` constructor would accept the `(db)` production hands it and
-    serve a `Session` as a launch, which every read would then answer.
-    """
-    launch = _launch()
-
-    store = FakeLaunches.serving(launch)(A_SESSION)
-
-    assert tuple(await store.list_active()) == (launch,)
-    assert tuple(await store.list_all()) == (launch,)
-    assert await store.get_by_product_id(launch.product_id) is launch
-
-
-async def test_serving_takes_a_launch_an_iterable_or_a_callable() -> None:
-    first, second = _launch(), _launch()
-
-    from_iterable = FakeLaunches.serving([first, second])(A_SESSION)
-    from_callable = FakeLaunches.serving(lambda: (first, second))(A_SESSION)
-
-    assert tuple(await from_iterable.list_active()) == (first, second)
-    assert tuple(await from_callable.list_active()) == (first, second)
-
-
-async def test_serving_reads_its_source_at_call_time() -> None:
-    """The behaviour `tasks.md` 5.5b is to justify, pinned independently of
-    whether either class-patched declaration turns out to rebind."""
-    first, second = _launch(), _launch()
-    served = [first]
-    store = FakeLaunches.serving(lambda: served)(A_SESSION)
-
-    assert tuple(await store.list_active()) == (first,)
-
-    served[0] = second
-
-    assert tuple(await store.list_active()) == (second,)
-
-
-async def test_each_serving_call_produces_a_subclass_of_its_own() -> None:
-    first, second = _launch(), _launch()
-
-    first_class = FakeLaunches.serving(first)
-    second_class = FakeLaunches.serving(second)
-
-    assert first_class is not second_class
-    assert issubclass(first_class, FakeLaunches)
-    assert tuple(await first_class(A_SESSION).list_active()) == (first,)
-    assert tuple(await second_class(A_SESSION).list_active()) == (second,)
-
-
 async def test_the_reads_answer_a_tuple() -> None:
     """DERIVED, and the one assertion in this file resting on an unresolved
     question: no artifact fixes the container type, and the locals disagree --

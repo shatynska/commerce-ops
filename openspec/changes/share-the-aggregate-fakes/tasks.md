@@ -394,7 +394,15 @@ call time.
         — so four declarations fall outside the variadic constructor, not six,
         and the 56-of-58 target reconciles with the census above it.
 
-      **Expected: 56 of 58 migrated, 2 kept.** Report actual against it.
+      **Expected: 56 of 58 migrated, 2 kept.**
+
+      **Actual: 52 of 58, 6 kept.** The expectation was built from the
+      constructor census alone; four further declarations turned out to carry
+      behaviour the shared store does not — a reversed `order` seam with an
+      `enumerations` counter, a store recording `reads` and `saves`, and the two
+      class-patched ones whose `get_by_product_id` ignores its identifier. Each
+      is recorded at its own declaration. The §5 outcome below is the number to
+      read; this line is what it was measured against.
 - [x] 5.5b Measure whether either class-patched declaration rebinds
       `type(self).launch` after production constructs the double. Call-time
       reading was proved a correctness condition for the *repository*
@@ -405,10 +413,17 @@ call time.
       in this phase and before the commits that delete their locals: construct
       both versions directly and compare. The pairing reports zero comparisons
       for them, and zero is not a pass.
-- [x] 5.6 Migrate the 32 `_FakeLaunches` — 26 closed by the lockstep pairing with
-      its four recorded limits stated where they bite, 6 by task 5.5c.
-- [x] 5.7 Migrate the `_FakeLaunchStore` declarations: **24 of 26 migrated, 2
-      kept**. The 2 kept are the `@dataclass` pair — measured, both carry this
+- [x] 5.6 Migrate the `_FakeLaunches` declarations: **31 of 32 migrated, 1
+      kept** — 25 closed by the lockstep pairing with its four recorded limits
+      stated where they bite, 6 by task 5.5c, and `test_progress_launch.py`
+      kept for the recorders it carries.
+- [x] 5.7 Migrate the `_FakeLaunchStore` declarations: expected **24 of 26
+      migrated, 2 kept**; **actual 21 of 26, 5 kept** — counted by construction,
+      not by recollection: the two `@dataclass` form keeps, the two class-patched
+      ones whose `get_by_product_id` ignores its identifier, and
+      `test_launch_admin_list.py`'s reversed `order` seam. With 5.6's **31 of
+      32** (`test_progress_launch.py` keeps its `reads`/`saves` recorders) that
+      is 52 of 58. The 2 kept are the `@dataclass` pair — measured, both carry this
       name — `tests/unit/launch/application/test_thread_anchor_resolution.py` and
       `test_thread_establishment_race.py`, a declaration-form keep under
       `AGENTS.md` (task 5.5a). With 5.6's 32 that is **56 of 58**, reconciling
@@ -496,7 +511,7 @@ reported here and never folded into any phase's pass total.
 (535 files) and `lint-imports` (18 contracts) all clean.
 `tests/unit` outside support **2,246**, `tests/agents` **236**,
 `tests/integration` **executed — 159 passed, zero skips**,
-`tests/unit/support` **52 → 91**.
+`tests/unit/support` **52 → 87** — 91 after §5, less the four contract tests for the `FakeLaunches.serving` path `/code-review` found had no users.
 
 **`git diff --stat 523977e..HEAD -- src/` is empty**: the proposal's
 "no production code changes" is confirmed mechanically rather than recalled.

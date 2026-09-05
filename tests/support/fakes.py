@@ -322,6 +322,14 @@ class FakeLaunches:
 
     The reads answer a `tuple`, which 46 of the 60 local annotations use and
     which `FakeCatalogPort.list_products` already spells.
+
+    **There is deliberately no `serving()` here**, unlike
+    `FakePlaybookRepository`. The plan gave the launch store one for the two
+    declarations installed by patching `LaunchRepository`; §5 then measured that
+    both keep their own declaration for other reasons, leaving `serving` with a
+    population of zero. A shared double reproduces a measured population, and a
+    path exercised only by its own contract test is not one -- it was written,
+    found to have no users by `/code-review`, and removed.
     """
 
     def __init__(self, *launches: Any) -> None:
@@ -332,26 +340,6 @@ class FakeLaunches:
         #: `Member.id` precedent. Fourteen sites read `stored` and none assigns
         #: it, so that is the derived one.
         self.launches: list[Any] = list(launches)
-
-    #: Set by `serving` on the subclass it builds; read at call time.
-    _source: ClassVar[Any] = None
-
-    @classmethod
-    def serving(cls, source: Any) -> type[FakeLaunches]:
-        """A subclass for the two declarations installed by patching the
-        **class**, whose `__init__` therefore discards the `(db)` production
-        hands it -- a `*launches` constructor would otherwise hold a `Session`
-        as a launch.
-
-        `source` is a launch, an iterable of them, or a zero-argument callable,
-        and is resolved on every read rather than at subclass creation, so a
-        test that rebinds it mid-file is served what it rebound.
-        """
-        return type(
-            cls.__name__,
-            (_ServingLaunches,),
-            {"_source": staticmethod(source) if callable(source) else source},
-        )
 
     def _held(self) -> tuple[Any, ...]:
         return tuple(self.launches)
@@ -375,23 +363,6 @@ class FakeLaunches:
                 self.launches[index] = launch
                 return
         self.launches.append(launch)
-
-
-class _ServingLaunches(FakeLaunches):
-    """What `FakeLaunches.serving` builds: production constructs it, so the
-    constructor discards its arguments and the launches come from `_source`."""
-
-    def __init__(self, *_args: Any, **_kwargs: Any) -> None:
-        super().__init__()
-
-    def _held(self) -> tuple[Any, ...]:
-        source = type(self)._source
-        resolved = source() if callable(source) else source
-        if resolved is None:
-            return ()
-        if isinstance(resolved, (list, tuple)):
-            return tuple(resolved)
-        return (resolved,)
 
 
 class _FakePlaybooksBase:
