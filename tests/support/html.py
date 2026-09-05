@@ -225,3 +225,34 @@ def nearest(node: Node, tag: str) -> Node | None:
 def size(node: Node) -> int:
     """The element and everything beneath it, counted."""
     return 1 + sum(1 for _ in elements(node))
+
+
+def document_order(node: Node) -> int:
+    """The node's position in a pre-order walk of the document it belongs to.
+
+    The document root answers `0` and the first element `1`, which is the
+    numbering the eight local parsers this replaced produced. A node whose
+    `parent` chain reaches no `#document` is its own root and answers `0`; its
+    child answers `1`.
+
+    **The node is found by identity, never by `==`.** `Node` is a `@dataclass`
+    with value equality, so two sibling cells with the same tag, attributes and
+    text are equal -- an `index()`-style search answers the first of them, which
+    is a plausible integer and a silent wrong answer. Worse, two *similar* cells
+    under different parents cannot be compared at all: `td == td` compares the
+    differing parent rows, each row compares its children, which are the cells
+    again, and an ordinary two-row table raises `RecursionError`.
+
+    Deriving rather than storing is deliberate. A stored index would need a
+    field on `Node`, which would change `__eq__` and `__repr__` for every file
+    importing it -- see `share-the-ordered-html-harness` design Decision 1,
+    where the equivalence of the two is argued by construction and confirmed
+    over 138 parses and 19,056 nodes.
+    """
+    root = node
+    while root.parent is not None:
+        root = root.parent
+    for index, element in enumerate(elements(root), start=1):
+        if element is node:
+            return index
+    return 0
