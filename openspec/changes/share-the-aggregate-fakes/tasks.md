@@ -115,7 +115,7 @@ Always name the tiers.
       `tests.support.X` *before* importing a test module — `from … import y as
       _z` binds at import, and a classifier keyed on the bare name reports every
       migrated declaration as unmigrated.
-- [ ] 2.5 Re-take, at this commit, the probe search that licenses every
+- [x] 2.5 Re-take, at this commit, the probe search that licenses every
       superset in the change — **for all three collaborators, not one**: no
       `getattr` name-probe, no `hasattr`, no `except AttributeError` and — the
       construct the first three cannot see — no **`callable(...)`** test or
@@ -149,7 +149,7 @@ Always name the tiers.
 
 ## 3. The product reader — 24 declarations
 
-- [ ] 3.0 Before writing any shared type, confirm the constructor contract
+- [x] 3.0 Before writing any shared type, confirm the constructor contract
       design.md Decision 9 fixes still matches the tree, by running the census
       rather than reading it: `FakeProductReader(product)`,
       `FakePlaybooks(playbook, *, refusal=None)`, `FakeLaunches(*launches)`,
@@ -157,7 +157,7 @@ Always name the tiers.
       contract tests from the test-writing pass are written against exactly
       these; a different spelling fails them on the call rather than on the
       assertion, which is visible but is a rewrite of every arrange line.
-- [ ] 3.1 Add `FakeProductReader` to `tests/support/fakes.py`: an async
+- [x] 3.1 Add `FakeProductReader` to `tests/support/fakes.py`: an async
       `__call__(product_id)` answering **whatever product object it is handed,
       unconstrained** — not annotated to `tests/support/values.py::CatalogProduct`,
       per design.md Decision 7, since constraining it would move the same-value
@@ -166,12 +166,12 @@ Always name the tiers.
       same list object. Its docstring says that the playbook store spells `reads`
       as an `int` with no `calls`, and why — `AGENTS.md`'s `clickup_user_id`
       precedent is that each type names the trap.
-- [ ] 3.2 Add its `_conforms: SomeProtocol = FakeProductReader(...)` assignment
+- [x] 3.2 Add its `_conforms: SomeProtocol = FakeProductReader(...)` assignment
       beside it — the assignment, not the protocol's existence, is what makes a
       drifted double a `mypy` error.
-- [ ] 3.3 Add its contract tests under `tests/unit/support/`, and state the new
+- [x] 3.3 Add its contract tests under `tests/unit/support/`, and state the new
       expected count for that directory.
-- [ ] 3.4 Classify the 24 against the shared type **by running each**, and
+- [x] 3.4 Classify the 24 against the shared type **by running each**, and
       state expected buckets before migrating: 10 answer a held product, 6
       record into `reads`, 4 into `calls`, 4 build or look up. A migration task
       whose population total is also its target cannot report a shortfall.

@@ -63,6 +63,7 @@ from tests.support.fakes import (
     FakeHandlers,
     FakeMembers,
     FakeMembersStore,
+    FakeProductReader,
     FakeSlackResponse,
     FakeStepStore,
     InertBackoff,
@@ -249,6 +250,20 @@ class CatalogPortShape(Protocol):
 
 
 _catalog_port_conforms: CatalogPortShape = FakeCatalogPort()
+
+
+class ProductReaderShape(Protocol):
+    """The one read a launch pass makes for a product: a bare call.
+
+    Declared as `__call__` rather than a named method because that is what the
+    24 declarations present and what production invokes -- the reader is handed
+    in as a callable, never as an object a method is looked up on.
+    """
+
+    async def __call__(self, product_id: Any) -> Any: ...
+
+
+_product_reader_conforms: ProductReaderShape = FakeProductReader(None)
 
 
 class MembersReaderShape(Protocol):

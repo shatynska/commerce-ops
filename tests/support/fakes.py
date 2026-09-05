@@ -294,6 +294,51 @@ class FakeCatalogPort:
         return self.products
 
 
+class FakeProductReader:
+    """The catalog read a launch pass makes: one product, by identifier.
+
+    **It holds whatever object it is handed, and is deliberately not annotated
+    to `values.py::CatalogProduct`** (`share-the-aggregate-fakes`, Decision 7).
+    22 of the 24 declarations it replaces import that type and 2 declare their
+    own frozen product; more to the point, four production sites probe the
+    *served* product by attribute name -- `automation_pass:563`,
+    `automation_confirmation:115`, `product_dossier:326` and `:335`. Narrowing
+    the held type would move `AGENTS.md`'s same-value invariant out of the
+    visible call site and into this double, where nobody reads it.
+
+    **`reads` is the stored spelling and `calls` is derived over the same list
+    object.** 6 of the locals record into `reads` and 4 into `calls`; carrying
+    two lists would let a later edit populate one and not the other, so there is
+    one list under two names, the arrangement `Member.identifier` and
+    `FakeTask.custom_field_values` already use. `reads` is stored rather than
+    `calls` because no call site *assigns* either name -- measured across
+    `tests/` at the commit that added this -- and a read-only property cannot
+    receive an assignment, which is `AGENTS.md`'s `Member.id` precedent.
+
+    **Beware the neighbouring spelling.** The playbook store's `reads` is an
+    `int` with no `calls` at all, because that is what its own locals spell.
+    Two shared types in this module disagree on one field name, deliberately;
+    `tests/unit/support/test_fake_playbooks.py` pins the other side.
+
+    Recording where the locals recorded nothing is a superset over 14 of the 24,
+    licensed by the probe search that found no production reader touching either
+    name -- they are test-only recorders.
+    """
+
+    def __init__(self, product: Any) -> None:
+        self._product = product
+        self.reads: list[ProductId] = []
+
+    @property
+    def calls(self) -> list[ProductId]:
+        """The other spelling, over the same list -- never a second one."""
+        return self.reads
+
+    async def __call__(self, product_id: ProductId) -> Any:
+        self.reads.append(product_id)
+        return self._product
+
+
 class FakeMembers:
     """The membership, as the reader production is handed.
 

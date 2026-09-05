@@ -98,6 +98,7 @@ from commerce_ops.shared.domain.clickup import ClickUpListState
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
 from tests.support.fakes import FakeMembers as _FakeMembers
+from tests.support.fakes import FakeProductReader as _FakeCatalog
 from tests.support.fixtures import (
     ALICE,
     BOHDAN,
@@ -169,14 +170,6 @@ def _start(playbook: LaunchPlaybook) -> Launch:
 # ---------------------------------------------------------------------------
 # Test doubles
 # ---------------------------------------------------------------------------
-
-
-class _FakeCatalog:
-    def __init__(self, product: _CatalogProduct) -> None:
-        self._product = product
-
-    async def __call__(self, product_id: ProductId) -> _CatalogProduct:
-        return self._product
 
 
 def _members() -> _FakeMembers:

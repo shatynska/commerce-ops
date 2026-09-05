@@ -98,6 +98,7 @@ from commerce_ops.launch.infrastructure.driven.clickup_sync import converge_laun
 from commerce_ops.shared.domain.clickup import ClickUpListState
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
+from tests.support.fakes import FakeProductReader as _FakeCatalog
 from tests.support.fixtures import LAUNCH_DATE, PRODUCT_NAME, PRODUCT_SKU, product_id
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import playbook as _build_playbook
@@ -184,14 +185,6 @@ def _start(playbook: LaunchPlaybook) -> Launch:
 # ---------------------------------------------------------------------------
 # Test doubles (inherited — see the module docstring)
 # ---------------------------------------------------------------------------
-
-
-class _FakeCatalog:
-    def __init__(self, product: _CatalogProduct) -> None:
-        self._product = product
-
-    async def __call__(self, product_id: ProductId) -> _CatalogProduct:
-        return self._product
 
 
 def _due_date_in(fields: dict[str, Any]) -> tuple[bool, Any]:
