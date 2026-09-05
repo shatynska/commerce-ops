@@ -541,15 +541,33 @@ recorded at its own declaration.
       constructor, never a mutable class attribute**.
 - [x] 7.3 Record every declaration left local with its measured reason —
       continuing the record the three predecessors established.
-- [ ] 7.4 Run `/code-review` over the diff. Both reviews run, not one: the
+- [x] 7.4 Run `/code-review` over the diff. Both reviews run, not one: the
       equality proof passed everything last slice and `/code-review` then found
       ten helpers whose override had stopped winning — values identical, calling
       contract broken, suite green.
-- [ ] 7.5 Act on the review's findings.
+- [x] 7.5 Act on the review's findings.
+
+      **Six findings, none of them a failing test** — the equality proof, the
+      lockstep pairing, a green 2,573-test suite and clean `mypy` all passed the
+      diff, which is exactly why this review is a separate obligation.
+      `FakeLaunches.serving` turned out to have **no users at all**: §5 measured
+      both intended call sites into keeps, leaving the path exercised only by its
+      own contract tests and carrying two defects nobody could reach — `save()`
+      silently lost, and a subclass built from `_ServingLaunches` rather than
+      `cls`. Removed rather than repaired. Three further findings were claims
+      that would have misled the next slice: a comment describing a `stored`
+      property the class deliberately lacks, `AGENTS.md` naming the wrong patch
+      target, and `tasks.md` carrying an expected figure as though it were the
+      outcome. Fixed in `d85f3a1`; the per-name split was then re-counted **by
+      construction**, after a first correction restated it from memory and got it
+      wrong — the same defect the review had just reported.
 
 ## 8. Ship
 
-- [ ] 8.1 Open the pull request for `share-the-aggregate-fakes` and merge it.
-- [ ] 8.2 Archive on its own branch in a later pull request
+- [x] 8.1 Open the pull request for `share-the-aggregate-fakes` and merge it.
+      **PR #177, merged 2026-09-05.** CI `Validate` green — which matters
+      because CI sets `COMMERCE_OPS_REQUIRE_DATABASE`, so the integration tier
+      ran there for real rather than skipping.
+- [x] 8.2 Archive on its own branch in a later pull request
       (`openspec archive share-the-aggregate-fakes --yes`), deleting entry 3
       from `docs/proposed-change-order.md` per that file's own rule.
