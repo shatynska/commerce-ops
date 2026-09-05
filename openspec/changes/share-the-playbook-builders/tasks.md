@@ -285,9 +285,12 @@ Read as a preceding phase, the rule contradicts itself.
          re-taking rather than inherited.
 - [x] 6.6 Run `/code-review` over the full diff before calling the change done
       (`AGENTS.md` — *Independent review before completion*).
-- [ ] 6.7 Open the pull request. Nothing reaches `main` except through one
+- [x] 6.7 Open the pull request. Nothing reaches `main` except through one
       (`AGENTS.md` — *Deployment and configuration*); archive follows the merge
       as its own commit on its own branch.
+
+      **Opened: https://github.com/shatynska/commerce-ops/pull/174** (2026-09-05).
+      `pre-push` ran the integration tier on the way out and it passed.
 
 ---
 
