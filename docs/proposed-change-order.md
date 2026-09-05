@@ -91,12 +91,28 @@ shared store is told what to serve by being handed it, which is a parameter, not
 a blocker. What was genuinely ordered behind the builders is the *value* those
 call sites hand in, not the store's shape.
 
-And the proof available here is the strong one, not the weak one. What these
-stores hold is a `LaunchPlaybook` — `@dataclass(frozen=True, slots=True)` — so
-**their instance state is structurally comparable**, unlike the previous
-slice's fakes, whose `==` was identity and which needed the lockstep pairing as
-a substitute. Do not reach for that pairing here; it is strictly weaker and it
-was deleted.
+And the proof splits, which is the thing to know before planning this.
+**It splits by what each store *serves*, not by the store:**
+
+| store | decls | serves | `==` |
+|---|---|---|---|
+| `_FakePlaybooks` | 32 | `LaunchPlaybook` | **structural** |
+| `_FakePlaybookRepository` | 10 | `LaunchPlaybook` | **structural** |
+| `_FakeCatalog` | 29 | `CatalogProduct` (22 of 32 returns), `Product` | **structural** where it is the shared value double |
+| `_FakeLaunches` | 32 | `Launch` | identity |
+| `_FakeLaunchStore` | 26 | `Launch` | identity |
+
+`LaunchPlaybook` and `StepDefinition` are `@dataclass(frozen=True, slots=True)`
+and `tests/support/values.py::CatalogProduct` is `frozen=True`, so those
+comparisons are real. **`Launch` and `Product` are plain aggregate roots
+defining no `__eq__`**, so for the 58 `Launch`-serving declarations `==` is
+identity and the strong proof is inexpressible exactly as it was for
+`share-the-stateful-fakes`.
+
+So this slice needs *both* instruments, and should say at each declaration
+which one it is using. An earlier draft of this entry claimed the strong proof
+reached all of them; it was written from `_FakePlaybooks` alone and was wrong
+for 58 of the 129.
 
 That rule was tested rather than assumed, and it held: of the 175 migrated
 declarations, the one whose lockstep pairing failed for a leaf reason —

@@ -224,9 +224,19 @@ now 104 of 104 and `_playbook` 84 of 95**, across 105 files.
 `_FakePlaybooks` 32, `_FakeLaunches` 32, `_FakeCatalog` 29, `_FakeLaunchStore`
 26, `_FakePlaybookRepository` 10 were ordered behind `_playbook()` and `_hold()`
 being shared, which they now are. Note also that 26 of the 32 `_FakePlaybooks`
-take the playbook as a constructor argument and what they hold is a
-`LaunchPlaybook` — so unlike the previous slice's fakes, **their instance state
-is structurally comparable and the strong proof reaches them.**
+take the playbook as a constructor argument, so a shared store is told what to
+serve by being handed it.
+
+**The proof splits by what a store serves, and both instruments are needed.**
+`_FakePlaybooks` (32) and `_FakePlaybookRepository` (10) serve `LaunchPlaybook`,
+and `_FakeCatalog` (29) serves `CatalogProduct` for 22 of its 32 returns — all
+frozen dataclasses, so the equality proof applies. `_FakeLaunches` (32) and
+`_FakeLaunchStore` (26) serve `Launch`, **a plain aggregate root defining no
+`__eq__`** — as is `Product` — so for those 58 declarations `==` is identity and
+the pairing's limits above apply unchanged. Verify this by construction rather
+than by reading: `dataclasses.is_dataclass(T)` and `T.__dataclass_params__`
+settle it in one line, and a first draft of this paragraph asserted the strong
+proof for all 129 because it was written from `_FakePlaybooks` alone.
 
 **Behaviour is proved by comparison, not by inspection — where it can be.**
 A field-wise equality proof is inexpressible for a stateful fake, since
