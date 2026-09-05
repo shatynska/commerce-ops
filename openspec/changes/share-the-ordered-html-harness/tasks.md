@@ -202,6 +202,13 @@ confirm from the diff that no annotation moved.
       identity, never by `==`** (`design.md` constraint 2). It takes `Node`,
       never `Text`.
 
+      Constraint 2 is stronger than "silently wrong", measured while the
+      contract test was written: two structurally similar cells under different
+      parents raise `RecursionError` under `==`, so an equality-based
+      implementation crashes on an ordinary table page rather than answering
+      wrongly. Neither failure is acceptable; the point is that `is` is not a
+      refinement here, it is the only thing that works.
+
 - [ ] 3.2 Write `tests/unit/support/test_html_document_order.py`, pinning:
       the root is `0` and the first element `1`; siblings ascend; a descendant
       follows its ancestor; **two equal sibling nodes get distinct answers**

@@ -19,9 +19,16 @@ Three constraints shape everything below.
    shared type's dataclass-ness, `frozen`, `eq` and `__repr__` are part of what
    its users rely on. So the shape of `Node` is fixed for this change: nothing
    is added to it.
-2. **Value equality also means `==` cannot identify a node.** Two sibling `<td>`
-   cells with the same text and attributes are equal. Anything that locates a
-   node inside its tree must compare with `is`.
+2. **Value equality also means `==` cannot identify a node, and comparing two
+   is not even safe.** Two sibling `<td>` cells with the same text and
+   attributes are equal (`==` true, `is` false). Worse, two structurally
+   similar cells under *different* parents raise `RecursionError`: `td == td`
+   compares the differing parent rows, each row compares its children, which are
+   the cells again. Measured on
+   `<table><tr><td>same</td></tr><tr><td>same</td></tr></table>` — an ordinary
+   table page. So an `==`-based `document_order` is not merely silently wrong on
+   equal siblings; on the pages these tests parse it crashes. Anything that
+   locates a node inside its tree must compare with `is`.
 3. **A file that imports shared names as `_`-prefixed aliases while keeping a
    local helper under a shared spelling owes the reader a stated reason at that
    declaration.** Before this change a file has no shared imports and the
