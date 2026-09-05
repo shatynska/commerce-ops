@@ -26,6 +26,37 @@ being compared. §6 is the register that reports the total; it is not where the
 comparison happens. Stating this once here is what stops the rule being applied
 to some phases and not others.
 
+**The 41 contract tests already exist, parked.** The test-writing pass wrote
+them before implementation, as `AGENTS.md` requires, and they name types that do
+not exist yet — so pytest aborts collection of the whole tier rather than failing
+four files, and the `pre-commit` hook blocks every commit while they sit under
+`tests/`. `mypy .` runs strict over the whole
+tree with no excludes, so moving them out of `testpaths` is not enough either —
+they must be somewhere **neither** tool reads.
+
+They are therefore held in `<changeRoot>/pending-tests/` with a `.py.pending`
+suffix: pytest collects `test_*.py` and mypy reads `.py`/`.pyi`, so neither sees
+them, and git tracks them so 41 tests are not left riding in an untracked
+worktree. The alternative was a `mypy` exclude in `pyproject.toml`, rejected as
+tooling config added for a staging area — this change promises to touch only
+`tests/` and docs, and a config change made for a temporary directory is one
+nobody removes.
+
+**Each phase `git mv`s its own file into `tests/unit/support/`, dropping the
+suffix, in the same commit that adds its shared type** — the commit shape the
+Migration Plan already prescribes:
+
+| file | moves in | tests |
+|---|---|---|
+| `test_fake_product_reader.py.pending` | §3, task 3.3 | 6 |
+| `test_fake_playbooks.py.pending`, `test_fake_playbook_repository.py.pending` | §4, task 4.3 | 15 + 7 |
+| `test_fake_launches.py.pending` | §5, task 5.5 | 13 |
+
+`tests/unit/support/` therefore reads 52 → **58** after §3 → **80** after §4 →
+**93** after §5. Do not write these tests again; do not edit them to make them
+pass. If one fails against a finished type, the type is wrong or the test
+encodes a superseded assumption — say which, in the phase report.
+
 Never `uv run pytest` bare: it fails at collection on duplicate test basenames.
 Always name the tiers.
 
@@ -118,6 +149,14 @@ Always name the tiers.
 
 ## 3. The product reader — 24 declarations
 
+- [ ] 3.0 Before writing any shared type, confirm the constructor contract
+      design.md Decision 9 fixes still matches the tree, by running the census
+      rather than reading it: `FakeProductReader(product)`,
+      `FakePlaybooks(playbook, *, refusal=None)`, `FakeLaunches(*launches)`,
+      `FakePlaybookRepository` constructed only through `serving`. The 41
+      contract tests from the test-writing pass are written against exactly
+      these; a different spelling fails them on the call rather than on the
+      assertion, which is visible but is a rewrite of every arrange line.
 - [ ] 3.1 Add `FakeProductReader` to `tests/support/fakes.py`: an async
       `__call__(product_id)` answering **whatever product object it is handed,
       unconstrained** — not annotated to `tests/support/values.py::CatalogProduct`,

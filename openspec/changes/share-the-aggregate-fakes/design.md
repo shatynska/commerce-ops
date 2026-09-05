@@ -374,6 +374,45 @@ Adding a recorder to the 14 that had none is a superset, licensed by the Context
 Both reviews run, not one: the equality proof passed everything last slice and
 `/code-review` then found ten helpers whose override had stopped winning.
 
+### 9. The constructor contract, fixed here rather than left to the implementer
+
+**Five review rounds checked instrument assignment, populations, arithmetic and
+cross-references, and none of them asked how a double is *handed its subject*.**
+The test-writing pass found the gap: `tasks.md` named each type's surface and
+never its constructor, so all 41 contract tests were written against assumed
+signatures. An assumption that lives only in the tests is the thing this
+project's rules exist to prevent, so it is settled here — by the majority local
+spelling, measured rather than chosen.
+
+| type | constructor | measured basis |
+|---|---|---|
+| `FakeProductReader` | `(product)` positional | 12 of 24 spell `__init__(product)`; 7 take none and answer a module constant, which the call site now passes |
+| `FakePlaybooks` / `AsyncFakePlaybooks` | `(playbook, *, refusal=None)` | 17 spell `__init__(playbook)`, 6 default it to a module constant, 3 also take a refusal — positional subject, keyword refusal, per Decision 2 |
+| `FakePlaybookRepository` | none — `serving(source)` only | all 10 take `(*args, **kwargs)` and are constructed by production (Decision 3) |
+| `FakeLaunches` | `(*launches)` variadic | 35 of 58; `serving(source)` for the 2 class-patched ones (Decision 4) |
+
+Two consequences worth stating, because both are call-site work the migration
+performs and neither is a shared-type feature:
+
+- The **7 readers and 6 playbook stores that take no constructor argument** and
+  close over a module constant pass that constant explicitly. A shared type
+  cannot carry a per-file default, and `AGENTS.md` already forbids a builder
+  falling back on a parameter's default where the file has its own.
+- The **2 readers taking `products: dict[ProductId, CatalogProduct]`** are a
+  different subject shape. They are an adapter under the three-line rule, or a
+  keep with the reason recorded — task 3.4 decides by running them.
+
+**The reads answer a `tuple`.** The locals disagree — 46 annotate
+`tuple[Launch, ...]`, 13 `list[Launch]`, 1 `Sequence[Launch]` — and `tuple`
+is both the majority and the spelling `FakeCatalogPort.list_products()` already
+uses. Production's own ports annotate `Sequence`, which a tuple satisfies.
+
+**`_FakePlaybooksBase` is not imported by any test.** `AGENTS.md` states that a
+module-private name imported across modules is a contradiction, and the base is
+private deliberately: it is an implementation detail of the sibling split, not a
+double any test arranges from. The sibling relationship is asserted without
+naming it — neither sibling is a subclass of the other, and both share one base.
+
 ## Risks / Trade-offs
 
 - **A harvested expression that is not evaluable outside its own function** →
