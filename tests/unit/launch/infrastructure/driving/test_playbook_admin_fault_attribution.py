@@ -307,6 +307,19 @@ def _seeded_store() -> _FakeStepStore:
 
 @dataclass
 class _Text:
+    """**Kept local**: the one ORDINAL parser that stays.
+
+    `ordinal` is not a document position and cannot be derived from one.
+    `_attributed_fragments` below synthesises `_Text` fragments out of
+    *attribute values* and numbers them **negatively**, so an ordinal here is
+    an identity for text that has no place in the document at all.
+    `tests.support.html.document_order` answers a position in a tree; nothing
+    derived from tree position can produce this.
+
+    The other three ORDINAL files migrated in
+    `share-the-ordered-html-harness`: none of them read `ordinal`.
+    """
+
     ordinal: int
     text: str
 

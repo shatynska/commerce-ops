@@ -632,6 +632,17 @@ class _TreeParser(HTMLParser):
                 return
 
     def handle_data(self, data: str) -> None:
+        """**Kept local**, and this line is the reason.
+
+        `tests.support.html.TreeParser` builds `Text(flat(data))`, with
+        whitespace already collapsed; this one keeps the run raw. This
+        file's `_all_text` does not lowercase either, where the shared one
+        does. Migrating would change what these assertions see, and a
+        migration that changes an assertion is not a migration
+        (`share-the-ordered-html-harness`, which re-measured the reason
+        `share-the-unit-test-harness` task 3.1 recorded rather than
+        inheriting it).
+        """
         if data.strip():
             self._stack[-1].children.append(_Text(data))
 
