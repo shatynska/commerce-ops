@@ -107,10 +107,8 @@ from __future__ import annotations
 
 import asyncio
 import uuid
-from collections.abc import Callable, Iterator
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import UTC, date, datetime
-from html.parser import HTMLParser
 from types import ModuleType
 from typing import Any, Final
 from urllib.parse import urlsplit
@@ -149,6 +147,18 @@ from tests.support.fakes import FakeLaunches as _FakeLaunchStore
 from tests.support.fakes import FakeMembers, FakePlaybooks, FakeStepStore, StubDate
 from tests.support.fakes import FakeMembersStore as _FakeMembersStore
 from tests.support.fixtures import MARKETPLACE
+from tests.support.html import HX_VERBS as _HX_VERBS
+from tests.support.html import Node as _Node
+from tests.support.html import Text as _Text
+from tests.support.html import all_text as _all_text
+from tests.support.html import ancestors as _ancestors
+from tests.support.html import classes as _classes
+from tests.support.html import document_order as _document_order
+from tests.support.html import element_disabled as _element_disabled
+from tests.support.html import element_hidden as _element_hidden
+from tests.support.html import elements as _elements
+from tests.support.html import inherited as _inherited
+from tests.support.html import tree as _tree
 from tests.support.playbook import playbook as _build_playbook
 from tests.support.values import Member as _FakeMember
 
@@ -178,25 +188,7 @@ PRODUCT_NAME: Final = "Alpha widget"
 _HEADER_WORDS: Final = ("playbook", "team", "members", "member")
 _LAUNCH_WORDS: Final = ("launch", "launches", "product")
 
-_HX_VERBS: Final = ("hx-get", "hx-post", "hx-put", "hx-patch", "hx-delete")
 _SCRIPTING_ATTRIBUTES: Final = (*_HX_VERBS, "onclick", "onmousedown", "onkeydown")
-_HIDDEN_CLASSES: Final = ("hidden", "is-hidden", "d-none", "sr-only", "visually-hidden")
-_VOID_TAGS: Final = (
-    "area",
-    "base",
-    "br",
-    "col",
-    "embed",
-    "hr",
-    "img",
-    "input",
-    "link",
-    "meta",
-    "param",
-    "source",
-    "track",
-    "wbr",
-)
 
 
 # ---------------------------------------------------------------------------
@@ -559,124 +551,10 @@ def _journal_html(surface: _Surface, product_id: ProductId | None = None) -> str
 # ---------------------------------------------------------------------------
 
 
-@dataclass
-class _Text:
-    text: str
-
-
-@dataclass
-class _Node:
-    tag: str
-    attrs: dict[str, str]
-    parent: _Node | None
-    order: int
-    children: list[_Node | _Text] = field(default_factory=list)
-
-
-class _TreeParser(HTMLParser):
-    def __init__(self) -> None:
-        super().__init__(convert_charrefs=True)
-        self.root = _Node("#document", {}, None, 0)
-        self._stack: list[_Node] = [self.root]
-        self._order = 0
-
-    def _open(self, tag: str, attrs: list[tuple[str, str | None]]) -> _Node:
-        self._order += 1
-        node = _Node(tag, {k: v or "" for k, v in attrs}, self._stack[-1], self._order)
-        self._stack[-1].children.append(node)
-        return node
-
-    def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        self._open(tag, attrs)
-
-    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        node = self._open(tag, attrs)
-        if tag not in _VOID_TAGS:
-            self._stack.append(node)
-
-    def handle_endtag(self, tag: str) -> None:
-        for index in range(len(self._stack) - 1, 0, -1):
-            if self._stack[index].tag == tag:
-                del self._stack[index:]
-                return
-
-    def handle_data(self, data: str) -> None:
-        if data.strip():
-            self._stack[-1].children.append(_Text(_flat(data)))
-
-
-def _flat(text: str) -> str:
-    return " ".join(text.split())
-
-
-def _tree(html: str) -> _Node:
-    parser = _TreeParser()
-    parser.feed(html)
-    return parser.root
-
-
-def _elements(node: _Node) -> Iterator[_Node]:
-    for child in node.children:
-        if isinstance(child, _Node):
-            yield child
-            yield from _elements(child)
-
-
-def _all_text(node: _Node) -> str:
-    found: list[str] = []
-    for child in node.children:
-        if isinstance(child, _Text):
-            found.append(child.text)
-        else:
-            found.append(_all_text(child))
-    return " ".join(part for part in found if part).lower()
-
-
 def _own_text(node: _Node) -> str:
     return " ".join(
         child.text for child in node.children if isinstance(child, _Text)
     ).lower()
-
-
-def _classes(node: _Node) -> set[str]:
-    return set(node.attrs.get("class", "").split())
-
-
-def _element_hidden(node: _Node) -> bool:
-    attrs = node.attrs
-    if "hidden" in attrs and attrs["hidden"].lower() != "false":
-        return True
-    if attrs.get("aria-hidden", "").lower() == "true":
-        return True
-    style = attrs.get("style", "").replace(" ", "").lower()
-    if "display:none" in style or "visibility:hidden" in style:
-        return True
-    return any(
-        name in _HIDDEN_CLASSES for name in attrs.get("class", "").lower().split()
-    )
-
-
-def _element_disabled(node: _Node) -> bool:
-    return (
-        "disabled" in node.attrs
-        or node.attrs.get("aria-disabled", "").lower() == "true"
-    )
-
-
-def _inherited(node: _Node, predicate: Callable[[_Node], bool]) -> bool:
-    walker: _Node | None = node
-    while walker is not None and walker.tag != "#document":
-        if predicate(walker):
-            return True
-        walker = walker.parent
-    return False
-
-
-def _ancestors(node: _Node) -> Iterator[_Node]:
-    walker = node.parent
-    while walker is not None and walker.tag != "#document":
-        yield walker
-        walker = walker.parent
 
 
 def _links_to(root: _Node, path: str) -> list[_Node]:
@@ -715,7 +593,7 @@ def _before_title(node: _Node, title: _Node) -> bool:
         return False
     if any(ancestor is node for ancestor in _ancestors(title)):
         return False
-    return node.order < title.order
+    return _document_order(node) < _document_order(title)
 
 
 def _in_shared_header(node: _Node) -> bool:
