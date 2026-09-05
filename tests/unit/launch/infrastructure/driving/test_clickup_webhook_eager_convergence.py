@@ -95,6 +95,7 @@ from commerce_ops.launch.domain.launch_playbook import (
 )
 from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.shared.domain.identity import ProductId
+from tests.support.fakes import FakeLaunches, FakePlaybookRepository
 from tests.support.fixtures import LAUNCH_DATE, product_id
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import playbook as _build_playbook
@@ -199,14 +200,11 @@ class _FakeMapping:
         self.tasks[(product_id, step_id)].last_observed_closed = closed
 
 
-class _FakeLaunches:
-    def __init__(self, launch: Launch) -> None:
-        self._launch = launch
+class _FakeLaunches(FakeLaunches):
+    """The shared launch store, adapted to this file's own surface."""
 
-    async def get_by_product_id(self, product_id: ProductId) -> Launch | None:
-        if product_id == self._launch.product_id:
-            return self._launch
-        return None
+    def __init__(self, launch: Launch) -> None:
+        super().__init__(launch)
 
 
 class _RecordingOutcomes:
@@ -275,11 +273,10 @@ class _RecordingHelper:
         return found
 
 
-class _FakePlaybookRepository:
-    def __init__(self, *args: object, **kwargs: object) -> None: ...
-
-    async def get(self, version: str) -> LaunchPlaybook:
-        return _playbook()
+#: The shared repository, told what to serve. `serving` reads its source
+#: at call time, so this file's own `_playbook` builder is read afresh on
+#: every `get` rather than frozen at import.
+_FakePlaybookRepository = FakePlaybookRepository.serving(_playbook)
 
 
 # ---------------------------------------------------------------------------

@@ -101,6 +101,8 @@ from commerce_ops.shared.domain.lifecycle_stage import (
     SteadyState,
 )
 from commerce_ops.shared.domain.severity import Severity
+from tests.support.fakes import FakeLaunches as _FakeLaunchStore
+from tests.support.fakes import FakePlaybooks as _FakePlaybooks
 from tests.support.playbook import CONFIRMATION_GATES
 from tests.support.playbook import playbook as _build_playbook
 from tests.support.steps import hold as _build_hold
@@ -224,40 +226,6 @@ def _launch(
     return launch
 
 
-class _FakeLaunchStore:
-    """In-memory `LaunchStore` with the enumeration `tasks.md` 2.2 adds.
-
-    Answers to three spellings of the enumeration because no artifact
-    fixes one -- see `test_launch_reports.py`'s docstring.
-    """
-
-    def __init__(self, *launches: Launch) -> None:
-        self._launches = {launch.product_id: launch for launch in launches}
-
-    async def get_by_product_id(self, product_id: ProductId) -> Launch | None:
-        return self._launches.get(product_id)
-
-    async def save(self, launch: Launch) -> None:
-        self._launches[launch.product_id] = launch
-
-    async def list_all(self) -> tuple[Launch, ...]:
-        return tuple(self._launches.values())
-
-    async def all(self) -> tuple[Launch, ...]:
-        return await self.list_all()
-
-    async def list_launches(self) -> tuple[Launch, ...]:
-        return await self.list_all()
-
-
-class _FakePlaybooks:
-    def __init__(self, playbook: LaunchPlaybook) -> None:
-        self._playbook = playbook
-
-    def get(self, version: str) -> LaunchPlaybook:
-        return self._playbook
-
-
 # ---------------------------------------------------------------------------
 # Briefing-side test doubles
 # ---------------------------------------------------------------------------
@@ -283,7 +251,14 @@ class _CatalogProduct:
 class _FakeCatalog:
     """Stands in for `catalog.application.get_product_by_id`, closed over
     a per-product answer. An absent entry is reported as `None` -- the
-    INVENTED reading of "the catalog cannot resolve it"."""
+    INVENTED reading of "the catalog cannot resolve it".
+
+    **Kept local**: this reader answers a *different* product per identifier
+    (Widget A/B/C), which the shared `FakeProductReader` cannot -- it holds one.
+    Measured, not judged: the equality proof drove both over the 15 calls this
+    file executes and reported 2 field-wise value mismatches
+    (`share-the-aggregate-fakes`, task 3.4b).
+    """
 
     def __init__(self, products: dict[ProductId, _CatalogProduct]) -> None:
         self._products = products

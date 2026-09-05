@@ -184,6 +184,10 @@ def _launch(*, slack_thread_id: str | None = None) -> Launch:
     )
 
 
+# KEPT LOCAL by `share-the-aggregate-fakes` (task 5.7). A `@dataclass` where
+# the shared store is a plain class -- a declaration-form mismatch is a keep
+# under `AGENTS.md` -- and it carries an internal assertion and a `saves`
+# recorder the shared store has not.
 @dataclass
 class _FakeLaunchStore:
     """The one launch every scenario in this file is about."""

@@ -94,6 +94,7 @@ from commerce_ops.launch.domain.launch_playbook import (
 from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.launch.infrastructure.driven.clickup_sync import ClickUpSyncError
 from commerce_ops.shared.domain.identity import ProductId
+from tests.support.fakes import FakePlaybookRepository
 from tests.support.playbook import playbook as _build_playbook
 from tests.support.steps import hold as _build_hold
 from tests.support.steps import step as _build_step
@@ -211,11 +212,10 @@ class _FakeJobLaunches:
         return self._launches
 
 
-class _FakePlaybookRepository:
-    def __init__(self, *args: object, **kwargs: object) -> None: ...
-
-    async def get(self, version: str = "") -> LaunchPlaybook:
-        return _playbook()
+#: The shared repository, told what to serve. `serving` reads its source
+#: at call time, so this file's own `_playbook` builder is read afresh on
+#: every `get` rather than frozen at import.
+_FakePlaybookRepository = FakePlaybookRepository.serving(_playbook)
 
 
 class _FakeSession:

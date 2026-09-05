@@ -111,6 +111,8 @@ from commerce_ops.launch.domain.launch_run import (
     Provenance,
 )
 from commerce_ops.shared.domain.identity import ProductId
+from tests.support.fakes import AsyncFakePlaybooks as _FakePlaybooks
+from tests.support.fakes import FakeLaunches as _FakeLaunches
 from tests.support.playbook import CONFIRMATION_GATES
 from tests.support.playbook import playbook as _build_playbook
 from tests.support.steps import hold as _build_hold
@@ -313,34 +315,6 @@ def _product_of(args: tuple[Any, ...], kwargs: dict[str, Any]) -> ProductId:
         "the cascade was called with neither a launch nor a product "
         f"identifier (args={args!r}, kwargs={kwargs!r}); correct `_product_of`"
     )
-
-
-class _FakeLaunches:
-    def __init__(self, *launches: Launch) -> None:
-        self._launches = {launch.product_id: launch for launch in launches}
-
-    async def list_active(self) -> tuple[Launch, ...]:
-        return tuple(self._launches.values())
-
-    async def get_by_product_id(self, product_id: ProductId) -> Launch | None:
-        return self._launches.get(product_id)
-
-    async def save(self, launch: Launch) -> None:
-        self._launches[launch.product_id] = launch
-
-    async def list_all(self) -> tuple[Launch, ...]:
-        return tuple(self._launches.values())
-
-
-class _FakePlaybooks:
-    def __init__(self, playbook: LaunchPlaybook) -> None:
-        self.playbook = playbook
-
-    async def get(self, version: str = "") -> LaunchPlaybook:
-        return self.playbook
-
-    async def __call__(self, *args: Any, **kwargs: Any) -> LaunchPlaybook:
-        return self.playbook
 
 
 class _FakeProgress:

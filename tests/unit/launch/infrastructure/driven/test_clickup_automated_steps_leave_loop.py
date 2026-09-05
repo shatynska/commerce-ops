@@ -93,6 +93,7 @@ from commerce_ops.shared.domain.clickup import ClickUpListState
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
 from tests.support.fakes import FakeMembers
+from tests.support.fakes import FakeProductReader as _FakeCatalog
 from tests.support.fixtures import (
     ALICE,
     HANDLER_NAME,
@@ -184,14 +185,6 @@ def _start(playbook: LaunchPlaybook) -> Launch:
 # Test doubles (the shapes `test_clickup_non_active_steps_leave_loop.py`
 # records)
 # ---------------------------------------------------------------------------
-
-
-class _FakeCatalog:
-    def __init__(self, product: _CatalogProduct) -> None:
-        self._product = product
-
-    async def __call__(self, product_id: ProductId) -> _CatalogProduct:
-        return self._product
 
 
 class _Member(Member):

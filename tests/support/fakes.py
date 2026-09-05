@@ -294,6 +294,226 @@ class FakeCatalogPort:
         return self.products
 
 
+class FakeLaunches:
+    """The launch store, over the launches it is handed -- 58 declarations
+    under two names that never appear in the same file.
+
+    **`list_active` deliberately does not filter graduated launches, and that
+    is the most load-bearing line in this class.** The real repository's
+    `list_active` drops launches standing at `graduated`
+    (`launch_repository.py:181`), and reproducing that here is the obvious
+    "truer to production" move. It is wrong.
+    `test_automation_pass.py::test_a_graduated_launch_is_left_alone` hands a
+    graduated launch to this double precisely to prove *the pass* leaves it
+    alone; a filtering double removes the launch before the pass ever sees it
+    and **every assertion in that test still passes**. The requirement is
+    specified in two capabilities -- `launch-step-automation` and
+    `launch-clickup-sync` both carry *A graduated launch is left alone* -- so
+    filtering here would leave both unverified while the suite stayed green.
+    Neither proof instrument can see it: values and calls are identical either
+    way. **A shared double must not implement the filter its subject is being
+    tested for.**
+
+    **`list_launches` and `all` are absent.** 21 of the 26 `_FakeLaunchStore`
+    declarations carried them as delegates to `list_all`. Nothing in `src/`
+    calls either, every `tests/` mention was their own `def`, and the licence
+    was taken by execution rather than by search: mutating all 42 to raise left
+    both tiers green.
+
+    The reads answer a `tuple`, which 46 of the 60 local annotations use and
+    which `FakeCatalogPort.list_products` already spells.
+
+    **There is deliberately no `serving()` here**, unlike
+    `FakePlaybookRepository`. The plan gave the launch store one for the two
+    declarations installed by patching `LaunchRepository`; §5 then measured that
+    both keep their own declaration for other reasons, leaving `serving` with a
+    population of zero. A shared double reproduces a measured population, and a
+    path exercised only by its own contract test is not one -- it was written,
+    found to have no users by `/code-review`, and removed.
+    """
+
+    def __init__(self, *launches: Any) -> None:
+        #: **`launches` is the stored spelling, and `stored` is derived over the
+        #: same list.** Measured across `tests/`: two files *assign*
+        #: `store.launches = snapshot` to restore a rolled-back state, and a
+        #: read-only property cannot receive an assignment -- `AGENTS.md`'s
+        #: `Member.id` precedent. Fourteen sites read `stored` and none assigns
+        #: it, so that is the derived one.
+        self.launches: list[Any] = list(launches)
+
+    def _held(self) -> tuple[Any, ...]:
+        return tuple(self.launches)
+
+    async def get_by_product_id(self, product_id: Any, *_a: Any, **_kw: Any) -> Any:
+        for launch in self._held():
+            if launch.product_id == product_id:
+                return launch
+        return None
+
+    async def list_active(self, *_a: Any, **_kw: Any) -> tuple[Any, ...]:
+        """Every launch held -- graduated ones included. See the class docstring."""
+        return self._held()
+
+    async def list_all(self, *_a: Any, **_kw: Any) -> tuple[Any, ...]:
+        return self._held()
+
+    async def save(self, launch: Any) -> None:
+        for index, held in enumerate(self.launches):
+            if held.product_id == launch.product_id:
+                self.launches[index] = launch
+                return
+        self.launches.append(launch)
+
+
+class _FakePlaybooksBase:
+    """What both playbook stores hold, and the one answer both give.
+
+    The sync and async stores are **siblings over this base, not parent and
+    child**: overriding a sync `get` with a coroutine is an incompatible
+    override, and `mypy` -- which runs at every commit -- rejects it with
+    `Return type "Coroutine[...]" ... incompatible with return type ... in
+    supertype`. Discovered mechanically rather than by preference; an earlier
+    draft of `share-the-aggregate-fakes` reasoned about `mypy` at the protocol
+    level and missed it at the inheritance level.
+
+    `_answer()` **increments `reads` first and raises the refusal second**,
+    which is the order both counting locals use
+    (`test_gate_progression_pass.py:355`, `test_advance_and_ask.py:362`): a
+    refused read still counts. Reversing it answers identically on every
+    non-refusing read, so only the refusing path distinguishes the two and only
+    3 of the 42 declarations refuse at all.
+
+    **`reads` is an `int` and there is no `calls`.** `FakeProductReader` above
+    spells the same word as a *list* with a derived `calls`, because that is
+    what its own locals spell; `calls` has a measured population of **zero**
+    here. Two shared types in this module disagree on one field name
+    deliberately -- `AGENTS.md`'s `clickup_user_id` precedent is that each says
+    so at itself, which is what this paragraph is.
+
+    **Neither store is callable.** Six locals carried an `async __call__` whose
+    comment claimed "some callers read a playbook through a bare call": measured
+    at the commit that dropped it, that is stale. Production reads a playbook
+    store exclusively through `.get(...)`, `src/` contains no bare call on one,
+    and wrapping all six locals' `__call__` recorded **0 invocations across all
+    three tiers**. Dropped on the licence `list_launches` and `all` were.
+    """
+
+    def __init__(self, playbook: Any, *, refusal: Exception | None = None) -> None:
+        self._playbook = playbook
+        self.refusal = refusal
+        self.reads = 0
+
+    def _answer(self) -> Any:
+        self.reads += 1
+        if self.refusal is not None:
+            raise self.refusal
+        return self._playbook
+
+
+class FakePlaybooks(_FakePlaybooksBase):
+    """The playbook store, read synchronously -- 25 of the 42 declarations."""
+
+    def get(self, version: str = "") -> Any:
+        return self._answer()
+
+
+class AsyncFakePlaybooks(_FakePlaybooksBase):
+    """The playbook store, awaited -- 7 of the 42 declarations.
+
+    A sibling of `FakePlaybooks`, never a subclass; see the base.
+    """
+
+    async def get(self, version: str = "") -> Any:
+        return self._answer()
+
+
+class FakePlaybookRepository:
+    """`PlaybookRepository`, installed by patching the **class**.
+
+    All ten declarations are `monkeypatch.setattr(module, "PlaybookRepository",
+    ...)`, so production constructs the double itself with `(db)` -- it can
+    never be handed a playbook as an instance, which is why `__init__` discards
+    what it receives and why the playbook arrives through `serving`.
+
+    **`serving` reads its source at call time, and that is a correctness
+    condition rather than a refinement.** `test_clickup_webhook_automated_step`
+    rebinds a module-level `_SERVED[0]` mid-file -- once to a playbook with an
+    automated step, once to one with a human step -- to prove opposite branches.
+    A `serving` that bound the value when the subclass was created would answer
+    the import-time playbook to both, and **both tests would still pass**.
+    Neither the equality proof nor the lockstep pairing can see that; only
+    reading late prevents it.
+
+    Each `serving` call produces its own subclass, so nothing is shared between
+    call sites. A mutable class attribute would do the same job and was
+    rejected: that is session-global state every test touching the class shares,
+    the cross-test leak this harness exists to remove.
+    """
+
+    _source: ClassVar[Any] = None
+
+    def __init__(self, *_args: Any, **_kwargs: Any) -> None: ...
+
+    @classmethod
+    def serving(cls, source: Any) -> type[FakePlaybookRepository]:
+        """A subclass answering `source` -- a playbook, or a zero-argument
+        callable read afresh on every `get`."""
+        return type(
+            cls.__name__,
+            (cls,),
+            {"_source": staticmethod(source) if callable(source) else source},
+        )
+
+    async def get(self, version: str = "") -> Any:
+        source = type(self)._source
+        return source() if callable(source) else source
+
+
+class FakeProductReader:
+    """The catalog read a launch pass makes: one product, by identifier.
+
+    **It holds whatever object it is handed, and is deliberately not annotated
+    to `values.py::CatalogProduct`** (`share-the-aggregate-fakes`, Decision 7).
+    22 of the 24 declarations it replaces import that type and 2 declare their
+    own frozen product; more to the point, four production sites probe the
+    *served* product by attribute name -- `automation_pass:563`,
+    `automation_confirmation:115`, `product_dossier:326` and `:335`. Narrowing
+    the held type would move `AGENTS.md`'s same-value invariant out of the
+    visible call site and into this double, where nobody reads it.
+
+    **`reads` is the stored spelling and `calls` is derived over the same list
+    object.** 6 of the locals record into `reads` and 4 into `calls`; carrying
+    two lists would let a later edit populate one and not the other, so there is
+    one list under two names, the arrangement `Member.identifier` and
+    `FakeTask.custom_field_values` already use. `reads` is stored rather than
+    `calls` because no call site *assigns* either name -- measured across
+    `tests/` at the commit that added this -- and a read-only property cannot
+    receive an assignment, which is `AGENTS.md`'s `Member.id` precedent.
+
+    **Beware the neighbouring spelling.** The playbook store's `reads` is an
+    `int` with no `calls` at all, because that is what its own locals spell.
+    Two shared types in this module disagree on one field name, deliberately;
+    `tests/unit/support/test_fake_playbooks.py` pins the other side.
+
+    Recording where the locals recorded nothing is a superset over 14 of the 24,
+    licensed by the probe search that found no production reader touching either
+    name -- they are test-only recorders.
+    """
+
+    def __init__(self, product: Any) -> None:
+        self._product = product
+        self.reads: list[ProductId] = []
+
+    @property
+    def calls(self) -> list[ProductId]:
+        """The other spelling, over the same list -- never a second one."""
+        return self.reads
+
+    async def __call__(self, product_id: ProductId) -> Any:
+        self.reads.append(product_id)
+        return self._product
+
+
 class FakeMembers:
     """The membership, as the reader production is handed.
 

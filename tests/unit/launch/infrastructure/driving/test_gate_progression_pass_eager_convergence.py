@@ -98,6 +98,8 @@ from commerce_ops.launch.domain.launch_run import (
 )
 from commerce_ops.shared.domain.identity import MetricId, ProductId
 from commerce_ops.shared.domain.lifecycle_stage import Posture
+from tests.support.fakes import AsyncFakePlaybooks as _FakePlaybooks
+from tests.support.fakes import FakeLaunches as _FakeLaunches
 from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
 from tests.support.steps import hold as _build_hold
@@ -240,34 +242,6 @@ def _product_of(args: tuple[Any, ...], kwargs: dict[str, Any]) -> ProductId:
         "a call carried neither a launch nor a product identifier among its "
         f"arguments (args={args!r}, kwargs={kwargs!r}); correct `_product_of`"
     )
-
-
-class _FakeLaunches:
-    def __init__(self, *launches: Launch) -> None:
-        self._launches = {launch.product_id: launch for launch in launches}
-
-    async def list_active(self) -> tuple[Launch, ...]:
-        return tuple(self._launches.values())
-
-    async def get_by_product_id(self, product_id: ProductId) -> Launch | None:
-        return self._launches.get(product_id)
-
-    async def save(self, launch: Launch) -> None:
-        self._launches[launch.product_id] = launch
-
-    async def list_all(self) -> tuple[Launch, ...]:
-        return tuple(self._launches.values())
-
-
-class _FakePlaybooks:
-    def __init__(self, playbook: LaunchPlaybook) -> None:
-        self.playbook = playbook
-
-    async def get(self, version: str = "") -> LaunchPlaybook:
-        return self.playbook
-
-    async def __call__(self, *args: Any, **kwargs: Any) -> LaunchPlaybook:
-        return self.playbook
 
 
 @dataclass

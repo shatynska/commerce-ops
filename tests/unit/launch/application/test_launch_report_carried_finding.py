@@ -68,7 +68,7 @@ failed, 0 skipped.
 from __future__ import annotations
 
 import inspect
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from typing import Any, Final
@@ -90,7 +90,8 @@ from commerce_ops.launch.domain.launch_playbook import (
 from commerce_ops.launch.domain.launch_run import Launch, Provenance
 from commerce_ops.shared.domain.access_scope import AccessScope
 from commerce_ops.shared.domain.discipline import Discipline
-from commerce_ops.shared.domain.identity import ProductId
+from tests.support.fakes import FakeLaunches as _FakeLaunchStore
+from tests.support.fakes import FakePlaybooks as _FakePlaybooks
 from tests.support.fixtures import STEP_ID, product_id
 from tests.support.playbook import playbook as _build_playbook
 from tests.support.steps import hold as _build_hold
@@ -175,31 +176,6 @@ def _provenance(evidence: str = EVIDENCE) -> Provenance:
         when=WHEN,
         evidence=evidence,
     )
-
-
-class _FakeLaunchStore:
-    def __init__(self, *launches: Launch) -> None:
-        self._launches = list(launches)
-
-    async def get_by_product_id(self, product_id: ProductId) -> Launch | None:
-        for launch in self._launches:
-            if launch.product_id == product_id:
-                return launch
-        return None
-
-    async def save(self, launch: Launch) -> None:
-        self._launches.append(launch)
-
-    async def list_all(self) -> Sequence[Launch]:
-        return tuple(self._launches)
-
-
-class _FakePlaybooks:
-    def __init__(self, playbook: LaunchPlaybook) -> None:
-        self._playbook = playbook
-
-    def get(self, version: str) -> LaunchPlaybook:
-        return self._playbook
 
 
 # ---------------------------------------------------------------------------

@@ -764,6 +764,12 @@ class _FakeNotifier:
 
 
 class _FakeCatalog:
+    """**Kept local**: answers a second product for `OTHER_PRODUCT_ID`, so its
+    behaviour is conditional on the identifier and a single-product reader
+    cannot reproduce it. The equality proof reported 2 value mismatches over
+    34 calls (`share-the-aggregate-fakes`, task 3.4b).
+    """
+
     def __init__(self) -> None:
         self.reads: list[ProductId] = []
 

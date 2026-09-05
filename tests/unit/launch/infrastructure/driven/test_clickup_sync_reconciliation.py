@@ -77,6 +77,7 @@ from commerce_ops.launch.infrastructure.driven.clickup_sync import (
 from commerce_ops.shared.domain.clickup import ClickUpListState
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
+from tests.support.fakes import FakeProductReader
 from tests.support.fixtures import LAUNCH_DATE, PRODUCT_NAME, PRODUCT_SKU, product_id
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import playbook as _build_playbook
@@ -172,13 +173,15 @@ def _provenance(**overrides: Any) -> Provenance:
 # ---------------------------------------------------------------------------
 
 
-class _FakeCatalog:
-    def __init__(self) -> None:
-        self.calls: list[ProductId] = []
+class _FakeCatalog(FakeProductReader):
+    """The shared reader, adapted: this file's call sites build no product.
 
-    async def __call__(self, product_id: ProductId) -> _CatalogProduct:
-        self.calls.append(product_id)
-        return _CatalogProduct(name=PRODUCT_NAME, sku=PRODUCT_SKU)
+    Constructor-only difference, so the equality proof runs over this adapter --
+    it answered field-wise-equal values on every call the file executes.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(_CatalogProduct(name=PRODUCT_NAME, sku=PRODUCT_SKU))
 
 
 def _due_date_in(fields: dict[str, Any]) -> tuple[bool, Any]:

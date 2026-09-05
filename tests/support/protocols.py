@@ -58,11 +58,16 @@ from typing import Any, Protocol
 
 from commerce_ops.shared.domain.identity import Sku
 from tests.support.fakes import (
+    AsyncFakePlaybooks,
     FakeCatalogPort,
     FakeHandlerRegistry,
     FakeHandlers,
+    FakeLaunches,
     FakeMembers,
     FakeMembersStore,
+    FakePlaybookRepository,
+    FakePlaybooks,
+    FakeProductReader,
     FakeSlackResponse,
     FakeStepStore,
     InertBackoff,
@@ -249,6 +254,62 @@ class CatalogPortShape(Protocol):
 
 
 _catalog_port_conforms: CatalogPortShape = FakeCatalogPort()
+
+
+class LaunchStoreShape(Protocol):
+    """The four reads and writes a launch surface makes.
+
+    `list_launches` and `all` are deliberately absent: both were measured dead
+    by mutation, so a double presenting them would satisfy a protocol nothing
+    reads.
+    """
+
+    async def get_by_product_id(
+        self, product_id: Any, *args: Any, **kwargs: Any
+    ) -> Any: ...
+
+    async def list_active(self, *args: Any, **kwargs: Any) -> Any: ...
+
+    async def list_all(self, *args: Any, **kwargs: Any) -> Any: ...
+
+    async def save(self, launch: Any) -> None: ...
+
+
+_launches_conforms: LaunchStoreShape = FakeLaunches()
+
+
+class PlaybookStoreShape(Protocol):
+    """The one read production makes of a playbook store, synchronously."""
+
+    def get(self, version: str = ...) -> Any: ...
+
+
+class AsyncPlaybookStoreShape(Protocol):
+    """The same read, awaited. A separate protocol because neither sibling
+    satisfies the other's -- which is the point of the split."""
+
+    async def get(self, version: str = ...) -> Any: ...
+
+
+_playbooks_conforms: PlaybookStoreShape = FakePlaybooks(None)
+_async_playbooks_conforms: AsyncPlaybookStoreShape = AsyncFakePlaybooks(None)
+#: The **class-object** form: production constructs this one itself, so there
+#: is no argument-free instance to assign (`AGENTS.md`).
+_playbook_repository_conforms: type[AsyncPlaybookStoreShape] = FakePlaybookRepository
+
+
+class ProductReaderShape(Protocol):
+    """The one read a launch pass makes for a product: a bare call.
+
+    Declared as `__call__` rather than a named method because that is what the
+    24 declarations present and what production invokes -- the reader is handed
+    in as a callable, never as an object a method is looked up on.
+    """
+
+    async def __call__(self, product_id: Any) -> Any: ...
+
+
+_product_reader_conforms: ProductReaderShape = FakeProductReader(None)
 
 
 class MembersReaderShape(Protocol):

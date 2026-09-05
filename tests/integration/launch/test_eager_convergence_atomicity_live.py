@@ -136,6 +136,7 @@ from commerce_ops.launch.infrastructure.driven.launch_repository import (
 )
 from commerce_ops.shared.domain.clickup import ClickUpListState
 from commerce_ops.shared.domain.identity import ProductId, Sku
+from tests.support.fakes import FakeProductReader as _FakeCatalog
 from tests.support.fixtures import LAUNCH_DATE, MARKETPLACE
 from tests.support.playbook import playbook as _build_playbook
 from tests.support.steps import hold as _build_hold
@@ -216,14 +217,6 @@ def _launch(product_id: ProductId, playbook: LaunchPlaybook) -> Launch:
 # it (`converge_launch` only reads `.name`/`.sku` off what `read_product`
 # returns).
 # ---------------------------------------------------------------------------
-
-
-class _FakeCatalog:
-    def __init__(self, product: _CatalogProduct) -> None:
-        self._product = product
-
-    async def __call__(self, product_id: ProductId) -> _CatalogProduct:
-        return self._product
 
 
 async def _new_product(engine: AsyncEngine) -> ProductId:

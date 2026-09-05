@@ -112,6 +112,9 @@ def _launch() -> Launch:
     )
 
 
+# KEPT LOCAL by `share-the-aggregate-fakes` (task 5.7). `@dataclass` form, an
+# internal assertion and a `saves` recorder, none of which the shared store
+# carries.
 @dataclass
 class _FakeLaunchStore:
     """The one launch this file's races are fought over."""

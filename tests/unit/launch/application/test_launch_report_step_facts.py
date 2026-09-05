@@ -146,6 +146,8 @@ from commerce_ops.launch.domain.launch_run import (
 from commerce_ops.shared.domain.access_scope import AccessScope
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
+from tests.support.fakes import FakeLaunches as _FakeLaunchStore
+from tests.support.fakes import FakePlaybooks as _FakePlaybooks
 from tests.support.fakes import FakeStepStore
 from tests.support.fixtures import PRINCIPAL
 from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
@@ -304,41 +306,6 @@ def _advance_to(launch: Launch, playbook: LaunchPlaybook, gate: str) -> Launch:
 # ---------------------------------------------------------------------------
 # Ports
 # ---------------------------------------------------------------------------
-
-
-class _FakeLaunchStore:
-    """In-memory `LaunchStore`. Answers to the three enumeration spellings
-    `test_launch_reports.py` records, since no artifact fixes one."""
-
-    def __init__(self, *launches: Launch) -> None:
-        self._launches = {launch.product_id: launch for launch in launches}
-
-    async def get_by_product_id(
-        self, product_id: ProductId, *_args: Any, **_kwargs: Any
-    ) -> Launch | None:
-        return self._launches.get(product_id)
-
-    async def save(self, launch: Launch) -> None:
-        self._launches[launch.product_id] = launch
-
-    async def list_all(self, *_args: Any, **_kwargs: Any) -> tuple[Launch, ...]:
-        return tuple(self._launches.values())
-
-    async def all(self, *args: Any, **kwargs: Any) -> tuple[Launch, ...]:
-        return await self.list_all(*args, **kwargs)
-
-    async def list_launches(self, *args: Any, **kwargs: Any) -> tuple[Launch, ...]:
-        return await self.list_all(*args, **kwargs)
-
-
-class _FakePlaybooks:
-    """Playbook port returning the one version every launch here pinned."""
-
-    def __init__(self, playbook: LaunchPlaybook) -> None:
-        self._playbook = playbook
-
-    def get(self, version: str) -> LaunchPlaybook:
-        return self._playbook
 
 
 # ---------------------------------------------------------------------------

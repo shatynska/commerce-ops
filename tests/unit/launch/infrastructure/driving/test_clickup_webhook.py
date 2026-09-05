@@ -99,6 +99,7 @@ from commerce_ops.launch.domain.launch_run import (
 from commerce_ops.launch.infrastructure.driving import clickup_webhook as webhook_module
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
+from tests.support.fakes import FakeLaunches, FakePlaybookRepository
 from tests.support.fixtures import LAUNCH_DATE, product_id
 from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
 from tests.support.playbook import playbook as _build_playbook
@@ -232,16 +233,11 @@ class _FakeMapping:
         self.tasks[(product_id, step_id)].last_observed_closed = closed
 
 
-class _FakeLaunches:
-    """Stands in for `LaunchRepository`; hands back one launch."""
+class _FakeLaunches(FakeLaunches):
+    """The shared launch store, adapted to this file's own surface."""
 
     def __init__(self, launch: Launch) -> None:
-        self._launch = launch
-
-    async def get_by_product_id(self, product_id: ProductId) -> Launch | None:
-        if product_id == self._launch.product_id:
-            return self._launch
-        return None
+        super().__init__(launch)
 
 
 class _RecordingOutcomes:
@@ -306,15 +302,10 @@ def sessionless(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(webhook_module, "session", _fake_session)
 
 
-class _FakePlaybookRepository:
-    """The served-playbook read (`move-playbook-steps-to-postgres`),
-    substituted like every other collaborator global: serves the fixture
-    playbook, which defines the mapped step."""
-
-    def __init__(self, *args: object, **kwargs: object) -> None: ...
-
-    async def get(self, version: str) -> LaunchPlaybook:
-        return _playbook()
+#: The shared repository, told what to serve. `serving` reads its source
+#: at call time, so this file's own `_playbook` builder is read afresh on
+#: every `get` rather than frozen at import.
+_FakePlaybookRepository = FakePlaybookRepository.serving(_playbook)
 
 
 @pytest.fixture(autouse=True)

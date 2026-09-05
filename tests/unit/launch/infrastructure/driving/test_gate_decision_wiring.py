@@ -104,7 +104,7 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
 from types import ModuleType
-from typing import Any, Final
+from typing import Any, Final, cast
 
 import pytest
 
@@ -123,6 +123,8 @@ from commerce_ops.launch.domain.launch_run import (
     Provenance,
 )
 from commerce_ops.shared.domain.identity import ProductId
+from tests.support.fakes import AsyncFakePlaybooks as _FakePlaybooks
+from tests.support.fakes import FakeLaunches
 from tests.support.fixtures import ALICE, product_id
 from tests.support.playbook import playbook as _build_playbook
 from tests.support.steps import hold as _build_hold
@@ -242,36 +244,17 @@ class _StoreShapedMembers:
         raise AssertionError("the store was written; nothing here writes a membership")
 
 
-class _FakeLaunches:
+class _FakeLaunches(FakeLaunches):
+    """The shared launch store, adapted: this file reads it through its
+    own helper. The helpers are rewritten against the shared list, since
+    every local kept its launches in a dict keyed by identifier."""
+
     def __init__(self, launch: Launch) -> None:
-        self.launches = {launch.product_id: launch}
-
-    async def get_by_product_id(self, product_id: ProductId) -> Launch | None:
-        return self.launches.get(product_id)
-
-    async def save(self, launch: Launch) -> None:
-        self.launches[launch.product_id] = launch
-
-    async def list_active(self) -> tuple[Launch, ...]:
-        return tuple(self.launches.values())
-
-    async def list_all(self) -> tuple[Launch, ...]:
-        return tuple(self.launches.values())
+        super().__init__(launch)
 
     @property
     def only(self) -> Launch:
-        return next(iter(self.launches.values()))
-
-
-class _FakePlaybooks:
-    def __init__(self, playbook: LaunchPlaybook) -> None:
-        self.playbook = playbook
-
-    async def get(self, version: str = "") -> LaunchPlaybook:
-        return self.playbook
-
-    async def __call__(self, *args: Any, **kwargs: Any) -> LaunchPlaybook:
-        return self.playbook
+        return cast(Launch, self.launches[0])
 
 
 class _FakeJournal:

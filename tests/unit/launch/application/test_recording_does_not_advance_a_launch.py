@@ -60,7 +60,7 @@ commit `656f1c4`, clean tree: `uv run pytest tests/unit tests/agents` —
 from __future__ import annotations
 
 from datetime import UTC, date, datetime
-from typing import Any, Final
+from typing import Any, Final, cast
 
 import pytest
 
@@ -74,6 +74,8 @@ from commerce_ops.launch.domain.launch_playbook import (
 )
 from commerce_ops.launch.domain.launch_run import Launch, Provenance
 from commerce_ops.shared.domain.identity import ProductId
+from tests.support.fakes import FakeLaunches
+from tests.support.fakes import FakePlaybooks as _FakePlaybooks
 from tests.support.fixtures import product_id
 from tests.support.playbook import CONFIRMATION_GATES
 from tests.support.playbook import playbook as _build_playbook
@@ -110,30 +112,17 @@ def _playbook() -> LaunchPlaybook:
     )
 
 
-class _FakeLaunches:
+class _FakeLaunches(FakeLaunches):
+    """The shared launch store, adapted: this file reads it through its
+    own helper. The helpers are rewritten against the shared list, since
+    every local kept its launches in a dict keyed by identifier."""
+
     def __init__(self, launch: Launch) -> None:
-        self._launches = {launch.product_id: launch}
-
-    async def get_by_product_id(self, product_id: ProductId) -> Launch | None:
-        return self._launches.get(product_id)
-
-    async def save(self, launch: Launch) -> None:
-        self._launches[launch.product_id] = launch
-
-    async def list_all(self) -> tuple[Launch, ...]:
-        return tuple(self._launches.values())
+        super().__init__(launch)
 
     @property
     def only(self) -> Launch:
-        return next(iter(self._launches.values()))
-
-
-class _FakePlaybooks:
-    def __init__(self, playbook: LaunchPlaybook) -> None:
-        self.playbook = playbook
-
-    def get(self, version: str = "") -> LaunchPlaybook:
-        return self.playbook
+        return cast(Launch, self.launches[0])
 
 
 class _FakeJournal:

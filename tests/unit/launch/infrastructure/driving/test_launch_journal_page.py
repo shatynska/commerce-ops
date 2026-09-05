@@ -145,7 +145,8 @@ from tests.support.admin import SESSION_COOKIE as _SESSION_COOKIE
 from tests.support.admin import SESSION_VALUE as _SESSION_VALUE
 from tests.support.admin import fake_verify
 from tests.support.fakes import FakeCatalogPort as _Catalog
-from tests.support.fakes import FakeMembers, FakeStepStore, StubDate
+from tests.support.fakes import FakeLaunches as _FakeLaunchStore
+from tests.support.fakes import FakeMembers, FakePlaybooks, FakeStepStore, StubDate
 from tests.support.fakes import FakeMembersStore as _FakeMembersStore
 from tests.support.fixtures import MARKETPLACE
 from tests.support.playbook import playbook as _build_playbook
@@ -258,34 +259,11 @@ def _unresolvable_product_id() -> ProductId:
 # ---------------------------------------------------------------------------
 
 
-class _FakeLaunchStore:
-    def __init__(self, *launches: Launch) -> None:
-        self.order: list[Launch] = list(launches)
+class _FakePlaybooks(FakePlaybooks):
+    """The shared store, adapted: this file's call sites pass nothing."""
 
-    async def get_by_product_id(
-        self, product_id: ProductId, *_a: Any, **_k: Any
-    ) -> Launch | None:
-        for launch in self.order:
-            if launch.product_id == product_id:
-                return launch
-        return None
-
-    async def save(self, launch: Launch) -> None:  # pragma: no cover - unused
-        self.order.append(launch)
-
-    async def list_all(self, *_a: Any, **_k: Any) -> tuple[Launch, ...]:
-        return tuple(self.order)
-
-    async def all(self, *a: Any, **k: Any) -> tuple[Launch, ...]:
-        return await self.list_all(*a, **k)
-
-    async def list_launches(self, *a: Any, **k: Any) -> tuple[Launch, ...]:
-        return await self.list_all(*a, **k)
-
-
-class _FakePlaybooks:
-    def get(self, version: str) -> LaunchPlaybook:
-        return PLAYBOOK
+    def __init__(self) -> None:
+        super().__init__(PLAYBOOK)
 
 
 async def _build_members() -> _FakeMembersStore:

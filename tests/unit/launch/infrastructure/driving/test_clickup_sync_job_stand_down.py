@@ -95,6 +95,7 @@ from commerce_ops.launch.domain.launch_playbook import (
 )
 from commerce_ops.launch.domain.launch_run import Launch
 from commerce_ops.shared.infrastructure.driven.job_runner import app as runner_app
+from tests.support.fakes import FakeLaunches
 from tests.support.fixtures import product_id
 from tests.support.playbook import SPECIFIED_GATE_ORDER
 from tests.support.playbook import gates as _gates
@@ -272,21 +273,22 @@ class _RecordingPass:
         self.calls += 1
 
 
-class _FakeLaunches:
-    """Hands the job one active launch, so the pass has something to run
-    against and "it did not run" cannot pass for the wrong reason."""
+class _FakeLaunches(FakeLaunches):
+    """The shared launch store, adapted: this file reads it through its
+    own helper. The helpers are rewritten against the shared list, since
+    every local kept its launches in a dict keyed by identifier."""
 
     def __init__(self) -> None:
-        self._launches = (_active_launch(),)
-
-    async def list_active(self) -> tuple[Launch, ...]:
-        return self._launches
-
-    active = list_active
-    all_active = list_active
+        #: The local built its own launch and took no arguments; the shared
+        #: store is handed one, so the construction moves into the adapter.
+        super().__init__(*(_active_launch(),))
 
     async def __call__(self, *args: Any, **kwargs: Any) -> tuple[Launch, ...]:
-        return self._launches
+        return tuple(self.launches)
+
+    active = FakeLaunches.list_active
+
+    all_active = FakeLaunches.list_active
 
 
 class _SessionlessStub:

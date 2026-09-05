@@ -83,6 +83,7 @@ from commerce_ops.shared.domain.clickup import ClickUpListState
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
 from tests.support.fakes import FakeMembers
+from tests.support.fakes import FakeProductReader as _FakeCatalog
 from tests.support.fixtures import LAUNCH_DATE, PRODUCT_NAME, PRODUCT_SKU
 from tests.support.playbook import CONFIRMATION_GATES
 from tests.support.playbook import playbook as _build_playbook
@@ -181,14 +182,6 @@ def _advance_to(launch: Launch, playbook: LaunchPlaybook, gate: str) -> Launch:
 # ---------------------------------------------------------------------------
 # Test doubles
 # ---------------------------------------------------------------------------
-
-
-class _FakeCatalog:
-    def __init__(self, product: _CatalogProduct) -> None:
-        self._product = product
-
-    async def __call__(self, product_id: ProductId) -> _CatalogProduct:
-        return self._product
 
 
 class _FakeMembers(FakeMembers):

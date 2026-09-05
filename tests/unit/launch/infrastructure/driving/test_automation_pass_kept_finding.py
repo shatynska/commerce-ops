@@ -126,6 +126,8 @@ from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId
 from commerce_ops.shared.domain.result import Failure, Success
 from tests.support.fakes import FakeHandlers as _FakeHandlers
+from tests.support.fakes import FakeLaunches as _FakeLaunches
+from tests.support.fakes import FakeProductReader
 from tests.support.fakes import InertBackoff as _InertBackoff
 from tests.support.fixtures import (
     HANDLER_NAME,
@@ -226,27 +228,15 @@ def _launch(playbook: LaunchPlaybook) -> Launch:
 # ---------------------------------------------------------------------------
 
 
-class _FakeCatalog:
+class _FakeCatalog(FakeProductReader):
+    """The shared reader, adapted: this file's call sites build no product.
+
+    Constructor-only difference, so the equality proof runs over this adapter --
+    it answered field-wise-equal values on every call the file executes.
+    """
+
     def __init__(self) -> None:
-        self.reads: list[ProductId] = []
-
-    async def __call__(self, product_id: ProductId) -> _CatalogProduct:
-        self.reads.append(product_id)
-        return _CatalogProduct(name=PRODUCT_NAME, sku=PRODUCT_SKU)
-
-
-class _FakeLaunches:
-    def __init__(self, *launches: Launch) -> None:
-        self._launches = list(launches)
-
-    async def list_active(self) -> list[Launch]:
-        return list(self._launches)
-
-    async def get_by_product_id(self, product_id: ProductId) -> Launch | None:
-        for launch in self._launches:
-            if launch.product_id == product_id:
-                return launch
-        return None
+        super().__init__(_CatalogProduct(name=PRODUCT_NAME, sku=PRODUCT_SKU))
 
 
 class _ScriptedHandler:

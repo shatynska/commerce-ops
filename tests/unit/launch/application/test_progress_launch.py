@@ -139,6 +139,7 @@ from commerce_ops.launch.domain.launch_run import (
 )
 from commerce_ops.shared.domain.identity import MetricId, ProductId
 from commerce_ops.shared.domain.lifecycle_stage import Posture
+from tests.support.fakes import FakePlaybooks as _FakePlaybooks
 from tests.support.fixtures import product_id
 from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
 from tests.support.playbook import playbook as _build_playbook
@@ -265,9 +266,24 @@ def _standing_at(gate: str, playbook: LaunchPlaybook) -> Launch:
 # ---------------------------------------------------------------------------
 
 
+# KEPT LOCAL by `share-the-aggregate-fakes` (task 5.7). This store records
+# every read and every save, and both are asserted on directly -- recording is
+# behaviour, not a constructor difference, so the three-line adapter does not
+# reach it. The lockstep pairing PASSED this declaration over its 18 calls:
+# it compares returns, exceptions and held state, and never sees an attribute
+# a test reads afterwards. The suite is what reported it.
 class _FakeLaunches:
-    """In-memory `LaunchStore`, counting reads so that "reads the launch
-    itself under the lock" is observable."""
+    """**Kept local**: this store *records* every read and every save, which
+    the shared `FakeLaunches` does not.
+
+    `reads` and `saves` are asserted on directly -- "reads the launch itself
+    under the lock" is observable only through them -- so recording is
+    behaviour rather than a constructor difference, and the three-line adapter
+    `AGENTS.md` sanctions does not reach it. The lockstep pairing *passed* this
+    declaration over its 18 calls: it compares returns, exceptions and held
+    state, and never sees an attribute a test reads afterwards. The suite is
+    what reported it (`share-the-aggregate-fakes`, task 5.7).
+    """
 
     def __init__(self, *launches: Launch) -> None:
         self._launches = {launch.product_id: launch for launch in launches}
@@ -294,14 +310,6 @@ class _FakeLaunches:
 
     def stored(self, product_id: ProductId = PRODUCT_ID) -> Launch:
         return self._launches[product_id]
-
-
-class _FakePlaybooks:
-    def __init__(self, playbook: LaunchPlaybook) -> None:
-        self.playbook = playbook
-
-    def get(self, version: str = "") -> LaunchPlaybook:
-        return self.playbook
 
 
 class _FakeJournal:

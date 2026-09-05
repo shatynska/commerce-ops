@@ -1,0 +1,192 @@
+"""`FakePlaybooks` and `AsyncFakePlaybooks`, stated directly.
+
+The equality proof compares the two siblings against each of the 42
+playbook-serving declarations on the calls those files execute. What it cannot
+see is the *shape* the sibling split exists for, and the shape is the whole of
+`design.md` -- Decision 2:
+
+* **The two are siblings over a shared base, not parent and child.** Overriding
+  a sync `get` with a coroutine is an incompatible override, which `mypy`
+  rejects and which `tasks.md`'s preamble would therefore block at the first
+  commit of the phase. The proof would pass either way -- both forms answer the
+  same playbook -- so the structure is asserted here.
+* **A refused read still counts.** `_answer()` increments `reads` *first* and
+  raises the refusal *second*, the order both locals use
+  (`test_gate_progression_pass.py:355-358`, `test_advance_and_ask.py:362-365`).
+  The reverse order returns the same value on every non-refusing read, so only
+  the refusing path distinguishes them, and only 3 of the 42 refuse at all.
+* **`reads` is an `int` here and there is no `calls`.** The product reader
+  spells the same word as a *list* with a derived `calls`
+  (`tests/unit/support/test_fake_product_reader.py`), because that is what its
+  locals spell. `calls` has a measured population of **zero** on this double.
+  `AGENTS.md`'s `clickup_user_id` precedent is that each type names the trap;
+  this file pins it from the store's side.
+* **Neither store is callable.** Six locals carried an `async __call__`;
+  task 2.5a measured it at **0 invocations across all three tiers**, and `src/`
+  reads a playbook store only through `.get(...)`. Dropped on the licence
+  `list_launches` and `all` were, and its absence pinned below.
+
+This is the shared harness's own behaviour, so it lives under
+`tests/unit/support/` -- the deliberate exception to the tier layout, per
+`AGENTS.md`.
+"""
+
+from __future__ import annotations
+
+import pytest
+
+from tests.support.fakes import AsyncFakePlaybooks, FakePlaybooks
+from tests.support.playbook import playbook
+from tests.support.steps import hold
+
+pytestmark = pytest.mark.anyio
+
+#: Two distinguishable playbooks, so "answers the one it holds" cannot pass by
+#: answering any playbook at all.
+FIRST = playbook(hold("listable", identifier="first.listable"))
+SECOND = playbook(hold("listable", identifier="second.listable"))
+
+
+@pytest.fixture
+def anyio_backend() -> str:
+    return "asyncio"
+
+
+def test_the_sync_store_answers_the_playbook_it_holds() -> None:
+    assert FakePlaybooks(FIRST).get() is FIRST
+
+
+async def test_the_async_store_answers_the_playbook_it_holds() -> None:
+    assert await AsyncFakePlaybooks(FIRST).get() is FIRST
+
+
+def test_the_sync_store_takes_the_version_its_call_sites_pass() -> None:
+    """The 25 sync locals declare `get(self, version: str = "")`; call sites
+    reach it three ways, and all three have to keep working."""
+    store = FakePlaybooks(SECOND)
+
+    assert store.get() is SECOND
+    assert store.get("2") is SECOND
+    assert store.get(version="2") is SECOND
+
+
+async def test_the_async_store_takes_the_version_its_call_sites_pass() -> None:
+    store = AsyncFakePlaybooks(SECOND)
+
+    assert await store.get() is SECOND
+    assert await store.get("2") is SECOND
+    assert await store.get(version="2") is SECOND
+
+
+def test_a_store_with_no_refusal_counts_reads_and_raises_nothing() -> None:
+    """`refusal` defaults to inert, the `FakeCatalogPort.fails` precedent: 39
+    of the 42 never set it, and for them the keyword must not be observable."""
+    store = FakePlaybooks(FIRST)
+
+    assert store.reads == 0
+    assert store.get() is FIRST
+    assert store.reads == 1
+
+
+def test_the_sync_store_raises_the_refusal_it_was_given() -> None:
+    refusal = RuntimeError("the playbook store is unreadable")
+    store = FakePlaybooks(FIRST, refusal=refusal)
+
+    with pytest.raises(RuntimeError, match="unreadable") as raised:
+        store.get()
+
+    assert raised.value is refusal
+
+
+async def test_the_async_store_raises_the_refusal_it_was_given() -> None:
+    refusal = RuntimeError("the playbook store is unreadable")
+    store = AsyncFakePlaybooks(FIRST, refusal=refusal)
+
+    with pytest.raises(RuntimeError, match="unreadable") as raised:
+        await store.get()
+
+    assert raised.value is refusal
+
+
+def test_a_refused_read_is_counted_before_it_is_refused() -> None:
+    """The increment-then-raise order, which is the only reason `_answer()` is
+    shared rather than written twice.
+
+    Both locals that carry a counter also carry a refusal, and both count the
+    refused read. A store that raised first would leave `reads` at 0 and every
+    non-refusing assertion in the suite would still pass.
+    """
+    store = FakePlaybooks(FIRST, refusal=RuntimeError("unreadable"))
+
+    with pytest.raises(RuntimeError):
+        store.get()
+
+    assert store.reads == 1
+
+
+async def test_a_refused_async_read_is_counted_before_it_is_refused() -> None:
+    store = AsyncFakePlaybooks(FIRST, refusal=RuntimeError("unreadable"))
+
+    with pytest.raises(RuntimeError):
+        await store.get()
+
+    assert store.reads == 1
+
+
+def test_reads_counts_every_read_rather_than_recording_them() -> None:
+    """`test_gate_progression_pass.py:843` asserts `reads == 1` to prove
+    readiness is judged once above the walk rather than per launch. An `int` is
+    what that assertion compares against, and what both locals declare."""
+    store = FakePlaybooks(FIRST)
+
+    store.get()
+    store.get()
+
+    assert store.reads == 2
+    assert isinstance(store.reads, int)
+
+
+def test_the_store_carries_no_calls_spelling() -> None:
+    """The deliberate divergence from `FakeProductReader`, pinned so that
+    "unify the two recorders" fails here rather than passing silently.
+
+    `calls` has a measured population of zero on this double; deriving it on a
+    neighbouring decision's authority is the unmeasured claim `design.md`
+    Decision 2 refuses.
+    """
+    assert not hasattr(FakePlaybooks(FIRST), "calls")
+    assert not hasattr(AsyncFakePlaybooks(FIRST), "calls")
+
+
+def test_neither_store_is_callable() -> None:
+    """`__call__` was measured dead and dropped, so its absence is pinned.
+
+    **This test replaces three that `design.md` Decision 2 conditioned on a
+    measurement, and the measurement came back the other way.** Task 2.5a
+    wrapped the `__call__` all six locals carried and recorded **0 invocations
+    across all three tiers**; `src/` contains no bare call on a playbook store,
+    which reads exclusively through `.get(...)`. The locals' own comment --
+    "some callers read a playbook through a bare call" -- is stale.
+
+    So the spelling is dropped on the licence `list_launches` and `all` were,
+    and the two tests asserting the async store *is* callable, plus the one
+    asserting placement on the sibling rather than the base, encoded an
+    assumption the plan itself scheduled a measurement to settle. Pinning the
+    absence is stronger than deleting them silently: re-adding `__call__` now
+    fails here.
+    """
+    assert not callable(FakePlaybooks(FIRST))
+    assert not callable(AsyncFakePlaybooks(FIRST))
+
+
+def test_the_two_stores_are_siblings_rather_than_parent_and_child() -> None:
+    """Asserted structurally because `mypy`, not the suite, is what rejects the
+    subclass form -- and a manifest that only ran pytest would not see it.
+
+    The base itself is `_`-prefixed and deliberately not imported here: a
+    module-private name imported across modules is the contradiction
+    `AGENTS.md` names. Sharing an immediate base states the same fact.
+    """
+    assert not issubclass(AsyncFakePlaybooks, FakePlaybooks)
+    assert not issubclass(FakePlaybooks, AsyncFakePlaybooks)
+    assert FakePlaybooks.__mro__[1] is AsyncFakePlaybooks.__mro__[1]

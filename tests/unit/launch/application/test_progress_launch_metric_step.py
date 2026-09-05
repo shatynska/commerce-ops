@@ -65,7 +65,7 @@ from __future__ import annotations
 
 import inspect
 from datetime import UTC, date, datetime
-from typing import Any, Final
+from typing import Any, Final, cast
 
 import pytest
 
@@ -90,6 +90,8 @@ from commerce_ops.launch.domain.launch_run import (
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import MetricId, ProductId
 from commerce_ops.shared.domain.lifecycle_stage import Posture
+from tests.support.fakes import FakeLaunches
+from tests.support.fakes import FakePlaybooks as _FakePlaybooks
 from tests.support.fixtures import product_id
 from tests.support.playbook import CONFIRMATION_GATES, SPECIFIED_GATE_ORDER
 from tests.support.playbook import opening_for as _opening_for
@@ -221,38 +223,15 @@ def _standing_at(gate: str, playbook: LaunchPlaybook) -> Launch:
 # ---------------------------------------------------------------------------
 
 
-class _FakeLaunches:
-    def __init__(self, *launches: Launch) -> None:
-        self._launches = {launch.product_id: launch for launch in launches}
-        self.saves: list[ProductId] = []
-
-    async def get_by_product_id(self, product_id: ProductId) -> Launch | None:
-        return self._launches.get(product_id)
-
-    async def save(self, launch: Launch) -> None:
-        self.saves.append(launch.product_id)
-        self._launches[launch.product_id] = launch
-
-    async def list_active(self) -> tuple[Launch, ...]:
-        return tuple(
-            launch
-            for launch in self._launches.values()
-            if launch.current_gate != FINAL_GATE
-        )
-
-    async def list_all(self) -> tuple[Launch, ...]:
-        return tuple(self._launches.values())
+class _FakeLaunches(FakeLaunches):
+    """The shared launch store, adapted: this file reads it through its
+    own helper. The helpers are rewritten against the shared list, since
+    every local kept its launches in a dict keyed by identifier."""
 
     def stored(self) -> Launch:
-        return self._launches[PRODUCT_ID]
-
-
-class _FakePlaybooks:
-    def __init__(self, playbook: LaunchPlaybook) -> None:
-        self.playbook = playbook
-
-    def get(self, version: str = "") -> LaunchPlaybook:
-        return self.playbook
+        return cast(
+            Launch, next(l for l in self.launches if l.product_id == PRODUCT_ID)
+        )
 
 
 class _FakeJournal:

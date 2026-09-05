@@ -47,7 +47,9 @@ import pytest
 from fastapi.testclient import TestClient
 from slack_sdk.signature import SignatureVerifier
 
+from commerce_ops.launch.domain.launch_playbook import LaunchPlaybook
 from commerce_ops.shared.infrastructure.driven import clickup_client
+from tests.support.fakes import FakePlaybookRepository
 from tests.support.fakes import FakeSlackResponse as _FakeSlackResponse
 
 SLACK_ENTRY_PATH = "/product_agent/slack/events"  # ASSUMED
@@ -214,69 +216,66 @@ def sessionless(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(module, "transaction", _fake_transaction)
 
 
-class _FakePlaybookRepository:
-    """The served-playbook read (`move-playbook-steps-to-postgres`),
-    substituted like the other collaborator globals: serves a minimal
-    coherent playbook (every gate held, as the gate-holding floor
-    requires) without touching any database."""
+def _served_playbook() -> LaunchPlaybook:
+    """The playbook this file serves, lifted out of the double it used to
+    be built inside. `serving` reads it at call time."""
+    from commerce_ops.launch.domain.launch_playbook import (
+        Gate,
+        GateOpening,
+        Hazard,
+        LaunchPlaybook,
+        OffsetAnchor,
+        Scope,
+        StepDefinition,
+        StepKind,
+        StepStatus,
+    )
+    from commerce_ops.shared.domain.discipline import Discipline
 
-    def __init__(self, *args: object, **kwargs: object) -> None: ...
+    gate_order = (
+        "commit",
+        "order",
+        "listable",
+        "stock-ready",
+        "live",
+        "ignition",
+        "phase-one-complete",
+        "graduated",
+    )
+    confirmation = {"commit", "order", "phase-one-complete", "graduated"}
+    gates = tuple(
+        Gate(
+            identifier=identifier,
+            position=position,
+            opening=(
+                GateOpening.REQUIRES_CONFIRMATION
+                if identifier in confirmation
+                else GateOpening.AUTOMATIC
+            ),
+        )
+        for position, identifier in enumerate(gate_order, start=1)
+    )
+    steps = tuple(
+        StepDefinition(
+            identifier=f"hold.{gate}",
+            name=f"Blocking work holding the {gate} gate",
+            gate=gate,
+            discipline=next(iter(Discipline)),
+            scope=Scope.PRODUCT,
+            timing_anchor=OffsetAnchor(days=0),
+            blocking=True,
+            kind=StepKind.AUTOMATED,
+            status=StepStatus.ACTIVE,
+            hazard=Hazard.NONE,
+            handler="fixture.holding_check",
+            provenance=None,
+        )
+        for gate in gate_order
+    )
+    return LaunchPlaybook(version="test-v1", gates=gates, steps=steps)
 
-    async def get(self, version: str) -> Any:
-        from commerce_ops.launch.domain.launch_playbook import (
-            Gate,
-            GateOpening,
-            Hazard,
-            LaunchPlaybook,
-            OffsetAnchor,
-            Scope,
-            StepDefinition,
-            StepKind,
-            StepStatus,
-        )
-        from commerce_ops.shared.domain.discipline import Discipline
 
-        gate_order = (
-            "commit",
-            "order",
-            "listable",
-            "stock-ready",
-            "live",
-            "ignition",
-            "phase-one-complete",
-            "graduated",
-        )
-        confirmation = {"commit", "order", "phase-one-complete", "graduated"}
-        gates = tuple(
-            Gate(
-                identifier=identifier,
-                position=position,
-                opening=(
-                    GateOpening.REQUIRES_CONFIRMATION
-                    if identifier in confirmation
-                    else GateOpening.AUTOMATIC
-                ),
-            )
-            for position, identifier in enumerate(gate_order, start=1)
-        )
-        steps = tuple(
-            StepDefinition(
-                identifier=f"hold.{gate}",
-                name=f"Blocking work holding the {gate} gate",
-                gate=gate,
-                discipline=next(iter(Discipline)),
-                scope=Scope.PRODUCT,
-                timing_anchor=OffsetAnchor(days=0),
-                blocking=True,
-                kind=StepKind.AUTOMATED,
-                status=StepStatus.ACTIVE,
-                hazard=Hazard.NONE,
-                handler="fixture.holding_check",
-                provenance=None,
-            )
-            for gate in gate_order
-        )
-        return LaunchPlaybook(version="test-v1", gates=gates, steps=steps)
+_FakePlaybookRepository = FakePlaybookRepository.serving(_served_playbook)
 
 
 @pytest.fixture(autouse=True)

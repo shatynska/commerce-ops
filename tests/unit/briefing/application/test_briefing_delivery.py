@@ -86,6 +86,8 @@ from commerce_ops.shared.domain.access_scope import AccessScope
 from commerce_ops.shared.domain.discipline import Discipline
 from commerce_ops.shared.domain.identity import ProductId, Sku
 from commerce_ops.shared.domain.lifecycle_stage import Launching
+from tests.support.fakes import FakeLaunches as _FakeLaunchStore
+from tests.support.fakes import FakePlaybooks as _FakePlaybooks
 from tests.support.playbook import CONFIRMATION_GATES
 from tests.support.playbook import playbook as _build_playbook
 from tests.support.steps import hold as _build_hold
@@ -195,34 +197,6 @@ def _launch(
     return launch
 
 
-class _FakeLaunchStore:
-    def __init__(self, *launches: Launch) -> None:
-        self._launches = {launch.product_id: launch for launch in launches}
-
-    async def get_by_product_id(self, product_id: ProductId) -> Launch | None:
-        return self._launches.get(product_id)
-
-    async def save(self, launch: Launch) -> None:
-        self._launches[launch.product_id] = launch
-
-    async def list_all(self) -> tuple[Launch, ...]:
-        return tuple(self._launches.values())
-
-    async def all(self) -> tuple[Launch, ...]:
-        return await self.list_all()
-
-    async def list_launches(self) -> tuple[Launch, ...]:
-        return await self.list_all()
-
-
-class _FakePlaybooks:
-    def __init__(self, playbook: LaunchPlaybook) -> None:
-        self._playbook = playbook
-
-    def get(self, version: str) -> LaunchPlaybook:
-        return self._playbook
-
-
 # ---------------------------------------------------------------------------
 # Briefing-side test doubles
 # ---------------------------------------------------------------------------
@@ -236,6 +210,11 @@ class _CatalogProduct:
 
 
 class _FakeCatalog:
+    """**Kept local**: answers a different product per identifier, which a reader
+    holding one cannot reproduce. The equality proof reported 4 value
+    mismatches over 15 calls (`share-the-aggregate-fakes`, task 3.4b).
+    """
+
     def __init__(self, products: dict[ProductId, _CatalogProduct]) -> None:
         self._products = products
 
