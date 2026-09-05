@@ -18,7 +18,7 @@ to require one, it is wrong and stops the phase.
 
 ## 1. Baselines and the instruments
 
-- [ ] 1.1 Re-take the four baselines at the branch point and record them here:
+- [x] 1.1 Re-take the four baselines at the branch point and record them here:
       `tests/unit` + `tests/agents` collected, `tests/unit/support` collected,
       `tests/integration` collected and skipped, and the assertion-identity
       multiset via `~/share-the-playbook-builders/assert_identity.py`'s own
@@ -28,12 +28,12 @@ to require one, it is wrong and stops the phase.
       Expected, from `proposal.md`: 2,569 / 87 / 159 with 0 skips /
       6,612 · 238 · 759 · 172 over 2,192 functions in 332 files.
 
-- [ ] 1.2 Confirm the integration tier actually runs in this worktree before
+- [x] 1.2 Confirm the integration tier actually runs in this worktree before
       trusting its green: `docker ps` shows `commerce-ops-postgres-1`, and
       `.env.test` names a database whose name ends in `_test`. A skipped tier
       reports `Passed` and is not evidence.
 
-- [ ] 1.3 Re-run the instruments of `design.md` Decision 2 over the 97 helpers
+- [x] 1.3 Re-run the instruments of `design.md` Decision 2 over the 97 helpers
       and record the table: the AST comparison (normalised for the helper's own
       name, its parameters, its docstring and the `_` prefix), the
       leaf-equivalence proof's per-helper call and disagreement counts, the
@@ -58,20 +58,20 @@ to require one, it is wrong and stops the phase.
       as its parameters; without that it reports all 97 as differing, which is a
       result that looks like a finding.
 
-- [ ] 1.4 Re-confirm the whole-tree proof on this branch, over **all eleven**
+- [x] 1.4 Re-confirm the whole-tree proof on this branch, over **all eleven**
       files rather than the eight that carry `order`: **138 parses, 19,056
       nodes, zero order, shape and text mismatches**, with the order comparison
       applying to the eight ORDERED files and the tree comparison to all eleven.
       This is the named instrument for the three ORDINAL parsers, which would
       otherwise migrate on the `_tree` row of the leaf proof alone.
 
-- [ ] 1.5 Re-confirm the `_texts` control probe on
+- [x] 1.5 Re-confirm the `_texts` control probe on
       `test_playbook_admin_presentation_vocabulary`: 163 calls, **4 of which
       pass a subtree containing a control**, 0 disagreements. This is the
       measurement `design.md` Decision 2 rests on — the divergent branch
       executes and still does not reach the result.
 
-- [ ] 1.6 Confirm by AST comparison that all 30 constant declarations across
+- [x] 1.6 Confirm by AST comparison that all 30 constant declarations across
       the eleven files are **equal in value** to their shared counterparts, so
       aliasing them changes nothing. Several differ in line formatting, so the
       claim is value equality and not byte equality. **Expected: 30 equal, 0
@@ -117,26 +117,26 @@ checks** — stand exactly as written. This is what the predecessor did
 `-> _Node` to become `-> Node` is asking for 150 edits to reach the same objects;
 confirm from the diff that no annotation moved.
 
-- [ ] 2.1 Before migrating each file, confirm by search across all three tiers
+- [x] 2.1 Before migrating each file, confirm by search across all three tiers
       that it reads neither `.order` nor `.ordinal`, and that nothing reaches
       either field by another spelling.
 
-- [ ] 2.2 `test_product_dossier_page` — **4 migrate**: `_ancestors`, `_classes`,
+- [x] 2.2 `test_product_dossier_page` — **4 migrate**: `_ancestors`, `_classes`,
       `_elements`, `_tree`. **2 keep**: `_all_text` (17,609 calls, 14,349
       disagree — does not lowercase); `_carries` (30 / 4 — widens to
       descendants). Drop `order` from `_Node`.
 
-- [ ] 2.3 `test_product_dossier_established_by_automation` — **4 migrate**:
+- [x] 2.3 `test_product_dossier_established_by_automation` — **4 migrate**:
       `_ancestors`, `_classes`, `_elements`, `_tree`. **2 keep**: `_all_text`
       (127 / 127); `_carries` (7 calls, **0 disagreements**, body widened).
       Drop `order`.
 
-- [ ] 2.4 `test_product_surfaces_header_and_presentation` — **5 migrate**:
+- [x] 2.4 `test_product_surfaces_header_and_presentation` — **5 migrate**:
       `_ancestors`, `_element_disabled`, `_element_hidden`, `_elements`,
       `_tree`. **No keeps**: this file declares neither `_all_text` nor
       `_carries`. Drop `order`.
 
-- [ ] 2.5 `test_members_admin_presentation_vocabulary` — **13 migrate**:
+- [x] 2.5 `test_members_admin_presentation_vocabulary` — **13 migrate**:
       `_all_text`, `_ancestors`, `_carries`, `_classes`, `_element_disabled`,
       `_element_hidden`, `_elements`, `_flat`, `_inherited`, `_nearest`,
       `_size`, `_texts`, `_tree`. Its `_all_text` is
@@ -153,12 +153,12 @@ confirm from the diff that no annotation moved.
       it replaces. Record at the keep that the two were compared and answer the
       same.
 
-- [ ] 2.6 `test_admin_surface_navigation_and_assets` — **11 migrate**:
+- [x] 2.6 `test_admin_surface_navigation_and_assets` — **11 migrate**:
       `_all_text`, `_ancestors`, `_classes`, `_element_disabled`,
       `_element_hidden`, `_elements`, `_flat`, `_inherited`, `_size`, `_texts`,
       `_tree`. **No keeps.** Drop `ordinal`.
 
-- [ ] 2.7 `test_playbook_admin_presentation_vocabulary` — **9 migrate**:
+- [x] 2.7 `test_playbook_admin_presentation_vocabulary` — **9 migrate**:
       `_ancestors`, `_carries`, `_classes`, `_element_disabled`, `_elements`,
       `_flat`, `_inherited`, `_nearest`, `_tree`. **3 keeps**: `_texts` (163
       calls, 0 disagreements, skips named controls); `_element_hidden`
@@ -170,7 +170,7 @@ confirm from the diff that no annotation moved.
       `_element_hidden` reads `_HIDDEN_CLASSES`, so that constant is aliased
       here rather than dropped.
 
-- [ ] 2.8 Unbox the two `_texts` consumers whose local function migrated, named
+- [x] 2.8 Unbox the two `_texts` consumers whose local function migrated, named
       individually: `test_members_admin_presentation_vocabulary.py:476` and
       `test_admin_surface_navigation_and_assets.py:578`, each
       `" ".join(t.text for t in _texts(x))` → `" ".join(_texts(x))`. Both are
@@ -180,14 +180,14 @@ confirm from the diff that no annotation moved.
       edits in the whole change**; every other migrated helper keeps its
       signature.
 
-- [ ] 2.9 After each file: `uv run pytest tests/unit tests/agents`,
+- [x] 2.9 After each file: `uv run pytest tests/unit tests/agents`,
       `uv run mypy .` and `uv run ruff check` — the last is what catches an
       alias nothing reads. `mypy` is the seam that catches a half-migrated file
       (`design.md` Decision 8); a green suite alone does not establish one, and
       it is also what turns a missed `.order` or `.ordinal` read into an error
       rather than a silent pass.
 
-- [ ] 2.10 Confirm from `git diff` that no line inside a `def test_` changed in
+- [x] 2.10 Confirm from `git diff` that no line inside a `def test_` changed in
       any of the six files. This is the non-goal's own check and it is
       mechanical: the diff's changed line numbers must fall outside every
       `test_`-prefixed function's span.
@@ -196,7 +196,7 @@ confirm from the diff that no annotation moved.
 
 ## 3. Phase B — `document_order` and the five files that read `.order`
 
-- [ ] 3.1 Add `document_order(node: Node) -> int` to `tests/support/html.py`.
+- [x] 3.1 Add `document_order(node: Node) -> int` to `tests/support/html.py`.
       Pre-order index within the document reached by climbing `parent`; the
       root answers `0` and the first element `1`; the target is located **by
       identity, never by `==`** (`design.md` constraint 2). It takes `Node`,
@@ -209,7 +209,7 @@ confirm from the diff that no annotation moved.
       wrongly. Neither failure is acceptable; the point is that `is` is not a
       refinement here, it is the only thing that works.
 
-- [ ] 3.2 Write `tests/unit/support/test_html_document_order.py`, pinning:
+- [x] 3.2 Write `tests/unit/support/test_html_document_order.py`, pinning:
       the root is `0` and the first element `1`; siblings ascend; a descendant
       follows its ancestor; **two equal sibling nodes get distinct answers**
       (the `==`-vs-`is` trap, which is the one a plausible integer would hide);
@@ -218,35 +218,35 @@ confirm from the diff that no annotation moved.
       "a detached subtree answers 0 throughout". This is the only collected
       count allowed to move.
 
-- [ ] 3.3 `test_launch_detail_breadcrumb` — **9 migrate**: `_all_text`,
+- [x] 3.3 `test_launch_detail_breadcrumb` — **9 migrate**: `_all_text`,
       `_ancestors`, `_classes`, `_element_disabled`, `_element_hidden`,
       `_elements`, `_flat`, `_inherited`, `_tree`. **No keeps.** Drop `order`;
       rewrite `_before_title:630` as
       `_document_order(node) < _document_order(title)`.
 
-- [ ] 3.4 `test_launch_journal_page` — same 9 migrate, no keeps; read site
+- [x] 3.4 `test_launch_journal_page` — same 9 migrate, no keeps; read site
       at `:718`.
 
-- [ ] 3.5 `test_playbook_admin_edit_create_breadcrumb` — same 9 migrate, no
+- [x] 3.5 `test_playbook_admin_edit_create_breadcrumb` — same 9 migrate, no
       keeps; read site at `:529`. Its `_all_text` has **0 calls** and only its
       own recursion; the AST comparison calls it identical to the shared one, so
       it is not a keep — but nothing reads it after migration either, so it is
       **deleted rather than aliased**, per the §2 preamble. Same for its
       `_flat`.
 
-- [ ] 3.6 `test_product_dossier_breadcrumb` — **8 migrate**: `_ancestors`,
+- [x] 3.6 `test_product_dossier_breadcrumb` — **8 migrate**: `_ancestors`,
       `_classes`, `_element_disabled`, `_element_hidden`, `_elements`, `_flat`,
       `_inherited`, `_tree`. **No keeps.** Read site at `:439`. Its proof is
       thin (1 parse, 51 nodes); record that rather than rounding it up.
 
-- [ ] 3.7 `test_product_index_page` — **6 migrate**: `_ancestors`, `_classes`,
+- [x] 3.7 `test_product_index_page` — **6 migrate**: `_ancestors`, `_classes`,
       `_element_disabled`, `_element_hidden`, `_elements`, `_tree`. **2 keep**:
       `_all_text` (6,134 / 5,861); `_carries` (**4 calls, 0 disagreements** —
       the proof agreed by sample, the body widens to descendants). Rewrite
       `_rows_in_order:306`'s sort key as
       `key=lambda pair: _document_order(pair[1])`.
 
-- [ ] 3.8 After each file: `uv run pytest tests/unit tests/agents` and
+- [x] 3.8 After each file: `uv run pytest tests/unit tests/agents` and
       `uv run mypy .`; and 2.10's mechanical check that no `def test_` line
       moved.
 
@@ -254,7 +254,7 @@ confirm from the diff that no annotation moved.
 
 ## 4. The keeps, each recorded at its declaration
 
-- [ ] 4.1 Give each of the ten keeps a `**Kept local**` docstring — the
+- [x] 4.1 Give each of the ten keeps a `**Kept local**` docstring — the
       convention the four preceding slices set, and what `AGENTS.md` means by
       *"the file keeps its own declaration and the reason is recorded"*. Each
       names the shared function it is not, the input that distinguishes them,
@@ -271,18 +271,18 @@ confirm from the diff that no annotation moved.
       records that its callees were compared against their shared counterparts
       and answer the same, so the keep's meaning did not move with them.
 
-- [ ] 4.2 Record at `test_playbook_admin_fault_attribution`'s `_Text` why the
+- [x] 4.2 Record at `test_playbook_admin_fault_attribution`'s `_Text` why the
       ORDINAL model stays there: `_attributed_fragments:436-445` synthesises
       fragments out of attribute values and numbers them **negatively**, so
       `ordinal` is an identity for text with no document position, which
       nothing derived from tree position can produce.
 
-- [ ] 4.3 Record at each of the five STANDARD stragglers why it stays — raw
+- [x] 4.3 Record at each of the five STANDARD stragglers why it stays — raw
       `Text(data)` and an uncased `_all_text` in three, a `_flat` of a
       different signature in two — citing this change's measurement rather than
       the predecessor's wording.
 
-- [ ] 4.4 Add one `docs/deferred-work.md` entry for the divergent spellings in
+- [x] 4.4 Add one `docs/deferred-work.md` entry for the divergent spellings in
       `test_playbook_admin_dependency_option_filtering` and
       `test_playbook_admin_multi_value_controls`. State the population by name
       and the command that produced it: **12 files alias at least one of the
@@ -294,28 +294,35 @@ confirm from the diff that no annotation moved.
 
 ## 5. Verification and the record
 
-- [ ] 5.1 Re-take all four baselines. `tests/unit` outside support,
+- [x] 5.1 Re-take all four baselines. `tests/unit` outside support,
       `tests/agents` and `tests/integration` unchanged; `tests/unit/support`
       up by 3.2's count; the assertion-identity multiset **must not move**.
       Report actual against expected.
 
-- [ ] 5.2 Run the integration tier and confirm 159 passed, zero skipped.
+- [x] 5.2 Run the integration tier and confirm 159 passed, zero skipped.
 
-- [ ] 5.3 `uv run ruff check`, `uv run ruff format --check`, `uv run mypy .`.
+- [x] 5.3 `uv run ruff check`, `uv run ruff format --check`, `uv run mypy .`.
 
-- [ ] 5.4 Confirm mechanically that nothing under `src/` changed:
+- [x] 5.4 Confirm mechanically that nothing under `src/` changed:
       `git diff --stat origin/main -- src/` is empty.
 
-- [ ] 5.5 Re-measure the lines removed and report actual against the **1,197
+- [x] 5.5 Re-measure the lines removed and report actual against the **1,197
       lines across 160 declarations** `proposal.md` claims, so that figure is
       verified rather than asserted.
 
-- [ ] 5.6 Update `tests/support/html.py`'s docstring: the three-model census now
+      **Actual: 1,408 lines deleted and 226 inserted across the eleven files,
+      net −1,182.** The 1,197 was the sum of the declarations' own spans; the
+      1,408 is those spans plus the comment banners and blank lines they sat
+      in, which go with them. The insertions are the aliased imports and the
+      ten `**Kept local**` notes. Both figures are right about different
+      things, and the proposal's is the narrower one.
+
+- [x] 5.6 Update `tests/support/html.py`'s docstring: the three-model census now
       records that the ORDERED model is gone from the suite, that three of the
       four ORDINAL files have migrated, and that the one remaining ORDINAL file
       and the five STANDARD stragglers are keeps with their reasons.
 
-- [ ] 5.6a Preserve the invented-reading record that migration would otherwise
+- [x] 5.6a Preserve the invented-reading record that migration would otherwise
       delete. Two migrating `_carries` record their class-token reading as an
       interpretation and themselves as the correction point — one marked
       INVENTED (`test_playbook_admin_presentation_vocabulary:400`), one naming
@@ -327,7 +334,7 @@ confirm from the diff that no annotation moved.
       Check first whether the predecessor already settled this for the 20 files
       it migrated; if it did, say so instead of restating it.
 
-- [ ] 5.7 Update `AGENTS.md`'s *The shared harness* section with what this slice
+- [x] 5.7 Update `AGENTS.md`'s *The shared harness* section with what this slice
       took and what it left, and the two rules it establishes: **a population
       classified by the shape of its data model must be re-classified by what
       the tests actually read before any of it is called a keep** — six of
@@ -337,16 +344,16 @@ confirm from the diff that no annotation moved.
       execution over-reports sameness and can only veto a *keep*; and a migrate
       requires its callees to migrate.
 
-- [ ] 5.8 Correct `docs/proposed-change-order.md` in **both** places it makes
+- [x] 5.8 Correct `docs/proposed-change-order.md` in **both** places it makes
       the claim: "**The harness thread is finished**" at line 11, and "**The
       fakes thread is closed** … every recurring double in the suite is now
       shared or is a recorded keep" at lines 80-82. Six of those keeps were
       reasoned from a field none of them reads. Amend rather than delete, so
       the record shows what was believed and what measurement changed.
 
-- [ ] 5.9 `/code-review` over the full diff. `AGENTS.md` requires it and the
+- [x] 5.9 `/code-review` over the full diff. `AGENTS.md` requires it and the
       predecessor recorded that it found six defects two passing proofs and a
       green suite could not.
 
-- [ ] 5.10 Open the pull request. Archive only after it merges, on its own
+- [x] 5.10 Open the pull request. Archive only after it merges, on its own
       branch in its own PR, per *Deployment and configuration*.

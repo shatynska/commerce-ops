@@ -8,10 +8,17 @@ and both were among the eight. `restore-the-skipped-unit-tests` and
 on 2026-09-02, `share-the-unit-test-harness` and its follow-ups
 `share-the-value-doubles` and `share-the-stateful-fakes` on 2026-09-04, and
 `share-the-playbook-builders` and `share-the-aggregate-fakes` on 2026-09-05;
-all nine entries were deleted, per the rule below. **The harness thread is
-finished**: `share-the-aggregate-fakes` was the entry the 2026-09-01 review did
-not produce, recorded here because its ordering constraint lived nowhere else,
-and it archived on 2026-09-05 having taken 115 of 124 declarations. Both
+all nine entries were deleted, per the rule below. `share-the-aggregate-fakes`
+was the entry the 2026-09-01 review did not produce, recorded here because its
+ordering constraint lived nowhere else, and it archived on 2026-09-05 having
+taken 115 of 124 declarations. **This file said at that point that the harness
+thread was finished. It was not**, and the correction is left standing rather
+than deleted because it is the useful part: `share-the-ordered-html-harness`
+(2026-09-05) found that six files had been held back by a classification made
+from the shape of a parser's data model, and that none of the six read the
+field it was kept for. The thread is finished *now* — every file that carried a
+parser either shares the harness or is a keep with its reason recorded at the
+declaration. Both
 remaining entries exist as a `proposal.md` on their own branch and are
 unimplemented — except where one is in flight, which this file does not track,
 since a queue that also tracked progress would need updating twice. This document records the order
@@ -78,8 +85,10 @@ adapters. Re-scope it on arrival rather
 than executing it as written.
 
 **The fakes thread is closed.** `share-the-aggregate-fakes` archived on
-2026-09-05, finishing the harness: every recurring double in the suite is now
-shared or is a recorded keep. What remains open is stated in the cautions below
+2026-09-05: every recurring *double* in the suite is now shared or is a recorded
+keep. It did not finish the harness, though this file said so at the time —
+`share-the-ordered-html-harness` then took the HTML parser out of eleven more
+files, and the correction is recorded at the top of this document. What remains open is stated in the cautions below
 and is this change's own mutation work, not another slice's.
 
 **That slice also did some of this one's measuring.** Re-taken at its landing
